@@ -19,8 +19,12 @@ A Launch that Product Hunt places on the day's main list. Most Launches on a giv
 _Avoid_: Top post, homepage launch
 
 **Maker comment**:
-A comment the Product's own makers post on its Launch; often where an offer or coupon appears.
+A comment the Product's own makers post on its Launch; often where an Offer appears.
 _Avoid_: First comment, founder comment
+
+**Offer**:
+Better-than-usual terms a Product gives for signing up or paying, such as a discount, credits or a longer free plan, with its code, deadline or cap when it has them.
+_Avoid_: Coupon, deal, promo
 
 **Interest scope**:
 The person's stated preferences that each Launch is judged against.
@@ -34,7 +38,7 @@ _Avoid_: Scraper, crawler
 A one-line reason the Miner gives for not preparing a Dossier for a Launch. Skips exist so they can be corrected.
 
 **Dossier**:
-The Assistant's write-up of one Product: whether it is open or waitlisted, how to register, usable coupons, scope and potential use for the person. Every claim cites its source.
+The Assistant's write-up of one Product: whether it is open or waitlisted, how to register, any Offers, scope and potential use for the person. Every claim cites its source.
 _Avoid_: Report, summary, notes
 
 ### Acting
