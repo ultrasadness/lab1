@@ -76,8 +76,12 @@ Something the Assistant never does, even with Approval in the moment.
 _Avoid_: Guardrail, policy
 
 **Secret**:
-A value that lets whoever holds it act as the person on a Product: a password, a verification code, a magic or reset link, an access token. The Assistant never puts a Secret into a model's input; where a Secret must reach a form, it is filled by reference. Not the same as the sensitive data the Profile leaves out.
+A value that lets whoever holds it act as the person on a Product: a password, a verification code, a magic or reset link, an access token. The Assistant never puts a Secret into a model's input or into a message to the person, not even a short-lived code; where a Secret must reach a form, it is filled by reference. Not the same as the sensitive data the Profile leaves out.
 _Avoid_: Credential, sensitive data
+
+**Password vault**:
+The collection in the person's password manager that holds each Registration's password. The Assistant adds to it and fills from it by reference; the person reads it on their own devices and is the only one who changes a password once the Registration is done. The Personal database never holds a Secret; it only points into the Password vault.
+_Avoid_: Keychain, password store, vault (alone)
 
 ### Memory
 
