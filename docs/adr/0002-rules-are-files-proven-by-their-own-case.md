@@ -1,0 +1,17 @@
+# Rules are files our own extension loads, each proven by its own carry-over case
+
+Each Rule is one Markdown file under `rules/<scope>/` in the Personal database, and our own Pi extension puts every Rule in scope into the prompt at the start of each run. A Rule is committed only after the person keeps it. Each Rule carries a carry-over case: the item it was taught on, a different real item where it should change the outcome, and that outcome stated as something a script can check. The brief asks for Corrections that apply to a different item in a new session, and Pi forgets everything between runs, so carrying a Rule over has to be something we build and can prove. Decided in [How does a Correction become a Rule, and how do we prove it carries over?](https://github.com/ultrasadness/lab1/issues/14).
+
+## Considered Options
+
+- **All Rules in `AGENTS.md`:** loads in every run without project trust, but it is one growing file with no scope, so every run would carry every Rule.
+- **Each Rule as an Agent Skill:** the model decides whether to open it, and unattended Pi runs skip project skills without `--approve`. Neither can be relied on to load a Rule every time.
+- **Raw Corrections retrieved by similarity** instead of general Rules: avoids wording a Rule too narrowly or too broadly. Rejected because the person can't read or edit them as a list of what the Assistant now does, and a retriever deciding which Corrections count can't be tested.
+- **A fixed golden suite** instead of a case for every Rule: cheaper and steadier, but most real Rules would never be proven to carry over.
+
+## Consequences
+
+- **Outputs name the Rules they applied**, through a field in each schema-checked record. A case passes only when the Rule is named and the expected outcome holds, in at least 2 of 3 fresh runs. When a case is created, it must also fail without the Rule.
+- **Cases replay stored inputs**, kept beside the Rule: Launch data as the API returned it, mail with Secrets already replaced by placeholders, and the page text a Walkthrough saw. No case opens a live browser, and no fixture holds a Secret. Raw inputs are kept for 90 days outside git so that cases can be built from past items.
+- **The check runs against every provider mapped to the Rule's role:** when a Rule is kept, after a Rule is edited, before every upgrade (a failure blocks it unless the person overrides it), and weekly to catch a provider quietly changing the model behind a pinned name.
+- **The Rules loaded into one run have a budget** (about 4k tokens). Near the budget, the Assistant proposes merging overlapping Rules, and the merged Rule inherits their cases. Rules nobody has cited in 60 days are offered for retirement.

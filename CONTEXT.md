@@ -86,9 +86,9 @@ The everyday facts about the person: names they go by and the email addresses to
 _Avoid_: User info, bio
 
 **Correction**:
-Something the person tells the Assistant it got wrong.
+Something the person tells the Assistant it got wrong. It always fixes the item it was made on, and may also change the Interest scope or become a Rule.
 _Avoid_: Feedback, complaint
 
 **Rule**:
-A Correction kept in a form the Assistant applies in future sessions.
+A general statement of how the Assistant should work, drawn from a Correction and kept only once the person says so, then applied in every later session. Facts about the person are never Rules; they belong in the Profile.
 _Avoid_: Memory, preference, instruction
