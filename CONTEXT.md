@@ -60,8 +60,12 @@ The rest of a Registration given to the person to finish on their own device, wi
 _Avoid_: Escalation, fallback
 
 **Signup identity**:
-The name and email address a Registration uses.
+The name and email address a Registration uses. Its address always delivers to the Signup mailbox.
 _Avoid_: Account, alias, persona
+
+**Signup mailbox**:
+The mailbox kept only for Registrations. Every Signup identity's address delivers to it, and it is the only mailbox the Assistant reads.
+_Avoid_: Inbox, signup Gmail, registration account
 
 **Reply draft**:
 An email reply the Assistant prepares from the Personal database; only the person's approved final version is ever sent.
@@ -82,7 +86,7 @@ The person's facts and the Assistant's records about them, kept where the person
 _Avoid_: Knowledge base, memory, vault
 
 **Profile**:
-The everyday facts about the person: names they go by and the email addresses to use. Deliberately excludes sensitive data.
+The everyday facts about the person: names they go by and the email addresses to use. Their everyday address is a fact here, never a Signup identity. Deliberately excludes sensitive data.
 _Avoid_: User info, bio
 
 **Correction**:

@@ -1,0 +1,16 @@
+# Registrations use one dedicated Gmail as the Signup mailbox, and no second mailbox
+
+Every Registration uses an address that delivers to one new Gmail account kept only for Registrations, the Signup mailbox. Each Product gets a plus-address (`you+<product>@gmail.com`), and the plain address is the fallback where `+` is rejected. Because the account holds nothing but signup mail, "the Assistant only touches signup-related mail" is enforced by the account boundary, not by filtering code, and using the plain address exposes nothing personal. Every Registration ties this address to an account at a Product, so changing it later means changing the email at every Product. Decided in [Do we need an Outlook Signup identity besides Gmail?](https://github.com/ultrasadness/lab1/issues/13).
+
+## Considered Options
+
+- **The person's existing Gmail:** no new account, but the Assistant's read scope would cover their personal mail, and the plain-address fallback would put that inbox on Product marketing lists.
+- **Outlook.com as a second Signup identity, through Graph:** rejected. The walls that refuse a Gmail address mostly refuse every free provider ("work email only", HubSpot's "Block free email providers"), and outlook.com with them. Outlook only gets past a subaddress block, which the plain Gmail address already gets past. It would cost an Azure/Entra directory (users report a card prompt), a second OAuth token, ledger and Reply-draft path.
+- **Outlook forwarded into Gmail:** receive-only. Replies would come from Gmail, and Gmail drops "Send mail as" for third-party addresses in January 2027.
+- **Gmail dot-variants (`y.ou@gmail.com`) when `+` is rejected:** one address per Product without a second mailbox, but some sites normalise dots for gmail.com, and matching mail to its Registration by sender domain already covers the plain address.
+
+## Consequences
+
+- **A plus-address is for routing and for tracing a leak, not for privacy.** Anyone can strip `+<product>` to get the plain address.
+- **Reply drafts are sent from the plain address**, in the Product's thread. Sending from a plus-address would need a "Send mail as" alias per Product, which needs the restricted `gmail.settings.sharing` scope or manual setup for each Product.
+- **The Walkthrough shows both addresses**, the plus-address and the plain fallback, so one Approval covers either. A `+` rejection is not a wall. A form that refuses gmail.com itself is.
