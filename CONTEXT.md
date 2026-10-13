@@ -40,11 +40,11 @@ _Avoid_: Report, summary, notes
 ### Acting
 
 **Walkthrough**:
-The concrete registration plan put to the person for Approval: which fields, which values, which Signup identity, and what happens on submit.
+The concrete registration plan put to the person for Approval: which fields, which values, which Signup identity, which terms are accepted, and what happens on submit.
 _Avoid_: Plan, proposal, guide
 
 **Approval**:
-The person's explicit yes to one exact Walkthrough, letting the Assistant prepare that Registration, or to one exact Reply draft. It covers only what was shown, and never covers submitting a Registration: that is always the person's own act.
+The person's explicit yes to one exact Walkthrough, letting the Assistant prepare that Registration and submit it if the filled form matches what was shown; to one exact filled form, letting the Assistant submit it; or to one exact Reply draft. It covers only what was shown.
 _Avoid_: Confirmation, consent, OK
 
 **Registration**:
@@ -52,7 +52,7 @@ The act of creating an account for a Product, and its outcome: _registered_, _wa
 _Avoid_: Signup, account creation, onboarding
 
 **Takeover**:
-The person taking live control of the Assistant's browser session from their phone, to press the buttons that send their data to the Product or to get past a wall.
+The person taking live control of the Assistant's browser session from their phone, to get past a wall.
 _Avoid_: Remote control, screen share
 
 **Handoff**:

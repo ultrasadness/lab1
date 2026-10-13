@@ -1,0 +1,27 @@
+# Plain code submits a Registration after a page check, and no Claude model prepares one
+
+After the person approves a Walkthrough, the Assistant fills the form and submits it itself. But the submit is never a model's action. The fill run ends by naming the button to press. Plain code then checks the filled page and presses that button only if the page matches what was approved. If it doesn't match, the person gets a screenshot of the filled form and one Submit tap on Discord. Earlier, every Registration ended with the person pressing submit in a Takeover. That rested on Anthropic's Usage Policy ("Utilize automation in account creation"), which no other provider's policy matches. With Pi as the harness and no Claude model preparing a Registration, the clause no longer applies, and the person wanted as little friction as the design safely allows. Decided in [Does Claude's Usage Policy allow the Assistant to submit a Registration?](https://github.com/ultrasadness/lab1/issues/15).
+
+## Considered Options
+
+- **The person always submits, in a Takeover** (the line until this re-check): safe under any provider. Rejected because it costs a phone session on every clean Registration, and its only policy reason is gone.
+- **The person submits with one Discord tap every time:** a screenshot of the filled form and a Submit button. Kept as the fallback when the check fails, not as the default.
+- **The model presses submit during the fill run:** simplest. Rejected because injected page text, or a relay that rewrites tool calls, could then create an account. With plain code pressing the button, the model's browser tool has no submit action at all.
+- **Allowing Claude models and checking per run:** let a Claude model prepare Registrations, and send any Registration a Claude model filled to a Takeover, based on the gateway log. Rejected: it adds a second route to save nothing, since the person uses no Claude model elsewhere.
+
+## Consequences
+
+- **The check:** all of these must hold before plain code presses anything.
+  - The page is on the Product's domain named in the Walkthrough.
+  - Every field holds its approved value. Either Signup identity address counts as approved.
+  - There are no fields, tick boxes or choices the Walkthrough didn't cover.
+  - The only box ticked without the person's say is a required terms box, and the Walkthrough links those terms.
+
+  Continue/Next and Join waitlist are pressed under the same check.
+- **Verification:** an emailed code is filled by reference and Verify pressed. The verification link is opened by plain code, by reference. Both happen only when the mail comes from the Product's domain, arrived after the fill, and holds exactly one code or link. Otherwise the person taps it in Gmail.
+- **What stays the person's:**
+  - OAuth consent ("Sign in with Google"), which in practice is a Handoff.
+  - A Product whose terms ban bot-made accounts, which goes straight to a Handoff. A Product whose terms ban only automated access takes the normal route, with the clause quoted in its Dossier.
+  - Registering through a Product's own signup API stays ruled out, because the check is built around a web page.
+- **Gateway:** no model role that prepares a Registration maps to a Claude model. On OpenRouter, the model is named and Anthropic is excluded as a host. A relay is judged by the model it advertises.
+- **A Takeover is now only for walls.**
