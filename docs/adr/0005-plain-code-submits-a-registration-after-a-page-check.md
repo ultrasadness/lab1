@@ -18,7 +18,12 @@ After the person approves a Walkthrough, the Assistant fills the form and submit
   - The only box ticked without the person's say is a required terms box, and the Walkthrough links those terms.
 
   Continue/Next and Join waitlist are pressed under the same check.
-- **Verification:** an emailed code is filled by reference and Verify pressed. The verification link is opened by plain code, by reference. Both happen only when the mail comes from the Product's domain, arrived after the fill, and holds exactly one code or link. Otherwise the person taps it in Gmail.
+- **Verification:** an emailed code is filled by reference and Verify pressed. The verification link is opened by plain code, by reference. Both happen only when all of these hold. Otherwise the person taps it in Gmail.
+  - Gmail's own authentication verdict on the mail shows DMARC pass for the Product's domain or one of its subdomains. The From header alone never counts.
+  - Gmail received it within 1 minute of the form being submitted.
+  - It holds exactly one code or link.
+
+  Sharpened in [Which Gmail permissions does the Assistant hold, and what may it do with them?](https://github.com/ultrasadness/lab1/issues/16).
 - **What stays the person's:**
   - OAuth consent ("Sign in with Google"), which in practice is a Handoff.
   - A Product whose terms ban bot-made accounts, which goes straight to a Handoff. A Product whose terms ban only automated access takes the normal route, with the clause quoted in its Dossier.
