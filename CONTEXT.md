@@ -7,7 +7,7 @@ A personal assistant that keeps working for one person: it watches Product Hunt 
 ### Discovery
 
 **Product**:
-A thing someone makes and you could hold an account with: one per website or company.
+Software or an online service someone makes that you could use, whether or not it needs an account: one per website or company. Hardware, and announcements with nothing to use, are not Products.
 _Avoid_: App, tool, startup
 
 **Launch**:
@@ -15,7 +15,7 @@ One appearance of a Product on Product Hunt on a given day. A Product can have s
 _Avoid_: Post, listing
 
 **Featured Launch**:
-A Launch that Product Hunt places on the day's main list. Most Launches on a given day are not featured.
+A Launch that Product Hunt places on the day's main list. Most Launches on a given day are not featured, and the Miner judges only Featured Launches.
 _Avoid_: Top post, homepage launch
 
 **Maker comment**:
@@ -30,12 +30,20 @@ _Avoid_: Coupon, deal, promo
 The person's stated preferences that each Launch is judged against.
 _Avoid_: Preferences, filters, tags
 
+**Fit**:
+How well one Launch matches the Interest scope, as a whole number from 0 to 10, judged on that Launch alone.
+_Avoid_: Score, relevance, rating
+
+**Day's line**:
+The lowest Fit that gets a Dossier on a given Pacific day: the Fit of that day's N-th best Launch, where N grows with how many Launches were featured, but never below a fixed floor. It is drawn once the whole day is judged, and a Correction never moves it.
+_Avoid_: Threshold, cutoff, quota
+
 **Miner**:
 The part of the Assistant that turns a day's Launches into Dossiers, or into Skips.
 _Avoid_: Scraper, crawler
 
 **Skip**:
-A one-line reason the Miner gives for not preparing a Dossier for a Launch. Skips exist so they can be corrected.
+A one-line reason the Miner gives for not preparing a Dossier for a Launch, usually naming its Fit and the Day's line. Skips exist so they can be corrected.
 
 **Dossier**:
 The Assistant's write-up of one Product: whether it is open or waitlisted, how to register, any Offers, scope and potential use for the person. Every claim cites its source.
