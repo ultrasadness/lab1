@@ -1,0 +1,18 @@
+# Live state is a SQLite store the bot alone writes, and an uncertain step counts as done
+
+Everything that changes as work moves is kept in one SQLite file on the VM, beside the git-tracked Personal database: the mail ledger and Gmail `historyId`, each Launch's verdict, each Registration's and Reply draft's current state, Approvals, and the marks that make a step happen once. The bot is its only writer and it is the single source of truth for that state. The Personal database in git gets each Registration's history as readable lines, which the bot writes at milestones (approved, submitted, outcome). The brief asks for a Markdown Personal database, so a reader would expect the ledger there. But a state that changes every few seconds while a Registration waits for verification would mean a commit each time. And by [ADR 0002](./0002-rules-are-files-proven-by-their-own-case.md)'s commit lock, the bot stops committing when histories diverge, so one stray git edit would freeze the ledger and stall the Assistant. Decided in [How do Registration and Reply draft states move, and how is double-handling prevented?](https://github.com/ultrasadness/lab1/issues/11).
+
+## Considered Options
+
+- **Everything in the git-tracked Personal database, one commit per change:** the person could read every state in place. Rejected for the commit volume and because a diverged history would stop all work, not just Rule edits.
+- **State as YAML front matter the person may edit in git, read back by the bot:** every edit would have to be checked against the state machine, and a hand-edited state could skip a once-only step. The person changes a Registration's state from Discord instead.
+
+## Consequences
+
+- **The Markdown record is a view.** The bot writes it from the store and never reads state edits back from git. A free-text notes section in it stays the person's, and the bot preserves it.
+- **Once-only steps are written ahead.** Before plain code presses a button, opens a verification link or sends a Reply draft, it writes an _intended_ mark (the item, the step, a fingerprint of the page or the approved bytes), acts, then writes _done_.
+- **An uncertain step counts as done, and is never retried automatically.** After a restart or a timeout, an _intended_ without _done_ means the account may exist. A press counts as pressed, and the Registration moves on to waiting for verification. The person is told what was uncertain. A send is the one step whose outcome can be read back: if the thread shows no new `SENT` message and the draft still holds the approved message, it wasn't sent and may be sent again. A Takeover that ends without the person saying nothing was submitted also counts as submitted. The same reading is behind [ADR 0006](./0006-registration-browser-in-its-own-container-driven-through-fixed-actions.md)'s rule that, after a browser-service restart, a Registration whose final button was pressed waits for the person's tap in Gmail.
+- **Approvals are keyed by item and version hash**, unique in the store, with the Discord user id, interaction id and time. A second tap of an approved version does nothing, and a tap on an older version is refused.
+- **Mail and Launches are handled once by key:** the ledger by Gmail message ID, written before the stored `historyId` advances; Launches by Product Hunt Post id; Products by root domain.
+- **If the store is lost,** the Assistant starts from the current Gmail `historyId` and treats all older mail as already seen. Missing a mail is safer than handling one twice. Backing the file up belongs with keeping the Assistant running.
+- **Raw inputs kept for 90 days** for Rule cases sit beside the store as plain files, indexed by it, outside git.

@@ -11,7 +11,7 @@ A thing someone makes and you could hold an account with: one per website or com
 _Avoid_: App, tool, startup
 
 **Launch**:
-One appearance of a Product on Product Hunt on a given day. A Product can have several Launches; only the first can lead to a Registration.
+One appearance of a Product on Product Hunt on a given day. A Product can have several Launches, but at most one Registration.
 _Avoid_: Post, listing
 
 **Featured Launch**:
@@ -52,7 +52,7 @@ The person's explicit yes to one exact Walkthrough, letting the Assistant prepar
 _Avoid_: Confirmation, consent, OK
 
 **Registration**:
-The act of creating an account for a Product, and its outcome: _registered_, _waitlisted_, _handed off_, or _abandoned_. A waitlisted Registration that later receives an invite, or a handed-off one whose verification email arrives, is the same Registration moving forward.
+The act of creating an account for a Product, from its Approval on, and its outcome: _registered_, _waitlisted_, _handed off_, or _abandoned_. A Product has at most one. A waitlisted Registration that later receives an invite, a handed-off one whose verification email arrives, or an abandoned one the person starts again, is the same Registration moving forward.
 _Avoid_: Signup, account creation, onboarding
 
 **Takeover**:
