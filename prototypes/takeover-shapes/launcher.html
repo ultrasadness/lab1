@@ -1,0 +1,54 @@
+<!doctype html>
+<!-- PROTOTYPE, throwaway: stands in for the Discord thread messages that offer a Takeover (issue #21). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Takeover rig</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 12px 16px 40px; background: #313338; color: #dbdee1; font: 15px/1.4 -apple-system, system-ui, sans-serif; }
+  h1 { font-size: 17px; margin: 4px 0 2px; }
+  .hint { color: #949ba4; font-size: 13px; margin: 0 0 12px; }
+  .msg { background: #2b2d31; border-left: 4px solid #5865f2; border-radius: 6px; padding: 10px 12px; margin: 14px 0; }
+  .msg h2 { font-size: 15px; margin: 0 0 4px; }
+  .meta { color: #949ba4; font-size: 12px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  a.btn, button { appearance: none; border: 0; border-radius: 4px; padding: 9px 14px; font: 600 14px -apple-system, system-ui, sans-serif; color: #fff; text-decoration: none; cursor: pointer; }
+  .primary { background: #5865f2; } .ok { background: #248046; } .grey { background: #4e5058; } .warn { background: #da373c; }
+  .off { opacity: .4; pointer-events: none; }
+  pre { white-space: pre-wrap; font: 12px/1.35 ui-monospace, monospace; background: #1e1f22; padding: 8px; border-radius: 4px; margin: 10px 0 0; max-height: 220px; overflow: auto; }
+</style>
+</head>
+<body>
+<h1>#registrations</h1>
+<p class="hint">Stand-in for the Discord thread messages. <a href="/inbox" style="color:#00a8fc">Inbox</a> stands in for Gmail (the codes).</p>
+<div id="regs"></div>
+<script>
+async function act(path) { await fetch(path, { method: 'POST' }); load(); }
+function card(r) {
+  const holding = r.driver === 'person';
+  return `<div class="msg">
+    <h2>${r.product}</h2>
+    <div class="meta">${r.shapeLabel} · ${r.sizeLabel} window · status: <b>${r.status}</b></div>
+    <div>The Registration hit a wall: bot check. Take over to get past it.</div>
+    <div class="row">
+      <a class="btn primary" href="/takeover/${r.id}">Take over</a>
+      <button class="ok ${holding ? '' : 'off'}" onclick="act('/end/${r.id}?how=continue')">Continue</button>
+      <button class="grey ${holding ? '' : 'off'}" onclick="act('/end/${r.id}?how=submitted')">I submitted</button>
+    </div>
+    <div class="row">
+      <button class="grey" onclick="act('/refill/${r.id}')">Fill password again</button>
+      <button class="warn" onclick="act('/reset/${r.id}')">Reset session</button>
+    </div>
+    <pre>${r.log.slice(-12).join('\n')}</pre>
+  </div>`;
+}
+async function load() {
+  const s = await (await fetch('/state')).json();
+  document.getElementById('regs').innerHTML = s.map(card).join('');
+}
+load(); setInterval(load, 2000);
+</script>
+</body>
+</html>
