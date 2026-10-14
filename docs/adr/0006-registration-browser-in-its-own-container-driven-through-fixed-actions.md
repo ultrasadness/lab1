@@ -25,9 +25,9 @@ The browser that fills Registrations runs in its own long-lived container, owned
   - `fillSecret(field, password|code)`;
   - `choose(field, key)`, which clicks only elements whose role is combobox, option, checkbox, radio or switch;
   - `open(link)`, which loads an `<a href>`'s URL rather than clicking it;
-  - `finish(button | wall | stuck)`.
+  - `finish(button | wall | stuck)`, where a wall's kind comes from a fixed list: `bot-check`, `oauth-only`, `phone`, `blocked`, `card`, `free-email`, `invite-only`.
 
-  The model gets no typed URLs, key presses, scripts, cookies, network reads, uploads, downloads or screenshots. A borderline action, such as dismissing a cookie banner, can only be added as an action of its own.
+  The model gets no typed URLs, key presses, scripts, cookies, network reads, uploads, downloads or screenshots. A borderline action can only be added as an action of its own. Cookie banners aren't one: before each snapshot, plain code rejects non-essential cookies, using a rule set for known consent managers. A banner no rule matches stays up, and if it blocks a press, the Registration goes to the person (decided in [What happens when a Registration hits a wall, and where do borderline in-page actions fall?](https://github.com/ultrasadness/lab1/issues/10)).
 - **A fill run** is a Pi process started with no built-in tools, no MCP, no codemode and no session. It sees only the approved Walkthrough, the Rules in Registration scope and the snapshot. Its only output is the structured `finish` result, whose reason comes from a fixed list; any short note reaches Discord in a code block.
 - **Plain code presses a button only when both hold:**
   - the page passes the page check from [ADR 0005](./0005-plain-code-submits-a-registration-after-a-page-check.md);
@@ -45,7 +45,7 @@ The browser that fills Registrations runs in its own long-lived container, owned
   - after 24 hours without progress.
 
   At most 5 are open at once.
-- **Product sites** (for Dossiers) are read through a read-only `read(url)` in a throwaway context, with the same snapshot redaction. Injected text can still skew a Dossier or a Skip, which its citations let the person check.
+- **Product sites** (for Dossiers) are read through a read-only `read(url)` in a throwaway context, with the same snapshot redaction. So is each signup page when its Walkthrough is prepared, before any Approval. The read gives the Walkthrough its fields, signup URL and host, and the walls visible when the page loads. Injected text can still skew a Dossier or a Skip, which its citations let the person check.
 - **The container:**
   - Playwright's arm64 image pinned by digest, running Chrome for Testing headed under Xvfb as the non-root `pwuser`, with Playwright's seccomp profile so Chromium's sandbox is on. The service refuses to start without the sandbox.
   - All capabilities dropped except `SYS_CHROOT`, which Chromium's namespace sandbox needs: without it the sandbox's zygote dies at launch. Also `no-new-privileges`.

@@ -11,13 +11,14 @@ After the person approves a Walkthrough, the Assistant fills the form and submit
 
 ## Consequences
 
-- **The check:** all of these must hold before plain code presses anything.
-  - The page is on the Product's domain named in the Walkthrough.
-  - Every field holds its approved value. Either Signup identity address counts as approved.
-  - There are no fields, tick boxes or choices the Walkthrough didn't cover.
-  - The only box ticked without the person's say is a required terms box, and the Walkthrough links those terms.
+- **The check:** all of these must hold before plain code presses anything. It looks only at the form the named button submits, including fields tied to it by `form=`. Fields elsewhere on the page, and hidden inputs, are ignored.
+  - The top-level page is on the signup host the Walkthrough names. That host comes from reading the signup page before Approval, and it may be an auth vendor's hosted page rather than the Product's own domain.
+  - Every visible field is in one of four states. It is filled from a Walkthrough key and holds that key's approved value (either Signup identity address counts). It is filled by reference. It was filled by the person in a Takeover. Or it is empty. Any other value fails the check, including one the page preset or a page script changed.
+  - The browser's own validity check passes, so no required field is empty.
+  - The only box ticked without the person's say is a required terms box, and its links point to the terms the Walkthrough links.
 
-  Continue/Next and Join waitlist are pressed under the same check.
+  Continue/Next and Join waitlist are pressed under the same check. The check first required every field to be named in the Walkthrough. Now a field the Walkthrough never named may stay empty: the read before Approval sees only a form's first page, so naming every field would fail every later page. Refined in [What happens when a Registration hits a wall, and where do borderline in-page actions fall?](https://github.com/ultrasadness/lab1/issues/10).
+- **A failed check** goes to the Submit tap when the person can see the difference on the screenshot: an unapproved value or choice. Three failures go back as an amended Walkthrough instead: a required field with no approved value, different terms or a new box asking for agreement, and a page on another host. The amended Walkthrough is a new version, approved within the same browser session.
 - **Verification:** an emailed code is filled by reference and Verify pressed. The verification link is opened by plain code, by reference. Both happen only when all of these hold. Otherwise the person taps it in Gmail.
   - Gmail's own authentication verdict on the mail shows DMARC pass for the Product's domain or one of its subdomains. The From header alone never counts.
   - Gmail received it within 1 minute of the form being submitted.

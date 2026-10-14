@@ -63,6 +63,10 @@ _Avoid_: Confirmation, consent, OK
 The act of creating an account for a Product, from its Approval on, and its outcome: _registered_, _waitlisted_, _handed off_, or _abandoned_. A Product has at most one. A waitlisted Registration that later receives an invite, a handed-off one whose verification email arrives, or an abandoned one the person starts again, is the same Registration moving forward.
 _Avoid_: Signup, account creation, onboarding
 
+**Wall**:
+Something in a Registration that filling approved values can't get past, such as a bot check, sign-in only through another account, a phone check or card fields. A Registration at a wall goes to a Takeover or a Handoff, or is abandoned.
+_Avoid_: Blocker, obstacle, CAPTCHA (alone)
+
 **Takeover**:
 The person taking live control of the Assistant's browser session from their phone, to get past a wall.
 _Avoid_: Remote control, screen share
