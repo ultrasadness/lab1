@@ -12,6 +12,10 @@ The browser that fills Registrations runs in its own long-lived container, owned
 - **Letting the model click, refusing clicks on submit-like elements:** a page's script can send data from any click, and typing alone is enough on pages that capture fields as they change.
 - **A prompt-injection classifier as a defence:** not counted as one. What stops injected text is what a run can't do, not detection.
 - **One persistent browser profile** (Playwright MCP's default): it collects every Product's logged-in cookies in one place, and lets third-party trackers link the person's Registrations to each other.
+- **Playwright's Dashboard for Takeovers** (`playwright cli show`): rejected after the person tried it on the iPhone in [Which Takeover shape works from the iPhone: noVNC or Playwright's Dashboard?](https://github.com/ultrasadness/lab1/issues/21).
+  - Its live view takes keys on a focusable `<div>`, not a text field, so iOS never shows a keyboard. It has no touch handlers either, so taps reach the page only through the mouse events iOS fakes. The person couldn't reliably type or select anything.
+  - It lists every bound browser, so two Takeovers at once show both sessions. Its one-context view exists only as a desktop app window, not on a port.
+  - It has no authentication.
 
 ## Consequences
 
@@ -44,9 +48,17 @@ The browser that fills Registrations runs in its own long-lived container, owned
 - **Product sites** (for Dossiers) are read through a read-only `read(url)` in a throwaway context, with the same snapshot redaction. Injected text can still skew a Dossier or a Skip, which its citations let the person check.
 - **The container:**
   - Playwright's arm64 image pinned by digest, running Chrome for Testing headed under Xvfb as the non-root `pwuser`, with Playwright's seccomp profile so Chromium's sandbox is on. The service refuses to start without the sandbox.
-  - All capabilities dropped, a read-only root filesystem, and `--shm-size` instead of `--ipc=host`.
+  - All capabilities dropped except `SYS_CHROOT`, which Chromium's namespace sandbox needs: without it the sandbox's zygote dies at launch. Also `no-new-privileges`.
+  - A read-only root filesystem, with tmpfs for `/tmp` and a home owned by `pwuser`; with a root-owned home, Chrome's crash handler aborts the browser at launch. `--shm-size` instead of `--ipc=host`.
   - In every context: downloads, permission requests, password saving and autofill off.
   - Payment fields (`autocomplete` values of `cc-*`, or fields inside a payment provider's frame) are refused whatever the Walkthrough says.
-  - It holds no token.
-- **The network:** public internet only. The host firewall blocks the private ranges, Tailscale's range, link-local addresses (Oracle's instance metadata included), the host's own services and IPv6 local ranges. The Takeover view is reachable only through `tailscale serve`.
+  - It holds no token for Gmail, Discord, Bitwarden or new-api. The only token in it is a Takeover link's.
+- **The network:** public internet only. The host firewall blocks the private ranges, Tailscale's range, link-local addresses (Oracle's instance metadata included), the host's own services and IPv6 local ranges. The Takeover view is reachable only through `tailscale serve`, on an HTTPS port of its own, since the tailnet root already serves another app.
+- **Takeover** (found in [Which Takeover shape works from the iPhone: noVNC or Playwright's Dashboard?](https://github.com/ultrasadness/lab1/issues/21)): through upstream noVNC (1.7.0), not Ubuntu's 1.0.0.
+  - Each Registration's browser runs on an Xvfb display of its own, with its own VNC server on localhost, so a view shows that session alone. One websockify serves noVNC and routes each connection by token to one display.
+  - The token is minted when the person taps Take over. It is removed at **Continue**, at **I submitted** and at the 24-hour close, and that display's VNC server restarts so an open view drops. A revoked link can't reconnect.
+  - The link always carries `https://`, because the port speaks only HTTPS.
+  - The browser service sees the person's submit through its own Playwright connection, the same second the Product's server gets it, so [ADR 0007](./0007-live-state-in-sqlite-and-an-uncertain-step-counts-as-done.md)'s verification window can anchor on it.
+  - The window is a common desktop size (1280x800). A phone-shaped one also worked (Chrome's narrowest is 500 DIPs), but it is an odd shape for desktop Chrome to show a bot check.
+  - Typing needs noVNC's keyboard button: tapping a field in the view doesn't raise the iOS keyboard.
 - **Patching:** Chrome for Testing updates only with Playwright. The browser image is rebuilt within a week of each Playwright release, gated by a fill smoke test against a local test form instead of the Rule carry-over check. This refines [ADR 0001](./0001-pi-in-a-container-behind-the-gateway.md)'s upgrade rule for this one image.
