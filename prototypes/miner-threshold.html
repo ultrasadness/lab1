@@ -1,0 +1,694 @@
+<title>Miner Threshold Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a control column (walkthroughs, free play) beside the day's list; on phones the summary comes first, then controls, then the list. */
+:root {
+  --bg: #f3f6f5;
+  --surface: #ffffff;
+  --ink: #15201e;
+  --muted: #5a6a67;
+  --rule: #d6dfdd;
+  --accent: #0d6b63;
+  --accent-soft: #dcefeb;
+  --near: #9a5a00;
+  --near-soft: #fbeedb;
+  --gate: #6c7477;
+  --gate-soft: #eceff0;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1514; --surface: #162120; --ink: #e2ebe9; --muted: #92a4a0; --rule: #2a3a37;
+    --accent: #52c2b5; --accent-soft: #15342f; --near: #e6a64a; --near-soft: #36270f;
+    --gate: #9aa3a6; --gate-soft: #222b2c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1514; --surface: #162120; --ink: #e2ebe9; --muted: #92a4a0; --rule: #2a3a37;
+  --accent: #52c2b5; --accent-soft: #15342f; --near: #e6a64a; --near-soft: #36270f;
+  --gate: #9aa3a6; --gate-soft: #222b2c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 56px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; font-weight: 600; }
+h1 { font-size: 1.85rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.05rem; }
+h3 { font-size: 0.95rem; }
+p { margin: 0; }
+a { color: var(--accent); }
+.eyebrow { font: 500 0.72rem/1.3 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+header { display: grid; gap: 10px; max-width: 74ch; margin-bottom: 26px; }
+header p { color: var(--muted); }
+header strong { color: var(--ink); font-weight: 600; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 370px) minmax(0, 1fr); grid-template-areas: "walk summary" "free list" "free list"; gap: 20px; align-items: start; }
+.a-walk { grid-area: walk; } .a-free { grid-area: free; } .a-summary { grid-area: summary; } .a-list { grid-area: list; }
+@media (max-width: 880px) {
+  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "summary" "walk" "free" "list"; }
+}
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+
+/* Summary */
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 18px; margin: 0; }
+.facts div { display: grid; gap: 2px; min-width: 0; }
+.facts dt { font: 500 0.7rem/1.3 var(--font-mono); letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.facts dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
+.lineinfo { border-top: 1px solid var(--rule); padding-top: 10px; display: grid; gap: 4px; }
+.lineinfo .big { font: 600 1.15rem/1.3 var(--font-body); }
+.lineinfo p { color: var(--muted); }
+.counts { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font: 500 0.8rem/1.4 var(--font-mono); font-variant-numeric: tabular-nums; border: 1px solid transparent; }
+.pill.dossier { background: var(--accent-soft); color: var(--accent); }
+.pill.near { background: var(--near-soft); color: var(--near); }
+.pill.skip { background: var(--gate-soft); color: var(--ink); }
+.pill.gate { background: transparent; border-color: var(--rule); color: var(--gate); }
+.changed { font-size: 0.88rem; border-left: 3px solid var(--accent); padding: 4px 0 4px 10px; color: var(--ink); }
+.changed:empty { display: none; }
+
+/* Walkthroughs */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab { font: 500 0.8rem/1.3 var(--font-body); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--rule); background: transparent; color: var(--ink); cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.scenario { display: grid; gap: 10px; }
+.scenario .watch { font-size: 0.88rem; color: var(--muted); }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: step; }
+.steps li { counter-increment: step; }
+.step { width: 100%; text-align: left; display: grid; grid-template-columns: 1.6em 1fr; gap: 6px; align-items: start; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--rule); background: transparent; color: var(--ink); font: 400 0.88rem/1.4 var(--font-body); cursor: pointer; }
+.step::before { content: counter(step); font: 500 0.8rem/1.6 var(--font-mono); color: var(--muted); }
+.step.next { border-color: var(--accent); background: var(--accent-soft); }
+.step.done { color: var(--muted); }
+.step.done::before { content: "✓"; color: var(--accent); }
+.step:disabled { cursor: default; opacity: 0.55; }
+
+/* Free play */
+.field { display: grid; gap: 4px; }
+.field label, .field legend { font: 500 0.72rem/1.3 var(--font-mono); letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); padding: 0; }
+fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 4px; }
+.opt { display: flex; gap: 8px; align-items: baseline; font-size: 0.88rem; }
+select, input[type="range"] { font: inherit; color: var(--ink); }
+select { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 8px; width: 100%; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.btnrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn { font: 500 0.85rem/1.3 var(--font-body); padding: 7px 12px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); cursor: pointer; }
+.btn.quiet { background: transparent; color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* List */
+.listhead { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; }
+.listhead select { width: auto; }
+ol.rows { list-style: none; margin: 0; padding: 0; display: grid; }
+.row { display: grid; grid-template-columns: 2.6em minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 4px; border-top: 1px solid var(--rule); align-items: start; }
+.row .rk { font: 500 0.8rem/1.6 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.row .main { display: grid; gap: 3px; min-width: 0; }
+.row .name { font-weight: 600; }
+.row .name a { color: var(--ink); text-decoration: none; }
+.row .name a:hover { text-decoration: underline; }
+.row .topics { font-size: 0.78rem; color: var(--muted); font-weight: 400; }
+.row .tagline { font-size: 0.86rem; color: var(--muted); }
+.row .text { font: 400 0.82rem/1.45 var(--font-mono); overflow-wrap: anywhere; }
+.row .text b { font-weight: 500; }
+.row.k-dossier .text b { color: var(--accent); }
+.row.near .text b { color: var(--near); }
+.row.k-gate .text b, .row.k-relaunch .text b { color: var(--gate); }
+.row.k-waiting .text, .row.k-pending .text { color: var(--muted); }
+.row.k-dossier { background: linear-gradient(90deg, var(--accent-soft), transparent 70%); }
+.row .side { display: grid; gap: 6px; justify-items: end; }
+.meter { display: flex; gap: 2px; }
+.meter i { width: 7px; height: 14px; border-radius: 1px; background: var(--gate-soft); border: 1px solid var(--rule); }
+.meter i.on { background: var(--muted); border-color: var(--muted); }
+.row.k-dossier .meter i.on { background: var(--accent); border-color: var(--accent); }
+.row.near .meter i.on { background: var(--near); border-color: var(--near); }
+.meter i.at { box-shadow: -3px 0 0 -1px var(--ink); }
+.small { font: 500 0.75rem/1.2 var(--font-body); padding: 4px 8px; border-radius: 5px; border: 1px solid var(--rule); background: transparent; color: var(--ink); cursor: pointer; }
+.fix { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 6px; background: var(--gate-soft); font-size: 0.85rem; }
+.fix select { width: auto; }
+.divider { border-top: 2px solid var(--ink); padding: 4px 4px 2px; font: 500 0.72rem/1.3 var(--font-mono); letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink); }
+
+/* Reference */
+.ref { margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.ref pre { margin: 0; white-space: pre-wrap; font: 400 0.8rem/1.5 var(--font-mono); overflow-x: auto; }
+.ref table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+.ref td { border-top: 1px solid var(--rule); padding: 5px 6px 5px 0; vertical-align: top; }
+.ref td:first-child { font: 500 0.8rem/1.5 var(--font-mono); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ref .note { font-size: 0.82rem; color: var(--muted); }
+footer { margin-top: 28px; font-size: 0.8rem; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .step, .tab, .btn { transition: background-color 120ms, border-color 120ms; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Prototype · throwaway</span>
+    <h1>How does the Miner score Launches and set the day's soft threshold?</h1>
+    <p>Each Featured Launch gets a <strong>fit from 0 to 10</strong> against the Interest scope, judged on its own in a short run. Once the whole day is judged, plain code draws <strong>today's line</strong>: the fit of the day's N-th best Launch, where N grows with the day's Launch count, but never below a <strong>floor</strong>. Launches at or above the line get a Dossier; every other Launch gets a one-line Skip.</p>
+    <p>The Launches are real: every Featured Launch from Oct 11 to 14, 2026, read through the Product Hunt API. The fits are stand-ins. Claude judged them by hand against a draft Interest scope, as the Miner's model would. Change the settings, run the walkthroughs, and correct any fit that looks wrong.</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel a-summary" aria-labelledby="sum-h">
+      <h2 id="sum-h" class="eyebrow">The day so far</h2>
+      <dl class="facts" id="facts"></dl>
+      <div class="lineinfo" id="lineinfo"></div>
+      <div class="counts" id="counts"></div>
+      <p class="changed" id="changed" aria-live="polite"></p>
+    </section>
+
+    <section class="panel a-walk" aria-labelledby="walk-h">
+      <h2 id="walk-h">Walkthroughs</h2>
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="scenario" id="scenario"></div>
+    </section>
+
+    <section class="panel a-free" aria-labelledby="free-h">
+      <h2 id="free-h">Free play</h2>
+      <div class="field">
+        <label for="day">Day (Pacific)</label>
+        <select id="day"></select>
+      </div>
+      <div class="btnrow">
+        <button class="btn" id="judge8" type="button">Judge the next 8</button>
+        <button class="btn" id="judgeall" type="button">Judge the whole day</button>
+        <button class="btn quiet" id="restart" type="button">Restart the Miner</button>
+        <button class="btn quiet" id="startover" type="button">Start the day over</button>
+      </div>
+      <div class="field">
+        <label for="scaling">Target: Dossiers a day</label>
+        <select id="scaling"></select>
+      </div>
+      <div class="field">
+        <label for="floor">Floor: lowest fit for a Dossier · <span id="floorval"></span></label>
+        <input type="range" id="floor" min="0" max="10" step="1">
+      </div>
+      <fieldset>
+        <legend>Ties at the line</legend>
+        <label class="opt"><input type="radio" name="ties" id="ties-soft" value="soft"> Soft: every Launch tied at the line gets a Dossier</label>
+        <label class="opt"><input type="radio" name="ties" id="ties-strict" value="strict"> Strict: stop at the target, in Product Hunt order</label>
+      </fieldset>
+      <fieldset>
+        <legend>Launches with nothing to sign up for</legend>
+        <label class="opt"><input type="radio" name="noacct" id="noacct-skip" value="skip"> Skip them</label>
+        <label class="opt"><input type="radio" name="noacct" id="noacct-judge" value="judge"> Judge them like any other</label>
+      </fieldset>
+      <div class="field">
+        <label for="gen">The model behind the Miner role</label>
+        <select id="gen">
+          <option value="0">Scores as judged here</option>
+          <option value="1">Scores 1 point higher</option>
+          <option value="2">Scores 2 points higher</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="panel a-list" aria-labelledby="list-h">
+      <div class="listhead">
+        <h2 id="list-h">The day's Launches</h2>
+        <select id="sort" aria-label="Order of the list">
+          <option value="verdict">Verdict, then fit</option>
+          <option value="ph">Product Hunt order</option>
+        </select>
+      </div>
+      <ol class="rows" id="rows"></ol>
+    </section>
+  </div>
+
+  <section class="ref" aria-label="What the Miner reads and returns">
+    <div class="panel">
+      <h3>Interest scope (draft)</h3>
+      <p class="note">Drafted from what the repo says about you. It lives in the Profile as <code>profile/interest-scope.md</code>; a Correction about what you like edits it.</p>
+      <pre>## Want
+- AI coding agents and what runs around them:
+  harnesses, orchestration, review, agent memory.
+- Developer tools and APIs I can use from a
+  terminal or my Linux server.
+- Model access: LLM APIs, gateways and inference,
+  especially with free credits.
+- Running one small server: monitoring, deploys,
+  Docker.
+- Personal knowledge: notes, reading and documents
+  I can export.
+- iPhone apps for study and getting things done.
+
+## Don't want
+- Sales, marketing, SEO, ads, social growth,
+  recruiting.
+- Software only for Mac or Android (no Mac;
+  my phone is an iPhone).
+- Finance, lending, accounting, shopping.
+- Games, lifestyle, health, food, travel.
+- Tools that need a company or team to be useful.
+
+## Leans
+- A free plan, or open source with a hosted
+  version, counts for more than paid-only.
+- Working with what I already use (Discord,
+  GitHub, Gmail, Tailscale) counts for more.</pre>
+    </div>
+    <div class="panel">
+      <h3>Fit bands</h3>
+      <p class="note">Fixed in the Miner's prompt, so a fit means the same thing in every run and on every provider.</p>
+      <table>
+        <tr><td>9–10</td><td>Squarely a Want, nothing in Don't want, and a Lean in its favour.</td></tr>
+        <tr><td>7–8</td><td>Clearly a Want.</td></tr>
+        <tr><td>5–6</td><td>Next to a Want, or a Want with a Lean against it.</td></tr>
+        <tr><td>3–4</td><td>Loosely related, or a Want that hits a Don't want.</td></tr>
+        <tr><td>0–2</td><td>In Don't want, or nowhere in the scope.</td></tr>
+      </table>
+    </div>
+    <div class="panel">
+      <h3>What each judgment returns</h3>
+      <p class="note">Through a schema-checked tool in our Pi extension. The model never writes "Dossier" or "Skip"; plain code adds that once the line is drawn.</p>
+      <table>
+        <tr><td>postId</td><td>Product Hunt Post id.</td></tr>
+        <tr><td>fit</td><td>Whole number, 0–10, on the bands.</td></tr>
+        <tr><td>notAProduct</td><td>Nothing to use or sign up for: hardware, an announcement.</td></tr>
+        <tr><td>noAccount</td><td>The Launch says it needs no account.</td></tr>
+        <tr><td>reason</td><td>One line: what it is, and how it meets the Interest scope. Read the same whichever way the line falls.</td></tr>
+        <tr><td>rulesApplied</td><td>Names of the Rules it followed, shown on the line.</td></tr>
+      </table>
+    </div>
+    <div class="panel">
+      <h3>The line the person sees</h3>
+      <p class="note">One per Launch, each with a Correct button. A Rule it followed is named at the end.</p>
+      <pre>Dossier · fit 9 · terminal coding agent that keeps
+  your corrections across sessions; free plan
+Skip · fit 6, line 7 · developer news your agent
+  can read over MCP
+Skip · fit 4, line 7 · terminal for running Claude
+  Code and Codex side by side, but macOS-only
+Skip · not a Product · a smart speaker you buy
+Skip · nothing to sign up for · open-source diagram
+  canvas your coding agent edits; no account
+Skip · fit 2, line 7 · waitlist only
+  (Rule: Waitlist isn't open signup)</pre>
+    </div>
+  </section>
+
+  <footer>Launch data from the Product Hunt API, Featured Launches for Oct 11–14, 2026 (Pacific). Oct 14 was read during the day, so its order is not final. Data sourced from <a href="https://www.producthunt.com/" target="_blank" rel="noopener">Product Hunt</a>.</footer>
+</div>
+
+<script>
+const LAUNCHES = [{"id":1267423,"day":"2026-10-11","rank":1,"name":"HireKey","tagline":"Your recruiter-informed AI copilot for tech job search","topics":["Artificial Intelligence","Tech","Career"],"slug":"hirekey-2","fit":2,"flag":"","reason":"job-search copilot; career tools aren't in your Interest scope","offer":""},{"id":1272499,"day":"2026-10-11","rank":2,"name":"kōdlo","tagline":"End-to-end sales workspace with unified context","topics":["Sales","SaaS","Artificial Intelligence"],"slug":"kodlo-2","fit":1,"flag":"","reason":"sales prospecting workspace; you left out sales","offer":""},{"id":1264842,"day":"2026-10-11","rank":3,"name":"Automations in Perplexity Computer","tagline":"Automations that remember, act, and keep work moving","topics":["Productivity","Task Management","Artificial Intelligence"],"slug":"automations-in-perplexity-computer","fit":4,"flag":"","reason":"scheduled agent tasks inside Perplexity's paid Computer; general automation, not coding agents","offer":""},{"id":1270791,"day":"2026-10-11","rank":4,"name":"Ghost Core","tagline":"A personal AI computer that runs entirely on-device","topics":["Hardware","Privacy","Artificial Intelligence"],"slug":"ghost-core","fit":5,"flag":"np","reason":"a personal AI computer you buy; hardware","offer":""},{"id":1263181,"day":"2026-10-11","rank":5,"name":"OpenScreen 2","tagline":"Record your demo and let your AI agent do the edits","topics":["Open Source","Developer Tools","Video"],"slug":"openscreen-2-3","fit":4,"flag":"na","reason":"screen recorder whose edits your agent makes over MCP; free, no account; video isn't in your scope","offer":""},{"id":1251151,"day":"2026-10-11","rank":6,"name":"MePersona","tagline":"Answer every fan comment in your voice","topics":["Messaging","Marketing automation","Social media marketing"],"slug":"mepersona-2","fit":1,"flag":"","reason":"social media inbox for creators; you left out social growth","offer":""},{"id":1246034,"day":"2026-10-11","rank":7,"name":"Ayven","tagline":"Carries and drives your team's agenda","topics":["Productivity","Messaging","Artificial Intelligence"],"slug":"ayven","fit":2,"flag":"","reason":"agenda agent that files Jira tickets for a team; needs a team","offer":""},{"id":1275628,"day":"2026-10-11","rank":8,"name":"FocusWrite","tagline":"A local-first writing app with focus modes.","topics":["Web App","Productivity","Writing"],"slug":"focuswrite","fit":5,"flag":"","reason":"local-first writing app; near your notes interest, but built for drafting","offer":""},{"id":1270101,"day":"2026-10-11","rank":9,"name":"Foley","tagline":"A voice to-do list that files, plans and asks first","topics":["Productivity","Task Management","Artificial Intelligence"],"slug":"foley","fit":6,"flag":"","reason":"voice to-do list for iPhone and desktop; the AI and sync are in the paid Pro","offer":""},{"id":1276371,"day":"2026-10-11","rank":10,"name":"Gboard Kurukuru Version","tagline":"Your fingers stay put. The keys come around","topics":["Custom Keyboards","Hardware","DIY"],"slug":"gboard-kurukuru-version","fit":2,"flag":"np","reason":"a keyboard Google Japan built and doesn't sell; build files only","offer":""},{"id":1273545,"day":"2026-10-11","rank":11,"name":"Edgee Mod for Claude Code","tagline":"Use any model inside Claude Code, keep your Claude plan","topics":["Software Engineering","Developer Tools","Artificial Intelligence"],"slug":"edgee-mod-for-claude-code","fit":8,"flag":"","reason":"Claude Code mod that switches your session to 200+ models; coding agents and model access","offer":""},{"id":1270608,"day":"2026-10-11","rank":12,"name":"Tori","tagline":"Japanese listening practice built from your own sentences","topics":["Android","Languages"],"slug":"tori-3","fit":1,"flag":"","reason":"Japanese listening app for Android; you use an iPhone","offer":""},{"id":1275891,"day":"2026-10-11","rank":13,"name":"Agibot","tagline":"The always-on personal AI agent for your Mac. $0 forever","topics":["Mac","Productivity","Artificial Intelligence"],"slug":"agibot","fit":3,"flag":"","reason":"always-on personal agent, but Mac-only","offer":""},{"id":1274334,"day":"2026-10-11","rank":14,"name":"SimpleSpread","tagline":"Native, open source Mac spreadsheet","topics":["Mac","Open Source","Spreadsheets"],"slug":"simplespread","fit":1,"flag":"","reason":"spreadsheet app for Mac","offer":""},{"id":1273235,"day":"2026-10-11","rank":15,"name":"Kooler","tagline":"Find cocktails you can make with what's in your bar","topics":["iOS","Food & Drink","Lifestyle"],"slug":"kooler-2","fit":0,"flag":"","reason":"cocktail recipes; lifestyle","offer":""},{"id":1272707,"day":"2026-10-11","rank":16,"name":"Unboom","tagline":"Tames boomy room bass on your Mac without acoustic panels","topics":["Mac","Menu Bar Apps","Audio"],"slug":"unboom","fit":0,"flag":"","reason":"room-bass fix for Mac audio","offer":""},{"id":1273845,"day":"2026-10-11","rank":17,"name":"DevTerminal","tagline":"A macOS terminal with a Run button that knows your project","topics":["Mac","Productivity","Developer Tools"],"slug":"devterminal","fit":3,"flag":"","reason":"terminal with a Run button for coding projects, but macOS-only","offer":""},{"id":1275171,"day":"2026-10-11","rank":18,"name":"FloorGen","tagline":"Draw the house, or just ask. Free floor plans with AI","topics":["Design Tools","Home","Artificial Intelligence"],"slug":"floorgen","fit":1,"flag":"","reason":"floor plans for home remodels","offer":""},{"id":1273246,"day":"2026-10-11","rank":19,"name":"shippedit.me","tagline":"Launch Platform with SEO, AEO & Growth Insights","topics":["Analytics","Marketing","SEO"],"slug":"shippedit-me","fit":1,"flag":"","reason":"launch platform for SEO and growth; you left out marketing","offer":""},{"id":1270515,"day":"2026-10-11","rank":20,"name":"Poke Finder","tagline":"Catch Pokémon while you browse and complete your Pokédex.","topics":["Chrome Extensions","Pokemon","Games"],"slug":"poke-finder","fit":0,"flag":"","reason":"Pokémon browser game","offer":""},{"id":1273549,"day":"2026-10-11","rank":21,"name":"Halo","tagline":"Notifications, dictation and AI agents in your Mac's notch","topics":["Developer Tools","Artificial Intelligence","Menu Bar Apps"],"slug":"halo-834092fe-8683-466b-9814-ef5d54ad0889","fit":2,"flag":"","reason":"Mac notch app that watches your AI agents; Mac-only, $9.99","offer":""},{"id":1272903,"day":"2026-10-11","rank":22,"name":"NewMinecraftServers","tagline":"Minecraft server discovery, analytics, & spoof detection.","topics":["User Experience","Games","Data & Analytics"],"slug":"newminecraftservers","fit":0,"flag":"","reason":"Minecraft server listings","offer":""},{"id":1275665,"day":"2026-10-11","rank":23,"name":"EdgeVolume","tagline":"Control your Mac’s volume from your trackpad edge","topics":["Mac","GitHub","Menu Bar Apps"],"slug":"edgevolume","fit":0,"flag":"","reason":"Mac trackpad volume control","offer":""},{"id":1268121,"day":"2026-10-11","rank":24,"name":"Pickle Sensei","tagline":"AI pickleball coach for solo practice, one swing at a time","topics":["Sports","Artificial Intelligence","Fitness"],"slug":"pickle-sensei","fit":0,"flag":"","reason":"pickleball coaching","offer":""},{"id":1275794,"day":"2026-10-11","rank":25,"name":"Farol","tagline":"The macOS terminal that shows which coding agent needs you","topics":["Mac","Developer Tools","Artificial Intelligence"],"slug":"farol-d3dd992f-2c54-4c16-9c5d-8ae33d4d7ed5","fit":4,"flag":"","reason":"terminal for running Claude Code and Codex side by side, but macOS-only","offer":""},{"id":1275909,"day":"2026-10-11","rank":26,"name":"NotchPit","tagline":"Your Mac's notch, rearranged into a control center","topics":["Productivity","Developer Tools","Menu Bar Apps"],"slug":"notchpit","fit":0,"flag":"","reason":"Mac notch control center","offer":""},{"id":1274214,"day":"2026-10-11","rank":27,"name":"KarmaBoard","tagline":"A vintage split-flap message board for any TV","topics":["SaaS","Business","Digital Art"],"slug":"karmaboard","fit":1,"flag":"","reason":"split-flap message board for a TV","offer":""},{"id":1271805,"day":"2026-10-12","rank":1,"name":"Google EmbeddingGemma 2","tagline":"An open, lightweight multimodal embedding model","topics":["Artificial Intelligence","Audio","Video"],"slug":"google-embeddinggemma-2","fit":5,"flag":"na","reason":"open embedding model; weights on Hugging Face, nothing of its own to sign up for","offer":""},{"id":1266889,"day":"2026-10-12","rank":2,"name":"ngram 2.0","tagline":"Create explainers, screencasts, and AI avatar videos","topics":["Education","Artificial Intelligence","Video"],"slug":"ngram-2-0-2","fit":3,"flag":"","reason":"explainer and avatar video maker; video isn't in your scope","offer":""},{"id":1263940,"day":"2026-10-12","rank":3,"name":"Base Code","tagline":"Let your whole team build on your product","topics":["SaaS","Developer Tools","No-Code"],"slug":"base-code","fit":5,"flag":"","reason":"edit a codebase from the browser through pull requests; aimed at teams","offer":""},{"id":1274741,"day":"2026-10-12","rank":4,"name":"guilds.run","tagline":"Create multi-agent workflows that you can trust","topics":["Open Source","Virtual Assistants","Bots"],"slug":"guilds-run","fit":8,"flag":"","reason":"open-source agent teams you can inspect; self-host free","offer":""},{"id":1277089,"day":"2026-10-12","rank":5,"name":"Manifold MCP","tagline":"SEO, AI answers, social, ads and leads data for your agent","topics":["Marketing","Artificial Intelligence","Growth Hacks"],"slug":"manifold-mcp","fit":2,"flag":"","reason":"marketing data for agents; you left out marketing","offer":""},{"id":1266729,"day":"2026-10-12","rank":6,"name":"Ancher 2.0","tagline":"Turn everything you read and save into work you can ship","topics":["Productivity","Writing","Notes"],"slug":"ancher-2-0","fit":6,"flag":"","reason":"knowledge workspace for what you read and save; no word on export","offer":""},{"id":1273871,"day":"2026-10-12","rank":7,"name":"Hexis Cloud","tagline":"One company brain for all your AI agents","topics":["Productivity","Open Source","Artificial Intelligence"],"slug":"hexis-cloud-2","fit":5,"flag":"","reason":"shared context and tools for agents, built for a company","offer":""},{"id":1277208,"day":"2026-10-12","rank":8,"name":"Kudos 3.0","tagline":"The AI that finds money you're missing and gets it back","topics":["Android","Chrome Extensions","Fintech"],"slug":"kudos-3-0","fit":1,"flag":"","reason":"card-rewards finder for Android; finance","offer":""},{"id":1277022,"day":"2026-10-12","rank":9,"name":"Scrape Anything by Context.dev","tagline":"Turn any website into clean data with one API call.","topics":["API","Developer Tools","Artificial Intelligence"],"slug":"scrape-anything-by-context-dev","fit":6,"flag":"","reason":"web-to-data API; a developer tool, pricing not stated","offer":""},{"id":1264729,"day":"2026-10-12","rank":10,"name":"Bearconnect 2.0","tagline":"AI-Powered LinkedIn Platform for Content and Outreach","topics":["Sales","Marketing","SaaS"],"slug":"bearconnect-2-0","fit":0,"flag":"","reason":"LinkedIn outreach; you left out sales","offer":""},{"id":1277092,"day":"2026-10-12","rank":11,"name":"ExcaliClaw","tagline":"Hand-drawn diagrams your AI agent can draw with you","topics":["Productivity","Developer Tools","Artificial Intelligence"],"slug":"excaliclaw","fit":6,"flag":"","reason":"diagram workspace your agent draws in over MCP; generous free plan","offer":""},{"id":1277000,"day":"2026-10-12","rank":12,"name":"Dropstone CLI","tagline":"The self-learning coding agent for your terminal","topics":["Developer Tools","Artificial Intelligence","GitHub"],"slug":"dropstone-cli","fit":9,"flag":"","reason":"terminal coding agent that keeps your corrections across sessions; free plan","offer":""},{"id":1273394,"day":"2026-10-12","rank":13,"name":"Invited - AI Reminder Scanner","tagline":"AI reminder scanner for bills, invites & documents","topics":["Android","Productivity","Calendar"],"slug":"invited-ai-reminder-scanner","fit":1,"flag":"","reason":"reminder scanner for Android","offer":""},{"id":1274215,"day":"2026-10-12","rank":14,"name":"Understory Notes","tagline":"Notes that tell the tale","topics":["Productivity","Writing","Notes"],"slug":"understory-notes","fit":3,"flag":"","reason":"notes for writing, but a Mac app","offer":""},{"id":1272978,"day":"2026-10-12","rank":15,"name":"SquadRoom","tagline":"AI employees that work 24/7","topics":["Productivity","SaaS","Artificial Intelligence"],"slug":"squadroom","fit":3,"flag":"","reason":"AI employees for a company; needs a team","offer":""},{"id":1265398,"day":"2026-10-12","rank":16,"name":"Milepost","tagline":"An iOS driving journal for your car, with an MCP server","topics":["iOS","Cars","Travel"],"slug":"milepost-2","fit":2,"flag":"","reason":"driving journal for iPhone; travel","offer":""},{"id":1276516,"day":"2026-10-12","rank":17,"name":"Cube Forms","tagline":"Forms that can be filled by agents","topics":["Productivity","Developer Tools","Artificial Intelligence"],"slug":"cube-forms","fit":7,"flag":"","reason":"forms agents fill over MCP or HTTP; free","offer":""},{"id":1274267,"day":"2026-10-12","rank":18,"name":"SalesRep.com","tagline":"Your AI sales rep: live prices, quotes & follow-ups 24/7","topics":["Sales","Customer Communication","Artificial Intelligence"],"slug":"salesrep-com","fit":0,"flag":"","reason":"AI sales rep for shops; you left out sales","offer":""},{"id":1273823,"day":"2026-10-12","rank":19,"name":"Codemind","tagline":"Delegate coding. Get back code that works.","topics":["Productivity","Developer Tools","Artificial Intelligence"],"slug":"codemind-2","fit":8,"flag":"","reason":"your coding agent hands off tasks over MCP; free allowance to start","offer":""},{"id":1267617,"day":"2026-10-13","rank":1,"name":"Articos MCP","tagline":"See how simulated buyers react, right in your agent","topics":["Marketing","Developer Tools","Artificial Intelligence"],"slug":"articos-mcp","fit":2,"flag":"","reason":"simulated buyers for marketing copy; you left out marketing","offer":""},{"id":1278232,"day":"2026-10-13","rank":2,"name":"OpenCode 2.0","tagline":"The open source AI coding agent","topics":["Open Source","Developer Tools","GitHub"],"slug":"opencode-2-0","fit":8,"flag":"","reason":"open-source coding agent for terminal, desktop and web","offer":""},{"id":1254833,"day":"2026-10-13","rank":3,"name":"Fina Business","tagline":"The flexible $20/mo QuickBooks alternative for founders","topics":["Business","Accounting","Budgeting"],"slug":"fina-business","fit":0,"flag":"","reason":"business accounting; finance","offer":""},{"id":1278066,"day":"2026-10-13","rank":4,"name":"Muse Wonder","tagline":"Meta’s most capable models for personal agents","topics":["Artificial Intelligence"],"slug":"muse-wonder","fit":6,"flag":"","reason":"Meta's new agent models, on the Meta Model API; model access","offer":""},{"id":1259407,"day":"2026-10-13","rank":5,"name":"Kai","tagline":"Autonomous assistant designed to handle meetings and email","topics":["Email","Productivity","Artificial Intelligence"],"slug":"hirekai","fit":4,"flag":"","reason":"email and calendar assistant for founders; close to what you're building, not something you'd use","offer":""},{"id":1271264,"day":"2026-10-13","rank":6,"name":"MentionBird","tagline":"Ahrefs for AI Search","topics":["Marketing","SEO","Artificial Intelligence"],"slug":"mentionbird","fit":0,"flag":"","reason":"AI-search SEO; you left out marketing","offer":""},{"id":1271564,"day":"2026-10-13","rank":7,"name":"MausBot","tagline":"Open source Grok Bot: Free, Local","topics":["Productivity","Open Source","Artificial Intelligence"],"slug":"mausbot","fit":5,"flag":"","reason":"open-source desktop hub for your AI agents, bring your own key; platform not stated","offer":""},{"id":1277012,"day":"2026-10-13","rank":8,"name":"Takes for Mac","tagline":"Record talking-head videos. Claude Code does the edit.","topics":["Open Source","Artificial Intelligence","Video"],"slug":"takes-for-mac","fit":1,"flag":"","reason":"talking-head video app for Mac","offer":""},{"id":1273007,"day":"2026-10-13","rank":9,"name":"PostNitro for Agents","tagline":"Let your AI agent design and publish social posts","topics":["Social Media","Marketing","Artificial Intelligence"],"slug":"postnitro-for-agents","fit":1,"flag":"","reason":"agent-made social posts; you left out social growth","offer":""},{"id":1278439,"day":"2026-10-13","rank":10,"name":"Toby","tagline":"Realistic mock interviews with an AI hiring manager","topics":["Hiring","Artificial Intelligence","Career"],"slug":"toby-707112ab-957d-4947-b507-538ecfafb12a","fit":2,"flag":"","reason":"mock job interviews; career tools aren't in your scope","offer":""},{"id":1274276,"day":"2026-10-13","rank":11,"name":"Genchi","tagline":"Project delivery predictions, from the people doing the work","topics":["Developer Tools","GitHub"],"slug":"genchi-4","fit":1,"flag":"","reason":"delivery predictions for engineering leaders; needs a team","offer":""},{"id":1271089,"day":"2026-10-13","rank":12,"name":"OpenWhispr for iOS","tagline":"100% open source, free & on device transcription","topics":["iOS","Productivity","Open Source"],"slug":"openwhispr-for-ios","fit":6,"flag":"na","reason":"on-device transcription for iPhone, open source; no account","offer":""},{"id":1277613,"day":"2026-10-13","rank":13,"name":"Servor","tagline":"One console to run and monitor all your servers","topics":["SaaS","Developer Tools","Security"],"slug":"servor","fit":8,"flag":"","reason":"run and watch your servers from the browser, with phone alerts","offer":""},{"id":1278148,"day":"2026-10-13","rank":14,"name":"vibesmonitor.com","tagline":"The ops center for everything you ship","topics":["Analytics","Developer Tools","Artificial Intelligence"],"slug":"vibesmonitor-com-2","fit":5,"flag":"","reason":"traffic and errors for sites you ship; you run a server, not sites","offer":""},{"id":1278016,"day":"2026-10-13","rank":15,"name":"Google Fitbit Edge","tagline":"Google’s smartest fitness tracker ever with 7-day battery","topics":["Health & Fitness","Wearables","Fitness"],"slug":"google-fitbit-edge-2","fit":1,"flag":"np","reason":"a fitness tracker you buy","offer":""},{"id":1271434,"day":"2026-10-13","rank":16,"name":"Agent Craft","tagline":"100× your social engagement and leads","topics":["Sales","Social Media","Marketing"],"slug":"agent-craft","fit":0,"flag":"","reason":"team social posting; you left out social growth","offer":""},{"id":1275664,"day":"2026-10-13","rank":17,"name":"CLI Manager","tagline":"Let one AI agent open and drive your other CLI agents","topics":["Open Source","Developer Tools","Artificial Intelligence"],"slug":"cli-manager-2","fit":4,"flag":"","reason":"one coding agent drives the others in watched terminals, but macOS-only","offer":""},{"id":1278551,"day":"2026-10-13","rank":18,"name":"The Drive AI","tagline":"The AI agent that does the work on your files","topics":["Android","Chrome Extensions","Productivity"],"slug":"the-drive-ai-5","fit":4,"flag":"","reason":"agent that sorts files across Drive and Dropbox; not in your scope","offer":""},{"id":1278420,"day":"2026-10-13","rank":19,"name":"HarnessHive","tagline":"AI-Native, Simple & Collaborative Wire Harness Design","topics":["Design Tools","Developer Tools","Artificial Intelligence"],"slug":"harnesshive","fit":0,"flag":"","reason":"wire-harness design for engineers","offer":""},{"id":1277124,"day":"2026-10-13","rank":20,"name":"Scape","tagline":"Orchestrate agent fleets with custom tools built on macOS","topics":["Developer Tools"],"slug":"scape-5","fit":3,"flag":"","reason":"agent-fleet orchestrator example, macOS-only","offer":""},{"id":1277481,"day":"2026-10-13","rank":21,"name":"Xiryn","tagline":"The open-source personal agent that runs on your computer","topics":["Open Source","Privacy","Artificial Intelligence"],"slug":"xiryn","fit":8,"flag":"na","reason":"open-source personal agent with its own Linux desktop in Docker; no account","offer":""},{"id":1270518,"day":"2026-10-13","rank":22,"name":"Remocn Studio","tagline":"Ship a launch video without opening After Effects","topics":["Developer Tools","Artificial Intelligence","GitHub"],"slug":"remocn-studio","fit":1,"flag":"","reason":"launch-video maker for macOS","offer":""},{"id":1277419,"day":"2026-10-13","rank":23,"name":"Music Dawn","tagline":"A recorder for musicians. Every idea sounds finished.","topics":["iOS","Productivity","Music"],"slug":"music-dawn","fit":2,"flag":"","reason":"recorder for musicians on iPhone; not study or getting things done","offer":""},{"id":1273136,"day":"2026-10-13","rank":24,"name":"Upsolve Row-Level Security","tagline":"Data permissions your AI agent can't talk its way past","topics":["Analytics","Artificial Intelligence","Security"],"slug":"upsolve-row-level-security","fit":3,"flag":"","reason":"row-level security for multi-tenant agents; needs a company","offer":""},{"id":1278447,"day":"2026-10-13","rank":25,"name":"OpenFlowKit 2","tagline":"Free, open-source diagrams you and your agent edit together","topics":["Design Tools","Open Source","GitHub"],"slug":"openflowkit-2","fit":6,"flag":"na","reason":"open-source diagram canvas your coding agent edits; no account","offer":""},{"id":1270905,"day":"2026-10-13","rank":26,"name":"Vincentt","tagline":"Bring your ideas to life through the camera.","topics":["Developer Tools","Artificial Intelligence","Augmented Reality"],"slug":"vincentt","fit":3,"flag":"","reason":"camera experiences built with your coding agent; AR isn't in your scope","offer":""},{"id":1258540,"day":"2026-10-13","rank":27,"name":"Mi Speaks 2.0","tagline":"Books and PDFs read aloud by neural voices, on device","topics":["iOS","Productivity","Artificial Intelligence"],"slug":"mi-speaks-2-0","fit":6,"flag":"","reason":"reads books and PDFs aloud on iPhone, on device","offer":""},{"id":1278291,"day":"2026-10-13","rank":28,"name":"AdHelm CLI","tagline":"An Open Sourced CLI for Managing Ads","topics":["Open Source","Analytics","Advertising"],"slug":"adhelm-cli","fit":1,"flag":"","reason":"ads management for agents; you left out ads","offer":""},{"id":1274375,"day":"2026-10-13","rank":29,"name":"FutureMail","tagline":"Email on your domain, built for people and their AI agents","topics":["Email","Developer Tools","Artificial Intelligence"],"slug":"futuremail-2","fit":6,"flag":"","reason":"email hosting with agent inboxes; $20 a month, no free plan stated","offer":""},{"id":1221402,"day":"2026-10-14","rank":1,"name":"Pancake","tagline":"The Vercel for GTM","topics":["Sales","Marketing","Artificial Intelligence"],"slug":"pancake-7","fit":1,"flag":"","reason":"go-to-market tooling for agents; you left out sales","offer":""},{"id":1265035,"day":"2026-10-14","rank":2,"name":"Inferock","tagline":"Serverless inference, with credits back for failed calls.","topics":["Developer Tools","Artificial Intelligence","Google Cloud Run"],"slug":"inferock","fit":9,"flag":"","reason":"serverless LLM inference with credits back on failed calls; free signup credits","offer":"free signup credits"},{"id":1273690,"day":"2026-10-14","rank":3,"name":"Retriever AI","tagline":"Free AI browser agent: find leads, reach out, apply to jobs","topics":["Chrome Extensions","Productivity","Artificial Intelligence"],"slug":"retriever-ai","fit":3,"flag":"","reason":"browser agent for leads and outreach; mostly sales","offer":""},{"id":1278698,"day":"2026-10-14","rank":4,"name":"AdAnt 2.0","tagline":"Muse for Social Media Marketing","topics":["Social Media","Marketing","Artificial Intelligence"],"slug":"adant-2-0-3","fit":0,"flag":"","reason":"social media marketing team; you left out marketing","offer":""},{"id":1278154,"day":"2026-10-14","rank":5,"name":"daily.dev","tagline":"Where agents discover what's next","topics":["News","Developer Tools","Artificial Intelligence"],"slug":"daily-dev-4","fit":6,"flag":"","reason":"developer news your agent can read over MCP","offer":""},{"id":1275120,"day":"2026-10-14","rank":6,"name":"Tiden","tagline":"Intent verification for coding agents","topics":["Software Engineering","Developer Tools","Artificial Intelligence"],"slug":"tiden","fit":7,"flag":"","reason":"checks that your coding agent built what you asked","offer":""},{"id":1277882,"day":"2026-10-14","rank":7,"name":"Confidence by Spotify","tagline":"Build products at full speed, with both hands on the wheel","topics":["Analytics","A/B Testing","SaaS"],"slug":"confidence-by-spotify","fit":2,"flag":"","reason":"product experimentation for companies; needs a team","offer":""},{"id":1278817,"day":"2026-10-14","rank":8,"name":"Exodus for Google Cloud Run","tagline":"Upgrade any app to Cloud Run, with your coding agent","topics":["Open Source","Developer Tools","GitHub"],"slug":"exodus-for-google-cloud-run","fit":5,"flag":"","reason":"moves apps to Google Cloud Run with your coding agent; you run your own VM","offer":""},{"id":1269704,"day":"2026-10-14","rank":9,"name":"Reason","tagline":"A state-of-the-art coding agent for cost efficiency","topics":["Productivity","Developer Tools","Artificial Intelligence"],"slug":"reason-10","fit":8,"flag":"","reason":"coding agent in the cloud or locally, with your own models; starts free","offer":""},{"id":1135009,"day":"2026-10-14","rank":10,"name":"AirJelly","tagline":"Your Proactive, Self-Organizing Second Brain","topics":["Productivity","Artificial Intelligence","Virtual Assistants"],"slug":"airjelly","fit":3,"flag":"","reason":"desktop agent that watches your screen; desktop OS not stated","offer":""},{"id":1277837,"day":"2026-10-14","rank":11,"name":"Microsoft Maia 300","tagline":"Microsoft’s own AI chip, headed to multi-gigawatts","topics":["Hardware","Artificial Intelligence"],"slug":"microsoft-maia-300","fit":3,"flag":"np","reason":"Microsoft's AI chip announcement","offer":""},{"id":1279535,"day":"2026-10-14","rank":12,"name":"Specreel","tagline":"Product demos that update themselves","topics":["Open Source","Marketing","Developer Tools"],"slug":"specreel","fit":5,"flag":"","reason":"demo videos rendered from Playwright tests; more marketing than development","offer":""},{"id":1272957,"day":"2026-10-14","rank":13,"name":"Table Canon","tagline":"Automated notes, searchable history, prep ideas for GMs","topics":["Productivity","RPGs","Games"],"slug":"table-canon","fit":1,"flag":"","reason":"session notes for tabletop RPG game masters","offer":""},{"id":1277094,"day":"2026-10-14","rank":14,"name":"Mira Tours","tagline":"AI Walking Tour Guide","topics":["Android","Travel","Artificial Intelligence"],"slug":"mira-tours","fit":0,"flag":"","reason":"AI walking tours for Android; travel","offer":""},{"id":1274767,"day":"2026-10-14","rank":15,"name":"Rambox","tagline":"Ready-to-use workspaces as you switch tasks and contexts","topics":["Productivity","Google Cloud Run"],"slug":"rambox-2","fit":3,"flag":"","reason":"workspace app that bundles web apps; not in your scope","offer":""},{"id":1278289,"day":"2026-10-14","rank":16,"name":"Winq","tagline":"Control your Mac with a look and a wink","topics":["Productivity","User Experience","Tech"],"slug":"winq","fit":0,"flag":"","reason":"control a Mac with your face","offer":""},{"id":1279309,"day":"2026-10-14","rank":17,"name":"Nimble","tagline":"SOTA Decision Model","topics":["Artificial Intelligence","Google Cloud Run"],"slug":"nimble-90f6a585-1d47-49a9-b635-f5188b9c0d47","fit":3,"flag":"","reason":"new decision models with a free console; unclear what you'd use them for","offer":""},{"id":1279730,"day":"2026-10-14","rank":18,"name":"Cloud Releases","tagline":"Every AWS, Azure, GCP and Cloudflare update in one feed","topics":["Productivity","Developer Tools","Tech"],"slug":"cloud-releases","fit":4,"flag":"","reason":"update feed for AWS, Azure, GCP and Cloudflare; not Oracle Cloud","offer":""},{"id":1277320,"day":"2026-10-14","rank":19,"name":"Epherem","tagline":"Find login and database flaws in your AI-built app","topics":["Developer Tools","GitHub","Vibe coding"],"slug":"epherem","fit":5,"flag":"","reason":"security scanner for AI-built apps; free","offer":""},{"id":1275818,"day":"2026-10-14","rank":20,"name":"Make0 Brain","tagline":"A memory store that works across all of your AI agents.","topics":["Productivity","Developer Tools","Artificial Intelligence"],"slug":"make0-brain","fit":7,"flag":"","reason":"one memory store your agents read and write over MCP","offer":""},{"id":1279079,"day":"2026-10-14","rank":21,"name":"Apple HomePod mini 2","tagline":"Apple's tiny smart speaker, now built for Siri AI","topics":["Hardware","Artificial Intelligence","Apple"],"slug":"apple-homepod-mini-2","fit":1,"flag":"np","reason":"a smart speaker you buy","offer":""},{"id":1278703,"day":"2026-10-14","rank":22,"name":"EditUI","tagline":"Point at your UI. Tell your coding agent what to change.","topics":["Chrome Extensions","Design Tools","Developer Tools"],"slug":"editui","fit":6,"flag":"na","reason":"point at your UI and send changes to your coding agent; Chrome extension, no signup","offer":""},{"id":1270975,"day":"2026-10-14","rank":23,"name":"Spinachi AI","tagline":"Personal AI health manager on Whatsapp","topics":["Health & Fitness","Messaging","Artificial Intelligence"],"slug":"spinachi-ai","fit":1,"flag":"","reason":"health records on WhatsApp","offer":""},{"id":1276998,"day":"2026-10-14","rank":24,"name":"Orbora","tagline":"Create personalized guided audio: meditation, breath, ASMR","topics":["Android","Health & Fitness","Meditation"],"slug":"orbora","fit":0,"flag":"","reason":"meditation audio for Android","offer":""},{"id":1279093,"day":"2026-10-14","rank":25,"name":"Kugel 3.5","tagline":"Text-to-speech that beats any other Model out there","topics":["API","Artificial Intelligence","Development"],"slug":"kugel-3-5","fit":5,"flag":"","reason":"text-to-speech API; model access, but speech isn't something you asked for","offer":""},{"id":1279402,"day":"2026-10-14","rank":26,"name":"Hindsight 1.0 + Memlake","tagline":"Open source memory for AI agents to learn from experience","topics":["Open Source","Developer Tools","Artificial Intelligence"],"slug":"hindsight-1-0-memlake","fit":7,"flag":"","reason":"open-source agent memory; self-host free, or its Cloud with free credits","offer":"free credits on Hindsight Cloud"},{"id":1278222,"day":"2026-10-14","rank":27,"name":"CraveLens","tagline":"See it. Crave it. Get it.","topics":["Chrome Extensions","Artificial Intelligence","GitHub"],"slug":"cravelens","fit":0,"flag":"","reason":"food ordering from videos","offer":""},{"id":1271795,"day":"2026-10-14","rank":28,"name":"Keysi","tagline":"See every shortcut of the app you're in","topics":["Productivity","Developer Tools","Menu Bar Apps"],"slug":"keysi","fit":0,"flag":"","reason":"Mac shortcut viewer","offer":""},{"id":1276786,"day":"2026-10-14","rank":29,"name":"SupoClip","tagline":"Open-source AI clipper: long videos into viral shorts","topics":["Open Source","Artificial Intelligence","GitHub"],"slug":"supoclip","fit":2,"flag":"","reason":"clips long videos into shorts; social growth","offer":""},{"id":1275267,"day":"2026-10-14","rank":30,"name":"Acyclic","tagline":"Rapid agent swarms for any agentic workflow","topics":["Open Source","Developer Tools","Artificial Intelligence"],"slug":"acyclic","fit":7,"flag":"","reason":"splits an agent task across forked workspaces; bring your own keys","offer":""},{"id":1279161,"day":"2026-10-14","rank":31,"name":"Blade","tagline":"Find your first customers hiding in your inbox","topics":["Email","Email Marketing","Books"],"slug":"blade-2ada5263-6487-4ffb-be26-2b5ac48f64b2","fit":1,"flag":"","reason":"find customers in your inbox; sales","offer":""},{"id":1274156,"day":"2026-10-14","rank":32,"name":"OpenCouncil","tagline":"Voice rooms where your team and AIs debate together","topics":["Productivity","Artificial Intelligence","Audio"],"slug":"opencouncil","fit":3,"flag":"","reason":"voice rooms where a team debates with AIs; needs a team","offer":""},{"id":1279777,"day":"2026-10-14","rank":33,"name":"RoleFit","tagline":"Tailor every job application without starting from scratch","topics":["Productivity","Artificial Intelligence","Career"],"slug":"rolefit","fit":2,"flag":"","reason":"tailors job applications; career tools aren't in your scope","offer":""},{"id":1279216,"day":"2026-10-14","rank":34,"name":"NoteHouse","tagline":"Private lending, without the paperwork headache.","topics":["Fintech","Finance","Personal Finance"],"slug":"notehouse","fit":0,"flag":"","reason":"private lending tracker; finance","offer":""},{"id":1275986,"day":"2026-10-14","rank":35,"name":"Screenwell.ai","tagline":"An AI interviewer that runs your first-round screening","topics":["Hiring","Artificial Intelligence","Human Resources"],"slug":"screenwell-ai","fit":0,"flag":"","reason":"AI first-round interviews; you left out recruiting","offer":""},{"id":1226825,"day":"2026-10-14","rank":36,"name":"CSuite","tagline":"All-in-one suite for AI content creation, fully private.","topics":["Productivity","Privacy","Artificial Intelligence"],"slug":"csuite","fit":3,"flag":"na","reason":"desktop AI content suite, one-time payment, no login","offer":""},{"id":1278797,"day":"2026-10-14","rank":37,"name":"SlashDocs by Razorpay","tagline":"Self-hosted collaboration layer for agent-written HTML","topics":["Productivity","Open Source","Artificial Intelligence"],"slug":"slashdocs-by-razorpay","fit":6,"flag":"","reason":"self-hosted place where agents publish docs and take comments","offer":""},{"id":1275575,"day":"2026-10-14","rank":38,"name":"T-Scriptor","tagline":"Be in the lecture. T-Scriptor takes the notes.","topics":["Productivity","Notes","Meetings"],"slug":"t-scriptor","fit":3,"flag":"","reason":"lecture notes from transcription, but a Mac app","offer":""},{"id":1273797,"day":"2026-10-14","rank":39,"name":"Etchv","tagline":"invisible forensic watermarks in images, PDFs and videos","topics":["Developer Tools","Artificial Intelligence","Google Cloud Run"],"slug":"etchv","fit":3,"flag":"","reason":"invisible watermarks for images and video","offer":""},{"id":1279751,"day":"2026-10-14","rank":40,"name":"PixLate","tagline":"Translate documents. Preserve artwork and layout.","topics":["Productivity","Languages","Artificial Intelligence"],"slug":"pixlate","fit":4,"flag":"","reason":"translates documents and keeps their layout; pay as you go","offer":""},{"id":1279741,"day":"2026-10-14","rank":41,"name":"WriterzRoom","tagline":"Governed multi-agent AI content for regulated industries","topics":["Marketing","SaaS","Artificial Intelligence"],"slug":"writerzroom","fit":0,"flag":"","reason":"enterprise content pipeline; marketing","offer":""},{"id":1279613,"day":"2026-10-14","rank":42,"name":"Diagramly","tagline":"Sketch systems at the speed you think","topics":["Design Tools","Productivity","Digital Art"],"slug":"diagramly-2","fit":5,"flag":"na","reason":"type a system and get a hand-drawn diagram; free, no sign-up","offer":""},{"id":1273902,"day":"2026-10-14","rank":43,"name":"Dashrendr","tagline":"Build dashboards visually, embed them anywhere","topics":["SaaS","Business Intelligence","Data Visualization"],"slug":"dashrendr","fit":2,"flag":"","reason":"embeddable dashboards for SaaS","offer":""},{"id":1279319,"day":"2026-10-14","rank":44,"name":"AURORA Lifeline","tagline":"Know who a cyclone will cut off, before the roads close","topics":["Open Source","Artificial Intelligence","GitHub"],"slug":"aurora-lifeline","fit":1,"flag":"","reason":"cyclone road-access planning for district control rooms","offer":""},{"id":1272193,"day":"2026-10-14","rank":45,"name":"FamRelay","tagline":"Share facts between AI assistants — only what you approve","topics":["Productivity","Artificial Intelligence","Family"],"slug":"famrelay","fit":5,"flag":"","reason":"shares facts between people's AI assistants, with approval; close to your Assistant","offer":""},{"id":1275927,"day":"2026-10-14","rank":46,"name":"Elocuenti","tagline":"Agentic commerce: sell on WhatsApp and AI assistants","topics":["Messaging","Marketing","E-Commerce"],"slug":"elocuenti","fit":0,"flag":"","reason":"selling on WhatsApp; shopping","offer":""},{"id":1279512,"day":"2026-10-14","rank":47,"name":"Payload Peek","tagline":"Catch Webhooks. Inspect Payloads. Generate TypeScript.","topics":["API","Developer Tools","GitHub"],"slug":"payload-peek","fit":6,"flag":"na","reason":"webhook inbox that turns payloads into TypeScript types; no account","offer":""},{"id":1276020,"day":"2026-10-14","rank":48,"name":"LegacyFixer","tagline":"Python dependency security scans with optional fix PRs","topics":["Developer Tools","GitHub","Security"],"slug":"legacyfixer","fit":5,"flag":"","reason":"Python dependency scans with fix pull requests","offer":""}];
+</script>
+
+<script>
+// ---- The Miner's threshold logic: pure, no DOM. This is the part that lifts into the real module. ----
+const Miner = (() => {
+  const SCALINGS = {
+    sqrt:  { label: "√N, rounded up",        k: n => Math.ceil(Math.sqrt(n)) },
+    sixth: { label: "N ÷ 6, rounded up",     k: n => Math.ceil(n / 6) },
+    tenth: { label: "N ÷ 10, rounded up",    k: n => Math.ceil(n / 10) },
+    none:  { label: "No target (floor only)", k: () => Infinity },
+  };
+  const DEFAULTS = { scaling: "sqrt", floor: 7, ties: "soft", noAccount: "skip", generosity: 0 };
+
+  const targetCount = (n, scaling) => SCALINGS[scaling].k(n);
+
+  // The fit as the model returned it; a generous provider lifts everything it thinks is at all relevant.
+  const modelFit = (launch, s) => (launch.fit >= 3 ? Math.min(10, launch.fit + s.generosity) : launch.fit);
+
+  function standing(launch, state) {
+    if (state.registered.includes(launch.id)) return "relaunch";
+    if (launch.flag === "np") return "not-a-product";
+    if (launch.flag === "na" && state.settings.noAccount === "skip") return "no-account";
+    return "eligible";
+  }
+
+  // Drawn once, when every Featured Launch of the day has a judgment. Corrections never move it.
+  function drawLine(launches, state) {
+    const s = state.settings;
+    const n = launches.length;
+    const k = targetCount(n, s.scaling);
+    const pool = launches
+      .filter(l => standing(l, state) === "eligible")
+      .map(l => ({ id: l.id, fit: modelFit(l, s), rank: l.rank }))
+      .sort((a, b) => b.fit - a.fit || a.rank - b.rank);
+    const kth = Number.isFinite(k) && pool.length >= k ? pool[k - 1].fit : null;
+    const line = Math.max(s.floor, kth ?? 0);
+    const above = pool.filter(x => x.fit >= line);
+    const picked = s.ties === "strict" && Number.isFinite(k) ? above.slice(0, k) : above;
+    return { n, k, kth, line, setBy: kth !== null && kth > s.floor ? "target" : "floor",
+             reached: above.length, picked: new Set(picked.map(x => x.id)) };
+  }
+
+  function verdict(launch, state, isJudged, li) {
+    const s = state.settings;
+    const st = standing(launch, state);
+    if (st === "relaunch") return { kind: "relaunch", head: "Added to its Dossier", reason: "registered before; this Launch is noted there, not judged, and not counted" };
+    if (!isJudged) return { kind: "waiting", head: "Not judged yet", reason: "" };
+    const fit = modelFit(launch, s);
+    if (!li) return { kind: "pending", fit, head: `fit ${fit}`, reason: `${launch.reason} (waiting for the rest of the day)` };
+    const fixed = state.corrections[launch.id];
+    if (fixed !== undefined) {
+      const ok = fixed >= li.line;
+      return { kind: ok ? "dossier" : "skip", fit: fixed, corrected: true, near: false,
+               head: ok ? `Dossier · fit ${fixed} after your Correction` : `Skip · fit ${fixed} after your Correction, line ${li.line}`,
+               reason: launch.reason };
+    }
+    if (st === "not-a-product") return { kind: "gate", fit, head: "Skip · not a Product", reason: launch.reason };
+    if (st === "no-account") return { kind: "gate", fit, head: "Skip · nothing to sign up for", reason: launch.reason };
+    if (li.picked.has(launch.id)) return { kind: "dossier", fit, head: `Dossier · fit ${fit}`, reason: launch.reason };
+    if (fit >= li.line) return { kind: "skip", fit, near: true, head: `Skip · fit ${fit}, past today's target of ${li.k}`, reason: launch.reason };
+    return { kind: "skip", fit, near: fit === li.line - 1, head: `Skip · fit ${fit}, line ${li.line}`, reason: launch.reason };
+  }
+
+  function day(launches, state) {
+    const judged = state.judged === "all" ? launches.map(l => l.id) : state.judged;
+    const done = judged.length >= launches.length;
+    const li = done ? drawLine(launches, state) : null;
+    const rows = launches.map(l => ({ launch: l, ...verdict(l, state, judged.includes(l.id), li) }));
+    const count = pred => rows.filter(pred).length;
+    return {
+      n: launches.length, judgedCount: judged.length, done, li,
+      k: targetCount(launches.length, state.settings.scaling),
+      rows,
+      counts: {
+        dossier: count(r => r.kind === "dossier"),
+        near: count(r => r.kind === "skip" && r.near),
+        skip: count(r => r.kind === "skip"),
+        gate: count(r => r.kind === "gate"),
+        relaunch: count(r => r.kind === "relaunch"),
+      },
+    };
+  }
+
+  function initial(dayKey, settings = DEFAULTS) {
+    return { day: dayKey, judged: [], corrections: {}, registered: [], restarts: 0, settings: { ...settings } };
+  }
+
+  // (state, action) => state
+  function reduce(state, action, launches) {
+    const judgedIds = state.judged === "all" ? launches.map(l => l.id) : state.judged;
+    switch (action.type) {
+      case "day": return initial(action.day, state.settings);
+      case "startOver": return initial(state.day, state.settings);
+      case "judgeNext": {
+        const next = launches.filter(l => !judgedIds.includes(l.id)).sort((a, b) => a.rank - b.rank).slice(0, action.size).map(l => l.id);
+        return { ...state, judged: [...judgedIds, ...next] };
+      }
+      case "judgeAll": return { ...state, judged: launches.map(l => l.id) };
+      case "restart": return { ...state, restarts: state.restarts + 1 }; // judgments are stored as they're made, so nothing is lost
+      case "set": return { ...state, settings: { ...state.settings, [action.key]: action.value } };
+      case "defaults": return { ...state, settings: { ...DEFAULTS } };
+      case "correct": return { ...state, corrections: { ...state.corrections, [action.id]: action.fit } };
+      case "uncorrect": { const c = { ...state.corrections }; delete c[action.id]; return { ...state, corrections: c }; }
+      case "registered": {
+        const r = state.registered.filter(id => id !== action.id);
+        return { ...state, registered: action.on ? [...r, action.id] : r };
+      }
+      default: return state;
+    }
+  }
+
+  return { SCALINGS, DEFAULTS, targetCount, drawLine, day, initial, reduce };
+})();
+</script>
+
+<script>
+// ---- The page: a thin shell over Miner. ----
+const DAYS = [
+  { key: "2026-10-11", label: "Sun Oct 11" },
+  { key: "2026-10-12", label: "Mon Oct 12" },
+  { key: "2026-10-13", label: "Tue Oct 13" },
+  { key: "2026-10-14", label: "Wed Oct 14" },
+];
+const launchesFor = key => LAUNCHES.filter(l => l.day === key);
+const byName = (key, name) => launchesFor(key).find(l => l.name.startsWith(name)).id;
+const ordinal = n => n + (["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) ? 0 : (n % 10 < 4 ? n % 10 : 0)] || "th");
+
+const SCENARIOS = [
+  { id: "quiet", title: "A quiet day for you", day: "2026-10-11",
+    text: "27 Featured Launches, and only one is clearly something you'd want. The floor decides the day.",
+    watch: "Watch for: with the floor at 0, the line drops to fit 3 and you get 7 Dossiers, three of them for Mac-only apps, each with a Walkthrough to prepare.",
+    steps: [
+      { label: "Judge all 27 Launches", actions: [{ type: "judgeAll" }] },
+      { label: "Drop the floor to 0, so the top 6 go out whatever they score", actions: [{ type: "set", key: "floor", value: 0 }] },
+      { label: "Put the floor back at 7", actions: [{ type: "set", key: "floor", value: 7 }] },
+    ] },
+  { id: "rich", title: "Small day, many good fits", day: "2026-10-12",
+    text: "Only 19 Launches, but four clearly fit. A target that shrinks with the Launch count can cut a good one.",
+    watch: "Watch for: at N ÷ 10 the target is 2, the line rises to 8, and Cube Forms (fit 7) becomes a Skip.",
+    steps: [
+      { label: "Judge all 19 Launches", actions: [{ type: "judgeAll" }] },
+      { label: "Tighten the target to N ÷ 10 (2 today)", actions: [{ type: "set", key: "scaling", value: "tenth" }] },
+      { label: "Make ties strict", actions: [{ type: "set", key: "ties", value: "strict" }] },
+      { label: "Back to √N and soft ties", actions: [{ type: "set", key: "scaling", value: "sqrt" }, { type: "set", key: "ties", value: "soft" }] },
+    ] },
+  { id: "busy", title: "Busy day, generous model", day: "2026-10-14",
+    text: "48 Launches. With the usual model the floor sets the line. A provider that scores everything higher is what the target is for.",
+    watch: "Watch for: at +2, with no target, 14 Launches clear the floor. With √N, the line rises to 8 and you get 8.",
+    steps: [
+      { label: "Judge all 48 Launches", actions: [{ type: "judgeAll" }] },
+      { label: "Swap in a provider that scores 2 points higher", actions: [{ type: "set", key: "generosity", value: 2 }] },
+      { label: "Take the target away (floor only)", actions: [{ type: "set", key: "scaling", value: "none" }] },
+      { label: "Put the √N target back", actions: [{ type: "set", key: "scaling", value: "sqrt" }] },
+      { label: "Back to the usual provider", actions: [{ type: "set", key: "generosity", value: 0 }] },
+    ] },
+  { id: "correct", title: "Correcting a near miss", day: "2026-10-14",
+    text: "A Correct button sits on every Skip and Dossier. The Miner re-judges that Launch with your words; the line stays where it was.",
+    watch: "Watch for: daily.dev becomes a Dossier and the day goes one over its target. The line doesn't move, and no other Launch changes.",
+    steps: [
+      { label: "Judge all 48 Launches", actions: [{ type: "judgeAll" }] },
+      { label: "Correct daily.dev, \"I'd use this\": it comes back fit 8", actions: [{ type: "correct", id: () => byName("2026-10-14", "daily.dev"), fit: 8 }] },
+      { label: "Correct Inferock, \"I already pay for inference\": it comes back fit 3", actions: [{ type: "correct", id: () => byName("2026-10-14", "Inferock"), fit: 3 }] },
+    ] },
+  { id: "halfway", title: "The Miner stops halfway", day: "2026-10-14",
+    text: "Each run judges a small batch, and each judgment is stored as it's made. Nothing reaches you until the whole day is judged.",
+    watch: "Watch for: after the restart the 24 stored judgments are kept, and the line appears only when the last batch is in.",
+    steps: [
+      { label: "Judge the first 8", actions: [{ type: "judgeNext", size: 8 }] },
+      { label: "Judge the next 8", actions: [{ type: "judgeNext", size: 8 }] },
+      { label: "Judge the next 8", actions: [{ type: "judgeNext", size: 8 }] },
+      { label: "The VM restarts: restart the Miner", actions: [{ type: "restart" }] },
+      { label: "Judge the remaining 24", actions: [{ type: "judgeAll" }] },
+    ] },
+  { id: "noacct", title: "Nothing to sign up for", day: "2026-10-13",
+    text: "Some Launches say they need no account: open-source tools, local apps. The glossary's Product is something you could hold an account with.",
+    watch: "Watch for: Xiryn (fit 8, no account) is Skipped or becomes a Dossier with nothing to register.",
+    steps: [
+      { label: "Judge all 29 Launches", actions: [{ type: "judgeAll" }] },
+      { label: "Judge no-account Launches like any other", actions: [{ type: "set", key: "noAccount", value: "judge" }] },
+      { label: "Skip them again", actions: [{ type: "set", key: "noAccount", value: "skip" }] },
+    ] },
+  { id: "relaunch", title: "A re-Launch you registered", day: "2026-10-13",
+    text: "A Product has at most one Registration. Its later Launches join its Dossier, aren't judged, and don't count against the line.",
+    watch: "Watch for: OpenCode 2.0 leaves the Dossiers and the line stays at 7.",
+    steps: [
+      { label: "Judge all 29 Launches", actions: [{ type: "judgeAll" }] },
+      { label: "Suppose you registered OpenCode at its first Launch", actions: [{ type: "registered", id: () => byName("2026-10-13", "OpenCode"), on: true }] },
+    ] },
+];
+
+let state = Miner.initial("2026-10-14");
+let view = null;
+let scenario = { id: null, done: 0 };
+let openFix = null;
+let sortMode = "verdict";
+
+function dispatch(action, quiet) {
+  const a = { ...action, id: typeof action.id === "function" ? action.id() : action.id };
+  const before = view;
+  state = Miner.reduce(state, a, launchesFor(state.day));
+  render(quiet ? null : before);
+}
+
+function describeChange(before, after) {
+  if (!before || before.rows[0].launch.day !== after.rows[0].launch.day) return "";
+  const parts = [];
+  if (before.judgedCount !== after.judgedCount) parts.push(`Judged ${after.judgedCount} of ${after.n}.`);
+  const bl = before.li?.line, al = after.li?.line;
+  if (after.done && !before.done) parts.push(`Line drawn at fit ${al}.`);
+  else if (bl !== undefined && al !== undefined && bl !== al) parts.push(`Line ${bl} → ${al}.`);
+  if (before.done && after.done) {
+    const was = new Map(before.rows.map(r => [r.launch.id, r.kind]));
+    const gained = after.rows.filter(r => r.kind === "dossier" && was.get(r.launch.id) !== "dossier").map(r => r.launch.name);
+    const lost = after.rows.filter(r => r.kind !== "dossier" && was.get(r.launch.id) === "dossier").map(r => r.launch.name);
+    if (gained.length) parts.push(`New Dossiers: ${gained.join(", ")}.`);
+    if (lost.length) parts.push(`No longer Dossiers: ${lost.join(", ")}.`);
+    if (!gained.length && !lost.length && bl === al) parts.push("No verdict changed.");
+  }
+  return parts.filter(Boolean).join(" ");
+}
+
+function render(before) {
+  const launches = launchesFor(state.day);
+  view = Miner.day(launches, state);
+  view.restarts = state.restarts;
+  renderSummary(before);
+  renderControls();
+  renderScenario();
+  renderRows();
+}
+
+function renderSummary(before) {
+  const s = state.settings, v = view, d = DAYS.find(x => x.key === state.day);
+  const kText = Number.isFinite(v.k) ? `${v.k} (${Miner.SCALINGS[s.scaling].label.replace("N", v.n)})` : "none";
+  const gen = s.generosity ? ` · model +${s.generosity}` : "";
+  document.getElementById("facts").innerHTML = `
+    <div><dt>Day</dt><dd>${d.label}</dd></div>
+    <div><dt>Featured Launches</dt><dd>${v.n}</dd></div>
+    <div><dt>Target</dt><dd>${kText}</dd></div>
+    <div><dt>Floor</dt><dd>fit ${s.floor}${gen}</dd></div>`;
+  const li = v.li;
+  let line;
+  if (!v.done) {
+    const r = state.restarts ? ` The Miner restarted ${state.restarts === 1 ? "once" : state.restarts + " times"}; stored judgments were kept.` : "";
+    line = `<span class="eyebrow">Today's line</span><span class="big">Not drawn yet</span><p>${v.judgedCount} of ${v.n} judged. Nothing goes to Discord until every Featured Launch has a judgment.${r}</p>`;
+  } else if (li.setBy === "target") {
+    const over = li.picked.size - li.k;
+    const tie = over > 0 ? ` ${over} over the target, because every Launch tied at ${li.line} gets a Dossier.` : "";
+    const strict = s.ties === "strict" && li.reached > li.k ? ` ${li.reached - li.k} at or above the line ${li.reached - li.k === 1 ? "was" : "were"} cut at the target.` : "";
+    line = `<span class="eyebrow">Today's line</span><span class="big">fit ${li.line}, set by the target</span><p>The ${ordinal(li.k)} best eligible Launch scored ${li.kth}, above the floor of ${s.floor}.${tie}${strict}</p>`;
+  } else {
+    const k = Number.isFinite(li.k) ? `, ${li.reached < li.k ? "fewer than" : "as many as"} the target of ${li.k}` : "";
+    line = `<span class="eyebrow">Today's line</span><span class="big">fit ${li.line}, set by the floor</span><p>${li.reached} eligible Launch${li.reached === 1 ? "" : "es"} reached it${k}.</p>`;
+  }
+  document.getElementById("lineinfo").innerHTML = line;
+  const c = v.counts;
+  document.getElementById("counts").innerHTML = v.done ? `
+    <span class="pill dossier">${c.dossier} Dossier${c.dossier === 1 ? "" : "s"}</span>
+    <span class="pill near">${c.near} near miss${c.near === 1 ? "" : "es"}</span>
+    <span class="pill skip">${c.skip} Skip${c.skip === 1 ? "" : "s"} on fit</span>
+    <span class="pill gate">${c.gate} not a Product or no account</span>
+    ${c.relaunch ? `<span class="pill gate">${c.relaunch} added to a Dossier</span>` : ""}` : "";
+  const msg = before ? describeChange(before, view) : "";
+  const restartMsg = before && before.restarts !== state.restarts ? `Restarted. ${view.judgedCount} stored judgments kept; ${view.n - view.judgedCount} Launches still to judge.` : "";
+  document.getElementById("changed").textContent = restartMsg || msg;
+}
+
+function renderControls() {
+  const s = state.settings;
+  const daySel = document.getElementById("day");
+  if (!daySel.options.length) daySel.innerHTML = DAYS.map(d => `<option value="${d.key}">${d.label} · ${launchesFor(d.key).length} Launches</option>`).join("");
+  daySel.value = state.day;
+  const sc = document.getElementById("scaling");
+  if (!sc.options.length) sc.innerHTML = Object.entries(Miner.SCALINGS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+  sc.value = s.scaling;
+  Array.from(sc.options).forEach(o => {
+    const k = Miner.targetCount(view.n, o.value);
+    o.textContent = Miner.SCALINGS[o.value].label + (Number.isFinite(k) ? ` · ${k} today` : "");
+  });
+  document.getElementById("floor").value = s.floor;
+  document.getElementById("floorval").textContent = s.floor;
+  document.getElementById("ties-" + s.ties).checked = true;
+  document.getElementById("noacct-" + s.noAccount).checked = true;
+  document.getElementById("gen").value = String(s.generosity);
+  document.getElementById("judge8").disabled = view.done;
+  document.getElementById("judgeall").disabled = view.done;
+}
+
+function renderScenario() {
+  document.getElementById("tabs").innerHTML = SCENARIOS.map(sc =>
+    `<button class="tab" role="tab" type="button" data-sc="${sc.id}" aria-selected="${scenario.id === sc.id}">${sc.title}</button>`).join("");
+  const box = document.getElementById("scenario");
+  const sc = SCENARIOS.find(x => x.id === scenario.id);
+  if (!sc) {
+    box.innerHTML = `<p class="watch">Pick a walkthrough. Each one resets to a known day and the default settings, then gives you the buttons to press in order.</p>`;
+    return;
+  }
+  box.innerHTML = `<p>${sc.text}</p><p class="watch">${sc.watch}</p>
+    <ol class="steps">${sc.steps.map((st, i) => {
+      const cls = i < scenario.done ? "done" : i === scenario.done ? "next" : "";
+      return `<li><button class="step ${cls}" type="button" data-step="${i}" ${i === scenario.done ? "" : "disabled"}>${st.label}</button></li>`;
+    }).join("")}</ol>
+    ${scenario.done >= sc.steps.length ? `<p class="watch">Done. Press the tab again to replay it.</p>` : ""}`;
+}
+
+function esc(t) { return String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function renderRows() {
+  const order = { dossier: 0, skip: 1, gate: 2, relaunch: 3, pending: 1, waiting: 4 };
+  let rows = [...view.rows];
+  if (sortMode === "verdict") rows.sort((a, b) => order[a.kind] - order[b.kind] || (b.fit ?? -1) - (a.fit ?? -1) || a.launch.rank - b.launch.rank);
+  else rows.sort((a, b) => a.launch.rank - b.launch.rank);
+  const line = view.li?.line;
+  let html = "", dividerDone = false;
+  rows.forEach(r => {
+    const l = r.launch;
+    if (sortMode === "verdict" && view.done && !dividerDone && r.kind !== "dossier") {
+      html += `<li class="divider">Today's line · fit ${line}</li>`;
+      dividerDone = true;
+    }
+    const cells = Array.from({ length: 10 }, (_, i) => {
+      const n = i + 1;
+      return `<i class="${r.fit !== undefined && n <= r.fit ? "on" : ""} ${view.done && n === line ? "at" : ""}"></i>`;
+    }).join("");
+    const canFix = view.done && r.kind !== "relaunch";
+    const fix = openFix === l.id ? `
+      <div class="fix">
+        <span>After your Correction, the Miner re-judges this Launch. It comes back</span>
+        <select id="fixfit-${l.id}" aria-label="Fit after the Correction">${Array.from({ length: 11 }, (_, i) => `<option value="${i}" ${i === (state.corrections[l.id] ?? r.fit ?? 0) ? "selected" : ""}>fit ${i}</option>`).join("")}</select>
+        <button class="small" type="button" data-apply="${l.id}">Apply</button>
+        ${state.corrections[l.id] !== undefined ? `<button class="small" type="button" data-unfix="${l.id}">Undo the Correction</button>` : ""}
+        <label class="opt"><input type="checkbox" data-reg="${l.id}" ${state.registered.includes(l.id) ? "checked" : ""}> You registered this Product at an earlier Launch</label>
+      </div>` : "";
+    html += `<li class="row k-${r.kind} ${r.near ? "near" : ""}">
+      <span class="rk">#${l.rank}</span>
+      <div class="main">
+        <div class="name"><a href="https://www.producthunt.com/posts/${encodeURIComponent(l.slug)}" target="_blank" rel="noopener">${esc(l.name)}</a> <span class="topics">${esc(l.topics.join(" · "))}</span></div>
+        <div class="tagline">${esc(l.tagline)}</div>
+        <div class="text"><b>${esc(r.head)}</b>${r.reason ? " · " + esc(r.reason) : ""}</div>
+      </div>
+      <div class="side">
+        ${r.fit !== undefined ? `<span class="meter" aria-label="fit ${r.fit} of 10">${cells}</span>` : ""}
+        ${canFix ? `<button class="small" type="button" data-fix="${l.id}" aria-expanded="${openFix === l.id}">Correct</button>` : ""}
+        ${r.kind === "relaunch" ? `<button class="small" type="button" data-unreg="${l.id}">Not registered</button>` : ""}
+      </div>
+      ${fix}
+    </li>`;
+  });
+  document.getElementById("rows").innerHTML = html;
+}
+
+// Wiring
+document.getElementById("day").addEventListener("change", e => { scenario = { id: null, done: 0 }; openFix = null; dispatch({ type: "day", day: e.target.value }, true); });
+document.getElementById("judge8").addEventListener("click", () => dispatch({ type: "judgeNext", size: 8 }));
+document.getElementById("judgeall").addEventListener("click", () => dispatch({ type: "judgeAll" }));
+document.getElementById("restart").addEventListener("click", () => dispatch({ type: "restart" }));
+document.getElementById("startover").addEventListener("click", () => { openFix = null; dispatch({ type: "startOver" }, true); });
+document.getElementById("scaling").addEventListener("change", e => dispatch({ type: "set", key: "scaling", value: e.target.value }));
+document.getElementById("floor").addEventListener("input", e => dispatch({ type: "set", key: "floor", value: Number(e.target.value) }));
+document.querySelectorAll('input[name="ties"]').forEach(el => el.addEventListener("change", e => dispatch({ type: "set", key: "ties", value: e.target.value })));
+document.querySelectorAll('input[name="noacct"]').forEach(el => el.addEventListener("change", e => dispatch({ type: "set", key: "noAccount", value: e.target.value })));
+document.getElementById("gen").addEventListener("change", e => dispatch({ type: "set", key: "generosity", value: Number(e.target.value) }));
+document.getElementById("sort").addEventListener("change", e => { sortMode = e.target.value; renderRows(); });
+
+document.getElementById("tabs").addEventListener("click", e => {
+  const b = e.target.closest("[data-sc]"); if (!b) return;
+  const sc = SCENARIOS.find(x => x.id === b.dataset.sc);
+  scenario = { id: sc.id, done: 0 }; openFix = null;
+  state = Miner.initial(sc.day, Miner.DEFAULTS);
+  render(null);
+});
+document.getElementById("scenario").addEventListener("click", e => {
+  const b = e.target.closest("[data-step]"); if (!b) return;
+  const sc = SCENARIOS.find(x => x.id === scenario.id);
+  const i = Number(b.dataset.step);
+  if (i !== scenario.done) return;
+  scenario.done = i + 1;
+  const before = view;
+  sc.steps[i].actions.forEach(a => { state = Miner.reduce(state, { ...a, id: typeof a.id === "function" ? a.id() : a.id }, launchesFor(state.day)); });
+  render(before);
+});
+document.getElementById("rows").addEventListener("click", e => {
+  const f = e.target.closest("[data-fix]");
+  if (f) { const id = Number(f.dataset.fix); openFix = openFix === id ? null : id; renderRows(); return; }
+  const a = e.target.closest("[data-apply]");
+  if (a) { const id = Number(a.dataset.apply); dispatch({ type: "correct", id, fit: Number(document.getElementById("fixfit-" + id).value) }); return; }
+  const u = e.target.closest("[data-unfix]");
+  if (u) { dispatch({ type: "uncorrect", id: Number(u.dataset.unfix) }); return; }
+  const g = e.target.closest("[data-unreg]");
+  if (g) dispatch({ type: "registered", id: Number(g.dataset.unreg), on: false });
+});
+document.getElementById("rows").addEventListener("change", e => {
+  const r = e.target.closest("[data-reg]");
+  if (r) { const id = Number(r.dataset.reg); if (r.checked) openFix = null; dispatch({ type: "registered", id, on: r.checked }); }
+});
+
+// Opens on a working day: Wed Oct 14, fully judged, default settings.
+state = Miner.reduce(state, { type: "judgeAll" }, launchesFor(state.day));
+render(null);
+</script>
