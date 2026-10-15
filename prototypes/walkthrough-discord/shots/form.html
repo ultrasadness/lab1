@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- PROTOTYPE, throwaway: the filled Quill CRM form a Submit tap shows. Rendered once by make-shots.cjs. -->
+<html><head><meta charset="utf-8"><style>
+  body { margin: 0; font: 15px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; background: #f3f4f6; color: #111827; }
+  .bar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 16px; font-size: 13px; color: #6b7280; }
+  .bar b { color: #111827; }
+  .card { width: 420px; margin: 28px auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 24px 28px; }
+  h1 { font-size: 20px; margin: 0 0 4px; } p.sub { margin: 0 0 18px; color: #6b7280; font-size: 14px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+  .in { border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 10px; background: #fff; }
+  .masked { background: repeating-linear-gradient(45deg, #e5e7eb, #e5e7eb 6px, #d1d5db 6px, #d1d5db 12px); color: #374151; font-size: 12px; }
+  .changed { outline: 3px solid #f59e0b; outline-offset: 2px; }
+  .row { display: flex; gap: 10px; } .row > div { flex: 1; }
+  .check { display: flex; gap: 8px; align-items: flex-start; margin-top: 14px; font-size: 13px; }
+  .box { width: 16px; height: 16px; border: 1px solid #9ca3af; border-radius: 3px; flex: none; margin-top: 1px; text-align: center; line-height: 15px; font-size: 12px; }
+  .box.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+  a { color: #2563eb; }
+  .btn { margin-top: 18px; background: #2563eb; color: #fff; border-radius: 6px; padding: 10px; text-align: center; font-weight: 600; }
+  .named { outline: 4px solid #ef4444; outline-offset: 4px; }
+  .note { font-size: 11px; color: #b45309; margin-top: 3px; }
+</style></head><body>
+<div class="bar">🔒 <b>app.quillcrm.example</b>/signup</div>
+<div class="card">
+  <h1>Create your Quill account</h1>
+  <p class="sub">Free for teams up to 3. No card needed.</p>
+  <div class="row">
+    <div><label>First name</label><div class="in">Alex</div></div>
+    <div><label>Last name</label><div class="in">Example</div></div>
+  </div>
+  <label>Work email</label><div class="in">you+quillcrm@gmail.com</div>
+  <label>Password</label><div class="in masked">filled by reference · hidden</div>
+  <label>Team size</label><div class="in changed">2–10 ▾</div>
+  <div class="note">TEAM_SIZE_NOTE</div>
+  <div class="check"><div class="box on">✓</div><div>I agree to the <a>Terms of Service</a> and <a>Privacy Policy</a></div></div>
+  <div class="check"><div class="box">&nbsp;</div><div>Send me product tips and offers</div></div>
+  <div class="btn named">Start free</div>
+</div>
+</body></html>
