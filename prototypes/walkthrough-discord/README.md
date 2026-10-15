@@ -40,3 +40,31 @@ Names and addresses (`Alex Example`, `you+<product>@gmail.com`) are placeholders
 ```
 
 Needs `~/.config/lab1/discord-bot-token` (mode 600). The bot must be in exactly one server, and Community must be on for variant A. The server's owner is taken to be the person. `shots/` holds the Submit tap screenshots, rendered once with `make-shots.cjs` in the Takeover rig's Playwright image.
+
+---
+
+# PROTOTYPE, throwaway: the Miner's day list on Discord
+
+Answers [How does the day's list of Dossiers and Skips look on Discord?](https://github.com/ultrasadness/lab1/issues/29). It reuses this folder's bot setup and `kit.mjs`, but runs as its own bot, `day.mjs`, with its own `prototype-29` category. Kept as a primary source; not production code.
+
+**Plan:** three variants of one Miner day, posted into the person's private server and tried on the iPhone, picked from `#proto-29`:
+
+| Variant | Where | Shape | Correct | Notifies |
+|---|---|---|---|---|
+| **A** | `#a-miner`, its own channel | one message per day; every Launch is a line of text, grouped into Dossiers, near misses, further off, far off, not Products | two select menus (25 options each); picking a Launch opens the one-field pop-up | no, silent |
+| **B** | `#needs-you` | one card per day; ten lines a page with Back / Next; **Done** shrinks it to one line | a button on every line | yes, one @mention |
+| **C** | `#c-days`, a forum with a post per day | a summary with the Dossier links, then one message per band, every Launch on show | a button on every line | no, silent |
+
+Every variant shows the Day's line and why it is where it is, links each Dossier line to its post in `#products`, and ends with "Data sourced from Product Hunt", linked to that day's leaderboard.
+
+**The data is real.** It covers every Featured Launch from Oct 11–14, 2026 (27, 19, 29 and 48 a day), read through the Product Hunt API, with the hand-judged stand-in fits and reasons from the [Miner threshold prototype](https://github.com/ultrasadness/lab1/blob/prototype/miner-threshold/prototypes/miner-threshold.html) (`days.json`). The Day's line follows #9: the ⌈√N⌉-th best Fit, never below 7.
+
+**Stubs:** Corrections don't re-judge. A corrected Skip comes back as a Dossier at the line + 1, with a new post. A corrected Dossier comes back at fit 3 and is withdrawn. Either way, a stand-in proposed Interest scope change lands in `#needs-you`. Walkthroughs are not posted; #12 already settled them.
+
+## Run
+
+```sh
+./run.sh day              # start the day-list bot (stop #12's bot first: both answer taps)
+PREPOST=A,C node day.mjs  # the same, posting Oct 14 in those variants on start
+SELFTEST=1 node day.mjs   # post every variant for every day, correct a Skip and a Dossier in each, without @mentions, then reset
+```
