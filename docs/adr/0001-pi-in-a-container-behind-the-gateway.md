@@ -1,6 +1,6 @@
 # Pi in a container behind the person's gateway runs the Assistant
 
-The Assistant's agent loop is the open-source Pi harness. It runs inside one long-lived Docker container, and the Discord bot starts one Pi process per run (`docker exec … pi --mode rpc`). Models come from the person's own plans, served through new-api as the only endpoint the container can reach, with CLIProxyAPI (CPA) behind it holding its own ChatGPT Plus login. The person wanted a harness they can extend feature by feature, on models they already pay for, with at least two providers so that losing one plan is a configuration change. Pi is extended with TypeScript modules, embeds or runs over RPC, is stable enough to pin (1.x), and speaks every wire API the plans use. Decided in [Which agent harness and model does the Assistant run on?](https://github.com/ultrasadness/lab1/issues/8).
+The Assistant's agent loop is the open-source Pi harness. It runs inside one long-lived Docker container, and the Discord bot starts one Pi process per run (`docker exec … pi --mode rpc`). Models come from the person's own plans, served through new-api, which the container reaches only through the bot's key-adding forwarder ([ADR 0009](./0009-the-bot-runs-as-its-own-user-and-holds-every-token-outside-the-containers.md)), with CLIProxyAPI (CPA) behind it holding its own ChatGPT Plus login. The person wanted a harness they can extend feature by feature, on models they already pay for, with at least two providers so that losing one plan is a configuration change. Pi is extended with TypeScript modules, embeds or runs over RPC, is stable enough to pin (1.x), and speaks every wire API the plans use. Decided in [Which agent harness and model does the Assistant run on?](https://github.com/ultrasadness/lab1/issues/8).
 
 ## Considered Options
 
@@ -13,7 +13,7 @@ The Assistant's agent loop is the open-source Pi harness. It runs inside one lon
 ## Consequences
 
 - **Hard limits are enforced below the model**, by narrow scopes, the Assistant's own tools, the container and the gateway quota. Pi has no sandbox or permission system of its own, and its `tool_call` block is only a second layer.
-- **The container holds no Secret or token.** Anything that needs one (a Gmail draft, a field filled by reference, a Discord post) goes through one narrow interface to the bot outside.
+- **The container holds no Secret or token.** Anything that needs one (a Gmail draft, a field filled by reference, a Discord post) goes through one narrow interface to the bot outside. Where each token lives is [ADR 0009](./0009-the-bot-runs-as-its-own-user-and-holds-every-token-outside-the-containers.md).
 - **An Approval is a gate between runs, never a pause inside one.** A run ends at a decision point, and a new run, or plain code, acts on exactly what was approved.
 - **Pi, the container image, new-api and the model behind each role are pinned.** Upgrades are deliberate, each gated by the Rule carry-over check and a Miner dry run.
 - **Pi's machine-local files (`~/.pi/agent/`) are empty by construction in the image.** Unattended runs need `--approve`, or a trusted project, for skills kept in git to load.
