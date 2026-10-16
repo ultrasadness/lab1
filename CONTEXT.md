@@ -84,7 +84,7 @@ The mailbox kept only for Registrations. Every Signup identity's address deliver
 _Avoid_: Inbox, signup Gmail, registration account
 
 **Reply draft**:
-An email reply the Assistant prepares from the Personal database; only the person's approved final version is ever sent.
+An email reply the Assistant prepares to mail from a Product, drawing on the thread and the Personal database; only the person's approved final version is ever sent.
 _Avoid_: Response, message
 
 **Hard limit**:
