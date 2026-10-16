@@ -30,9 +30,9 @@ They are served by the VM's Caddy at `/`, `/privacy` and `/terms` on a random su
 
 `publish.sh` walks the person through the steps only they can do:
 
-1. Add the proxied Cloudflare DNS record for the pages, and the strict-SSL exception if Cloudflare answers 526.
+1. Add the proxied Cloudflare DNS record for the pages, and the strict-SSL exception if Cloudflare answers 526. The record's IPv4 is the VM's Oracle public IP, the same as `na`'s record. The address the VM shows going out is sing-box's exit on another network.
 2. Optionally turn off Always Use HTTPS so `na` and `gl` renew. The pages don't need this, but their origin certificates end 30 Oct, because Cloudflare's redirect sends Let's Encrypt's `http://` check to new-api.
-3. Fill in Branding.
+3. Fill in Branding, and verify `pot.dpdns.org` as a Search Console Domain property with a TXT record on the apex. Publish app refuses with "The website of your homepage URL … is not registered to you" until that's done.
 4. Press Publish app.
 5. Consent again from the Signup mailbox.
 6. Start the day-8 check.

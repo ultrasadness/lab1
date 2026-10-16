@@ -193,7 +193,6 @@ umask 077
 DEVCONSOLE="https://console.developers.google.com"   # the host Google's Auth platform docs link to
 DOMAIN="pot.dpdns.org"            # the authorized domain: Google wants the top private domain
 PAGES="q9hg4g8k5r.pot.dpdns.org"   # random, so it isn't in scanners' wordlists
-VM_IP="212.69.0.219"
 APP_NAME="Signup Assistant"   # the pages in ops/pages use this name
 CERTS="/data/caddy/certificates/acme-v02.api.letsencrypt.org-directory"
 
@@ -237,6 +236,8 @@ wait_for() {
 }
 
 resolves()  { [[ -n "$(dig +short "$PAGES" A)" ]]; }
+# Asks Google's public resolver, which is what Search Console checks against.
+txt_up()    { curl -s --max-time 8 "https://dns.google/resolve?name=$DOMAIN&type=TXT" | grep -q google-site-verification; }
 page_code() { curl -s -o /dev/null --max-time 10 -w '%{http_code}' "https://$PAGES/privacy" || true; }
 cert_end() { docker exec caddy cat "$CERTS/$1/$1.crt" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2; }
 
@@ -245,8 +246,9 @@ s1() {
   say "The pages are already on the VM's Caddy at $PAGES. It has no DNS record yet."
   open_url "https://dash.cloudflare.com/"
   step "Open the $DOMAIN zone → DNS → Records → Add record."
-  step "Type A, Name ${PAGES%%.*}, IPv4 address $VM_IP, Proxy status Proxied (orange)"
-  say  "  → Save."
+  step "Type A, Name ${PAGES%%.*}, IPv4 address: the same as na's A record (the VM's"
+  say  "  Oracle public IP), Proxy status Proxied (orange) → Save."
+  note "Not the address the VM shows going out: sing-box sends that through another network."
   note "It must stay proxied. Caddy serves this name with its own internal certificate,"
   note "so it never shows up in public certificate logs, and only Cloudflare accepts that."
   pause "Enter once it's saved"
@@ -309,6 +311,20 @@ s3() {
   say  "            Application terms of service link  https://$PAGES/terms"
   step "Authorized domains → Add domain → $DOMAIN (the parent: Google takes no subdomain here)"
   step "Developer contact information: the Signup mailbox → Save."
+  say  ""
+  say  "Publish app checks that the home page's site is registered to you, so verify"
+  say  "$DOMAIN in Search Console now, as the Signup mailbox (the project's owner):"
+  open_url "https://search.google.com/search-console"
+  step "Add property → Domain (the left box) → $DOMAIN → Continue → copy the whole"
+  say  "  google-site-verification=… value."
+  step "Cloudflare, $DOMAIN zone → DNS → Records → Add record: Type TXT, Name @,"
+  say  "  Content the copied value → Save."
+  if txt_up || wait_for "the TXT record in Google's DNS" 300 txt_up; then
+    step "Back in Search Console → Verify."
+  else
+    warn "No TXT record yet; Verify will fail until Google's DNS shows it."
+  fi
+  pause "Enter once Search Console says ownership is verified"
   observe "Branding saved" "Did it save? Paste any warning or error about the domain or URLs, or type none:"
   pause "Enter for the next stage"
 }
