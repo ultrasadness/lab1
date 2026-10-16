@@ -70,3 +70,38 @@ Every variant shows the Day's line and why it is where it is, links each Dossier
 PREPOST=A,C node day.mjs  # the same, posting Oct 14 in those variants on start
 SELFTEST=1 node day.mjs   # post every variant for every day, correct a Skip and a Dossier in each, without @mentions, then reset
 ```
+
+---
+
+# PROTOTYPE, throwaway: a Dossier in its Product post, and in git
+
+Answers [How does a Dossier read in its Product post, and how is it kept in git?](https://github.com/ultrasadness/lab1/issues/33). It reuses this folder's bot setup and `kit.mjs`, but runs as its own bot, `dossier.mjs`, with its own `prototype-33` category. Kept as a primary source; not production code.
+
+**Plan:** three variants of the Dossier as the first message of its Product post, each in its own forum, picked from `#proto-33`, plus three layouts of the same Dossiers in git, read on GitHub:
+
+| Variant | Where | Shape | Citations | Buttons |
+|---|---|---|---|---|
+| **A** | `#a-products` | one card: Register, What it is, For you, Offers, Note, Launches | footnote numbers on every claim, the sources listed once at the foot (¹ is always the Launch) | Add Offer · Correct |
+| **B** | `#b-products` | a row per claim | the claim's source as a link button beside it, any others in small text below | Add Offer · Correct |
+| **C** | `#c-products` | a short verdict: a one-line gist, how to register, the first Offer | a short inline link after each line; the full Dossier is in git | Full Dossier ↗ · Add Offer · Correct |
+
+| Git layout | Files | Holds more than the message? | Registration lines | Your notes |
+|---|---|---|---|---|
+| **1 · one file** | `products/<domain>.md` | yes: what each source said, quoted | a section in the same file | the last section, below a line the bot never crosses |
+| **2 · folder** | `products/<domain>/dossier.md`, `registration.md`, `notes.md` | no: `dossier.md` mirrors the message | their own file, appended | their own file, the bot never writes it |
+| **3 · by date** | `dossiers/<day>-<domain>.md`, `registrations.md`, `notes/<domain>.md` | yes, as in 1 | one log for every Product | a file per Product |
+
+All three are generated into `dossier-git/` by `node dossier-git.mjs`; `dossier-git/README.md` links each file.
+
+**The Dossiers are real.** Seven of the 14 Dossier Launches of Oct 11–14, 2026, picked to cover each case: Edgee Mod for Claude Code (Oct 11), Codemind (Oct 12), Xiryn (Oct 13; no account, so no Walkthrough), and Inferock, Tiden, Hindsight and Acyclic (Oct 14). Claude wrote them by hand (`dossiers.mjs`) from what the Assistant may read: the Launch and its Maker comment through API v2, then the landing, pricing and signup pages, rendered read-only in the Takeover rig's Playwright image on Oct 16. Between them they show an Offer needing no card (Inferock, Codemind, Hindsight), an Offer for the person to act on (Inferock's failed-call credits), the fixed no-Offer line (Edgee, Xiryn, Tiden, Acyclic), a predicted Handoff (Acyclic is Google or GitHub only), and a trial whose card need isn't stated (Tiden). None of the 14 was waitlisted.
+
+**Stubs:** the Registrations and their milestone lines; Add Offer and Correct edit the Dossier in place but re-read nothing; **Re-Launch Hindsight** adds a made-up Nov 4 Launch with a new Offer and posts a silent line in the post. Each post follows its Dossier with one stand-in for the Walkthrough copy and the status message, which #12 settled. The addresses (`you+<product>@gmail.com`) are placeholders.
+
+**Measured (SELFTEST, Oct 16):** every Dossier fits easily. A runs 1,146–1,849 characters, B 1,086–1,888, C 732–1,135, out of Discord's 4,000, with 183–424 of them in link URLs. B is bound by components instead: 24–33 of Discord's 40, three for every claim row, so a Dossier with two more Offers or re-Launches than Inferock would not fit.
+
+## Run
+
+```sh
+./run.sh dossier              # regenerate dossier-git/, then start the Dossier bot (stop the other bots first: all answer taps)
+SELFTEST=1 node dossier.mjs   # post every variant, add an Offer and a Correction to Inferock in each, re-Launch Hindsight, then reset
+```

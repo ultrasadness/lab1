@@ -1,0 +1,33 @@
+# Acyclic · Rapid agent swarms for any agentic workflow
+
+**Open** · fit 7 · Wed Oct 14 · `acyclic.dev`
+
+**Register:** Sign-in only with Google or GitHub at `acyclic.dev/auth`, so a Handoff with the Signup mailbox’s Google account. Teams already running agents in volume are onboarded by request.² ³
+
+**What it is:** Splits one coding-agent task across many agents, each in its own fork of the workspace, and merges the results into one patch or pull request. Start it from the CLI, the dashboard or a coding agent over MCP; bring your own model keys.¹ ²
+
+**For you:** Fits *coding agents: orchestration*. No plan or price is shown.² ⁴
+
+**Offers:** none in the Launch text or on the site. The [Launch page](https://www.producthunt.com/posts/acyclic) may show a promo.
+
+**Launches:** [Wed Oct 14](https://www.producthunt.com/posts/acyclic) · fit 7 · #30 of 48
+
+<sub>Rules applied: none · read Oct 16, 09:40 PT · Data sourced from [Product Hunt](https://www.producthunt.com/posts/acyclic)</sub>
+
+## Sources
+
+- ¹ [Launch on Product Hunt](https://www.producthunt.com/posts/acyclic), Wed Oct 14, 2026: “Hand Acyclic a task from the CLI, the dashboard, or a coding agent over MCP. It splits the work across many agents, each in its own instant fork of the workspace, and merges the results … Bring your own model keys.”
+- ² [Landing page](https://acyclic.dev/): “They work in parallel, then merge into one patch or pull request. … We're onboarding teams gradually, starting with those that already run agents in volume.”
+- ³ [Signup page](https://acyclic.dev/auth?redirect=/dashboard): “Sign in to Acyclic · Run agent swarms and manage your account. · Continue with Google · Continue with GitHub”
+- ⁴ Interest scope, `profile/interest-scope.md`: “Want: AI coding agents and what runs around them: harnesses, orchestration, review, agent memory.”
+
+## Registration
+
+<!-- Written by the bot at milestones from the live store. Edits here are not read back. -->
+- Oct 14, 08:30 PT · Walkthrough v1 approved · Handoff with the Signup mailbox’s Google account
+- Oct 14, 19:02 PT · you tapped Done · **handed off**
+
+## Notes
+
+<!-- Yours. The bot keeps everything below this line as it is. -->
+

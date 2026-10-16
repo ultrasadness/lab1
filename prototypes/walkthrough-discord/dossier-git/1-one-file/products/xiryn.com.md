@@ -1,0 +1,32 @@
+# Xiryn · The open-source personal agent that runs on your computer
+
+**No account needed** · fit 8 · Tue Oct 13 · no Walkthrough · `xiryn.com`
+
+**Register:** Nothing to register: one command installs it on Mac, Windows or Linux with about 4 GB free. It needs a key for one model provider, or a local model. MIT licensed.² ³
+
+**What it is:** A personal agent on your own computer. Each agent works on its own Linux desktop in Docker, browsing, researching, coding and filling forms; you control it from Telegram. Data stays on your disk.¹ ²
+
+**For you:** Fits *tools I can use from my Linux server* and *Docker*, and is open source; a point of comparison for this Assistant.⁴
+
+**Offers:** none in the Launch text or on the site. The [Launch page](https://www.producthunt.com/posts/xiryn) may show a promo.
+
+**Launches:** [Tue Oct 13](https://www.producthunt.com/posts/xiryn) · fit 8 · #21 of 29
+
+<sub>Rules applied: none · read Oct 16, 09:40 PT · Data sourced from [Product Hunt](https://www.producthunt.com/posts/xiryn)</sub>
+
+## Sources
+
+- ¹ [Launch on Product Hunt](https://www.producthunt.com/posts/xiryn), Tue Oct 13, 2026: “Each agent gets its own Linux desktop in Docker, so it browses, researches, codes and fills forms in the background without touching your screen. No account, no telemetry: your data stays on your disk.”
+- ² [Maker comment](https://www.producthunt.com/posts/xiryn?comment=5941516): “Control from anywhere — message your agents on Telegram … Setup is one command … It's MIT licensed and free — you only pay your model provider, or nothing with a local model.”
+- ³ [Landing page](https://xiryn.com/): “Get Xiryn. One command. About five minutes. You need a Mac, Windows or Linux computer with about 4 GB free, and a key for one model provider.”
+- ⁴ Interest scope, `profile/interest-scope.md`: “Want: developer tools and APIs I can use from a terminal or my Linux server.” “Want: running one small server: monitoring, deploys, Docker.” “Leans: a free plan, or open source with a hosted version, counts for more than paid-only.”
+
+## Registration
+
+<!-- Written by the bot at milestones from the live store. Edits here are not read back. -->
+- (none: nothing to register)
+
+## Notes
+
+<!-- Yours. The bot keeps everything below this line as it is. -->
+
