@@ -47,6 +47,8 @@ Needs `~/.config/lab1/discord-bot-token` (mode 600). The bot must be in exactly 
 
 Answers [How does the day's list of Dossiers and Skips look on Discord?](https://github.com/ultrasadness/lab1/issues/29). It reuses this folder's bot setup and `kit.mjs`, but runs as its own bot, `day.mjs`, with its own `prototype-29` category. Kept as a primary source; not production code.
 
+**Verdict: C, with the Day's line only in the title and summary.** The person tried the variants and chose C overall: a forum post per Miner day, every Launch on show, a message per band and a Correct button on every line, posted silently. Seeing "line 7" on every Skip made them ask where the line came from, so Skip lines drop it (`Skip · fit 6 · reason`); the post's title and summary carry the line and why it sits there. A was rejected because one message can't hold a busy day under Discord's 4,000-character cap, and B because of its pages and its @mention. The full answer is on the issue.
+
 **Plan:** three variants of one Miner day, posted into the person's private server and tried on the iPhone, picked from `#proto-29`:
 
 | Variant | Where | Shape | Correct | Notifies |
