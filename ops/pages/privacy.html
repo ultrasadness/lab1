@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signup Assistant privacy policy</title>
+<style>
+  :root { color-scheme: light dark; --text: #1d1d1f; --muted: #5f6368; --bg: #fff; --link: #0b57d0; }
+  @media (prefers-color-scheme: dark) { :root { --text: #e8eaed; --muted: #9aa0a6; --bg: #17181a; --link: #8ab4f8; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 40rem; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 .25rem; }
+  .updated, footer { color: var(--muted); font-size: .9rem; }
+  a { color: var(--link); }
+  footer { margin-top: 3rem; }
+</style>
+</head>
+<body>
+<main>
+<h1>Signup Assistant privacy policy</h1>
+<p class="updated">Last updated: 16 October 2026</p>
+
+<p>Signup Assistant is a personal assistant used by one person, its owner. It is not offered to anyone else.</p>
+
+<p><strong>What it accesses.</strong> One Gmail account, which the owner keeps only for signing up to online products. It asks Google for two permissions: to read mail (<code>gmail.readonly</code>) and to create drafts (<code>gmail.compose</code>). It cannot delete mail or change settings, and it sends nothing except replies the owner has approved.</p>
+
+<p><strong>What it does with it.</strong> It matches incoming mail to the owner's signups, records what each mail means for that signup (for example, that an account is confirmed or a waitlist place is offered), and drafts replies for the owner to approve. Verification codes and links are handled by the assistant's own code and never shown to an AI model.</p>
+
+<p><strong>Who receives it.</strong></p>
+<ul>
+  <li>AI model providers, to read mail and draft replies. Mail goes only to providers whose terms say they do not use it to train or improve their models, with any training opt-out turned on.</li>
+  <li>Discord, where the owner sees summaries and drafts in a private server.</li>
+  <li>GitHub, which holds the owner's private records of each signup's state and dates. These point to a mail by its Gmail ID but contain no mail text.</li>
+</ul>
+
+<p>No one else receives it. No person reads it except the owner.</p>
+
+<p><strong>AI training.</strong> Gmail data is never used to train or improve any AI model.</p>
+
+<p><strong>Storage.</strong> Copies of mail are kept on the owner's own server for at most 90 days, to check how the assistant behaves. The exception is a mail the owner keeps as the test example for one of their rules, which stays until that rule is retired. Drafts stay in the Gmail account until they are sent or deleted.</p>
+
+<p><strong>No sale, no ads.</strong> Gmail data is never sold, used for advertising, or shared beyond what is listed above.</p>
+
+<p><strong>Revoking access.</strong> Access can be revoked at any time at <a href="https://myaccount.google.com/connections">https://myaccount.google.com/connections</a>. Copies already stored then expire as described above.</p>
+
+<p>Signup Assistant's use of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+<footer><a href="/">Signup Assistant</a> · <a href="/terms">Terms of service</a></footer>
+</main>
+</body>
+</html>
