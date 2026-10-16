@@ -185,13 +185,14 @@ finish() {
 # ──────────────────────────────────────────────────────────────────────────
 
 
-TOTAL_STAGES=5
+TOTAL_STAGES=6
 
 SPIKE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SPIKE_DIR/.env"
 umask 077
 DEVCONSOLE="https://console.developers.google.com"   # the host Google's Auth platform docs link to
-DOMAIN="pot.dpdns.org"
+DOMAIN="pot.dpdns.org"            # the authorized domain: Google wants the top private domain
+PAGES="q9hg4g8k5r.pot.dpdns.org"   # random, so it isn't in scanners' wordlists
 VM_IP="212.69.0.219"
 APP_NAME="Signup Assistant"   # the pages in ops/pages use this name
 CERTS="/data/caddy/certificates/acme-v02.api.letsencrypt.org-directory"
@@ -235,53 +236,84 @@ wait_for() {
   printf ' %s✓%s\n' "$GREEN" "$RESET"
 }
 
-resolves() { [[ -n "$(dig +short "$DOMAIN" A)" ]]; }
-page_up()  { [[ "$(curl -s -o /dev/null --max-time 10 -w '%{http_code}' "https://$DOMAIN/privacy")" == 200 ]]; }
+resolves()  { [[ -n "$(dig +short "$PAGES" A)" ]]; }
+page_code() { curl -s -o /dev/null --max-time 10 -w '%{http_code}' "https://$PAGES/privacy" || true; }
 cert_end() { docker exec caddy cat "$CERTS/$1/$1.crt" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2; }
 
 s1() {
-  stage "Cloudflare: point $DOMAIN at the VM"
-  say "The pages are already on the VM's Caddy; $DOMAIN itself has no DNS record yet."
+  stage "Cloudflare: a DNS record for the pages"
+  say "The pages are already on the VM's Caddy at $PAGES. It has no DNS record yet."
   open_url "https://dash.cloudflare.com/"
   step "Open the $DOMAIN zone → DNS → Records → Add record."
-  step "Type A, Name @, IPv4 address $VM_IP, Proxy status Proxied (orange, like na and gl)"
+  step "Type A, Name ${PAGES%%.*}, IPv4 address $VM_IP, Proxy status Proxied (orange)"
   say  "  → Save."
-  step "Then SSL/TLS → Edge Certificates → Always Use HTTPS → Off."
-  note "Why: that redirect sends Let's Encrypt's http:// check to https://, where Caddy"
-  note "can't answer it. That is why na and gl haven't renewed (they expire 30 Oct)."
-  note "Caddy still redirects every visitor to https:// itself."
-  pause "Enter once both are saved"
-  wait_for "$DOMAIN to resolve" 300 resolves || { warn "No DNS yet: resume later with: bash $0 1"; trap - EXIT; exit 1; }
-  say "Asking Caddy to retry its certificates now instead of at its next backoff:"
-  docker exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile --force >/dev/null 2>&1 \
-    && note "  reloaded" || warn "reload failed; Caddy will still retry on its own"
-  if wait_for "https://$DOMAIN/privacy" 180 page_up; then
-    helper note --title "Pages on $DOMAIN" --text "https://$DOMAIN/, /privacy and /terms serve 200 over HTTPS. Origin certificate ends: $DOMAIN $(cert_end "$DOMAIN"); na $(cert_end "na.$DOMAIN"); gl $(cert_end "gl.$DOMAIN")." >/dev/null
-    note "Origin certificates now end: $DOMAIN $(cert_end "$DOMAIN"), na $(cert_end "na.$DOMAIN"), gl $(cert_end "gl.$DOMAIN")"
-  else
-    warn "The privacy page isn't up yet. Google's Branding page needs it: resume later with: bash $0 1"
-    trap - EXIT; exit 1
-  fi
+  note "It must stay proxied. Caddy serves this name with its own internal certificate,"
+  note "so it never shows up in public certificate logs, and only Cloudflare accepts that."
+  pause "Enter once it's saved"
+  wait_for "$PAGES to resolve" 300 resolves || { warn "No DNS yet: resume later with: bash $0 1"; trap - EXIT; exit 1; }
+  # Poll the privacy page; a 526 means strict SSL, which needs a rule, not more waiting.
+  local code waited=0
+  printf '  %sWaiting for https://%s/privacy%s' "$DIM" "$PAGES" "$RESET"
+  while code=$(page_code); [[ "$code" != 200 ]]; do
+    if [[ "$code" == 526 ]]; then
+      printf '\n'
+      warn "Cloudflare answers 526: the zone's SSL mode is Full (strict), which rejects Caddy's"
+      say  "  internal certificate. Make an exception for this one name only:"
+      step "Rules → Configuration Rules → Create rule. Name: gmail app pages."
+      step "When: Hostname equals $PAGES. Then: SSL → Full → Deploy."
+      note "na and gl keep Full (strict). If the dashboard looks different, tell Claude."
+      pause "Enter once the rule is deployed"
+      waited=0; printf '  %sWaiting%s' "$DIM" "$RESET"
+    elif (( waited >= 120 )); then
+      printf '\n'
+      warn "Cloudflare still answers ${code:-nothing} for the privacy page."
+      confirm "Keep trying?" || { warn "Resume later with: bash $0 1"; trap - EXIT; exit 1; }
+      waited=0; printf '  %sWaiting%s' "$DIM" "$RESET"
+    fi
+    sleep 5; waited=$((waited + 5)); printf '.'
+  done
+  printf ' %s✓%s\n' "$GREEN" "$RESET"
+  helper note --title "Pages on the hidden subdomain" --text "https://$PAGES/, /privacy and /terms serve 200 through Cloudflare." >/dev/null
   pause "Enter for the next stage"
 }
 
 s2() {
+  stage "Cloudflare: let na and gl renew (not needed for the pages)"
+  say "Caddy hasn't renewed na.$DOMAIN or gl.$DOMAIN since October. Their origin"
+  say "certificates end: na $(cert_end "na.$DOMAIN"), gl $(cert_end "gl.$DOMAIN")."
+  say "Cloudflare's Always Use HTTPS sends Let's Encrypt's http:// check to https://,"
+  say "where new-api answers instead of Caddy."
+  if confirm "Fix that now?"; then
+    step "In the $DOMAIN zone: SSL/TLS → Edge Certificates → Always Use HTTPS → Off."
+    note "Caddy still redirects every visitor to https:// itself."
+    pause "Enter once it's off"
+    docker exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile --force >/dev/null 2>&1 \
+      && note "Asked Caddy to retry now." || warn "Reload failed; Caddy will still retry on its own."
+    note "Renewal can take a few minutes. Claude can check the dates later."
+    helper note --title "na and gl renewal" --text "Always Use HTTPS turned off; Caddy reloaded to retry." >/dev/null
+  else
+    warn "Skipped. Without it, na and gl's origin certificates lapse on 30 Oct."
+  fi
+  pause "Enter for the next stage"
+}
+
+s3() {
   stage "Google Auth Platform: Branding"
   say "Sign in as the Signup mailbox. The links go into the app's Branding page."
   open_url "$DEVCONSOLE/auth/branding?project=$GCP_PROJECT_ID"
   note "If the link lands elsewhere: Menu → Google Auth Platform → Branding."
   step "App name: $APP_NAME. User support email: the Signup mailbox."
   step "App logo: leave it empty (a logo needs verification)."
-  step "App domain: Application home page  https://$DOMAIN/"
-  say  "            Application privacy policy link  https://$DOMAIN/privacy"
-  say  "            Application terms of service link  https://$DOMAIN/terms"
-  step "Authorized domains → Add domain → $DOMAIN"
+  step "App domain: Application home page  https://$PAGES/"
+  say  "            Application privacy policy link  https://$PAGES/privacy"
+  say  "            Application terms of service link  https://$PAGES/terms"
+  step "Authorized domains → Add domain → $DOMAIN (the parent: Google takes no subdomain here)"
   step "Developer contact information: the Signup mailbox → Save."
-  observe "Branding saved" "Did it save? Paste any warning or error about $DOMAIN, or type none:"
+  observe "Branding saved" "Did it save? Paste any warning or error about the domain or URLs, or type none:"
   pause "Enter for the next stage"
 }
 
-s3() {
+s4() {
   stage "Google Auth Platform: publish the app"
   open_url "$DEVCONSOLE/auth/audience?project=$GCP_PROJECT_ID"
   note "If the link lands elsewhere: Menu → Google Auth Platform → Audience."
@@ -293,7 +325,7 @@ s3() {
   pause "Enter for the next stage"
 }
 
-s4() {
+s5() {
   stage "Consent again from the Signup mailbox"
   say "The old token came from the Testing app and dies on 21 Oct. This one should last."
   note "Expect \"Google hasn't verified this app\": Advanced → Go to $APP_NAME (unsafe),"
@@ -304,7 +336,7 @@ s4() {
   pause "Enter for the next stage"
 }
 
-s5() {
+s6() {
   stage "Day-8 check"
   check refresh
   check install-cron
