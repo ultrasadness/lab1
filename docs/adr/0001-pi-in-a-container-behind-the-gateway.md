@@ -13,6 +13,7 @@ The Assistant's agent loop is the open-source Pi harness. It runs inside one lon
 ## Consequences
 
 - **Hard limits are enforced below the model**, by narrow scopes, the Assistant's own tools, the container and the gateway quota. Pi has no sandbox or permission system of its own, and its `tool_call` block is only a second layer.
+- **A role's second provider takes over through the bot's forwarder, not through new-api.** The forwarder picks each request's provider in pinned order and admits each run against a spending budget ([ADR 0011](./0011-the-forwarder-picks-each-requests-provider-and-holds-the-spending-budgets.md)).
 - **The container holds no Secret or token.** Anything that needs one (a Gmail draft, a field filled by reference, a Discord post) goes through one narrow interface to the bot outside. Where each token lives is [ADR 0009](./0009-the-bot-runs-as-its-own-user-and-holds-every-token-outside-the-containers.md).
 - **An Approval is a gate between runs, never a pause inside one.** A run ends at a decision point, and a new run, or plain code, acts on exactly what was approved.
 - **Pi, the container image, new-api and the model behind each role are pinned.** Upgrades are deliberate, each gated by the Rule carry-over check and a Miner dry run.

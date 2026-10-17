@@ -23,8 +23,8 @@ The Personal database (the Profile, Dossiers and Registration history, Miner day
 - **`ops/pins` in `lab1` records every pin:**
   - the image digests for Pi, the browser, new-api and CPA;
   - Pi's npm version;
-  - each role's providers and models, in priority order.
+  - each role's providers and models, in priority order, with each model's price per 1M input, cached and output tokens.
 
-  The bot checks the running images and Pi's version against it when it starts and in the weekly check, and posts any drift. A role's mapping changes only through `ops/upgrade role <role>`, so the bot holds no new-api admin token. The weekly check names the provider and model each case actually ran on.
+  The bot checks the running images and Pi's version against it when it starts and in the weekly check, and posts any drift. A role's mapping changes only through `ops/upgrade role <role>`, so the bot holds no new-api admin token. That command also sets new-api's ratios from the recorded prices, so new-api's quotas and the forwarder's spending budgets count the same dollars ([ADR 0011](./0011-the-forwarder-picks-each-requests-provider-and-holds-the-spending-budgets.md)). The weekly check names the provider and model each case actually ran on.
 - **new-api moves off `:latest`** to a pinned digest. It stays in its own compose project, which also serves the person's other uses.
 - **Off the VM, only git survives:** `lab1` and the Personal database repo, which the bot pushes after each commit. The SQLite store and new-api's database are backed up nightly, on the VM only. If the VM is lost, it is rebuilt from both repos and every token is obtained again.
