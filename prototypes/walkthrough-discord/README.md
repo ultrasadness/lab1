@@ -99,6 +99,20 @@ All three are generated into `dossier-git/` by `node dossier-git.mjs`; `dossier-
 
 **Measured (SELFTEST, Oct 16):** every Dossier fits easily. A runs 1,146–1,849 characters, B 1,086–1,888, C 732–1,135, out of Discord's 4,000, with 183–424 of them in link URLs. B is bound by components instead: 24–33 of Discord's 40, three for every claim row, so a Dossier with two more Offers or re-Launches than Inferock would not fit.
 
+## Verdict (Oct 17)
+
+The person tried it on the iPhone and chose:
+
+- **Discord: A.** One card, a footnote number on every claim, the sources listed once at the foot, ¹ always the Launch.
+- **Git: layout 2.** A folder per Product with a file per writer: `dossier.md` mirrors the message, `registration.md` holds the bot's milestone lines, `notes.md` is the person's alone.
+- **The prototype's smaller calls stand:**
+  - the signup page is a cited source;
+  - a re-Launch edits the Dossier and posts a silent line that bumps the post;
+  - a **no account** forum tag;
+  - the post keeps its first Launch's tagline as its title.
+
+B, C and git layouts 1 and 3 were not chosen. The full record is in the ticket's resolution comment.
+
 ## Run
 
 ```sh
