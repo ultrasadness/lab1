@@ -15,6 +15,9 @@ import { drawDayLine } from './day-line.ts';
 import { renderDayPost } from './day-post.ts';
 import { judgingPrompt, readJudgment } from './judging.ts';
 
+// No Product has a Registration yet, so no Launch is a re-Launch of a registered Product; they arrive with #66.
+const reLaunchOfRegistered = (_launch: Launch) => false;
+
 export class Miner {
   #config: Config;
   #store: Store;
@@ -36,11 +39,12 @@ export class Miner {
 
   /** Whether the date's list is out on Discord. */
   posted(date: string): boolean {
-    return Boolean(this.#store.dayPost(date)?.postedAt);
+    return Boolean(this.#store.dayPost(date).postedAt);
   }
 
   async mine(date: string): Promise<void> {
     const launches = await this.#launches(date);
+    if (!launches) return;
     await this.#judge(date, launches);
 
     const judgments = this.#store.judgmentsFor(date);
@@ -51,9 +55,9 @@ export class Miner {
     }
 
     if (!this.#store.dayLine(date)) {
+      const judged = new Map(judgments.map((j) => [j.postId, j]));
       const line = drawDayLine(
-        // No Product has a Registration yet; re-Launches of registered Products arrive with Registrations (#66).
-        judgments.map((j) => ({ fit: j.fit, notAProduct: j.notAProduct, reLaunchOfRegistered: false })),
+        launches.map((l) => ({ ...judged.get(l.postId)!, reLaunchOfRegistered: reLaunchOfRegistered(l) })),
         launches.length,
         this.#config.miner.lineFloor,
       );
@@ -63,10 +67,17 @@ export class Miner {
     await this.#post(date, launches);
   }
 
-  async #launches(date: string): Promise<Launch[]> {
+  /** The date's fixed set of Featured Launches, or undefined while Product Hunt shows none for it. */
+  async #launches(date: string): Promise<Launch[] | undefined> {
     const known = this.#store.launchesFor(date);
     if (known) return known;
     const launches = await this.#productHunt.featuredLaunches(date);
+    // Product Hunt features Launches every day, so an empty answer is a fault, not the date's set: keep nothing
+    // and read the date again next time.
+    if (launches.length === 0) {
+      this.#log('miner.nothing-featured', { date });
+      return undefined;
+    }
     this.#store.saveLaunches(date, launches, this.#clock.now().toISOString());
     this.#log('miner.fetched', { date, featured: launches.length });
     return launches;
@@ -87,29 +98,22 @@ export class Miner {
         item: date,
         prompt: judgingPrompt(interestScope, batch),
         wallClockMs: this.#config.miner.runWallClockMinutes * 60_000,
-        onRecord: (record, runId) => this.#keep(date, expected, record, runId),
+        onRecord: (record, runId) => this.#keepJudgment(date, expected, record, runId),
       });
       if (result.outcome !== 'settled') this.#log('miner.run-failed', { date, runId: result.runId, outcome: result.outcome, error: result.error });
     }
   }
 
-  #keep(date: string, expected: ReadonlySet<string>, record: unknown, runId: string): RecordResult {
+  #keepJudgment(date: string, expected: ReadonlySet<string>, record: unknown, runId: string): RecordResult {
     const read = readJudgment(record, expected);
     if (!read.ok) return read;
     const j = read.judgment;
     if (this.#store.hasJudgment(j.postId)) return { ok: false, error: `Post id ${j.postId} already has a judgment; the first one stands.` };
+    // The forwarder records each model reply before it ends, so the reply holding this tool call is the latest.
     const request = this.#store.lastModelRequest(runId);
-    this.#store.saveJudgment({
-      ...j,
-      date,
-      runId,
-      role: 'miner',
-      provider: request?.provider ?? this.#config.roles.miner.providers[0]!,
-      model: request?.model ?? null,
-      tokens: request?.tokens ?? null,
-      requestId: request?.id ?? null,
-      judgedAt: this.#clock.now().toISOString(),
-    });
+    if (!request) return { ok: false, error: 'No model request of this run is on record.' };
+    const { id: requestId, provider, model, tokens } = request;
+    this.#store.saveJudgment({ ...j, date, runId, role: 'miner', provider, model, requestId, judgedAt: this.#clock.now().toISOString() });
     this.#log('miner.judged', {
       date,
       postId: j.postId,
@@ -117,17 +121,21 @@ export class Miner {
       notAProduct: j.notAProduct,
       runId,
       role: 'miner',
-      provider: request?.provider,
-      model: request?.model,
-      tokens: request?.tokens,
+      provider,
+      model,
+      // The exact tokens of the request whose reply held the judgment, which may hold other judgments too.
+      requestId,
+      requestTokens: tokens,
     });
     return { ok: true, message: `Recorded the judgment of Post id ${j.postId}.` };
   }
 
-  /** Posts the day's list once, picking up after the last message that went out. */
+  /**
+   * Posts the day's list once. Each part is marked before it is sent; a part marked but not known to have gone out
+   * is looked for on Discord first, so a stop between Discord taking it and the store hearing back sends nothing twice.
+   */
   async #post(date: string, launches: Launch[]): Promise<void> {
-    let post = this.#store.dayPost(date);
-    if (post?.postedAt) return;
+    if (this.posted(date)) return;
     const line = this.#store.dayLine(date)!;
     const judgments = new Map(this.#store.judgmentsFor(date).map((j) => [j.postId, j]));
     const rendered = renderDayPost({
@@ -136,22 +144,52 @@ export class Miner {
       floor: this.#config.miner.lineFloor,
       launches: launches.map((l) => {
         const j = judgments.get(l.postId)!;
-        return { postId: l.postId, rank: l.rank, name: l.name, slug: l.slug, fit: j.fit, notAProduct: j.notAProduct, reason: j.reason };
+        return {
+          postId: l.postId,
+          rank: l.rank,
+          name: l.name,
+          slug: l.slug,
+          fit: j.fit,
+          notAProduct: j.notAProduct,
+          reLaunchOfRegistered: reLaunchOfRegistered(l),
+          reason: j.reason,
+        };
       }),
     });
+    const forumId = this.#config.discord.minerDaysForumId;
     const [summary, ...bands] = rendered.messages;
 
-    if (!post) {
-      const { threadId } = await this.#discord.createForumPost(this.#config.discord.minerDaysForumId, rendered.title, summary!);
-      this.#store.saveDayPostStarted(date, threadId);
-      post = this.#store.dayPost(date)!;
+    let post = this.#store.dayPost(date);
+    if (!post.threadId && post.postIntended) {
+      const found = await this.#discord.findForumPost(forumId, rendered.title);
+      if (found) {
+        this.#log('miner.post-read-back', { date, threadId: found });
+        this.#store.saveDayPostThread(date, found);
+      }
+    }
+    post = this.#store.dayPost(date);
+    if (!post.threadId) {
+      this.#store.saveDayPostIntended(date, 0);
+      const { threadId } = await this.#discord.createForumPost(forumId, rendered.title, summary!);
+      this.#store.saveDayPostThread(date, threadId);
+      post = this.#store.dayPost(date);
+    }
+    const threadId = post.threadId!;
+
+    if (post.messagesIntended > post.messageIds.length) {
+      const sent = await this.#discord.ownMessages(threadId);
+      for (const [i, messageId] of sent.filter((id) => id !== threadId).entries()) {
+        if (!post.messageIds[i + 1]) this.#store.saveDayPostMessage(date, i + 1, messageId);
+      }
+      post = this.#store.dayPost(date);
     }
     for (const [i, message] of bands.entries()) {
       if (post.messageIds[i + 1]) continue;
-      const { messageId } = await this.#discord.sendMessage(post.threadId, message);
+      this.#store.saveDayPostIntended(date, i + 1);
+      const { messageId } = await this.#discord.sendMessage(threadId, message);
       this.#store.saveDayPostMessage(date, i + 1, messageId);
     }
     this.#store.saveDayPosted(date, this.#clock.now().toISOString());
-    this.#log('miner.posted', { date, threadId: post.threadId, title: rendered.title, messages: rendered.messages.length });
+    this.#log('miner.posted', { date, threadId, title: rendered.title, messages: rendered.messages.length });
   }
 }

@@ -24,8 +24,8 @@ export interface Assistant {
   stop(): Promise<void>;
 }
 
-/** Credential files systemd hands the bot through LoadCredential=, by name. */
-const credentialName = {
+/** The token files systemd hands the bot through LoadCredential=, by name (ADR 0009). */
+const tokenFile = {
   discord: 'discord-bot-token',
   productHunt: 'producthunt-token',
   roleKey: (role: Role) => `newapi-key-${role}`,
@@ -33,7 +33,7 @@ const credentialName = {
 
 export async function startAssistant(options: {
   config: Config;
-  /** The folder holding the credential files: `$CREDENTIALS_DIRECTORY` under systemd. */
+  /** The folder holding the token files: `$CREDENTIALS_DIRECTORY` under systemd. */
   credentialsDir: string;
   clock: Clock;
   log?: LogSink;
@@ -42,16 +42,16 @@ export async function startAssistant(options: {
   const problems = checkConfig(config);
   if (problems.length > 0) throw new Error(`The config isn't usable:\n- ${problems.join('\n- ')}`);
   const log = createLog(options.log ?? stdoutSink, clock);
-  const credential = (name: string) => {
+  const token = (name: string) => {
     try {
       return readFileSync(join(options.credentialsDir, name), 'utf8').trim();
     } catch {
-      throw new Error(`The credential ${name} is missing; place it with ops/token ${name}`);
+      throw new Error(`The token ${name} is missing; place it with ops/token ${name}`);
     }
   };
-  const roleKeys = new Map(ROLES.map((role) => [role, credential(credentialName.roleKey(role))]));
-  const discordToken = credential(credentialName.discord);
-  const productHuntToken = credential(credentialName.productHunt);
+  const roleKeys = new Map(ROLES.map((role) => [role, token(tokenFile.roleKey(role))]));
+  const discordToken = token(tokenFile.discord);
+  const productHuntToken = token(tokenFile.productHunt);
 
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
   const store = Store.open(join(config.dataDir, 'assistant.sqlite'));

@@ -37,18 +37,17 @@ export interface Config {
   rawInputs: { keepDays: number };
 }
 
-/** Reads and checks the config file. Relative paths in it are taken from the file's own folder. */
+/** Reads the config file. Relative paths in it are taken from the file's own folder. */
 export function loadConfig(path: string): Config {
   const config = JSON.parse(readFileSync(path, 'utf8')) as Config;
   const base = dirname(resolve(path));
   config.dataDir = resolve(base, config.dataDir);
   config.personalDatabaseDir = resolve(base, config.personalDatabaseDir);
   if (config.pi.cwd) config.pi.cwd = resolve(base, config.pi.cwd);
-  const problems = checkConfig(config);
-  if (problems.length > 0) throw new Error(`${path} isn't usable:\n- ${problems.join('\n- ')}`);
   return config;
 }
 
+/** What makes a config unusable, if anything. The bot checks before it starts. */
 export function checkConfig(config: Config): string[] {
   const problems: string[] = [];
   const snowflake = /^\d{17,20}$/;

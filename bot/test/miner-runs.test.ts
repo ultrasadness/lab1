@@ -99,11 +99,14 @@ test('each judgment and each run records its role, provider, model and exact tok
     assert.equal(j.role, 'miner');
     assert.equal(j.provider, 'openrouter');
     assert.equal(j.model, 'deepseek-v4-flash');
-    assert.deepEqual(j.tokens, { input: 1234, cached: 200, output: 56 });
+    // One reply judges a whole run's Launches, so a judgment names that request and its exact tokens.
+    assert.deepEqual(j.requestTokens, { input: 1234, cached: 200, output: 56 });
   }
   const runs = world.logs.filter((l) => l.event === 'run.finished');
   assert.equal(runs.length, 3);
   for (const run of runs) {
+    const ofRun = judged.filter((j) => j.runId === run.runId);
+    assert.equal(new Set(ofRun.map((j) => j.requestId)).size, 1, "a run's judgments share the reply that held them");
     assert.equal(run.role, 'miner');
     assert.equal(run.outcome, 'settled');
     assert.deepEqual(run.providers, ['openrouter']);

@@ -22,6 +22,7 @@ export interface DayPostLaunch {
   slug: string;
   fit: number;
   notAProduct: boolean;
+  reLaunchOfRegistered: boolean;
   reason: string;
 }
 
@@ -48,8 +49,7 @@ const ordinal = (n: number) => {
 
 export function renderDayPost(input: { date: string; line: DayLine; floor: number; launches: DayPostLaunch[] }): RenderedDayPost {
   const { date, line, floor, launches } = input;
-  const judged = launches.map((l) => ({ ...l, reLaunchOfRegistered: false }));
-  const dossiers = judged.filter((l) => outcomeOf(l, line.line) === 'dossier').length;
+  const dossiers = launches.filter((l) => outcomeOf(l, line.line) === 'dossier').length;
 
   const title = `${dayLabel(date)} · ${count(dossiers, 'Dossier')} · line ${line.line}`;
   const summary = silentMessage([
@@ -59,14 +59,14 @@ export function renderDayPost(input: { date: string; line: DayLine; floor: numbe
           `## Miner · ${dayLabel(date)}`,
           `**${count(dossiers, 'Dossier')}** · ${count(launches.length - dossiers, 'Skip')} · ${count(line.featuredCount, 'Featured Launch', 'Featured Launches')} · Day's line **${line.line}**`,
           `-# Line: ${whyTheLine(line, floor)}`,
-          `-# Data sourced from [Product Hunt](${leaderboardUrl(date)})`,
+          `-# [Data sourced from Product Hunt](${leaderboardUrl(date)})`,
         ].join('\n'),
       ),
     ]),
   ]);
 
-  const byBand = new Map<Band, typeof judged>();
-  for (const launch of judged) {
+  const byBand = new Map<Band, DayPostLaunch[]>();
+  for (const launch of launches) {
     const band = bandOf(launch, line.line);
     byBand.set(band, [...(byBand.get(band) ?? []), launch]);
   }
@@ -83,11 +83,11 @@ export function renderDayPost(input: { date: string; line: DayLine; floor: numbe
 
 function whyTheLine(line: DayLine, floor: number): string {
   const which = `the ${ordinal(line.k)} best Fit (⌈√${line.featuredCount}⌉ = ${line.k})`;
-  if (line.featuredCount === 0) return `Product Hunt featured no Launches, so the floor of ${floor} sets it.`;
   if (line.kth === null) {
     return `only ${count(line.eligibleCount, 'Launch', 'Launches')} could get a Dossier, fewer than ${line.k}, so the floor of ${floor} sets it.`;
   }
   if (line.kth < floor) return `${which} is ${line.kth}, so the floor of ${floor} sets it.`;
+  if (line.kth === floor) return `${which} is ${line.kth}, the same as the floor.`;
   return `${which} is ${line.kth}, above the floor of ${floor}, so it sets the line.`;
 }
 
@@ -106,7 +106,7 @@ function heading(band: Band, line: number): string {
   }
 }
 
-function lineText(l: DayPostLaunch & { reLaunchOfRegistered: boolean }, line: number): string {
+function lineText(l: DayPostLaunch, line: number): string {
   const name = `**[${escapeMarkdown(l.name)}](${launchUrl(l.slug)})**`;
   const reason = escapeMarkdown(l.reason);
   switch (outcomeOf(l, line)) {

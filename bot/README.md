@@ -41,7 +41,11 @@ npm start
 
 The install on the VM (its own user, the Docker helper, systemd units) is #71. It also sets what
 `config/assistant.json` leaves open: the Discord ids, how new-api is reached on loopback, and the helper in
-place of `docker exec`.
+place of `docker exec`. Until then the config's `pi.command` runs `docker exec` directly, which ADR 0009 rules out
+for the installed bot: the `assistant` user has no `docker` group and reaches Docker only through the helper. The
+only value it passes into the container is each run's own token, which lets Pi reach the forwarder for that run
+alone and is never a key.
 
-The bot logs one JSON line per event to stdout. Each `run.finished` and `miner.judged` line carries the role,
-provider, model and exact tokens.
+The bot logs one JSON line per event to stdout. A `run.finished` line carries the run's role, providers, models and
+exact tokens. A `miner.judged` line names the model request whose reply held the judgment, with that request's exact
+tokens; one reply usually judges every Launch in its run.

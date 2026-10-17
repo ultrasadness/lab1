@@ -48,7 +48,7 @@ export class FakeModelProvider {
   /** What the model records for a Launch; `'omit'` leaves it unjudged. */
   judgment: (postId: string) => ScriptedJudgment | 'omit' = (postId) => {
     const scripted = fixtureJudgments[postId];
-    if (!scripted) throw new Error(`No scripted judgment for Post ${postId}`);
+    if (!scripted) throw new Error(`No scripted judgment for the Launch with Post id ${postId}`);
     return scripted;
   };
   usage: ScriptedUsage = { prompt_tokens: 2400, completion_tokens: 380, cached_tokens: 0 };

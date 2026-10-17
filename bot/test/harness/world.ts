@@ -39,7 +39,7 @@ export interface World {
   stop(): Promise<void>;
 }
 
-export async function startWorld(options: { now: string; configure?: (config: Config) => void }): Promise<World> {
+export async function startWorld(options: { now: string }): Promise<World> {
   const dir = mkdtempSync(join(tmpdir(), 'assistant-test-'));
   const credentials = join(dir, 'credentials');
   const personalDatabase = join(dir, 'personal-database');
@@ -78,7 +78,6 @@ export async function startWorld(options: { now: string; configure?: (config: Co
     miner: { startsAt: '01:00', launchesPerRun: 8, lineFloor: 7, runWallClockMinutes: 10 },
     rawInputs: { keepDays: 90 },
   };
-  options.configure?.(config);
 
   const logs: LogEntry[] = [];
   const start = () => startAssistant({ config, credentialsDir: credentials, clock, log: (entry) => logs.push(entry) });

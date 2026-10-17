@@ -3,6 +3,8 @@
 // run and model-request records, and the index of raw inputs kept outside git.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
+import type { DayLine } from './miner/day-line.ts';
+import type { JudgmentRecord } from './miner/judging.ts';
 
 export interface Tokens {
   input: number;
@@ -24,37 +26,34 @@ export interface Launch {
   makerComment: string | null;
 }
 
-export interface Judgment {
-  postId: string;
+export interface Judgment extends JudgmentRecord {
   date: string;
-  fit: number;
-  notAProduct: boolean;
-  reason: string;
-  rulesApplied: string[];
   runId: string;
   role: Role;
   provider: string;
   model: string | null;
-  /** The exact tokens of the model request that made the judgment. */
-  tokens: Tokens | null;
+  /** The model request whose reply held the judgment; one reply can judge several Launches. */
+  requestId: number;
   judgedAt: string;
 }
 
-export interface StoredDayLine {
+export interface StoredDayLine extends DayLine {
   date: string;
-  featuredCount: number;
-  line: number;
-  k: number;
-  kth: number | null;
-  eligibleCount: number;
   drawnAt: string;
 }
 
+/**
+ * The day post on Discord. Each part is marked as intended before it is sent, so after a stop an intended part
+ * without an id may have gone out and is read back from Discord before anything is sent again.
+ */
 export interface DayPost {
   date: string;
-  threadId: string;
-  /** Message ids by their place in the post; the first is the summary. */
+  postIntended: boolean;
+  threadId: string | null;
+  /** Message ids by their place in the post; the first is the summary, which is the post itself. */
   messageIds: string[];
+  /** How many messages, the summary included, were intended so far. */
+  messagesIntended: number;
   postedAt: string | null;
 }
 
@@ -110,10 +109,7 @@ CREATE TABLE IF NOT EXISTS judgments (
   role TEXT NOT NULL,
   provider TEXT NOT NULL,
   model TEXT,
-  request_id INTEGER,
-  input_tokens INTEGER,
-  cached_tokens INTEGER,
-  output_tokens INTEGER,
+  request_id INTEGER NOT NULL REFERENCES model_requests(id),
   judged_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS day_lines (
@@ -127,7 +123,8 @@ CREATE TABLE IF NOT EXISTS day_lines (
 );
 CREATE TABLE IF NOT EXISTS day_posts (
   date TEXT PRIMARY KEY,
-  thread_id TEXT NOT NULL,
+  thread_id TEXT,
+  messages_intended INTEGER NOT NULL DEFAULT 0,
   posted_at TEXT
 );
 CREATE TABLE IF NOT EXISTS day_post_messages (
@@ -241,7 +238,7 @@ export class Store {
         role: String(row.role) as Role,
         provider: String(row.provider),
         model: row.model === null ? null : String(row.model),
-        tokens: tokensOf(row),
+        requestId: Number(row.request_id),
         judgedAt: String(row.judged_at),
       }));
   }
@@ -250,13 +247,13 @@ export class Store {
     return Boolean(this.#db.prepare('SELECT 1 FROM judgments WHERE post_id = ?').get(postId));
   }
 
-  /** Keeps a judgment as it is made. A Launch keeps its first judgment. */
-  saveJudgment(j: Judgment & { requestId: number | null }): void {
+  /** Keeps a judgment as it is made. */
+  saveJudgment(j: Judgment): void {
     this.#db
       .prepare(
         `INSERT INTO judgments (post_id, date, fit, not_a_product, reason, rules_applied, run_id, role, provider, model,
-           request_id, input_tokens, cached_tokens, output_tokens, judged_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           request_id, judged_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         j.postId,
@@ -270,9 +267,6 @@ export class Store {
         j.provider,
         j.model,
         j.requestId,
-        j.tokens?.input ?? null,
-        j.tokens?.cached ?? null,
-        j.tokens?.output ?? null,
         j.judgedAt,
       );
   }
@@ -305,19 +299,36 @@ export class Store {
 
   // ---------- Day posts on Discord ----------
 
-  dayPost(date: string): DayPost | undefined {
+  dayPost(date: string): DayPost {
     const row = this.#db.prepare('SELECT * FROM day_posts WHERE date = ?').get(date);
-    if (!row) return undefined;
     const messageIds = this.#db
       .prepare('SELECT message_id FROM day_post_messages WHERE date = ? ORDER BY idx')
       .all(date)
       .map((m) => String(m.message_id));
-    return { date, threadId: String(row.thread_id), messageIds, postedAt: row.posted_at === null ? null : String(row.posted_at) };
+    return {
+      date,
+      postIntended: Boolean(row),
+      threadId: row?.thread_id ? String(row.thread_id) : null,
+      messageIds,
+      messagesIntended: Number(row?.messages_intended ?? 0),
+      postedAt: row?.posted_at ? String(row.posted_at) : null,
+    };
   }
 
-  saveDayPostStarted(date: string, threadId: string): void {
+  /** Marks the post, or the message at `index`, as about to be sent. */
+  saveDayPostIntended(date: string, index: number): void {
+    this.#db
+      .prepare(
+        `INSERT INTO day_posts (date, messages_intended) VALUES (?, ?)
+         ON CONFLICT (date) DO UPDATE SET messages_intended = max(messages_intended, excluded.messages_intended)`,
+      )
+      .run(date, index + 1);
+  }
+
+  /** Keeps the post's id, which is also the id of its first message. */
+  saveDayPostThread(date: string, threadId: string): void {
     this.#transaction(() => {
-      this.#db.prepare('INSERT INTO day_posts (date, thread_id) VALUES (?, ?)').run(date, threadId);
+      this.#db.prepare('UPDATE day_posts SET thread_id = ? WHERE date = ?').run(threadId, date);
       this.#db.prepare('INSERT INTO day_post_messages (date, idx, message_id) VALUES (?, 0, ?)').run(date, threadId);
     });
   }

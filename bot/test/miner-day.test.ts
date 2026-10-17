@@ -21,7 +21,7 @@ test('a 19-Launch day is judged at 01:00 PT and posted as one silent post, by ba
 
   assert.match(summary!.text, /\*\*4 Dossiers\*\* · 15 Skips · 19 Featured Launches/);
   assert.match(summary!.text, /the 5th best Fit \(⌈√19⌉ = 5\) is 6, so the floor of 7 sets it/);
-  assert.match(summary!.text, /Data sourced from \[Product Hunt\]\(https:\/\/www\.producthunt\.com\/leaderboard\/daily\/2026\/10\/12\)/);
+  assert.match(summary!.text, /\[Data sourced from Product Hunt\]\(https:\/\/www\.producthunt\.com\/leaderboard\/daily\/2026\/10\/12\)/);
 
   assert.deepEqual(
     bands.map((m) => m.headings),
@@ -101,7 +101,7 @@ test('when Fits run high, the ⌈√N⌉-th best Fit sets the line and every Lau
   const world = await startWorld({ now: '2026-10-14T07:30:00Z' });
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-14'), '2026-10-14T07:01:00Z');
-  // A provider that scores 2 points higher than the stand-ins, as in #9.
+  // A provider that judges 2 points higher than the stand-ins, as in #9.
   const standIn = world.model.judgment;
   world.model.judgment = (postId) => {
     const j = standIn(postId);
@@ -118,6 +118,23 @@ test('when Fits run high, the ⌈√N⌉-th best Fit sets the line and every Lau
   assert.equal(dossiers.lines.length, 10);
   assert.equal(dossiers.lines.filter((l) => l.text.includes('· Dossier · fit 8 ·')).length, 4, 'all four Launches tied at the line');
   assert.equal(post!.messages[2]!.headings[0], '### Near misses · fit 7');
+});
+
+test('when the ⌈√N⌉-th best Fit is the floor itself, the summary says so', async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  const standIn = world.model.judgment;
+  world.model.judgment = (postId) => {
+    const j = standIn(postId);
+    return j === 'omit' ? j : { ...j, fit: Math.min(10, j.fit + 1) };
+  };
+
+  await world.advanceTo('2026-10-12T08:00:00Z');
+
+  const [post] = world.discord.forumPosts(MINER_DAYS_FORUM);
+  assert.equal(post!.title, 'Mon Oct 12 · 7 Dossiers · line 7');
+  assert.match(post!.messages[0]!.text, /the 5th best Fit \(⌈√19⌉ = 5\) is 7, the same as the floor\./);
 });
 
 test('a Launch that is not a Product is Skipped whatever its Fit, and never counts toward the line', async (t) => {

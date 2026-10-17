@@ -27,6 +27,7 @@ export class DiscordRest {
   #log: Log;
   /** When each route may be used again, after Discord said it had no requests left. */
   #routeResets = new Map<string, number>();
+  #userId: string | undefined;
 
   constructor(options: { apiBaseUrl: string; token: string; log: Log }) {
     this.#apiBaseUrl = options.apiBaseUrl.replace(/\/$/, '');
@@ -48,6 +49,31 @@ export class DiscordRest {
   async sendMessage(channelId: string, message: MessagePayload): Promise<{ messageId: string }> {
     const body = (await this.#request('POST', `/channels/${channelId}/messages`, message)) as { id: string };
     return { messageId: body.id };
+  }
+
+  /** The open post the bot started in a forum under this title, if there is one. */
+  async findForumPost(forumId: string, title: string): Promise<string | undefined> {
+    const me = await this.#botUserId();
+    const forum = (await this.#request('GET', `/channels/${forumId}`)) as { guild_id: string };
+    const active = (await this.#request('GET', `/guilds/${forum.guild_id}/threads/active`)) as {
+      threads: { id: string; parent_id: string; owner_id: string; name: string }[];
+    };
+    return active.threads.find((t) => t.parent_id === forumId && t.owner_id === me && t.name === title)?.id;
+  }
+
+  /** The ids of the bot's own latest messages in a channel, oldest first. */
+  async ownMessages(channelId: string): Promise<string[]> {
+    const me = await this.#botUserId();
+    const messages = (await this.#request('GET', `/channels/${channelId}/messages?limit=100`)) as { id: string; author: { id: string } }[];
+    return messages
+      .filter((m) => m.author.id === me)
+      .map((m) => m.id)
+      .sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
+  }
+
+  async #botUserId(): Promise<string> {
+    this.#userId ??= ((await this.#request('GET', '/users/@me')) as { id: string }).id;
+    return this.#userId;
   }
 
   /** Answers an interaction. The interaction's own token authorises this call, not the bot's. */

@@ -94,6 +94,7 @@ export class FakeDiscord {
   #seq = 0;
   #nextId = 500000000000000000n;
   #pending = new Map<string, (reply: InteractionReply) => void>();
+  #lost: { kind: 'post' | 'message'; remaining: number }[] = [];
 
   private constructor(token: string) {
     this.token = token;
@@ -129,6 +130,24 @@ export class FakeDiscord {
     return [...this.#threads.values()]
       .filter((t) => t.forumId === forumId)
       .map((t) => ({ id: t.id, title: t.name, messages: t.messages.map(seen) }));
+  }
+
+  /**
+   * Discord takes the `nth` forum post or message created from now on, but its reply never reaches the bot, as when
+   * the bot stops in the middle of the request.
+   */
+  loseReply(kind: 'post' | 'message', nth = 1): void {
+    this.#lost.push({ kind, remaining: nth });
+  }
+
+  #replyLost(kind: 'post' | 'message'): boolean {
+    let lost = false;
+    for (const l of this.#lost.filter((x) => x.kind === kind)) {
+      l.remaining -= 1;
+      if (l.remaining === 0) lost = true;
+    }
+    this.#lost = this.#lost.filter((l) => l.remaining > 0);
+    return lost;
   }
 
   /** Resolves once the bot has identified on the gateway. */
@@ -273,7 +292,30 @@ export class FakeDiscord {
       const id = this.#id();
       // A forum post's first message has the post's own id.
       this.#threads.set(id, { id, forumId, name: body.name, messages: [{ id, channelId: id, payload: body.message! }] });
+      if (this.#replyLost('post')) return void res.socket?.destroy();
       return reply(201, { id, type: 11, parent_id: forumId, name: body.name, message: { id, channel_id: id } });
+    }
+
+    if (path === '/users/@me' && req.method === 'GET') return reply(200, { id: this.botUserId, username: 'Assistant', bot: true });
+
+    if ((match = path.match(/^\/channels\/(\d+)$/)) && req.method === 'GET') {
+      if (this.#forums.has(match[1]!)) return reply(200, { id: match[1], type: 15, guild_id: this.guildId });
+      const thread = this.#threads.get(match[1]!);
+      if (!thread) return reply(404, { code: 10003, message: 'Unknown Channel' });
+      return reply(200, { id: thread.id, type: 11, parent_id: thread.forumId, guild_id: this.guildId, name: thread.name });
+    }
+
+    if ((match = path.match(/^\/guilds\/(\d+)\/threads\/active$/)) && req.method === 'GET') {
+      if (match[1] !== this.guildId) return reply(404, { code: 10004, message: 'Unknown Guild' });
+      const threads = [...this.#threads.values()].map((t) => ({ id: t.id, type: 11, parent_id: t.forumId, owner_id: this.botUserId, name: t.name }));
+      return reply(200, { threads, members: [] });
+    }
+
+    if ((match = path.match(/^\/channels\/(\d+)\/messages(\?.*)?$/)) && req.method === 'GET') {
+      const thread = this.#threads.get(match[1]!);
+      if (!thread) return reply(404, { code: 10003, message: 'Unknown Channel' });
+      const newestFirst = [...thread.messages].reverse().slice(0, 100);
+      return reply(200, newestFirst.map((m) => ({ id: m.id, channel_id: m.channelId, author: { id: this.botUserId, bot: true } })));
     }
 
     if ((match = path.match(/^\/channels\/(\d+)\/messages$/)) && req.method === 'POST') {
@@ -284,6 +326,7 @@ export class FakeDiscord {
       if (problem) return refuse(problem);
       const id = this.#id();
       thread.messages.push({ id, channelId: thread.id, payload: body });
+      if (this.#replyLost('message')) return void res.socket?.destroy();
       return reply(200, { id, channel_id: thread.id });
     }
 
