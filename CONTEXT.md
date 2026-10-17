@@ -75,6 +75,10 @@ _Avoid_: Remote control, screen share
 The rest of a Registration given to the person to finish on their own device, with what is needed to finish it.
 _Avoid_: Escalation, fallback
 
+**Following**:
+The Assistant's watch over a Product after its Registration's outcome: handling the Product's mail and adding its re-Launches to the Dossier. After a while a followed Product goes **quiet**, and only its mail that isn't promotional still reaches the Assistant. A waitlisted Product never goes quiet. The person can keep a Product fully followed, or stop following it.
+_Avoid_: Tracking, monitoring, subscription
+
 **Signup identity**:
 The name and email address a Registration uses. Its address always delivers to the Signup mailbox.
 _Avoid_: Account, alias, persona
