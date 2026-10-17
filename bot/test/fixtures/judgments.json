@@ -1,0 +1,617 @@
+{
+ "1267423": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "job-search copilot; career tools aren't in your Interest scope"
+ },
+ "1272499": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "sales prospecting workspace; you left out sales"
+ },
+ "1264842": {
+  "fit": 4,
+  "notAProduct": false,
+  "reason": "scheduled agent tasks inside Perplexity's paid Computer; general automation, not coding agents"
+ },
+ "1270791": {
+  "fit": 5,
+  "notAProduct": true,
+  "reason": "a personal AI computer you buy; hardware"
+ },
+ "1263181": {
+  "fit": 4,
+  "notAProduct": false,
+  "reason": "screen recorder whose edits your agent makes over MCP; free, no account; video isn't in your scope"
+ },
+ "1251151": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "social media inbox for creators; you left out social growth"
+ },
+ "1246034": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "agenda agent that files Jira tickets for a team; needs a team"
+ },
+ "1275628": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "local-first writing app; near your notes interest, but built for drafting"
+ },
+ "1270101": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "voice to-do list for iPhone and desktop; the AI and sync are in the paid Pro"
+ },
+ "1276371": {
+  "fit": 2,
+  "notAProduct": true,
+  "reason": "a keyboard Google Japan built and doesn't sell; build files only"
+ },
+ "1273545": {
+  "fit": 8,
+  "notAProduct": false,
+  "reason": "Claude Code mod that switches your session to 200+ models; coding agents and model access"
+ },
+ "1270608": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "Japanese listening app for Android; you use an iPhone"
+ },
+ "1275891": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "always-on personal agent, but Mac-only"
+ },
+ "1274334": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "spreadsheet app for Mac"
+ },
+ "1273235": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "cocktail recipes; lifestyle"
+ },
+ "1272707": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "room-bass fix for Mac audio"
+ },
+ "1273845": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "terminal with a Run button for coding projects, but macOS-only"
+ },
+ "1275171": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "floor plans for home remodels"
+ },
+ "1273246": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "launch platform for SEO and growth; you left out marketing"
+ },
+ "1270515": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "Pokémon browser game"
+ },
+ "1273549": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "Mac notch app that watches your AI agents; Mac-only, $9.99"
+ },
+ "1272903": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "Minecraft server listings"
+ },
+ "1275665": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "Mac trackpad volume control"
+ },
+ "1268121": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "pickleball coaching"
+ },
+ "1275794": {
+  "fit": 4,
+  "notAProduct": false,
+  "reason": "terminal for running Claude Code and Codex side by side, but macOS-only"
+ },
+ "1275909": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "Mac notch control center"
+ },
+ "1274214": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "split-flap message board for a TV"
+ },
+ "1271805": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "open embedding model; weights on Hugging Face, nothing of its own to sign up for"
+ },
+ "1266889": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "explainer and avatar video maker; video isn't in your scope"
+ },
+ "1263940": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "edit a codebase from the browser through pull requests; aimed at teams"
+ },
+ "1274741": {
+  "fit": 8,
+  "notAProduct": false,
+  "reason": "open-source agent teams you can inspect; self-host free"
+ },
+ "1277089": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "marketing data for agents; you left out marketing"
+ },
+ "1266729": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "knowledge workspace for what you read and save; no word on export"
+ },
+ "1273871": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "shared context and tools for agents, built for a company"
+ },
+ "1277208": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "card-rewards finder for Android; finance"
+ },
+ "1277022": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "web-to-data API; a developer tool, pricing not stated"
+ },
+ "1264729": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "LinkedIn outreach; you left out sales"
+ },
+ "1277092": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "diagram workspace your agent draws in over MCP; generous free plan"
+ },
+ "1277000": {
+  "fit": 9,
+  "notAProduct": false,
+  "reason": "terminal coding agent that keeps your corrections across sessions; free plan"
+ },
+ "1273394": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "reminder scanner for Android"
+ },
+ "1274215": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "notes for writing, but a Mac app"
+ },
+ "1272978": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "AI employees for a company; needs a team"
+ },
+ "1265398": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "driving journal for iPhone; travel"
+ },
+ "1276516": {
+  "fit": 7,
+  "notAProduct": false,
+  "reason": "forms agents fill over MCP or HTTP; free"
+ },
+ "1274267": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "AI sales rep for shops; you left out sales"
+ },
+ "1273823": {
+  "fit": 8,
+  "notAProduct": false,
+  "reason": "your coding agent hands off tasks over MCP; free allowance to start"
+ },
+ "1267617": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "simulated buyers for marketing copy; you left out marketing"
+ },
+ "1278232": {
+  "fit": 8,
+  "notAProduct": false,
+  "reason": "open-source coding agent for terminal, desktop and web"
+ },
+ "1254833": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "business accounting; finance"
+ },
+ "1278066": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "Meta's new agent models, on the Meta Model API; model access"
+ },
+ "1259407": {
+  "fit": 4,
+  "notAProduct": false,
+  "reason": "email and calendar assistant for founders; close to what you're building, not something you'd use"
+ },
+ "1271264": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "AI-search SEO; you left out marketing"
+ },
+ "1271564": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "open-source desktop hub for your AI agents, bring your own key; platform not stated"
+ },
+ "1277012": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "talking-head video app for Mac"
+ },
+ "1273007": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "agent-made social posts; you left out social growth"
+ },
+ "1278439": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "mock job interviews; career tools aren't in your scope"
+ },
+ "1274276": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "delivery predictions for engineering leaders; needs a team"
+ },
+ "1271089": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "on-device transcription for iPhone, open source; no account"
+ },
+ "1277613": {
+  "fit": 8,
+  "notAProduct": false,
+  "reason": "run and watch your servers from the browser, with phone alerts"
+ },
+ "1278148": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "traffic and errors for sites you ship; you run a server, not sites"
+ },
+ "1278016": {
+  "fit": 1,
+  "notAProduct": true,
+  "reason": "a fitness tracker you buy"
+ },
+ "1271434": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "team social posting; you left out social growth"
+ },
+ "1275664": {
+  "fit": 4,
+  "notAProduct": false,
+  "reason": "one coding agent drives the others in watched terminals, but macOS-only"
+ },
+ "1278551": {
+  "fit": 4,
+  "notAProduct": false,
+  "reason": "agent that sorts files across Drive and Dropbox; not in your scope"
+ },
+ "1278420": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "wire-harness design for engineers"
+ },
+ "1277124": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "agent-fleet orchestrator example, macOS-only"
+ },
+ "1277481": {
+  "fit": 8,
+  "notAProduct": false,
+  "reason": "open-source personal agent with its own Linux desktop in Docker; no account"
+ },
+ "1270518": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "launch-video maker for macOS"
+ },
+ "1277419": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "recorder for musicians on iPhone; not study or getting things done"
+ },
+ "1273136": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "row-level security for multi-tenant agents; needs a company"
+ },
+ "1278447": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "open-source diagram canvas your coding agent edits; no account"
+ },
+ "1270905": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "camera experiences built with your coding agent; AR isn't in your scope"
+ },
+ "1258540": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "reads books and PDFs aloud on iPhone, on device"
+ },
+ "1278291": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "ads management for agents; you left out ads"
+ },
+ "1274375": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "email hosting with agent inboxes; $20 a month, no free plan stated"
+ },
+ "1221402": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "go-to-market tooling for agents; you left out sales"
+ },
+ "1265035": {
+  "fit": 9,
+  "notAProduct": false,
+  "reason": "serverless LLM inference with credits back on failed calls; free signup credits"
+ },
+ "1273690": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "browser agent for leads and outreach; mostly sales"
+ },
+ "1278698": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "social media marketing team; you left out marketing"
+ },
+ "1278154": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "developer news your agent can read over MCP"
+ },
+ "1275120": {
+  "fit": 7,
+  "notAProduct": false,
+  "reason": "checks that your coding agent built what you asked"
+ },
+ "1277882": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "product experimentation for companies; needs a team"
+ },
+ "1278817": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "moves apps to Google Cloud Run with your coding agent; you run your own VM"
+ },
+ "1269704": {
+  "fit": 8,
+  "notAProduct": false,
+  "reason": "coding agent in the cloud or locally, with your own models; starts free"
+ },
+ "1135009": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "desktop agent that watches your screen; desktop OS not stated"
+ },
+ "1277837": {
+  "fit": 3,
+  "notAProduct": true,
+  "reason": "Microsoft's AI chip announcement"
+ },
+ "1279535": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "demo videos rendered from Playwright tests; more marketing than development"
+ },
+ "1272957": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "session notes for tabletop RPG game masters"
+ },
+ "1277094": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "AI walking tours for Android; travel"
+ },
+ "1274767": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "workspace app that bundles web apps; not in your scope"
+ },
+ "1278289": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "control a Mac with your face"
+ },
+ "1279309": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "new decision models with a free console; unclear what you'd use them for"
+ },
+ "1279730": {
+  "fit": 4,
+  "notAProduct": false,
+  "reason": "update feed for AWS, Azure, GCP and Cloudflare; not Oracle Cloud"
+ },
+ "1277320": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "security scanner for AI-built apps; free"
+ },
+ "1275818": {
+  "fit": 7,
+  "notAProduct": false,
+  "reason": "one memory store your agents read and write over MCP"
+ },
+ "1279079": {
+  "fit": 1,
+  "notAProduct": true,
+  "reason": "a smart speaker you buy"
+ },
+ "1278703": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "point at your UI and send changes to your coding agent; Chrome extension, no signup"
+ },
+ "1270975": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "health records on WhatsApp"
+ },
+ "1276998": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "meditation audio for Android"
+ },
+ "1279093": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "text-to-speech API; model access, but speech isn't something you asked for"
+ },
+ "1279402": {
+  "fit": 7,
+  "notAProduct": false,
+  "reason": "open-source agent memory; self-host free, or its Cloud with free credits"
+ },
+ "1278222": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "food ordering from videos"
+ },
+ "1271795": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "Mac shortcut viewer"
+ },
+ "1276786": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "clips long videos into shorts; social growth"
+ },
+ "1275267": {
+  "fit": 7,
+  "notAProduct": false,
+  "reason": "splits an agent task across forked workspaces; bring your own keys"
+ },
+ "1279161": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "find customers in your inbox; sales"
+ },
+ "1274156": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "voice rooms where a team debates with AIs; needs a team"
+ },
+ "1279777": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "tailors job applications; career tools aren't in your scope"
+ },
+ "1279216": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "private lending tracker; finance"
+ },
+ "1275986": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "AI first-round interviews; you left out recruiting"
+ },
+ "1226825": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "desktop AI content suite, one-time payment, no login"
+ },
+ "1278797": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "self-hosted place where agents publish docs and take comments"
+ },
+ "1275575": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "lecture notes from transcription, but a Mac app"
+ },
+ "1273797": {
+  "fit": 3,
+  "notAProduct": false,
+  "reason": "invisible watermarks for images and video"
+ },
+ "1279751": {
+  "fit": 4,
+  "notAProduct": false,
+  "reason": "translates documents and keeps their layout; pay as you go"
+ },
+ "1279741": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "enterprise content pipeline; marketing"
+ },
+ "1279613": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "type a system and get a hand-drawn diagram; free, no sign-up"
+ },
+ "1273902": {
+  "fit": 2,
+  "notAProduct": false,
+  "reason": "embeddable dashboards for SaaS"
+ },
+ "1279319": {
+  "fit": 1,
+  "notAProduct": false,
+  "reason": "cyclone road-access planning for district control rooms"
+ },
+ "1272193": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "shares facts between people's AI assistants, with approval; close to your Assistant"
+ },
+ "1275927": {
+  "fit": 0,
+  "notAProduct": false,
+  "reason": "selling on WhatsApp; shopping"
+ },
+ "1279512": {
+  "fit": 6,
+  "notAProduct": false,
+  "reason": "webhook inbox that turns payloads into TypeScript types; no account"
+ },
+ "1276020": {
+  "fit": 5,
+  "notAProduct": false,
+  "reason": "Python dependency scans with fix pull requests"
+ }
+}

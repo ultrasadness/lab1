@@ -1,0 +1,1556 @@
+[
+ {
+  "id": "1271805",
+  "name": "Google EmbeddingGemma 2",
+  "tagline": "An open, lightweight multimodal embedding model",
+  "description": "EmbeddingGemma 2 is Google DeepMind's open embedding model that maps text, code, images, video and audio into one shared space, so you can search across them from a single query. At 740M parameters it runs on-device, needing about 567MB of RAM on a Pixel 11 Pro for the full multimodal model (191MB for text only). Apache 2.0 licensed, with weights on Hugging Face and Kaggle. MTEB Code score rises from 68.76 to 78.68.",
+  "slug": "google-embeddinggemma-2",
+  "dailyRank": 1,
+  "votesCount": 308,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Audio"
+    },
+    {
+     "name": "Video"
+    }
+   ]
+  },
+  "makers": [],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p><strong>EmbeddingGemma 2</strong> is Google DeepMind's open, lightweight multimodal embedding model. It maps text, code, images, video and audio into one shared space and is small enough to run on a phone.</p><p></p><p><strong>Problem</strong>: Searching by meaning usually needs a pipeline of separate models: a captioning model for images, speech-to-text for audio, a text embedder on top. That's slow, memory-hungry, and often sends your data to the cloud. For private, on-device apps, that's a hard trade-off.</p><p></p><p><strong>Solution</strong>: One 740M-parameter model, built on the Gemma 4 architecture, that embeds all five types of content in the same space. A text query can find a photo, and a voice memo can find a video clip. Everything runs locally, so your data never has to leave the device.</p><p></p><p><strong>What makes it different</strong>: It's modular. You can load only the encoders you need, as little as 270M parameters for text and code, plus optional vision (170M) and audio (300M) encoders. With quantization on a Pixel 11 Pro, it needs about 191MB of RAM for text only and about 567MB for the full multimodal model. It shares its tokenizer and audio encoder with Gemma 4, so running both together uses less memory than running them separately.</p><p></p><p><strong>Key features</strong>:</p><ul><li><p>Text, code, images, video and audio in a single embedding space</p></li><li><p>8K token context (4x EmbeddingGemma 1), enough for about 5.5 minutes of audio, 29 images or 58 video frames</p></li><li><p>Vectors can be shrunk from 768 to 512, 256 or 128 dimensions for up to 6x less storage</p></li><li><p>Code retrieval improves from 68.76 to 78.68 on MTEB Code (+9.92 points)</p></li><li><p>Google says it leads sub-1B multimodal embedding models on benchmarks like MTEB Code and MAEB (audio)</p></li><li><p>Can also act as a zero-shot, on-device decision engine: Google's MediaPipe demo scores 500 options per turn in a chess game in under 100 ms</p></li><li><p>Works with transformers, sentence-transformers, MLX, vLLM, llama.cpp, SGLang, Ollama, LMStudio, Qdrant and Unsloth</p></li></ul><p><strong>Who it's for</strong>: Developers building private, offline-capable search, RAG, media retrieval or local codebase search, and anyone who wants cross-modal search without a cloud dependency. </p><p></p><p>P.S. I hunt the latest and greatest launches in tech, SaaS and AI, follow to be notified <strong>\u2192</strong> <a href=\"https://www.producthunt.com/@rohanrecommends\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@rohanrecommends</a> </p>",
+     "createdAt": "2026-10-07T07:02:40Z",
+     "parentId": null,
+     "userId": "4325010"
+    },
+    {
+     "body": "<p>Love that EmbeddingGemma 2 maps text, images, audio and video into one shared embedding space so a single query can pull the right result from any of them.</p>",
+     "createdAt": "2026-10-12T22:51:46Z",
+     "parentId": null,
+     "userId": "3749277"
+    },
+    {
+     "body": "<p>Congrats on the launch! An open multimodal embedding model this light makes local retrieval much easier to ship. Which device sizes are you targeting for on-device use?</p>",
+     "createdAt": "2026-10-12T16:23:02Z",
+     "parentId": null,
+     "userId": "877476"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1266889",
+  "name": "ngram 2.0",
+  "tagline": "Create explainers, screencasts, and AI avatar videos",
+  "description": "Turn ideas, documents, and recordings into narrated videos. ngram analyzes uploaded videos and screen recordings to identify key moments and build clear product walkthroughs. Create animated explainers or add an AI avatar presenter, then refine your video in chat.",
+  "slug": "ngram-2-0-2",
+  "dailyRank": 2,
+  "votesCount": 275,
+  "commentsCount": 45,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Education"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Video"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "1453154"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt, I\u2019m Rishi from ngram.\n\nA research paper, a slide deck, or a product guide can have everything someone needs to learn a topic. Turning that material into a video still takes a separate round of scripting, recording, and editing.\n\nToday we\u2019re launching ngram AI Explainer Video Maker.\n\nBring the material you want to explain, tell ngram who it\u2019s for, and choose how much detail to cover. ngram creates the script, narration, and animated scenes for you.\n\nYou could turn a research paper into an explanation of its main findings, a training deck into a lesson for your team, or product documentation into a video for customers.\n\nChoose an overview for the main ideas or go deeper into the examples and details. The material and the depth you choose guide the video\u2019s length.\n\nIt\u2019s part of ngram and uses our existing plans and credits. If you already have an account, you can use it here too.\n\nWhat\u2019s something you\u2019ve been meaning to explain on video? I\u2019m here with the team to answer questions.",
+     "createdAt": "2026-10-01T17:34:15Z",
+     "parentId": null,
+     "userId": "4976306"
+    },
+    {
+     "body": "looks interesting!! how does it integrate into existing docs?",
+     "createdAt": "2026-10-14T07:04:08Z",
+     "parentId": null,
+     "userId": "6421428"
+    },
+    {
+     "body": "<p>The success depends completely on how fast the API responds and how long it takes to show the results when making things at once. Making the part automatic lowers costs a lot but how much it costs each minute will decide if this works for a lot of support documentation changes.</p>",
+     "createdAt": "2026-10-13T05:49:15Z",
+     "parentId": null,
+     "userId": "10329984"
+    },
+    {
+     "body": "<p>Really like how ngram turns a plain screen recording into an explainer with an AI avatar narrating it.</p>",
+     "createdAt": "2026-10-12T22:56:19Z",
+     "parentId": null,
+     "userId": "3749277"
+    },
+    {
+     "body": "<p>Congratulations on 2.0. I am preparing a launch video myself at the moment, so this is close to home. The part I find hardest is deciding what the script leaves out, more than the visuals. When ngram plans the message from release notes, does it ask who the video is for before it writes, or does it work the audience out from the material?</p>",
+     "createdAt": "2026-10-12T21:55:51Z",
+     "parentId": null,
+     "userId": "10024078"
+    },
+    {
+     "body": "This is really cool! Congrats on the launch.\ud83d\ude80 I was thinking about this concept the other day, after purchasing something new. Does ngram have the ability to link the video to a QR code? The QR code can then be printed and shipped with a product. As a consumer I\u2019d find that helpful, considering my most recent purchases have come with shorter and shorter instructions accompanied by frustrating vagueness or diagrams with little or inaccurate detail.",
+     "createdAt": "2026-10-12T21:22:08Z",
+     "parentId": null,
+     "userId": "10107559"
+    },
+    {
+     "body": "<p>Did you have any feedback from people who tried AI avatars? I mean, how do they perceive the concept? <br><br>Because e.g. when we used AI-created people, users churn. When we reduced AI, we had more conversions, trials successfully finished etc.</p>",
+     "createdAt": "2026-10-12T17:57:27Z",
+     "parentId": null,
+     "userId": "4843676"
+    },
+    {
+     "body": "<p>Congrats on the launch! Explainers, screencasts and avatar videos in one tool is a real time saver. Which format do people create most: explainers or screencasts?</p>",
+     "createdAt": "2026-10-12T16:25:10Z",
+     "parentId": null,
+     "userId": "877476"
+    },
+    {
+     "body": "<p>I wish you guys put some samples at <a href=\"https://www.ngram.com/made-with-ngram\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://www.ngram.com/made-with-ngram</a> </p>",
+     "createdAt": "2026-10-12T14:02:52Z",
+     "parentId": null,
+     "userId": "1754545"
+    },
+    {
+     "body": "<p>This is quite nice, especially if the product updates are quite technical in nature! Well done!</p>",
+     "createdAt": "2026-10-12T11:31:43Z",
+     "parentId": null,
+     "userId": "9989596"
+    },
+    {
+     "body": "<p><a href=\"https://www.producthunt.com/@devadutta\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"devadutta\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@devadutta</a> Congratulations. And happy product launch.</p>",
+     "createdAt": "2026-10-12T11:01:04Z",
+     "parentId": null,
+     "userId": "7315255"
+    },
+    {
+     "body": "<p>Seems like a super useful tool. I'm interested in the framing/positioning you guys are going for\u2014the main description centers around product updates (a pain to keep making screen recordings of for every new feature/update), but all the rest of the copy (and the site) frames it as a more general explainer-video-generator.<br><br>Regardless, congrats on a cool product and great launch :)</p>",
+     "createdAt": "2026-10-12T10:57:40Z",
+     "parentId": null,
+     "userId": "10144068"
+    },
+    {
+     "body": "<p>I'd probably use this for all those small product updates that never get a proper demo video. Writing the update is easy, making a video for it is where things get annoying </p>",
+     "createdAt": "2026-10-12T10:55:24Z",
+     "parentId": null,
+     "userId": "10001124"
+    },
+    {
+     "body": "<p>Would love to start using this in my demos to show more details about my product, congrats on the launch!</p>",
+     "createdAt": "2026-10-12T08:42:47Z",
+     "parentId": null,
+     "userId": "9713728"
+    },
+    {
+     "body": "<p>worth trying out. Congrats on the launch!</p>",
+     "createdAt": "2026-10-12T08:10:29Z",
+     "parentId": null,
+     "userId": "5670919"
+    },
+    {
+     "body": "<p>Choosing the audience and level of detail before making the explainer makes sense. The same source material needs a different story for someone new to it. Congrats on 2.0, Anish and team!</p>",
+     "createdAt": "2026-10-12T08:07:21Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Congrats on the launch, Rishi and team! Turning a screen recording into a narrated product walkthrough is especially useful for feature updates. Can ngram keep the video in sync when the product UI changes, or would you create a new one from the updated recording?</p>",
+     "createdAt": "2026-10-12T08:01:42Z",
+     "parentId": null,
+     "userId": "8748622"
+    },
+    {
+     "body": "<p>Hey everyone, Anish here, one of the makers of ngram \ud83d\udc4b<br></p><p>I get really excited about how much we can learn today. With LLMs, we can explore almost any subject, ask questions freely, and go deeper into things we\u2019ve always been curious about. The opportunity to learn and grow feels tremendous.<br></p><p>What we want to do with ngram is help those ideas click.<br></p><p>You could be trying to understand a research paper yourself, explain a process to your team, or show a customer why the product you\u2019ve built matters. Your starting point might be plain text, a slide deck, or a screen recording. <br><br>We want to help you shape that into a story someone can follow and understand.<br></p><p>As a maker, helping someone understand something you care about is a lovely feeling. <br></p><p>Would love to hear what you\u2019re learning or trying to explain. \u2764\ufe0f</p>",
+     "createdAt": "2026-10-12T05:17:55Z",
+     "parentId": null,
+     "userId": "2136940"
+    },
+    {
+     "body": "<p>Hey hunters and builders! \ud83d\udc4b<br></p><p>I\u2019m super excited to be hunting <strong>Ngram</strong> <br></p><p>We\u2019ve all been there: staring at a 40-page research paper, a dense technical document, or a complex product workflow, wishing there was an easier way to digest or explain it. Reading walls of text takes time, and making a proper explainer video manually takes even longer.<br></p><p>That\u2019s why the team built the <strong>AI Explainer Video Maker</strong>. You just drop in an article, a research paper, a slide deck, or even just a raw topic, and Ngram spins up a fully narrated video with animated scenes.<br></p><p>Whether you're trying to speed up your own learning, break down a tricky product feature for customers, or help your team align on a complex process, Ngram handles the heavy lifting in seconds.<br></p><p>Give it a spin, try plugging in your favorite dense piece of text, and let us know what you think! The team is here all day to answer questions and hear your feedback. </p>",
+     "createdAt": "2026-10-11T21:33:58Z",
+     "parentId": null,
+     "userId": "1453154"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1263940",
+  "name": "Base Code",
+  "tagline": "Let your whole team build on your product",
+  "description": "Base Code lets teams work directly on existing codebases from the browser. Connect GitHub, describe changes in plain language, preview them live, and send completed work through standard pull requests.",
+  "slug": "base-code",
+  "dailyRank": 3,
+  "votesCount": 199,
+  "commentsCount": 4,
+  "topics": {
+   "nodes": [
+    {
+     "name": "SaaS"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "No-Code"
+    }
+   ]
+  },
+  "makers": [],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p><strong>Base Code</strong> brings existing codebases into a shared browser-based workspace, letting more people on a team contribute without changing the existing development workflow.<br><br><strong>Key features:</strong><br>\u2022 Connect an existing GitHub repository<br>\u2022 Describe changes in plain language<br>\u2022 Work on isolated branches<br>\u2022 Preview changes live<br>\u2022 Collaborate across branches and sessions<br>\u2022 Submit completed changes through GitHub pull requests<br>\u2022 Keep existing branch protections, checks, and review processes<br><br><strong>Who its for:</strong> Product, design, marketing, QA, and engineering teams that want to contribute directly to an existing codebase.<br><br>Try <a href=\"https://base44.com/base-code\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Base Code</a></p><p></p><p>P.S. I hunt the latest and greatest launches in tech, SaaS and AI, follow to be notified <strong>\u2192</strong> <a href=\"https://www.producthunt.com/@rohanrecommends\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@rohanrecommends</a> </p>",
+     "createdAt": "2026-09-29T06:10:02Z",
+     "parentId": null,
+     "userId": "4325010"
+    },
+    {
+     "body": "<p>curious about the review side. when a PM or designer opens a PR from here, does the PR carry the original plain language request and the back and forth, or just the diff? back in my agency days the code was rarely the problem. it was the engineer getting a change with zero context on what the person actually wanted. if the request travels with the PR i'd try this with my team.</p>",
+     "createdAt": "2026-10-13T03:29:35Z",
+     "parentId": null,
+     "userId": "10110410"
+    },
+    {
+     "body": "<p>Cool that Base Code connects an existing GitHub repo and lets teammates describe changes in plain language instead of touching the codebase directly.</p>",
+     "createdAt": "2026-10-12T23:02:34Z",
+     "parentId": null,
+     "userId": "3749277"
+    },
+    {
+     "body": "<p>the part I'd want to see addressed is what \"preview changes live\" actually catches before the PR goes out. plain-language changes from a non-engineer are great for velocity, but the failure mode isn't a broken build, branch protections and CI will catch that. it's a change that compiles fine and looks right in the preview but is subtly wrong in a way only someone who knows the codebase would notice, a query that's technically correct but N+1, a permission check that's slightly too loose. does the reviewing engineer get a diff summary that flags \"this touches auth\" or \"this touches billing\" type changes specifically, or is it the same review surface as any other PR and it's on them to catch it by reading the diff like always?</p>",
+     "createdAt": "2026-10-12T15:55:49Z",
+     "parentId": null,
+     "userId": "9882085"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1274741",
+  "name": "guilds.run",
+  "tagline": "Create multi-agent workflows that you can trust",
+  "description": "Open-source AI agent teams you can actually inspect. Debug every prompt, tool call, memory change, and agent interaction. Control permissions, edit context, and choose the model for each agent. Self-host for free. Stop guessing what your agents are doing.",
+  "slug": "guilds-run",
+  "dailyRank": 4,
+  "votesCount": 197,
+  "commentsCount": 48,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Virtual Assistants"
+    },
+    {
+     "name": "Bots"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "10339455"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt! \ud83d\udc4b <br></p><p>Getting AI to handle long-running tasks reliably takes more than good prompts. There\u2019s a lot of system design involved: figuring out how agents should work together, anticipating edge cases, and being able to debug and tune the system when things go wrong.<br></p><p>That\u2019s why we built <a href=\"http://guilds.run\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">guilds.run</a>.<br></p><p>The goal is to make the whole system understandable, so you can trace how mistakes propagate between agents, fix the underlying causes, and see if your changes work.<br></p><p>We\u2019re open-sourcing <a href=\"http://guilds.run\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">guilds.run</a> because we\u2019d like to see what other people built and share working team the solve real world use cases for long running agent collaboration<br></p><p><strong>Coming next:</strong></p><p><br>\ud83e\udde9 <strong>Recipe sharing:</strong> discover, reuse and share whole agent teams built by the community.<br>\u2601\ufe0f <strong>Hosted mode:</strong> the same product without managing your own infrastructure. Leave your email on <a href=\"http://guilds.run\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">guilds.run</a> to get a seat when it opens.<br></p><p>If you like what you see, a \u2b50 on GitHub helps a lot. We\u2019re here all day, so tell us what breaks and what you\u2019d build.<br><br></p><img src=\"https://ph-files.imgix.net/8e887a57-3173-4fc0-8aa3-9973b306bbcb.png?auto=compress,format&amp;codec=mozjpeg&amp;cs=strip\" style=\"max-width: 100%\"><p></p>",
+     "createdAt": "2026-10-10T19:39:24Z",
+     "parentId": null,
+     "userId": "1122774"
+    },
+    {
+     "body": "<p>Yea, self-hosting for free and actually seeing every tool call is a nice combo. Congrats on the launch! <a href=\"https://www.producthunt.com/@m4nuc\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"m4nuc\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@m4nuc</a> <a href=\"https://www.producthunt.com/@vincent_cigale\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"vincent_cigale\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@vincent_cigale</a> <a href=\"https://www.producthunt.com/@dadadel\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"dadadel\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@dadadel</a> </p>",
+     "createdAt": "2026-10-14T05:50:23Z",
+     "parentId": null,
+     "userId": "6108489"
+    },
+    {
+     "body": "<p>Can I test a workflow safely before letting the agents run it for real? good luck!</p>",
+     "createdAt": "2026-10-13T08:09:15Z",
+     "parentId": null,
+     "userId": "9432429"
+    },
+    {
+     "body": "<p>self hostable + you can see every tool call, thats what makes agents trustable imo \ud83d\ude4c any plans for a hosted version?</p>",
+     "createdAt": "2026-10-13T07:44:57Z",
+     "parentId": null,
+     "userId": "3426683"
+    },
+    {
+     "body": "<p>I believe that as AI agent systems become increasingly complex, observability will become just as important as orchestration. When issues arise, being able to understand what transpired between the agents rather than simply looking at the final output can make a significant difference.</p>",
+     "createdAt": "2026-10-13T04:16:32Z",
+     "parentId": null,
+     "userId": "2719612"
+    },
+    {
+     "body": "<p>Being able to trace how a mistake propagates from one agent to the next is the part I find most interesting. When you debug a failed run, does the trace show the exact message one agent passed to the next, or only each agent\u2019s own steps?</p>",
+     "createdAt": "2026-10-13T03:55:58Z",
+     "parentId": null,
+     "userId": "969016"
+    },
+    {
+     "body": "<p>In my opinion, being able to monitor the activity of each AI agent is crucial. Debugging workflows that involve multiple agents can quickly become complex, so having the ability to observe these operations from a single location is a highly effective approach. Great work by the entire team!</p>",
+     "createdAt": "2026-10-13T02:35:58Z",
+     "parentId": null,
+     "userId": "4355096"
+    },
+    {
+     "body": "<p>Its debugging capabilities caught my eye. I am curious to know how well <a href=\"http://guilds.run\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">guilds.run</a> handles workflows where agents use different models and rely on each other's outputs. It seems like a fascinating challenge to solve.</p>",
+     "createdAt": "2026-10-13T02:28:24Z",
+     "parentId": null,
+     "userId": "3549013"
+    },
+    {
+     "body": "<p>Congrats on the hunt <a href=\"https://www.producthunt.com/@kate_ramakaieva\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@kate_ramakaieva</a></p><p></p><p>I've been using Grok Bot to monitor X for trends, viral topics, product mentions, and relevant conversations. Could I use guilds run to coordinate multiple agents across X, Reddit, LinkedIn, and Instagram? I want to have a spreedsheet with mentions of the topics/mentions etc.</p>",
+     "createdAt": "2026-10-12T18:57:33Z",
+     "parentId": null,
+     "userId": "6558926"
+    },
+    {
+     "body": "<p>interesting product! how much does the hosted version costs?</p>",
+     "createdAt": "2026-10-12T15:52:49Z",
+     "parentId": null,
+     "userId": "8855017"
+    },
+    {
+     "body": "<p>Love the idea of being able to see what AI agents are actually doing. The debugging and permissions features look really useful. Congrats on the launch \ud83d\ude80\ud83d\ude4f\ud83c\udffb</p>",
+     "createdAt": "2026-10-12T12:50:31Z",
+     "parentId": null,
+     "userId": "9246264"
+    },
+    {
+     "body": "<p>As more non-developers start building with AI, we\u2019ll need ways for them to understand and debug the systems they create. Interested to see where this goes.</p>",
+     "createdAt": "2026-10-12T09:37:17Z",
+     "parentId": null,
+     "userId": "9371772"
+    },
+    {
+     "body": "<p>Get started with: <br></p><pre><code>git clone <a href=\"https://github.com/CigaleAI/guilds.git\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://github.com/CigaleAI/guil...</a> &amp;&amp; cd guilds &amp;&amp; docker compose up --detach --wait</code></pre><p></p>",
+     "createdAt": "2026-10-12T08:46:33Z",
+     "parentId": null,
+     "userId": "1122774"
+    },
+    {
+     "body": "<p>We should thank <a href=\"https://www.producthunt.com/products/jev\" data-node-type=\"mention\" data-mention-type=\"product\" data-mention-id=\"jev\" target=\"_blank\" rel=\"noopener\">@Jev</a> for their great product too. If you have a typesafe key, then <a href=\"https://guilds.run\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">guilds.run</a> use it for smart group chat message routing and context compression. </p>",
+     "createdAt": "2026-10-12T08:30:45Z",
+     "parentId": null,
+     "userId": "1122774"
+    },
+    {
+     "body": "<p>Seeing where an assumption went wrong as it passes between agents sounds useful. Being able to follow that trail would help with figuring out what to fix. Congrats on the launch, Emmanuel and Vincent!</p>",
+     "createdAt": "2026-10-12T08:05:22Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>3rd maker here! I have a PhD in cognitive science, and now I\u2019m trying to understand what\u2019s going on inside agent \u201cbrains.\u201d \ud83d\ude05 </p><p>Hope you like what we\u2019re building!</p>",
+     "createdAt": "2026-10-12T07:25:07Z",
+     "parentId": null,
+     "userId": "10339455"
+    },
+    {
+     "body": "<p>Hey PH! \ud83d\udc4b<br></p><p>Super happy to be hunting <a href=\"http://guilds.run\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">guilds.run</a> today.<br></p><p>Anyone who has run multi-agent setups knows the pain. One agent makes a wrong assumption, the next one treats it as fact, and 3 steps later you\u2019re staring at a broken output with no idea where it went sideways. Most tools just hand you better prompts. <a href=\"http://guilds.run\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">guilds.run</a> actually lets you see what happened.</p><p><br>What caught my attention:</p><p>\ud83d\udd0d Full visibility into every prompt, tool call, memory change and the group chat between agents<br>\ud83d\udee0 Studio reads your runs, finds the root cause and drafts a fix, and nothing goes live until you publish it<br>\u2699\ufe0f Per-agent control over permissions, context and model<br>\ud83c\udd93 Open source and free to self-host, up and running with one docker command<br></p><p>Love that the team is building in the open. <br></p><p>Congrats <a href=\"https://www.producthunt.com/@m4nuc\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"m4nuc\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@m4nuc</a> and <a href=\"https://www.producthunt.com/@vincent_cigale\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"vincent_cigale\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@vincent_cigale</a> on the launch!</p>",
+     "createdAt": "2026-10-12T07:05:26Z",
+     "parentId": null,
+     "userId": "2460644"
+    },
+    {
+     "body": "<p>Hi there! I\u2019m not technical at all, yet within a few hours, I set up automated prospecting on LinkedIn. It searches for and invites prospects, sends personalized messages, and follows up.</p>",
+     "createdAt": "2026-10-11T08:36:27Z",
+     "parentId": null,
+     "userId": "10226316"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277089",
+  "name": "Manifold MCP",
+  "tagline": "SEO, AI answers, social, ads and leads data for your agent",
+  "description": "Manifold gives your agent live data from every marketing channel, in one hosted MCP server for Claude, ChatGPT, Cursor and Claude Code. Find keywords one push from page one. See if ChatGPT and Gemini recommend you. Watch the TikToks winning your niche. Read your competitors\u2019 live ads. Catch Reddit threads asking for what you make. Get verified emails for buyers looking right now. Ask in plain words and your agent does the work. No pile of tabs. Free to start.",
+  "slug": "manifold-mcp",
+  "dailyRank": 5,
+  "votesCount": 161,
+  "commentsCount": 30,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Marketing"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Growth Hacks "
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "1988394"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt! Jesse here, maker of Manifold.\n\nAsk any AI agent how to grow and you get the same list: post consistently, know your audience, optimise your SEO. Your agent is smart. But on marketing, it\u2019s guessing, because it can\u2019t look at your rankings, your competitors\u2019 ads or what people are asking for on Reddit.\n\nManifold gives it that data. It\u2019s one hosted MCP server with live Google rankings and backlinks, what ChatGPT and Gemini say about you, TikTok, YouTube and Instagram, Reddit threads, competitors\u2019 live ads and verified work emails.\n\nIt works in Claude, ChatGPT, Cursor, Claude Code, Codex, Gemini CLI and Grok. Connect once, then just ask:\n\n\u201cWhich keywords do we rank 5 to 15 for that could reach page one?\u201d\n\u201cDoes ChatGPT recommend us for [your category]? Who does it name instead?\u201d\n\u201cFind Reddit threads from the last month asking for a product like ours.\u201d\n\u201cWhat\u2019s our main competitor running on Meta right now?\u201d\n\nUsually that\u2019s a pile of tabs and a spreadsheet. Here your agent pulls the numbers and does the work.\n\nThere\u2019s a free skills library too (MIT) for whole jobs, like /find-seo-quick-wins and /create-launch-plan.\n\nIt\u2019s free to start with 500 credits, no card. After that you pay per call, and every tool tells your agent its price before it runs.\n\nI\u2019m building this on my own, so I\u2019ll read every comment today. What would you want your agent to look up next?\n\nJesse",
+     "createdAt": "2026-10-11T21:01:28Z",
+     "parentId": null,
+     "userId": "1988394"
+    },
+    {
+     "body": "<p>Honestly, anything that saves me from keeping 20 marketing tabs open is a win. Free to start is nice too ha <a href=\"https://www.producthunt.com/@jessesibley_\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"jessesibley_\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@jessesibley_</a> </p>",
+     "createdAt": "2026-10-14T05:50:52Z",
+     "parentId": null,
+     "userId": "6108489"
+    },
+    {
+     "body": "<p>pay per call + price shown to the agent before it runs is smart \ud83d\udc4f whats the most used tool so far?</p>",
+     "createdAt": "2026-10-13T07:45:30Z",
+     "parentId": null,
+     "userId": "3426683"
+    },
+    {
+     "body": "<p>This is the way to go. Provide connectors instead of building another standalone platform. </p>",
+     "createdAt": "2026-10-13T04:35:54Z",
+     "parentId": null,
+     "userId": "414633"
+    },
+    {
+     "body": "<p>I like MCP part a lot! If i have 6 Claude Code sessions running in parallel would they be able to share one Manifold account?</p>",
+     "createdAt": "2026-10-12T21:24:32Z",
+     "parentId": null,
+     "userId": "10339569"
+    },
+    {
+     "body": "<p> Hi Jesse, congrats on the launch! This one hit a nerve.<br><br> run marketing for my company with an AI agent, and it's good at the work but blind in exactly the way you describe. The thing I never managed to solve is Reddit. I only wanted to be told when a relevant thread comes up, so I created a developer app with Reddit and it was declined.<br><br>Two questions:<br>1. How do you get Reddit data, given how hard it is to get an app approved? Is it something I can rely on long term?<br>2. Does it only search when I ask, or can it watch for new threads and notify me?<br><br>If it does the second one, you've solved a problem I gave up on.</p>",
+     "createdAt": "2026-10-12T18:16:13Z",
+     "parentId": null,
+     "userId": "10341607"
+    },
+    {
+     "body": "<p>What is the criterion used by Manifold for identifying keywords as \u2018one push from page one\u2019? Is it based on ranking position or difficulty or a combination of both?</p>",
+     "createdAt": "2026-10-12T11:34:35Z",
+     "parentId": null,
+     "userId": "9965621"
+    },
+    {
+     "body": "<p>\"Keywords one push from page one\" is the report I rebuild by hand from Search Console every week. Where does the ranking data come from, my own Search Console once connected, or a third-party index? For a new domain with a few hundred impressions those two give very different pictures.</p>",
+     "createdAt": "2026-10-12T11:30:11Z",
+     "parentId": null,
+     "userId": "10340586"
+    },
+    {
+     "body": "<p>Yeeehaaa this is sick!! </p>",
+     "createdAt": "2026-10-12T10:46:57Z",
+     "parentId": null,
+     "userId": "5016826"
+    },
+    {
+     "body": "<p>Saved me hours of manually setting up my own marketing MCPs for my grok bots \ud83e\udd16</p>",
+     "createdAt": "2026-10-12T09:51:46Z",
+     "parentId": null,
+     "userId": "1711799"
+    },
+    {
+     "body": "<p>This is super neat, this solves the painful problem of having to map a particular growth strategy across many different verticals. Most of the time, I'd like a single interface to have \"agentic oversight\" for the different things I'm working on.</p>",
+     "createdAt": "2026-10-12T09:27:10Z",
+     "parentId": null,
+     "userId": "2511076"
+    },
+    {
+     "body": "Congrats on the launch \ud83d\udd25",
+     "createdAt": "2026-10-12T09:24:15Z",
+     "parentId": null,
+     "userId": "7508624"
+    },
+    {
+     "body": "<p>\"Your AI agent is guessing\", and so is ChatGPT when you ask who it recommends \ud83d\ude04 Genuine question: for the \"does ChatGPT recommend us\" check, do you run the prompt several times and report a mention rate, or is it a single snapshot? The same prompt gives me different brands on different runs.</p>",
+     "createdAt": "2026-10-12T09:06:02Z",
+     "parentId": null,
+     "userId": "10289588"
+    },
+    {
+     "body": "<p>I found manifold on twitter and signed up for the free trial. Found it super helpful being able to close the loop on SEO, I can assign an agent a credit budget for marketing research and decide where the best opportunities are for growth. I now use across a number of sites and am on the paid plan but costs feel very reasonable</p>",
+     "createdAt": "2026-10-12T09:05:24Z",
+     "parentId": null,
+     "userId": "1886978"
+    },
+    {
+     "body": "<p>Congrats on the launch Jesse! Love bringing live marketing data straight into Claude or ChatGPT &amp; being able to research keywords and competitors without jumping between loads of tools is really useful \ud83d\ude80\ud83d\ude80 (especially for founders doing their own marketing \ud83d\ude4c)</p>",
+     "createdAt": "2026-10-12T08:05:39Z",
+     "parentId": null,
+     "userId": "1351304"
+    },
+    {
+     "body": "<p>Everyone knows how expensive Ahrefs is, especially if you want to use it in your claude code workflow</p><p></p><p>Manifold helps with your SEO strategy, and much more. Stop adding more features and do some marketing </p>",
+     "createdAt": "2026-10-12T07:35:15Z",
+     "parentId": null,
+     "userId": "1361993"
+    },
+    {
+     "body": "<p>very useful to find content and seo gaps for youtube videos on google</p>",
+     "createdAt": "2026-10-12T07:21:24Z",
+     "parentId": null,
+     "userId": "10343247"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1266729",
+  "name": "Ancher 2.0",
+  "tagline": "Turn everything you read and save into work you can ship",
+  "description": "Ancher is an AI knowledge workspace that turns everything you read, watch, and save into work you can actually use. Capture articles, videos, PDFs, posts, and ideas without organizing folders. Ancher connects related knowledge, lets you search and ask questions across your sources, and helps turn what you've learned into research briefs, reports, presentations, and content in your own voice. Your saved knowledge becomes more useful every time you add to it.",
+  "slug": "ancher-2-0",
+  "dailyRank": 6,
+  "votesCount": 151,
+  "commentsCount": 38,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Writing"
+    },
+    {
+     "name": "Notes"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "8171255"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>The smarter your agent gets, the more your inputs matter.</p><p></p><blockquote><p><strong>Garbage in, garbage out didn't disappear when AI got good.</strong></p></blockquote><p></p><p>I'm Vincent, co-founder of Ancher. I spent 15 years in media\u2014at HuffPost, Yahoo News, and NewsBreak\u2014helping algorithms decide what people should see. Now I'm helping people\u2014and their agents\u2014get back to what was worth keeping.</p><p></p><p>Because that's where things get interesting. We can all use the same models. But we haven't read the same things, noticed the same details, or connected the same ideas. The work starts becoming yours before you ever write a prompt.</p><p></p><p>A line in an X post. Thirty seconds in a YouTube video. An argument in a podcast that changes how you think. That's raw material for your next piece of work. And most of it never makes it into the chat window.</p><p></p><p>We keep upgrading the intelligence. Then we make people copy and paste its inputs.</p><p></p><pre><code>Ancher 2.0 is our bet on that missing layer.</code></pre><p></p><p>We call it an Agentic Dropbox. Dropbox made your files available wherever you worked. We're building Ancher to make what you save usable wherever your agents work.</p><p></p><p>Save a post, video, podcast, article, or a thought before it slips away. Later, you don't need the title, the URL, or the exact words. <strong>\u201cWhat did I save about...?\u201d should be enough. </strong>Find the exact sentence or video moment, with the source. Then put it to work in ChatGPT or Claude\u2014or use Ancher's agent to turn it into a post, report, or presentation.</p><p></p><p>That whole journey\u2014from something catching your attention to an agent actually using it\u2014is what we're building infrastructure for.</p><p></p><p>A saved link is a starting point. Your agent needs the content inside it, the relevant part, and a way back to the source. That's what makes your collection useful at the moment you're trying to do something.</p><p></p><p>Our bet is simple: better agents make this layer more valuable. Every improvement in what an agent can do gives you another way to use what you've already collected.</p><p></p><p>Your agent will change. Everything you've learned shouldn't have to start over.</p><p></p><p><strong>That's Ancher 2.0. The magic starts BEFORE THE PROMPT.</strong></p><p></p><p>Great in, great out.</p><p></p><p>Try it with something you only half remember. Tell us what it finds\u2014and where it falls short. We're here.</p>",
+     "createdAt": "2026-10-08T11:52:53Z",
+     "parentId": null,
+     "userId": "8171255"
+    },
+    {
+     "body": "<div><table><tbody><tr><td><p>Congrats on the launch! Finding something when you\u2019ve forgotten the exact words is a very familiar problem.</p></td></tr></tbody></table></div>",
+     "createdAt": "2026-10-13T01:45:58Z",
+     "parentId": null,
+     "userId": "9699215"
+    },
+    {
+     "body": "<p>The \"chief of staff for information\" angle is what I want \u2014 I lose half my morning re-reading the same Slack threads before I know what to work on. Does Ancher pull from email and chat, or is it mostly docs and notes for now?</p>",
+     "createdAt": "2026-10-12T21:41:48Z",
+     "parentId": null,
+     "userId": "10303877"
+    },
+    {
+     "body": "<p>It's not clear form the video if it does remember everything I check or only things I save.</p>",
+     "createdAt": "2026-10-12T17:09:00Z",
+     "parentId": null,
+     "userId": "1147117"
+    },
+    {
+     "body": "<p>\"garbage in, garbage out didn't disappear when AI got good\" is the line that'll stick with me, that's exactly the part everyone skips when they pitch \"AI that remembers everything for you.\" the question I'd want answered before trusting it with real work: when two things I've saved disagree, say an X post arguing one way and a podcast arguing the opposite, does Ancher surface that tension when it pulls from both into a brief, or does it just blend them into something confidently wrong? connecting related ideas is great when they agree, the harder and more useful case is when they don't.</p>",
+     "createdAt": "2026-10-12T15:56:46Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "Love this idea. I save tons of articles, videos, and random ideas but rarely go back to them. Being able to actually turn all that saved content into something useful is exactly what I\u2019ve been looking for. Excited to give this a try!",
+     "createdAt": "2026-10-12T15:33:34Z",
+     "parentId": null,
+     "userId": "8385431"
+    },
+    {
+     "body": "<p>The hardest part of these systems is adding content . I spend every morning reading through Linkedin, X, Hacker News, Product Hunt, and bookmarked items I want to read later but every system makes it difficult to import those bookmarks. </p>",
+     "createdAt": "2026-10-12T14:13:42Z",
+     "parentId": null,
+     "userId": "1754545"
+    },
+    {
+     "body": "<p>Where does Ancher stand in relation to Notion, Readwise, and Obsidian? Is there an option for me to import my notes?<br>Btw, Congratulations <a href=\"https://www.producthunt.com/@vincentwu800\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"vincentwu800\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@vincentwu800</a> , <a href=\"https://www.producthunt.com/@ula6\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"ula6\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@ula6</a> and team Ancher 2.0 \ud83d\ude80\ud83c\udf8a</p>",
+     "createdAt": "2026-10-12T09:56:31Z",
+     "parentId": null,
+     "userId": "9965621"
+    },
+    {
+     "body": "<p>Natural search ftw! Cross-device syncing, too. Nice.</p><p></p><p>Can't get over how the AI voice in the video kept saying \"An-cher\" \ud83d\ude05</p>",
+     "createdAt": "2026-10-12T08:52:06Z",
+     "parentId": null,
+     "userId": "10144068"
+    },
+    {
+     "body": "<p>Vincent, finding the exact moment in a saved video with the source attached caught my eye. Much easier to bring something back into your work when you can get straight to the relevant bit. Congrats!</p>",
+     "createdAt": "2026-10-12T08:07:50Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>This is amazing I was facing a similar problem and was about to build it myself. Just a quick question, is there any feature present/planned that will let me export all my saved content</p>",
+     "createdAt": "2026-10-12T07:28:57Z",
+     "parentId": null,
+     "userId": "9532963"
+    },
+    {
+     "body": "<p>And a little something for the PH community \ud83c\udf81 - we\u2019ve got an exclusive discount for Product Hunt users. Give Ancher a try and let us know what you think! \ud83d\ude80</p>",
+     "createdAt": "2026-10-12T07:13:03Z",
+     "parentId": null,
+     "userId": "8437172"
+    },
+    {
+     "body": "<p>I\u2019m incredibly excited to finally share Ancher with the Product Hunt community today.</p><p></p><p>We built Ancher around a simple frustration: we save more useful information than ever - articles, videos, PDFs, posts, notes, ideas \u2014 but most of it gets buried and rarely becomes useful again.</p><p></p><p>With Ancher, we want to change that. Instead of just giving you another place to store things, Ancher connects what you save, helps you search and ask questions across your knowledge, and most importantly, turns it into something new - research, reports, presentations, content, and ideas in your own voice.</p><p></p><p>For me, that\u2019s what makes Ancher exciting: <strong>Save \u2192 Recall \u2192 Create.</strong></p><p></p><p>Your knowledge shouldn\u2019t just sit in a folder. It should keep working for you.</p><p></p><p>We\u2019re still early and learning fast, so I\u2019d really love to hear how you use Ancher, what works, what doesn\u2019t, and what you\u2019d like us to build next.</p><p></p><p>Thanks for checking us out and supporting our launch! \ud83d\ude80</p>",
+     "createdAt": "2026-10-12T07:06:58Z",
+     "parentId": null,
+     "userId": "8437172"
+    },
+    {
+     "body": "<p>I save way too many articles, videos, and interesting posts that I almost never look at again.</p><p></p><p>Ancher 2.0 has a pretty interesting take on that problem.</p><p></p><p>You can throw in links, PDFs, YouTube videos, screenshots, and other stuff without organizing everything into folders. It connects related ideas, lets you search across what you've saved, and helps turn that material into actual work like research briefs, posts, and presentations.</p><p></p><p>I like that the goal isn't just building a bigger collection of notes. It's making the things you've already consumed useful when you need them.</p><p></p><p>Kudos to <a href=\"https://www.producthunt.com/@vincentwu800\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"vincentwu800\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@vincentwu800</a> and the whole Anchor team!</p>",
+     "createdAt": "2026-10-10T13:49:09Z",
+     "parentId": null,
+     "userId": "7419054"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273871",
+  "name": "Hexis Cloud",
+  "tagline": "One company brain for all your AI agents",
+  "description": "Hexis is one company brain for your team and all its AI agents. Through Hexis, your team can align on shared context that's important to align on, non-technical teams can work and collaborate on skills and your team can have hundreds of tools accessible via one MCP gateway. All the information is owned by someone, meaning it's context you can trust, and Hexis enables access control to a single file. It only takes a few minutes to set up, and is free for up to 3 people. Would love your feedback!",
+  "slug": "hexis-cloud-2",
+  "dailyRank": 7,
+  "votesCount": 126,
+  "commentsCount": 13,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "8404831"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>I've been following&nbsp;the team for more than 1 year and this might be their most ambitious launch to date.</p><p></p><p>The maintainers of the <a href=\"https://www.producthunt.com/products/utcp\" target=\"_blank\" rel=\"noopener\">@UTCP</a> protocol keep pushing. When they launched Hexis <a href=\"https://www.producthunt.com/p/bevel-software/hexis-3\" target=\"_blank\" rel=\"noopener\">2 months ago</a>, the community loved it. Top Product of the Day, featured in The Leaderboard, Hexis is now available as an hosted solution: <a href=\"https://www.bevel.software/hexis?ref=producthunt\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">bevel.software/hexis</a></p><p></p><p>S/O ?makers for this update, keep launching</p>",
+     "createdAt": "2026-10-11T21:34:14Z",
+     "parentId": null,
+     "userId": "25713"
+    },
+    {
+     "body": "<p>congrats on the launch!!\ud83d\ude80\ud83d\ude80</p><p><br>we just commit this stuff to the repo. rules, skills, all of it. so a branch carries the version that matches it, and it gets reviewed like code does if the brain sits centrally and someone edits a skill while i'm on an older branch, which version do i get. </p><p></p><p>thats the bit i cant picture. not claiming our way is better btw, ours has its own mess</p>",
+     "createdAt": "2026-10-13T07:38:54Z",
+     "parentId": null,
+     "userId": "9861884"
+    },
+    {
+     "body": "<p>Agents and clients used by Hexis at the moment: Claude, ChatGPT, Cursor, or custom agents? Anyone who can speak MCP?</p>",
+     "createdAt": "2026-10-12T11:23:14Z",
+     "parentId": null,
+     "userId": "9965621"
+    },
+    {
+     "body": "<p>Juan, your point about people needing help to host Hexis makes sense. A hosted option should make it easier for the people writing the team's skills to get involved. Congrats to you and Ali!</p>",
+     "createdAt": "2026-10-12T08:08:24Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Hi PH!</p><p></p><p>Bevel team here with another launch</p><p></p><p>We\u2019ve had a really great time building and open sourcing Hexis, and now it\u2019s time for its next evolution: \u2601\ufe0f <a href=\"https://www.bevel.software/hexis\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><strong>Hexis Cloud</strong></a></p><p></p><p>Since we last launched Hexis, we\u2019ve noticed how a lot of people needed help hosting it, and given it\u2019s particularly helpful for non-technical teams, we realized we needed to offer people a way to set this up quickly</p><p></p><p>And thus we built Hexis Cloud, a shared company brain for your AI agents that you can set up in just a few clicks</p><p></p><p>We\u2019re proud to say that not only does Hexis Cloud come with everything you can find in the OSS version of Hexis, but also with a brand new, redesigned on-boarding UX to make it crazy easy for people to set this up.</p><p>And ofc, this includes as before:</p><p></p><p>\ud83d\udcda One shared company context, where you can upload files and folders and share it with the right team members</p><p></p><p>\ud83d\udcdd A place for you to easily share and collaborate on skills</p><p></p><p>\ud83d\udee0\ufe0f A gateway to manage 100s of tools via one simple MCP gateway</p><p></p><p>With enterprise-level access management and security.</p><p></p><p>Really excited to show this to you, please share your thoughts!</p>",
+     "createdAt": "2026-10-12T07:23:44Z",
+     "parentId": null,
+     "userId": "8070059"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277208",
+  "name": "Kudos 3.0",
+  "tagline": "The AI that finds money you're missing and gets it back",
+  "description": "Most money apps show you charts. Kudos does the work. Your home shows Your wins, one number for everything Kudos has earned or saved you, and your next best money move. Most people don't know their cards come with personalized offers they have to turn on by hand. Kudos activates them for you: about $800/yr in offers in early testing. Our AI also calls providers to lower your bills ($216/yr per negotiation) and cancels subscriptions you forgot ($247/yr each). You keep 100% of the savings.",
+  "slug": "kudos-3-0",
+  "dailyRank": 8,
+  "votesCount": 120,
+  "commentsCount": 13,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Android"
+    },
+    {
+     "name": "Chrome Extensions"
+    },
+    {
+     "name": "Fintech"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "5252307"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi Product Hunt, I'm Tikue, co-founder of Kudos.<br><br>I spent years in consumer payments at Microsoft, Google and Affirm. One thing kept bugging me: people don't lose money because they're careless. They lose it because claiming it is a chore. The credit you forgot, the bill that crept up $40, the subscription you meant to cancel.<br><br>Every AI assistant launched this year helps you spend. We built one that gets your money back.<br><br>Our members also told us the app made them do too much of the work. So we rebuilt Kudos around one question: what's the most valuable thing you can do with your money right now?<br><br>What's new in Kudos 3.0:<br><br>\ud83d\udcb0 Your wins: one number for everything Kudos has earned or saved you, growing over time<br><br>\ud83d\udc49 Your next best move: a credit about to expire, an offer worth using, a bill we can lower. Ranked by what's worth most to you, not what we want to promote<br><br>\ud83d\udcde We make the calls: our AI phones your provider and negotiates your bill (about $216/yr saved per negotiation in early testing) and cancels subscriptions you forgot ($247/yr each). You keep 100% of the savings<br><br>\ud83c\udf81 Offers you didn't know you had: most cards come with personalized offers you have to activate by hand, and most people never do. Kudos turns them all on for you. That's about $800/yr in offers per member in early testing<br><br>\u2728 Ask KudosAI: \"What did I spend this week?\" \"Which card should I use here?\"<br><br>Kudos never moves money without your OK. Free to download on iOS, Android and Chrome.<br><br>One question for you: what's the money chore you'd hand off first? I'm here all day and will answer every comment.</p>",
+     "createdAt": "2026-10-12T01:58:07Z",
+     "parentId": null,
+     "userId": "5302831"
+    },
+    {
+     "body": "<p>Forgotten subscriptions and bills that could be lower are such an annoying combo haha. Grats <a href=\"https://www.producthunt.com/@tikue_anazodo1\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"tikue_anazodo1\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@tikue_anazodo1</a> <a href=\"https://www.producthunt.com/@aikudos\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"aikudos\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@aikudos</a> <a href=\"https://www.producthunt.com/@meara_algama\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"meara_algama\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@meara_algama</a> </p>",
+     "createdAt": "2026-10-14T07:13:22Z",
+     "parentId": null,
+     "userId": "6108489"
+    },
+    {
+     "body": "<p>I'm on the other side of this: I run a subscription app, and I still think cancelling forgotten subscriptions is a fair service. A subscriber who forgot about us isn't a customer, just a refund request waiting to happen. How does Kudos tell \"forgotten\" from \"rarely used but wanted\"? Does it ask before cancelling every time?</p>",
+     "createdAt": "2026-10-12T19:29:10Z",
+     "parentId": null,
+     "userId": "10340586"
+    },
+    {
+     "body": "<p>The automatic subscription cancellation caught my attention. I've definitely forgotten about subscricptions so this could come in handy.</p>",
+     "createdAt": "2026-10-12T09:55:18Z",
+     "parentId": null,
+     "userId": "9097697"
+    },
+    {
+     "body": "<p>Curious how well the card recommendations work when shopping on your phone. </p>",
+     "createdAt": "2026-10-12T09:33:21Z",
+     "parentId": null,
+     "userId": "8976928"
+    },
+    {
+     "body": "<p>Wait, it actually calls the provider for you? Wonder how those conversations go lol. </p>",
+     "createdAt": "2026-10-12T08:36:54Z",
+     "parentId": null,
+     "userId": "9313575"
+    },
+    {
+     "body": "<p>The automatic card offer activation caught my eye. Those offers are easy to miss when you have to go looking for them yourself. Congrats on 3.0, Tikue and team!</p>",
+     "createdAt": "2026-10-12T08:03:20Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277022",
+  "name": "Scrape Anything by Context.dev",
+  "tagline": "Turn any website into clean data with one API call.",
+  "description": "Scrape Anything by Context lets you pull clean, usable data from the web without building or maintaining scraping infrastructure. Give Context a URL and it handles rendering, blocks, proxies, retries, and extraction\u2014returning Markdown, HTML, screenshots, or structured data through one API.",
+  "slug": "scrape-anything-by-context-dev",
+  "dailyRank": 9,
+  "votesCount": 104,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "API"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "1960777"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>what are the rate limits ? </p>",
+     "createdAt": "2026-10-13T11:50:26Z",
+     "parentId": null,
+     "userId": "12011"
+    },
+    {
+     "body": "<p>one api for clean markdown is the peice every agent builder needs \ud83d\udd25 how do you handle sites that block bots?</p>",
+     "createdAt": "2026-10-13T07:45:52Z",
+     "parentId": null,
+     "userId": "3426683"
+    },
+    {
+     "body": "<p>Nice product.<br>Does it work with LinkedIn? Do you offer residential proxies and authentication?</p>",
+     "createdAt": "2026-10-12T15:18:09Z",
+     "parentId": null,
+     "userId": "8350640"
+    },
+    {
+     "body": "<p>Hi ! the babysitting is what always killed my own data-pulling setups, one layout change and I was back fixing them. Handing that off sounds like a relief. <br>Bookmarked for me</p>",
+     "createdAt": "2026-10-12T13:09:45Z",
+     "parentId": null,
+     "userId": "9970558"
+    },
+    {
+     "body": "<p>Markdown for reading and structured data for the next step, through the same API, makes sense. Nice to have those options in one place. Congrats on the launch, Yahia and Nikhil!</p>",
+     "createdAt": "2026-10-12T08:06:51Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1264729",
+  "name": "Bearconnect 2.0",
+  "tagline": "AI-Powered LinkedIn Platform for Content and Outreach",
+  "description": "Bearconnect started as a LinkedIn outreach tool. With V2, it\u2019s now a platform for both inbound and outbound on LinkedIn. Create and schedule content, find prospects from LinkedIn activity, and turn intent into conversations with AI-powered messaging. V2 also adds team workspaces, role-based access, Brand Voice, CRM integrations, and webhooks.",
+  "slug": "bearconnect-2-0",
+  "dailyRank": 10,
+  "votesCount": 102,
+  "commentsCount": 8,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Sales"
+    },
+    {
+     "name": "Marketing"
+    },
+    {
+     "name": "SaaS"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "8602273"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi Product Hunt, it\u2019s Mona again from Bearconnect.<br><br>A year ago, I launched Bearconnect here as a LinkedIn outreach tool. Since then, we\u2019ve learned a lot from our customers about how they actually use LinkedIn to generate business.<br><br>One thing became clear: LinkedIn isn\u2019t just about outbound outreach. People are already showing intent through the content they create, engage with, and respond to. We wanted Bearconnect to help businesses capture that intent and turn it into conversations.<br><br>That\u2019s what led us to V2.<br><br>Bearconnect now brings inbound and outbound LinkedIn workflows together from creating and scheduling content, to finding prospects from LinkedIn activity, to sending connection requests, messages and follow-ups.<br><br>We\u2019ve also added team workspaces and role-based access, so sales teams and agencies can manage multiple LinkedIn accounts without sharing passwords. AI can help create posts and draft inbox replies in your own Brand Voice, while integrations connect Bearconnect with tools like HubSpot, Pipedrive, Make and webhooks.<br><br>It\u2019s been a big evolution from where we started a year ago.<br><br>Thank you to everyone who supported our first launch. You helped shape this version.</p>",
+     "createdAt": "2026-09-29T14:54:50Z",
+     "parentId": null,
+     "userId": "8602273"
+    },
+    {
+     "body": "<p>Very interesting tool.<br>Are you using your own infrastructure for LinkedIn, or third-party providers?</p>",
+     "createdAt": "2026-10-12T15:15:14Z",
+     "parentId": null,
+     "userId": "8350640"
+    },
+    {
+     "body": "<p>LinkedIn is stringent on automation. What safety measures does Bearconnect implement? Is there a limit to avoid getting into trouble?<br>Btw, Congratulations <a href=\"https://www.producthunt.com/@monajuneja\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"monajuneja\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@monajuneja</a> \ud83c\udf8a\u270c\ufe0f</p>",
+     "createdAt": "2026-10-12T10:15:49Z",
+     "parentId": null,
+     "userId": "9965621"
+    },
+    {
+     "body": "<p>Mona, the team workspaces and account access controls stood out to me. I can see agencies wanting a clear way to decide who can work on each account. Congrats on 2.0!</p>",
+     "createdAt": "2026-10-12T08:05:51Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277092",
+  "name": "ExcaliClaw",
+  "tagline": "Hand-drawn diagrams your AI agent can draw with you",
+  "description": "ExcaliClaw is a collaborative workspace for hand-drawn diagrams. Organize them in collections, search instantly, share by link or by name, and draw together in real time. Its MCP server lets Claude, Cursor or VS Code create and edit diagrams for you. Generous free plan: 200 drawings and unlimited AI (MCP) use, no credit card. Paid plans from \u20ac9/month. Version history, trash and backup export included. English, Espa\u00f1ol, Fran\u00e7ais.",
+  "slug": "excaliclaw",
+  "dailyRank": 11,
+  "votesCount": 93,
+  "commentsCount": 14,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10342338"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt, I'm Mounir, the maker of ExcaliClaw.\n\nI love hand-drawn diagrams, but they kept getting lost in random files, and my AI agent could only give me Mermaid text or ASCII boxes. So I built a workspace where diagrams live, stay organized, and your agent can draw in them.\n\nWhat you get:\n\u2022 Collections and instant search, so nothing gets lost\n\u2022 Real-time collaboration, sharing by link or by name\n\u2022 An MCP server: connect Claude, Cursor or VS Code (OAuth, nothing to paste) and let them create and edit diagrams\n\u2022 Version history, trash and backup export, so mistakes are cheap\n\u2022 English, Espa\u00f1ol and Fran\u00e7ais\n\nPricing, plainly (excl. VAT):\n\u2022 Free: 200 drawings, unlimited AI (MCP) use, no credit card\n\u2022 Starter: \u20ac9/month (unlimited drawings, 30-day history)\n\u2022 Pro: \u20ac29/month (embed in your site, unlimited history; extra teammates \u20ac3/month)\n\nIt uses the Excalidraw editor for drawing and is an independent product.\n\nI'd love to hear how you document architecture today, and what would make an AI-drawn diagram trustworthy enough for you to keep. Thanks for taking a look!",
+     "createdAt": "2026-10-11T21:09:35Z",
+     "parentId": null,
+     "userId": "10342338"
+    },
+    {
+     "body": "<p>For me what would make an AI-drawn diagram trustworthy is being able to see the steps the agent took, not just the final canvas. When Claude edits through the MCP server, do I get a short description of what it changed that I can review before keeping it?</p>",
+     "createdAt": "2026-10-13T03:55:28Z",
+     "parentId": null,
+     "userId": "969016"
+    },
+    {
+     "body": "<p>Letting the agent draw the diagram is the part I want. I describe architecture in text all day and nobody reads it. When Claude edits an existing diagram, does it move only what changed, or redraw the whole layout? If I've arranged the boxes by hand, I'd hate to lose that on every edit.</p>",
+     "createdAt": "2026-10-12T19:28:56Z",
+     "parentId": null,
+     "userId": "10340586"
+    },
+    {
+     "body": "<p>If I share it via a link, will the other person be able to edit it or just view it?</p>",
+     "createdAt": "2026-10-12T16:39:49Z",
+     "parentId": null,
+     "userId": "9301201"
+    },
+    {
+     "body": "<p>\"mistakes are cheap\" because of version history is the right design answer for solo use, but the case I'm curious about is real-time collaboration plus the MCP server at the same time, me dragging a box around by hand while Claude is mid-edit on the same diagram through MCP. does the agent see my cursor position and avoid the area I'm touching, or is it genuinely last-write-wins and I just have to not edit while an agent session is active? asking because the moment two editors (human and agent) are live on the same canvas, \"version history\" only helps after the collision, not during it.</p>",
+     "createdAt": "2026-10-12T15:57:45Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "<p>Is this a port of <a href=\"http://excalidraw.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">excalidraw.com</a> ?</p><p></p>",
+     "createdAt": "2026-10-12T14:19:34Z",
+     "parentId": null,
+     "userId": "1754545"
+    },
+    {
+     "body": "<p> honestly what'd make me keep an AI diagram is if it stopped moving my stuff around. I fix the layout by hand, ask it to add one box, and suddenly everything's rearranged. does it leave the existing layout alone when it edits?</p>",
+     "createdAt": "2026-10-12T09:58:06Z",
+     "parentId": null,
+     "userId": "9755220"
+    },
+    {
+     "body": "<p>A kind of whiteboard shared with an AI am I right ?</p>",
+     "createdAt": "2026-10-12T09:12:01Z",
+     "parentId": null,
+     "userId": "10292814"
+    },
+    {
+     "body": "<p>Being able to create and edit diagrams through Claude or Cursor sounds really handy especially when explaining complex ideas.</p>",
+     "createdAt": "2026-10-12T08:42:10Z",
+     "parentId": null,
+     "userId": "9313459"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277000",
+  "name": "Dropstone CLI",
+  "tagline": "The self-learning coding agent for your terminal",
+  "description": "Dropstone CLI is a coding agent that learns from you. It reads your repo, edits across files, runs commands and tests, and checks its work before it says it's done. Correct it once and it keeps the lesson across sessions. Pick Fast, Pro, or Heavy models, plan before it builds, and set which commands run, ask first, or are blocked. Add skills, custom agents, parallel subagents, and MCP tools. Comment on a GitHub issue and it opens a pull request. On every plan, including Free.",
+  "slug": "dropstone-cli",
+  "dailyRank": 12,
+  "votesCount": 90,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "GitHub"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "8035278"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt! \ud83d\udc4b</p><p>We're building Dropstone to solve a problem I kept running into while working with AI coding tools: context gets lost between tools, workflows, and projects, and using AI at scale can get expensive.</p><p>Dropstone is our attempt to bring these workflows together through one intelligence layer across Chat, CLI, VS Code, and SDK.</p><p>With Dropstone CLI, you can work directly in your terminal while the agent uses your project context to understand the codebase, make changes, and execute development tasks. Our focus is runtime intelligence and persistent memory, so your workflow can build on context instead of starting from scratch every time.</p><p>You can start for free, explore plans from $5 to $150, and discuss enterprise deployment for larger teams.</p><p>Try <a href=\"https://chat.dropstone.io/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Dropstone Chat</a> or get started with the <a href=\"https://www.producthunt.com/products/dropstone-cli\" target=\"_blank\" rel=\"noopener\">Dropstone CLI</a>.</p><p>We're building this for developers who want more from their AI tools without paying more than they need to. I'd love to hear from the community: <strong>what matters most to you in an AI coding agent, persistent memory, execution capabilities, or predictable costs?</strong></p>",
+     "createdAt": "2026-10-12T07:06:24Z",
+     "parentId": null,
+     "userId": "8035278"
+    },
+    {
+     "body": "<p>Correct it once and it keeps the lesson across sessions. That's the part that makes this feel like a teammate instead of a fresh intern every morning.</p>",
+     "createdAt": "2026-10-12T17:11:58Z",
+     "parentId": null,
+     "userId": "7468651"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273394",
+  "name": "Invited - AI Reminder Scanner",
+  "tagline": "AI reminder scanner for bills, invites & documents",
+  "description": "Invited is an AI reminder scanner that turns bills, invitations, cheques, screenshots and PDFs into smart reminders. It extracts dates, times, places and amounts, supports 80+ languages and 9 calendars, and finds multiple reminders in one document.",
+  "slug": "invited-ai-reminder-scanner",
+  "dailyRank": 13,
+  "votesCount": 87,
+  "commentsCount": 20,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Android"
+    },
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Calendar"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "10254600"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt,\n\nI'm Himanshu, Co-Founder at Kraftostech and one of the makers behind Invited.\nWe originally started Invited around a simple problem: important dates are everywhere, but creating reminders manually is annoying.\n\nA wedding invitation might contain five different events. A utility bill can have both a due date and a late-fee date. A cheque has a date you don't want to forget. Flights, insurance renewals, appointments and subscriptions all have the same problem.\nSo we built Invited.\n\nTake a photo, choose a screenshot or PDF, or share a document directly to the app. Invited's AI reads it and identifies the important dates, times, places and amounts. You review the result, save it, and Invited reminds you before it matters.\nOne thing we spent a lot of time on is documents containing more than one important date. Invited can turn one document into multiple reminders instead of stopping at the first date it finds.\n\nIt currently supports 80+ languages and 9 calendar systems, including Gregorian, Vikram Samvat, Hijri, Hebrew and Chinese Lunar.\n\nThere's no account required to get started, and your reminder list stays on your device.\n\nInvited is available on both iPhone and Android.\n\nI'd especially love feedback from the Product Hunt community on:\n\u2022 what types of documents you'd want to scan\n\u2022 the scan \u2192 review \u2192 reminder experience\n\u2022 what we should build next\n\nThanks for checking out Invited.",
+     "createdAt": "2026-10-08T05:56:59Z",
+     "parentId": null,
+     "userId": "10249976"
+    },
+    {
+     "body": "<p>Congratulations Humanshu for the launch. At first glance its really useful idea. Every day i struggle with the reminder and things to organize it but i never applied it manually till the date even i know that what i'm struggling off. Thanks for make this from idea to reality. its really worth it from day one. <br><br>Thank You</p>",
+     "createdAt": "2026-10-12T16:55:02Z",
+     "parentId": null,
+     "userId": "1588390"
+    },
+    {
+     "body": "<p>Very useful for wedding invitations. I assume it works with screenshots as well.</p>",
+     "createdAt": "2026-10-12T15:21:39Z",
+     "parentId": null,
+     "userId": "8350640"
+    },
+    {
+     "body": "<p>Pulling dates, times, places and amounts out of a bill or an invitation is the kind of thing I always mean to do manually and never do, so this is genuinely useful. The detail that stands out is finding multiple reminders in one document \u2014 a utility bill often has a due date and a reading appointment on the same page. Does it also catch dates that are written out longhand, like \"third Monday of next month\"? \ud83d\udcc5</p>",
+     "createdAt": "2026-10-12T14:42:22Z",
+     "parentId": null,
+     "userId": "969016"
+    },
+    {
+     "body": "<p>Great product, sounds like something i would use!!<br>How do you handle the potential errors, in reading a date, or a price tag, etc... ?</p>",
+     "createdAt": "2026-10-12T14:26:35Z",
+     "parentId": null,
+     "userId": "9882335"
+    },
+    {
+     "body": "<p>Pulling several reminders out of one document is the hard part, a wedding invite usually has an RSVP deadline, the date itself and sometimes a rehearsal. How does it decide which date is the event and which is the deadline? And with 9 calendars: does it pick the calendar system from the document's language, or from my phone settings?</p>",
+     "createdAt": "2026-10-12T11:28:10Z",
+     "parentId": null,
+     "userId": "10340586"
+    },
+    {
+     "body": "<p>How this will help us on daily basis?</p>",
+     "createdAt": "2026-10-12T11:07:52Z",
+     "parentId": null,
+     "userId": "7647218"
+    },
+    {
+     "body": "<p>is there a way to connect this with my agent? Feels like really important info I'd like my agent to be aware of!</p>",
+     "createdAt": "2026-10-12T08:52:55Z",
+     "parentId": null,
+     "userId": "8070059"
+    },
+    {
+     "body": "<p>The multiple reminders from one document bit caught my eye. A bill's due date and late fee date are exactly the kind of pair I'd want to keep together. Congrats, Himanshu and team!</p>",
+     "createdAt": "2026-10-12T08:04:51Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1274215",
+  "name": "Understory Notes",
+  "tagline": "Notes that tell the tale",
+  "description": "Understory is a Mac notes app for people who take notes in order to write something. Collect notes as you read, arrange them into an outline, and draft each section with your research beside it. Then publish as a PDF, Rich Text, Markdown or a website.",
+  "slug": "understory-notes",
+  "dailyRank": 14,
+  "votesCount": 80,
+  "commentsCount": 6,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Writing"
+    },
+    {
+     "name": "Notes"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "2959666"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt \ud83d\udc4b I\u2019m Allen, the maker of Understory.</p><p></p><p>Networked notes apps usually make you connect ideas with wiki-style links, which gets tedious fast. I\u2019ve spent two years and at least half a dozen UIs looking for a better way.</p><p></p><p>In Understory, you link notes by placing them. Put one note beneath another and it becomes a subnote, and the two are connected. The result looks like an outline, with one difference: the same note can be a subnote of as many notes as you like. That makes it a network, shown as a tree, and it replaces both folders and most links.</p><p></p><p>Related notes end up next to each other, forming neighborhoods of ideas. And because a note can live in several neighborhoods, it works like a portal: follow it and you step from one into another. That\u2019s where you spot connections you didn\u2019t know were there.</p><ul><li><p>Mac only, for now</p></li><li><p>Free to try, one-time purchase, no subscription</p></li><li><p>No account, and your notes can be plain Markdown files</p></li></ul><p>It\u2019s a different way to organize notes, so it takes a little use to click. Once it does, you stop filing and linking and just put ideas where they belong. I\u2019m working on more videos to explain it. In the meantime, I\u2019d love your feedback: what made sense right away, and what didn\u2019t?</p><p></p><p>Allen</p>",
+     "createdAt": "2026-10-11T05:34:04Z",
+     "parentId": null,
+     "userId": "2959666"
+    },
+    {
+     "body": "<p>I tried placing one note under two different headings, and that clicked faster than I expected. In legal and academic writing the same precedent or paper often supports two different arguments, and with folders and links I always end up duplicating it. Do you plan to support citation keys (Zotero/BibTeX), so the bibliography follows the note wherever it's placed and comes out right in the PDF export?</p>",
+     "createdAt": "2026-10-13T20:15:44Z",
+     "parentId": null,
+     "userId": "10349699"
+    },
+    {
+     "body": "<p>Collecting notes as you read, then drafting each section with the research next to it, is how I actually write. When a note comes from something you read, does Understory keep the source with it? I'd love the published PDF or site to carry a footnote back to where it came from.</p>",
+     "createdAt": "2026-10-12T14:23:44Z",
+     "parentId": null,
+     "userId": "9565606"
+    },
+    {
+     "body": "<p>the multi-parent subnote thing didnt click til i actually tried it, kept expecting drag to move the note not just link it</p>",
+     "createdAt": "2026-10-12T12:02:47Z",
+     "parentId": null,
+     "userId": "9500314"
+    },
+    {
+     "body": "<p>the \"same note under multiple parents\" thing is clever, wiki links are exactly why I quit obsidian lol. how does that look in the markdown files tho? like if I open the folder in another editor does it still make sense</p>",
+     "createdAt": "2026-10-12T09:56:52Z",
+     "parentId": null,
+     "userId": "9755220"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1272978",
+  "name": "SquadRoom",
+  "tagline": "AI employees that work 24/7",
+  "description": "SquadRoom gives you a team of AI employees. A lead agent learns your company and plans the work. Specialists for research, writing, partnerships and operations do it. You drop a task on the board and walk away. When you come back, the work is finished and a report shows every step and every source. Agents only stop to ask you when a decision really needs you, and nothing goes out without your OK. Bring your own AI key. Try the live demo, no signup.",
+  "slug": "squadroom",
+  "dailyRank": 15,
+  "votesCount": 80,
+  "commentsCount": 12,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "SaaS"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "5730378"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b\n\nI'm Kartike, cofounder of SpeedVitals. Running a small company, I kept hitting the same wall: there was always work nobody owned. Research a market, find partners, draft the outreach, check the numbers. Hiring for each of those wasn't an option, and chatbots gave me answers, not finished work.\n\nSo I built SquadRoom: a team of AI employees.\n\nYou tell your lead agent what you need in plain words. The lead plans it and hands each piece to a specialist (research, partnerships, ops, content, or any role you add). They do the work with real tools, and you get back the finished work plus a report of every step and source.\n\nA few things I cared about:\n\u2022 One owner per task, so work doesn't get lost between agents\n\u2022 They only ask when a decision needs you, with one clear question and their recommendation\n\u2022 Nothing is sent, posted or paid without your OK\n\u2022 Bring your own AI key, no markup\n\nIt's built on Hermes Agent by Nous Research \ud83d\ude4f\n\nThere's a full live demo on the homepage, no signup, go click around: squadroom.app/demo\n\nEarly access is $49/month for the whole squad.\n\nI'd love to hear what you'd hand to an AI employee first, and what breaks when you try it.",
+     "createdAt": "2026-10-07T17:56:40Z",
+     "parentId": null,
+     "userId": "5730378"
+    },
+    {
+     "body": "<p>\"Nothing goes out without my OK\u201d is very important nowadays, but what happens when the queue of approvals gets long ? It ends up defying the purpose ? Do you have a process to speed it up? </p>",
+     "createdAt": "2026-10-12T14:21:10Z",
+     "parentId": null,
+     "userId": "9882335"
+    },
+    {
+     "body": "<p>One owner per task is a nice detail here, Kartike. It's much easier to follow a handoff when you can see who's responsible for it and what happened along the way. Congrats on the launch!</p>",
+     "createdAt": "2026-10-12T08:03:51Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Congrats on the launch! \ud83c\udf89 I have been using SquadRoom for about a month. I recently gave it a blog post task, and it actually went through my existing posts first, scraped LinkedIn, Reddit, and Twitter for research, did keyword analysis, and came back with a draft that reads exactly like something I would have written. A post like that usually takes me 1 to 2 days, but I had it by the end of the day. <br>Any plans to add direct publishing to platforms like WordPress straight from the board?</p>",
+     "createdAt": "2026-10-12T08:02:59Z",
+     "parentId": null,
+     "userId": "3832544"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1265398",
+  "name": "Milepost",
+  "tagline": "An iOS driving journal for your car, with an MCP server",
+  "description": "Milepost is a driving journal for your car on iOS, with an MCP server for ChatGPT, Claude, and other compatible AI agents. Record routes, photos, notes, music, and moments in Roadbooks. Share with friends for reactions and comments, or send a public web link. Build your garage, collect city and state stamps in each car\u2019s Stampbook, relive routes in 3D, and make animated shares and monthly recaps. Record for free; Pro unlocks older history, exports, and deeper insights.",
+  "slug": "milepost-2",
+  "dailyRank": 16,
+  "votesCount": 78,
+  "commentsCount": 18,
+  "topics": {
+   "nodes": [
+    {
+     "name": "iOS"
+    },
+    {
+     "name": "Cars"
+    },
+    {
+     "name": "Travel"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "1462264"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt, I\u2019m Sai \ud83d\udc4b<br><br>Milepost began on Highway 1. During a stressful summer running my startup, weekend drives gave me room to breathe. I wanted to hold on to more than the route: the quiet moments, the places along the way, and the people I met. So I built a driving journal to give those memories a home.<br><br>Here\u2019s what you can do with it:<br>\u2022 Keep a drive\u2019s route, photos, notes, music, and marked moments together in a Roadbook.<br>\u2022 Build your garage and collect city and state stamps in each car\u2019s Stampbook.<br>\u2022 See friends\u2019 drives, react, and leave a comment.<br>\u2022 Turn a Roadbook or monthly recap into a video or image with six sharing styles, from a printed receipt to a magazine cover.<br>\u2022 Share a Roadbook link with someone who doesn\u2019t have the app.<br><br>Record on iPhone or iPad, keep drive controls on Apple Watch, and view and edit your Roadbooks on Mac. CarPlay, Siri, widgets, and Shortcuts fit recording into everyday life. You can also connect Milepost to ChatGPT and other compatible AI agents. Milepost is free to download, with optional Pro features.<br><br>For launch week, FIRSTDRIVE gives eligible new subscribers one year of Pro for $14.99 in the US, then $29.99/year unless canceled. An eligible one-week trial comes first. Local prices vary. Redeem through October 18, subject to availability (25,500 redemptions): <a href=\"https://apps.apple.com/redeem?ctx=offercodes&amp;id=6778542695&amp;code=FIRSTDRIVE\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://apps.apple.com/redeem?ctx=offercodes&amp;id=6778542695&amp;code=FIRSTDRIVE</a><br><br>I\u2019ve put a lot of care into making the things you keep feel as personal as the drive itself. I\u2019d love to hear what you think. What\u2019s a drive you still remember, and what would you want to save from it?</p>",
+     "createdAt": "2026-09-30T08:07:14Z",
+     "parentId": null,
+     "userId": "1462264"
+    },
+    {
+     "body": "<p>the Highway 1 origin story tracks, most of the good driving-log apps I've tried started from someone wanting to hold on to a specific trip, not from a spreadsheet problem. the MCP server is the part I didn't expect on a journal app though, what's the question people actually ask an agent against their own Roadbooks? I'm guessing something like \"how many miles did I drive for work this quarter\" for mileage deduction purposes, but curious if that's the real use case or if people are asking it stranger things like \"find every drive where I stopped near the coast.\"</p>",
+     "createdAt": "2026-10-12T15:58:50Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "<p>Interesting idea. Do the trips stay private between you and your friends when sharing them? And does the app work in the apple car play system or only through the phone?</p>",
+     "createdAt": "2026-10-12T15:08:59Z",
+     "parentId": null,
+     "userId": "7860732"
+    },
+    {
+     "body": "<p>a late drive down the coast after a launch, honestly just want to keep the playlist from that night more than any photo</p>",
+     "createdAt": "2026-10-12T12:02:07Z",
+     "parentId": null,
+     "userId": "9500314"
+    },
+    {
+     "body": "<p>The stampbook per car is a lovely idea, it turns a log into something you want to fill. Does route recording run in the background all day, and what does that cost in battery on a long drive? That's usually what makes me uninstall trip trackers.</p>",
+     "createdAt": "2026-10-12T11:28:42Z",
+     "parentId": null,
+     "userId": "10340586"
+    },
+    {
+     "body": "So, Does the phone become an MCP server ? How it works on iOS when the app is in waiting mode ??",
+     "createdAt": "2026-10-12T10:15:39Z",
+     "parentId": null,
+     "userId": "10128627"
+    },
+    {
+     "body": "<p> does it start recording on its own when I connect to carplay? I'd 100% forget to hit record otherwise</p>",
+     "createdAt": "2026-10-12T09:59:27Z",
+     "parentId": null,
+     "userId": "9755220"
+    },
+    {
+     "body": "<p>The 3D route playback and monthly recaps sound fun. It  would be cool to look back on all the places visited over time.</p>",
+     "createdAt": "2026-10-12T08:26:33Z",
+     "parentId": null,
+     "userId": "9300505"
+    },
+    {
+     "body": "<p>Sai, keeping the music and little moments alongside a route makes a Roadbook feel much more personal. Enjoyed the Highway 1 story in your launch note. Congrats!</p>",
+     "createdAt": "2026-10-12T08:02:52Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1276516",
+  "name": "Cube Forms",
+  "tagline": "Forms that can be filled by agents",
+  "description": "Cube forms are made for AI agents. Your agent can create a form and fill one in directly, over MCP or plain HTTP, from Claude Code, ChatGPT, Cursor or any agent. No browser, no CAPTCHA. People can still open the same link and step in anytime: check what the agent filled, change anything, or fill it themselves. Free. Sign-ups, waitlists, bug reports, sales inquiries, any form.",
+  "slug": "cube-forms",
+  "dailyRank": 17,
+  "votesCount": 77,
+  "commentsCount": 16,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9656884"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt, I'm Bonan.\ud83d\udc4b\n\nMy agent always knows everything a form asks for, but I still end up typing it into a browser myself. So I built Cube: every form is one link. People fill the page; agents read it and submit it directly, no browser.\n\nFun fact: submitting this launch took me half an hour of Product Hunt's own forms. My agent knew every answer and couldn't fill a single field. That's exactly the gap Cube is for.\n\nTry it without signing up: tell your agent \"Fill out this form for me: ui.usecube.io/f/early-access\".\n\nIt's free and early. I'd love to hear where your agent gets stuck, and which form you'd open to agents first.",
+     "createdAt": "2026-10-11T08:49:12Z",
+     "parentId": null,
+     "userId": "9656884"
+    },
+    {
+     "body": "<p>Sales inquiry forms first. Most \"contact sales\" forms ask the same five things my agent already knows. When an agent submits, does the receiving side see it came from an agent, and can they choose to only accept human submissions on some forms?</p>",
+     "createdAt": "2026-10-13T04:03:25Z",
+     "parentId": null,
+     "userId": "4974782"
+    },
+    {
+     "body": "<p>the PH form anecdote is a good pitch, but it also points at the thing I'd worry about on the receiving end. \"no browser, no CAPTCHA\" is great for the agent filling the form, but a waitlist or sign-up form is normally the thing CAPTCHA exists to protect, if any agent can hit it over plain HTTP with no human in the loop, what stops the same mechanism from being used to submit a form a thousand times instead of once? is there rate limiting or some form of identity on the submitting agent, or is the trust model \"whoever has the link is allowed to use it, as many times as they want\"?</p>",
+     "createdAt": "2026-10-12T15:59:52Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "<p>Can forms connect to some kind of CRM tool?</p>",
+     "createdAt": "2026-10-12T12:05:59Z",
+     "parentId": null,
+     "userId": "9366613"
+    },
+    {
+     "body": "<p>Being able to jump in and fix an answer without starting over makes a lot of sense. </p>",
+     "createdAt": "2026-10-12T09:58:07Z",
+     "parentId": null,
+     "userId": "9228451"
+    },
+    {
+     "body": "<p>Waitlists are a good use case for this. Filling out the same details over and over gets old fast. </p>",
+     "createdAt": "2026-10-12T09:51:39Z",
+     "parentId": null,
+     "userId": "9316070"
+    },
+    {
+     "body": "<p>Bonan, the shared form link for people and agents caught my eye. Being able to inspect and change what an agent filled in feels like a useful part of the handoff. Congrats on the launch!</p>",
+     "createdAt": "2026-10-12T08:00:50Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1274267",
+  "name": "SalesRep.com",
+  "tagline": "Your AI sales rep: live prices, quotes & follow-ups 24/7",
+  "description": "SalesRep is a virtual sales rep that sells for you 24/7. Pulls live prices & stock from Shopify, WooCommerce, PrestaShop, Meta Catalog or your own database/API \u2022 Answers on WhatsApp, Instagram, Messenger, email, SMS and more \u2022 Sends product cards and quotes on the fly, in any channel \u2022 Follows up until the deal closes, with human takeover anytime \u2022 30+ languages, auto-detected Full-featured from $39/mo. 21-day free trial, no credit card required.",
+  "slug": "salesrep-com",
+  "dailyRank": 18,
+  "votesCount": 77,
+  "commentsCount": 11,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Sales"
+    },
+    {
+     "name": "Customer Communication"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "10335792"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b  \nWe built SalesRep because customer conversations are increasingly spread across WhatsApp, live chat, email, SMS and social channels, while sales and support teams still need one place to manage everything.  \nSalesRep brings those conversations into a shared omnichannel inbox and adds AI agents, workflow automation, team collaboration and reporting so businesses can respond faster and manage customer interactions more efficiently.  \nWe\u2019ve focused especially on making WhatsApp a real part of the sales and support workflow, rather than treating it as a separate messaging tool.  \nWe\u2019d love your feedback on the product, the onboarding experience, and the features you think would make SalesRep even more useful for sales and customer support teams.  \nThanks for checking us out! \ud83d\ude4c",
+     "createdAt": "2026-10-08T22:03:37Z",
+     "parentId": null,
+     "userId": "10327807"
+    },
+    {
+     "body": "<p>We followed your advise and made the changes to our home page. Take a look is this the way it should be?</p>",
+     "createdAt": "2026-10-14T08:43:58Z",
+     "parentId": null,
+     "userId": "10327661"
+    },
+    {
+     "body": "<p>Came over for the ai sales rep, but the homepage opens on a team inbox platform and the rep is the third section down, is launch traffic meant to land somewhere else, or am i reading it wrong</p>",
+     "createdAt": "2026-10-12T13:50:41Z",
+     "parentId": null,
+     "userId": "8552750"
+    },
+    {
+     "body": "<p>\"Follows up until the deal closes\" made me wince a little. On WhatsApp the third unanswered follow-up is usually where people just block you. Can I cap how many it sends before it hands the lead back to a human?</p>",
+     "createdAt": "2026-10-12T11:09:49Z",
+     "parentId": null,
+     "userId": "3709936"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273823",
+  "name": "Codemind",
+  "tagline": "Delegate coding. Get back code that works.",
+  "description": "Your coding agent hands Codemind a task over MCP. It writes the code, tests it against your criteria and returns the files. $0.10 per verified build, failed builds free, free allowance to start.",
+  "slug": "codemind-2",
+  "dailyRank": 19,
+  "votesCount": 71,
+  "commentsCount": 7,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "875554"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi Product Hunt, I'm Andriy, and I built Codemind.<br><br>If you code with an agent like Claude Code, Cursor, Codex or OpenCode, you know the pattern: the agent spends your plan's tokens on routine tasks you could hand off. Codemind is where it hands them off. The agent sends a task and acceptance criteria over MCP, Codemind writes the code, tests it against those criteria, and returns the files. You are billed only for a build that comes back verified. A failed build is free.<br><br>What you can do today:<br>- Delegate a single task from your agent and get files back with the test result.<br>- Let your agent set itself up: paste one prompt and it creates a free account and connects.<br><br>Coming next: Swarm (many tasks at once, Pro).<br><br>I'd love to hear which of your own tasks you'd hand off first, and which you wouldn't. I'm in the thread all day.</p>",
+     "createdAt": "2026-10-08T13:07:18Z",
+     "parentId": null,
+     "userId": "875554"
+    },
+    {
+     "body": "<p>Just to make sure I understand correctly, the benefit here is that once you have a plan designed by the coding agent, codemind can execute the individual plan steps in parallel?  Speeding up build time and saving tokens?<br><br>Is this at the function level? module level? or any scope of task?<br><br> </p>",
+     "createdAt": "2026-10-12T10:58:43Z",
+     "parentId": null,
+     "userId": "9459745"
+    },
+    {
+     "body": "<p>Andriy, I like that the acceptance criteria go in with the task and the test results come back with the files. That gives the calling agent something concrete to check. Congrats on the launch!</p>",
+     "createdAt": "2026-10-12T08:04:22Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ }
+]

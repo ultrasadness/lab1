@@ -1,0 +1,70 @@
+// Pacific dates. A Miner day is a date in America/Los_Angeles. These turn instants into Pacific dates and wall
+// clock times and back, so a day is 23 or 25 hours long across a daylight-saving change.
+
+const wallClock = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/Los_Angeles',
+  hourCycle: 'h23',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+function wall(instant: Date): { date: string; time: string } {
+  const p = Object.fromEntries(wallClock.formatToParts(instant).map((part) => [part.type, part.value]));
+  return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` };
+}
+
+/** The Pacific date (`YYYY-MM-DD`) at an instant. */
+export function pacificDate(instant: Date): string {
+  return wall(instant).date;
+}
+
+function ymd(date: string): [number, number, number] {
+  const [y, m, d] = date.split('-').map(Number);
+  return [y!, m!, d!];
+}
+
+/** The earliest instant at which the Pacific wall clock reads `time` on `date`. */
+export function pacificInstant(date: string, time: string): Date {
+  const [y, m, d] = ymd(date);
+  const [hh, mm] = time.split(':').map(Number);
+  const asIfUtc = Date.UTC(y, m - 1, d, hh!, mm!);
+  // Los Angeles is 7 hours behind UTC in daylight time and 8 in standard time. When the clocks fall back a
+  // time can happen twice; take the first.
+  const matches = [7, 8]
+    .map((hours) => asIfUtc + hours * 3_600_000)
+    .filter((t) => {
+      const w = wall(new Date(t));
+      return w.date === date && w.time === time;
+    });
+  // A time skipped when the clocks spring forward never happens; standard time's reading lands just after it.
+  return new Date(matches.length > 0 ? Math.min(...matches) : asIfUtc + 8 * 3_600_000);
+}
+
+export function nextDate(date: string): string {
+  const [y, m, d] = ymd(date);
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+}
+
+/** The instants a Pacific date starts and ends: midnight to the next midnight. */
+export function pacificDay(date: string): { start: Date; end: Date } {
+  return { start: pacificInstant(date, '00:00'), end: pacificInstant(nextDate(date), '00:00') };
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** `Wed Oct 14`, as the person reads a day on Discord. */
+export function dayLabel(date: string): string {
+  const [y, m, d] = ymd(date);
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return `${WEEKDAYS[weekday]} ${MONTHS[m - 1]} ${d}`;
+}
+
+/** Product Hunt's daily leaderboard for a Pacific date. */
+export function leaderboardUrl(date: string): string {
+  const [y, m, d] = ymd(date);
+  return `https://www.producthunt.com/leaderboard/daily/${y}/${m}/${d}`;
+}

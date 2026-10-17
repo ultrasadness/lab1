@@ -1,0 +1,1789 @@
+[
+ {
+  "id": "1267423",
+  "name": "HireKey",
+  "tagline": "Your recruiter-informed AI copilot for tech job search",
+  "description": "HireKey is a recruiter-informed AI job-search co-pilot for tech job seekers who want to apply strategically & interview with confidence. It helps you assess your role fit, tailor resumes, communicate experience & track applications. Unlike basic ATS tools, HireKey combines AI with 10 years of recruiting experience at Microsoft, Amazon & Stripe, plus practice out loud with an interactive AI voice coach that responds to your answers & provides real-time interview feedback.",
+  "slug": "hirekey-2",
+  "dailyRank": 1,
+  "votesCount": 236,
+  "commentsCount": 39,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Tech"
+    },
+    {
+     "name": "Career"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9682412"
+   },
+   {
+    "id": "6040626"
+   },
+   {
+    "id": "10192590"
+   },
+   {
+    "id": "10282343"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt! \ud83d\udc4b<br><br>I\u2019m Nela, co-founder of <a href=\"https://hirekey.io/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">HireKey</a><br><br>I spent 10 years recruiting for technical and non-technical roles at Microsoft, Amazon, and Stripe, to name a few. I reviewed thousands of resumes and interviewed thousands of candidates.<br><br>Time and time again, I saw qualified people get passed over simply because their resumes didn\u2019t connect their experience to the role, or because they struggled to explain that experience in an interview. They had the right skills, but hiring managers weren\u2019t seeing the connection.<br><br>That stayed with me because many of those people were incredibly talented, genuine people whom I had to give the unfortunate news of rejection, which is honestly the worst part of recruiting.<br><br>So, we built HireKey around the recruiting knowledge I\u2019d gathered over those 10 years, giving job seekers access to the perspective from the other side of the hiring table.<br><br>HireKey helps you assess how your experience fits a role, tailor your resume, practice interviews with an interactive AI voice coach, and track your applications in one place.<br><br><strong>How it works</strong><br><br><strong>1. Add the job and your master resume.</strong> Find a role you want to apply for and add its title, company, location, and job description to HireKey\u2019s Job Tracker. Upload your master resume once, then use it across the jobs you\u2019re considering.<br><br><strong>2. Tailor your resume and assess your fit.</strong> HireKey adapts your master resume to the job description, bringing your relevant experience into focus, along with an analysis of missing skills or experience and whether transferable experience could help bridge those gaps.<br><br><strong>3. Practice out loud, on demand.</strong> Practice using the STAR framework with an interactive AI voice coach. Get specific feedback on where your answers are strongest and where you still need practice.<br><br><strong>4. Keep your search organized.</strong> Track applications through stages such as applied, screening, and interviewing, so you always know where things stand.<br><br><strong>Coming soon: Chrome extension for auto job capture</strong><br>Premium users will be able to use a chrome extension that will automatically capture job details and enter them into HireKey's job tracker<br><br><strong>A closer look at interview practice</strong><br><br>Knowing your work and explaining it clearly are two different skills. This was something I saw repeatedly as a recruiter, and it\u2019s why interview practice is such an important part of HireKey.<br><br>You can choose practice questions or add your own, then start speaking with the coach, all on demand. It responds to what you actually say and helps you identify where an answer needs more clarity or detail. You also get a debrief on what went well and what to improve.<br><br>Prefer to prepare on your own first? You can print interview questions with tips on how to approach your answers.<br><br><strong>Who it\u2019s for</strong><br><br>HireKey is built for people pursuing technical and non-technical roles in tech, especially when you:<br><br>- Find an interesting role but aren\u2019t sure how well your experience fits.<br>- Need help making your relevant experience clear on your resume.<br>- Know your work but struggle to explain it in an interview.<br>- Have multiple applications in progress and need to keep track of them.<br><br><strong>Get 1 month of Premium free with our </strong><a href=\"https://hirekey.io/?ref=producthunt\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Product Hunt launch offer</a>.<br><br>We\u2019d love to hear from you: What\u2019s hardest about job searching? Is it deciding where to apply, showing your experience on paper, or talking about it in an interview?</p>",
+     "createdAt": "2026-10-02T08:43:04Z",
+     "parentId": null,
+     "userId": "9682412"
+    },
+    {
+     "body": "<p>recruiter pov is the real edge here, usefull for tech folks \ud83d\udc4f mock interviews next?</p>",
+     "createdAt": "2026-10-12T07:45:32Z",
+     "parentId": null,
+     "userId": "3426683"
+    },
+    {
+     "body": "<p>Wish you success and congrats on the launch!<br>The resume tailoring feature sounds really practical. When someone has worked across multiple functions (e.g. engineering, PM, and data), does HireKey help decide which experiences to prioritize for a specific role, or does it mainly restructure existing bullet points? I'm curious whether the fit analysis weighs transferable skills differently from exact-match skills, especially for people considering a career pivot within tech.</p>",
+     "createdAt": "2026-10-12T06:43:03Z",
+     "parentId": null,
+     "userId": "10080388"
+    },
+    {
+     "body": "<p>i'd probably add my resume like 10 times just to compare how it reads with different job descriptions. kind of a nerd habit, but i love seeing the gaps and then pondering if they're as big as they seem before i flake out on applying.</p>",
+     "createdAt": "2026-10-12T04:59:23Z",
+     "parentId": null,
+     "userId": "9896103"
+    },
+    {
+     "body": "<p>I like that you have Kanban board inside Application Tracker! </p>",
+     "createdAt": "2026-10-11T22:11:15Z",
+     "parentId": null,
+     "userId": "10339569"
+    },
+    {
+     "body": "<p> Great product and congrats on the launch! In an increasingly crowded space, I think this is the first product I've seen that stays with the applicant through the whole process, from application to interview practice. How does the voice coach adapt to different personalities, industries, fields?</p>",
+     "createdAt": "2026-10-11T20:02:49Z",
+     "parentId": null,
+     "userId": "1569298"
+    },
+    {
+     "body": "<p><a href=\"https://www.producthunt.com/@jonnotie\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"jonnotie\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@jonnotie</a> congratulations on the launch!!</p><p>The product looks promising.. Does the voice coach also involve personality testing? like confidence ,fluency or communications?</p>",
+     "createdAt": "2026-10-11T18:58:21Z",
+     "parentId": null,
+     "userId": "10324584"
+    },
+    {
+     "body": "<p>I'm a junior backend dev in Brazil applying for remote roles, both local and international. Two questions: does the recruiter input carry over to hiring outside big US tech, and does the voice coach give feedback to non-native English speakers, or only on the content of the answer?</p>",
+     "createdAt": "2026-10-11T18:55:08Z",
+     "parentId": null,
+     "userId": "9116549"
+    },
+    {
+     "body": "<p>the honest answer about not checking technical accuracy is the part I'd watch out for as a user. STAR structure feedback could make someone sound more confident delivering an answer that's actually wrong, and a polished delivery of a wrong answer is worse in a real interview than a rough delivery of a right one. is there any plan to at least flag when an answer sounds complete but is thin on verifiable specifics, even without full technical grading?</p>",
+     "createdAt": "2026-10-11T17:34:07Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "This looks awesome. \ud83e\udd29",
+     "createdAt": "2026-10-11T17:23:28Z",
+     "parentId": null,
+     "userId": "1594215"
+    },
+    {
+     "body": "<p>How about adding MCP to this, mostly I use AI to apply for the jobs, and its really pain for me adding each job on this platform after applying, so if it could have MCP, AI can do that for me, and I can use it more efficiently. </p>",
+     "createdAt": "2026-10-11T15:33:46Z",
+     "parentId": null,
+     "userId": "10241171"
+    },
+    {
+     "body": "The voice interview coach caught my attention. Does the feedback change based on the specific role you\u2019re applying for or is it mainly focused on how clearly you structure and explain your answers?\n\nCongrats @founder92 &amp; team! Routing for you guys :)",
+     "createdAt": "2026-10-11T12:59:37Z",
+     "parentId": null,
+     "userId": "3830504"
+    },
+    {
+     "body": "<p>Congrats on the launch! Whats your fav use case among all of them?</p>",
+     "createdAt": "2026-10-11T12:45:58Z",
+     "parentId": null,
+     "userId": "500004"
+    },
+    {
+     "body": "<p>Hey Nela, many congratulations on the launch! \ud83e\udd73</p><p></p><p>The landing page and messaging are really strong. You\u2019re solving a genuinely important problem. Job searching is often scattered across platforms and opportunities, making it hard to track applications and next steps, tailor a resume for every role, and practice interview questions. AI is especially well suited to bringing all of that together. </p><p></p><p>What makes HireKey especially compelling is your recruiter\u2019s perspective, few people could build this with the same insight into what hiring teams actually look for. </p><p></p><p>Wishing you and Lance a very successful launch. :) </p>",
+     "createdAt": "2026-10-11T10:24:21Z",
+     "parentId": null,
+     "userId": "4325010"
+    },
+    {
+     "body": "<p>How do you keep the advice relevant for smaller tech companies and startups too?</p><p></p>",
+     "createdAt": "2026-10-11T09:09:01Z",
+     "parentId": null,
+     "userId": "10121933"
+    },
+    {
+     "body": "<p>The number of tabs I keep open while job hunting is ridiculous.</p>",
+     "createdAt": "2026-10-11T08:56:59Z",
+     "parentId": null,
+     "userId": "9313575"
+    },
+    {
+     "body": "<p>Sometimes I spend more time figuring out if I even fit a job than applying for it.</p>",
+     "createdAt": "2026-10-11T08:53:16Z",
+     "parentId": null,
+     "userId": "8976928"
+    },
+    {
+     "body": "<p>Does the voice coach evaluate answer structure as well as technical accuracy?</p><p></p>",
+     "createdAt": "2026-10-11T08:46:58Z",
+     "parentId": null,
+     "userId": "9084703"
+    },
+    {
+     "body": "<p><a href=\"https://www.producthunt.com/@founder92\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"founder92\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@founder92</a>  If I ever decide to look or need a new role will be leveraging <a href=\"https://www.producthunt.com/products/hirekey\" data-node-type=\"mention\" data-mention-type=\"product\" data-mention-id=\"hirekey\" target=\"_blank\" rel=\"noopener\">@HireKey</a> , It's been over 20 years since I've had to take a job interview, so I may need this.  Best of Luck.</p>",
+     "createdAt": "2026-10-11T08:03:00Z",
+     "parentId": null,
+     "userId": "9871373"
+    },
+    {
+     "body": "<p>Hey Product Hunt! I\u2019m Lance, co-founder of HireKey \ud83d\udc4b<br></p><p>Nela shared why we started HireKey, so I\u2019ll keep this short. We\u2019ve put a lot of thought into the small moments that make a job search exhausting: losing track of a role, rewriting the same experience again, or wondering whether you\u2019re ready for an interview.<br></p><p>I\u2019m excited to finally put HireKey in your hands. If you give it a try, I\u2019d love to hear what helps and what feels awkward. We\u2019re here today and reading every comment.</p>",
+     "createdAt": "2026-10-11T07:36:35Z",
+     "parentId": null,
+     "userId": "10192590"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1272499",
+  "name": "k\u014ddlo",
+  "tagline": "End-to-end sales workspace with unified context",
+  "description": "k\u014ddlo finds prospects that fit your ICP and tells you how to warm each one up. Upload product catalogues and other docs to the Knowledge Hub, and its agent turns them into personalized messages, offers, deep searches and decks. Track client data, collaborate with your team, and manage tasks, all in one place. Connect Claude Desktop/ChatGPT Work or your code agent with k\u014ddlo MCP to scale and orchestrate contexts.",
+  "slug": "kodlo-2",
+  "dailyRank": 2,
+  "votesCount": 302,
+  "commentsCount": 63,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Sales"
+    },
+    {
+     "name": "SaaS"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "10129908"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt \ud83d\udc4b Andriana here, co-founder of k\u014ddlo\ud83d\udc0d<br><br><strong>The Problem. </strong>Selling a complex product takes hours of prep. You jump between a few disconnected tools to research accounts, draft personalized outreach, and assemble pitch decks. Context gets lost, and you end up spending more time on prep than talking to buyers.<br><br><strong>The Solution. </strong>k\u014ddlo is an end-to-end sales workspace that keeps the context for you. Find prospects, research them, and write messages, proposals and decks in one place. Everything you do there, from research and notes to your documents and past conversations, stays in k\u014ddlo's memory, so each new piece of work builds on what it already knows.<br><br><strong>What makes it different?</strong> k\u014ddlo is built on one shared memory that every agent can use. The agent also sees what you see. Chat sits on the left, your work on the right. On top of that sits everything you need to sell: prospecting, research, your own knowledge base, outreach, decks, a task tracker, team collaboration and scheduled work. <br><br>Key features:<br><strong>\ud83c\udfaf Find prospects with a reason. </strong>Describe who you sell to and k\u014ddlo finds matching companies and decision makers. Each one comes with evidence for why it fits, like a funding round, a job ad or a line on their website.<br><strong>\ud83d\udd0d Deep search</strong>. Research on any company, market or person, written up as a report where every claim links to its source.<br><strong>\ud83d\udcda Knowledge Hub.</strong> Upload price lists, case studies, tech docs, even scanned PDFs. k\u014ddlo answers from your own documents and cites the file and page it used.<br><strong>\u270d\ufe0f Writes in your voice. </strong>LinkedIn messages, connection notes and proposals in a tone of voice you set once. You send them yourself.<br><strong>\ud83d\udcca Decks in your brand. </strong>k\u014ddlo builds a template from your PowerPoint and exports to PPTX or PDF.<br><strong>\u23f0 Work that keeps going</strong>. Put tasks on a schedule or hand k\u014ddlo a list of up to 5,000 rows to work through.<br>\ud83d\udd0c<strong> Your context in your AI tools. </strong>Connect k\u014ddlo over MCP and use the same prospects, plans, documents and decks in Claude Desktop, Claude Code, Codex, OpenAI Work and Dots, or any other tool that supports MCP.</p><p><br><br>Who is it for? Founders and small teams selling B2B SaaS, sales people in IT services companies, and anyone selling a technical product where the know-how sits with the engineers.<br><br>\ud83c\udfac Interactive demo \u2192 <a href=\"https://app.arcade.software/share/qlAB1iPeVNpCtpgd2yL9\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://app.arcade.software/share/qlAB1iPeVNpCtpgd2yL9</a><br>\ud83c\udf81 PH offer \u2192 The first 100 sign-ups get 10% off the Starter plan.<br><br>Huge thanks to our core team, Ivan, Jakub and Vitalii, and to Rohan for hunting us!<br>We\u2019re here for honest feedback and our first users. Tell us what works, what feels confusing, and what\u2019s missing \u2014 we\u2019re ready for critiques. Every comment gets read, and the best ideas go straight onto our roadmap.</p>",
+     "createdAt": "2026-10-07T09:46:28Z",
+     "parentId": null,
+     "userId": "10128597"
+    },
+    {
+     "body": "<p>This tool can the training time and TAT for the sales team to be more confident with the knowledgebase. </p>",
+     "createdAt": "2026-10-13T11:54:50Z",
+     "parentId": null,
+     "userId": "9646140"
+    },
+    {
+     "body": "<p>If I ask it to find new leads, can I tell it to skip companies I already talked to last month?</p>",
+     "createdAt": "2026-10-13T07:54:04Z",
+     "parentId": null,
+     "userId": "5306357"
+    },
+    {
+     "body": "<p>Love the idea of having everything in one place instead of constantly switching between different tools. Especially curious about the personalized outreach feature. Huge congrats on the launch!!\ud83d\udc0d</p>",
+     "createdAt": "2026-10-12T18:36:29Z",
+     "parentId": null,
+     "userId": "10345376"
+    },
+    {
+     "body": "<p>Quick question, if I mark a prospect as not a good fit, will k\u014ddlo remember that the next time it searches for leads?</p>",
+     "createdAt": "2026-10-12T10:51:22Z",
+     "parentId": null,
+     "userId": "10001124"
+    },
+    {
+     "body": "<p>wondering what problems can your product solve?</p>",
+     "createdAt": "2026-10-12T07:04:50Z",
+     "parentId": null,
+     "userId": "9791367"
+    },
+    {
+     "body": "<p>How does <a href=\"https://www.producthunt.com/products/kodlo\" data-node-type=\"mention\" data-mention-type=\"product\" data-mention-id=\"kodlo\" target=\"_blank\" rel=\"noopener\">@k\u014ddlo</a> actually know the best way to warm up a specific prospect, rather than just generating personalized outreach based on their profile?</p>",
+     "createdAt": "2026-10-11T23:17:04Z",
+     "parentId": null,
+     "userId": "8577201"
+    },
+    {
+     "body": "<p>Congrats on the launch!!! Super exciting</p>",
+     "createdAt": "2026-10-11T21:04:48Z",
+     "parentId": null,
+     "userId": "8652244"
+    },
+    {
+     "body": "<p>the MCP pivot story in your forum post is the real insight here, not the architecture. \"why not just use Claude/ChatGPT\" is the question every wrapper-shaped tool gets, and the honest answer is usually \"because we hold state those tools don't.\" one thing I'm curious about: when two people on the same team both connect via k\u014ddlo MCP and work the same account at the same time from separate Claude sessions, does the shared memory merge their changes live, or does one session's context go stale until it reconnects?</p>",
+     "createdAt": "2026-10-11T17:35:05Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "Congrats on your launch.",
+     "createdAt": "2026-10-11T16:39:12Z",
+     "parentId": null,
+     "userId": "1594215"
+    },
+    {
+     "body": "<p>We are talking about uploading sensitive documents containing pricing and product information. How is this information being stored, and is it used for training models?</p>",
+     "createdAt": "2026-10-11T12:59:30Z",
+     "parentId": null,
+     "userId": "9965621"
+    },
+    {
+     "body": "<p>Does k\u014ddlo measure reply rates and conversion rates per each message/offer to help the agent understand what is effective for my ICP?<br>Btw, Congratulations <a href=\"https://www.producthunt.com/@andriana_oprysko\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@andriana_oprysko</a> , <a href=\"https://www.producthunt.com/@ivan_telnov\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@ivan_telnov</a> and team <strong>k\u014ddlo \ud83c\udf8a\u270c\ufe0f</strong></p>",
+     "createdAt": "2026-10-11T12:48:55Z",
+     "parentId": null,
+     "userId": "9965621"
+    },
+    {
+     "body": "<p>Great stuff Ivan! Congrats!!!</p>",
+     "createdAt": "2026-10-11T12:35:11Z",
+     "parentId": null,
+     "userId": "2985602"
+    },
+    {
+     "body": "<p>I like having prospect research, client data, and team tasks in one place. It could make the sales process easier to manage.</p>",
+     "createdAt": "2026-10-11T12:11:59Z",
+     "parentId": null,
+     "userId": "10119929"
+    },
+    {
+     "body": "<p>I wonder if the agents get confused when I have many different versions of the same pitch deck in my hub. How does it know which one is the final one?</p>",
+     "createdAt": "2026-10-11T12:11:07Z",
+     "parentId": null,
+     "userId": "5306357"
+    },
+    {
+     "body": "congrats on the launch!\nWhat sources do you use to build context on prospects, and how do you decide which signals are relevant for personalising outreach beyond the usual funding, hiring, or job changes?",
+     "createdAt": "2026-10-11T11:31:58Z",
+     "parentId": null,
+     "userId": "8861834"
+    },
+    {
+     "body": "<p>Hey Andriana, huge congratulations on the launch to you and the entire team! \ud83d\udc4f </p><p></p><p>Sales teams often need different offers and messaging for different clients and prospects, and keeping all of that synced and unified is especially valuable when you're working with a sales team. Even as a solo operator, sales people can struggle to keep the right offers and outreach templates in place, particularly for outbound, so k\u014ddlo feels genuinely useful. </p><p></p><p>The MCP integration is also especially interesting. Being able to connect k\u014ddlo\u2019s context to AI tools like Claude Desktop, ChatGPT Work, and coding agents makes the workflow much more powerful. </p><p></p><p>Wishing you and the team all the best! :) </p>",
+     "createdAt": "2026-10-11T10:29:51Z",
+     "parentId": null,
+     "userId": "4325010"
+    },
+    {
+     "body": "<p>Vitalii here, developer on the k\u014ddlo team \ud83d\udc4b</p><p>Happy to answer any technical questions, especially about the shared memory and the MCP connection. If something breaks or feels slow, tell me and I'll look into it.</p>",
+     "createdAt": "2026-10-11T10:28:38Z",
+     "parentId": null,
+     "userId": "10129908"
+    },
+    {
+     "body": "<p>Congrats. Does the deck generator use custom layouts and styles or it works on top of preset templates?</p>",
+     "createdAt": "2026-10-11T10:14:14Z",
+     "parentId": null,
+     "userId": "6553955"
+    },
+    {
+     "body": "<p>How often does K\u014ddlo refresh its data? There may be signals like funding or hiring that can change over time and keeping up with those is important. </p>",
+     "createdAt": "2026-10-11T10:12:42Z",
+     "parentId": null,
+     "userId": "3352325"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1264842",
+  "name": "Automations in Perplexity Computer",
+  "tagline": "Automations that remember, act, and keep work moving",
+  "description": "Computer Automations turns recurring work into reliable, ongoing workflows. Define a task once... such as monitoring sources, compiling reports, updating trackers, or drafting follow-ups... and an agent executes it on a schedule or in response to triggers. Built for professionals, teams, and operations leaders who need continuity without constant supervision, it remembers prior runs, builds on accumulated context, and acts proactively rather than waiting for a prompt.",
+  "slug": "automations-in-perplexity-computer",
+  "dailyRank": 3,
+  "votesCount": 193,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Task Management"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p><strong>Perplexity Computer Automations</strong> turns recurring work into proactive, long-running AI agents that run on schedules or triggers and retain context over time.</p><p></p><p>Recurring work can create repetitive manual follow-ups and scattered context across tools. Automations handle ongoing tasks while carrying forward the context needed to keep work moving.</p><p></p><p>Rather than treating each task as a fresh request, these agents can operate continuously and remember prior context.</p><p></p><p><strong>Features</strong></p><ul><li><p>Monitor Slack, Gmail, Outlook, Linear, and GitHub.</p></li><li><p>Draft customer replies, find missed updates, compare competitor pricing, update project decisions, and send work for human review.</p></li></ul><p>Built for Computer users managing ongoing work across projects and connected tools.</p><p><strong>Use cases</strong>: Customer communication, project tracking, competitive monitoring, decision updates, and review workflows.</p><p></p><p>Set up your first standing assignment with <a href=\"https://www.perplexity.ai/computer/automations\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Perplexity Computer Automations</a>.</p><p></p><p>P.S. I hunt the latest and greatest launches in tech, SaaS and AI, follow to be notified <strong>\u2192</strong> <a href=\"https://www.producthunt.com/@rohanrecommends\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@rohanrecommends</a> </p>",
+     "createdAt": "2026-10-02T03:24:34Z",
+     "parentId": null,
+     "userId": "4325010"
+    },
+    {
+     "body": "<p>Having an agent keep track of recurring tasks without needing constant reminders sounds  genuinely helpful for busy teams.</p>",
+     "createdAt": "2026-10-11T12:33:31Z",
+     "parentId": null,
+     "userId": "9049639"
+    },
+    {
+     "body": "<p>Can you change an automation easily if your workflow or reporting needs change?</p>",
+     "createdAt": "2026-10-11T12:29:42Z",
+     "parentId": null,
+     "userId": "9300535"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1270791",
+  "name": "Ghost Core",
+  "tagline": "A personal AI computer that runs entirely on-device",
+  "description": "Ghost Core is a personal AI computer that runs AI models on-device, connects to your apps, files, and devices, and builds continuous context to proactively help you.",
+  "slug": "ghost-core",
+  "dailyRank": 4,
+  "votesCount": 183,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Hardware"
+    },
+    {
+     "name": "Privacy"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p><strong>Ghost Core</strong> is a personal AI computer designed to keep your AI, data, and context on your own hardware.<br><br><strong>What makes it different:</strong> Core runs its models locally and continuously builds context from your apps, files, screen history, and connected devices, allowing its AI to act proactively rather than waiting for every prompt.<br><br><strong>Key features:</strong><br>\u2022 Run AI models entirely on-device<br>\u2022 Connect to apps, files, and devices<br>\u2022 Build continuous context over time<br>\u2022 Work proactively without waiting for a prompt<br>\u2022 Connect to wearables and smart-home devices<br>\u2022 Use local models including Qwen, Gemma, and Muse-Glimmer<br>\u2022 64 GB DDR5 memory and 1 TB NVMe storage<br>\u2022 NVIDIA RTX PRO 4000 Blackwell GPU with 24 GB GDDR7 ECC memory<br><br><strong>Who it's for:</strong> People who want a personal AI system with local intelligence, continuous context, and control over their data.<br><br>Ghost Core is available to order for $3,499.<br><br>Explore <a href=\"https://ghost.ai/core\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Ghost Core</a></p><p></p><p>P.S. I hunt the latest and greatest launches in tech, SaaS and AI, follow to be notified <strong>\u2192</strong> <a href=\"https://www.producthunt.com/@rohanrecommends\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@rohanrecommends</a> </p>",
+     "createdAt": "2026-10-08T06:52:31Z",
+     "parentId": null,
+     "userId": "4325010"
+    },
+    {
+     "body": "<p>Great product</p>",
+     "createdAt": "2026-10-11T13:57:08Z",
+     "parentId": null,
+     "userId": "2394165"
+    },
+    {
+     "body": "<p>VERY IMPRESSIVE investor list on their about page. Really excited about this one! I wonder if its possible to switch out the parts for newer ones into the future tho?</p>",
+     "createdAt": "2026-10-11T09:03:15Z",
+     "parentId": null,
+     "userId": "445755"
+    },
+    {
+     "body": "<p>\"on-device\" answers where the model runs, not the question people actually care about, which is where the continuous context ends up. building ongoing context from screen history and connected apps means this box is accumulating the single most complete record of someone's life that's ever existed on one piece of hardware. that makes the threat model physical: stolen, seized, resold without being wiped, or just sitting in a house with other people who have access to it. what's the actual story on encryption at rest, and what happens to the context store if the device changes hands?</p>",
+     "createdAt": "2026-10-11T07:32:47Z",
+     "parentId": null,
+     "userId": "9882085"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1263181",
+  "name": "OpenScreen 2",
+  "tagline": "Record your demo and let your AI agent do the edits",
+  "description": "Record your screen and the demo looks great on the first take: zooms planned from your clicks, smooth cursor, 3D camera moves, cursor themes, backgrounds and webcam layouts. Then let your AI agent do the edit over MCP, or cut the video yourself by deleting words in the transcript. Windows, macOS and Linux. Free, MIT, no account, no watermark.",
+  "slug": "openscreen-2-3",
+  "dailyRank": 5,
+  "votesCount": 173,
+  "commentsCount": 15,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Video"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "4845969"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi Product Hunt, I'm Etienne and I maintain OpenScreen.</p><p></p><p>It started as Siddharth Vaddem's side project, a free alternative to Screen Studio. He archived it in June and I took it over with his approval. 2.0 is four months of work since then, and 137 people have contributed to the project so far.</p><p></p><p>What's new:</p><ul><li><p>a local MCP server, so Claude Code or another agent can do the edit for you</p></li><li><p>zooms planned from your clicks, as shots, not one per click</p></li><li><p>cut the video by deleting words in the transcript, captions transcribed locally</p></li><li><p>webcam beside or above the recording, with background blur or removal</p></li><li><p>a native GPU renderer, exports about 15x faster than before on our reference laptop</p></li><li><p>a 3D camera that moves with your zooms, and five cursor themes with sculpted 3D versions</p></li></ul><p>Windows, macOS and Linux. Free and MIT, no account, no watermark. Thanks to Siddharth for starting it, and to everyone who contributes.</p><p></p><p>What do you make your demos with today, and what would OpenScreen need for you to switch?</p>",
+     "createdAt": "2026-09-28T08:10:44Z",
+     "parentId": null,
+     "userId": "10292814"
+    },
+    {
+     "body": "<p>Congrats Etienne, and good on you for picking it up instead of letting it sit archived.</p><p></p><p>I went through the OpenScreen source a while back. The comment in zoomSpring.ts about the eased target causing a jerk at zoom seams changed how I think about camera motion. Small detail, but you can feel it in the result.</p><p></p><p>Curious about \"zooms as shots\": how do you decide which clicks go in one shot? Time gap, distance on screen, or both?</p>",
+     "createdAt": "2026-10-12T07:15:47Z",
+     "parentId": null,
+     "userId": "5123299"
+    },
+    {
+     "body": "Congratulation! I use Screen Studio a while, then switched to Record, now, I I'd like to try OpenScreen!",
+     "createdAt": "2026-10-11T17:58:52Z",
+     "parentId": null,
+     "userId": "1660685"
+    },
+    {
+     "body": "<p>free, MIT, no watermark on a tool this polished is rare, respect for keeping it that way through the rewrite. question on the transcript-based cutting: local transcription is never perfect, so what happens when the agent deletes a word that got misheard and the cut lands mid-sentence instead of in the pause? does it show you the edit list before committing, or is undo the main safety net there?</p>",
+     "createdAt": "2026-10-11T17:36:02Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "<p>I like that it works on Windows, Mac, and Linux. No accounts or watermark is a nice bonus too.</p>",
+     "createdAt": "2026-10-11T12:00:58Z",
+     "parentId": null,
+     "userId": "9296414"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1251151",
+  "name": "MePersona",
+  "tagline": "Answer every fan comment in your voice",
+  "description": "MePersona is the unified social media inbox for content creators, but the inbox is only where it starts. Your Persona learns how you talk and improves with every reply you approve. It drafts replies to comments and DMs from YouTube, Instagram, TikTok, X and more, scores how much each sounds like you, and remembers what each fan said last time. Nothing posts until you hit Send. It works in English and Spanish, so bilingual creators stop choosing which half of their audience gets a real answer.",
+  "slug": "mepersona-2",
+  "dailyRank": 6,
+  "votesCount": 147,
+  "commentsCount": 67,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Messaging"
+    },
+    {
+     "name": "Marketing automation"
+    },
+    {
+     "name": "Social media marketing"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "10247011"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>replying to every fan comment is a real time sink, nice idea \ud83d\ude4c does it learn from old replys?</p>",
+     "createdAt": "2026-10-12T07:46:28Z",
+     "parentId": null,
+     "userId": "3426683"
+    },
+    {
+     "body": "<p>Great launch, Steven! I'm curious what all is getting stored in the \"vault\" that would necessitate 500GB+ of storage \ud83d\udc40</p>",
+     "createdAt": "2026-10-12T06:11:54Z",
+     "parentId": null,
+     "userId": "10144068"
+    },
+    {
+     "body": "<p>the surge mode detail of marking every skipped comment with a reason is the part that actually matters here, most \"handle viral spikes automatically\" pitches just mean \"we'll auto-post more,\" and the failure mode there is a real fan getting lumped in with spam and never hearing back. since every skip gets logged with a reason, can a creator flag one as \"that wasn't spam, that was a real fan\" after the fact, and does that correction change how the next surge classifies similar comments, or is it a one-off fix that doesn't feed back into the ranking?</p>",
+     "createdAt": "2026-10-12T04:18:07Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "<p>I liked that it sends messages one by one instead of all at once, to avoid the risk of being banned from the platform :)</p>",
+     "createdAt": "2026-10-12T01:42:17Z",
+     "parentId": null,
+     "userId": "6418051"
+    },
+    {
+     "body": "<p>Love the idea of building a persona that genuinely sounds like you. Excited to see where MePersona goes! \ud83d\ude80</p>",
+     "createdAt": "2026-10-12T00:19:25Z",
+     "parentId": null,
+     "userId": "9650983"
+    },
+    {
+     "body": "<p>I debated using this video as the launch video instead of the instructional video. So the video does not go to waste; I want to share it. The idea behind the video was the inspiration for creating Mepersona. <br><br><a href=\"https://youtu.be/Hnxr-A__If4\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://youtu.be/Hnxr-A__If4</a></p>",
+     "createdAt": "2026-10-11T23:48:43Z",
+     "parentId": null,
+     "userId": "10200251"
+    },
+    {
+     "body": "<p>Congrats on the launch, team! Curious about the voice match score: what does a creator do when a draft scores low? Edit it and the persona learns, or is there a way to flag \u201cthis isn\u2019t me\u201d so it unlearns a pattern?</p>",
+     "createdAt": "2026-10-11T19:22:00Z",
+     "parentId": null,
+     "userId": "4702728"
+    },
+    {
+     "body": "<p>congrats team, hope more languages will be supported soon!</p>",
+     "createdAt": "2026-10-11T19:01:22Z",
+     "parentId": null,
+     "userId": "2460644"
+    },
+    {
+     "body": "<p><a href=\"https://www.producthunt.com/@stevenhacker\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"stevenhacker\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@stevenhacker</a> congrats on the launch!</p><p>Are you planning to include more languages?</p>",
+     "createdAt": "2026-10-11T16:54:36Z",
+     "parentId": null,
+     "userId": "9683599"
+    },
+    {
+     "body": "<p>Hey builders and hunters! \ud83d\udc4b</p><p><br>As a hunter, you always look for products that don't just solve a theoretical pain point, but genuinely change how people work. <strong>MePersona</strong> is one of those rare tools that completely redefines creator operations.<br></p><p>If you've ever watched a creator try to manually keep up with DMs and comments across X, Instagram, YouTube, TikTok, and Discord, you know it's an absolute nightmare, you either burn out or lose that genuine connection with your community.<br></p><p>What blew me away when vetting MePersona wasn't just that it unifies everything into a single dashboard, or that it's fully bilingual (English/Spanish), or even the Persona API. It\u2019s the <strong>approval-first workflow</strong>. It drafts responses that actually sound like <em>you</em> (trained on your real voice), but nothing ever goes out until you give the green light. It\u2019s a relationship inbox, not a cold marketing autoresponder.<br></p><p>I am genuinely so proud and grateful to hunt this today. Huge congrats to the team on the launch!<br><br>Go give it some love, test out the voice cloning, and drop your feedback below!</p>",
+     "createdAt": "2026-10-11T14:44:26Z",
+     "parentId": null,
+     "userId": "1453154"
+    },
+    {
+     "body": "<p>This is actually interesting! How does it learn from my actions? does it watch me while I do my actions and learn?<br><br>Congrats on launching! \ud83d\ude4c</p>",
+     "createdAt": "2026-10-11T11:56:33Z",
+     "parentId": null,
+     "userId": "1720383"
+    },
+    {
+     "body": "<p>Finally, an AI tool built for solo creators who are completely drowning in notifications.</p>",
+     "createdAt": "2026-10-11T11:43:55Z",
+     "parentId": null,
+     "userId": "7941205"
+    },
+    {
+     "body": "<p>Very interesting. Do people who write to you know it's an AI?</p>",
+     "createdAt": "2026-10-11T10:37:59Z",
+     "parentId": null,
+     "userId": "8618977"
+    },
+    {
+     "body": "<p><a href=\"https://www.producthunt.com/@german_merlo1\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"german_merlo1\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@german_merlo1</a> - Will be checking out the free tier, seems a very compelling tool if it delivers.  Best of luck with the launch.</p>",
+     "createdAt": "2026-10-11T07:57:38Z",
+     "parentId": null,
+     "userId": "9871373"
+    },
+    {
+     "body": "<p>It's been a long road to get Mepersona up and running. I started this project a year ago, while filming a new Television series. It's been a tough road, but I think my idea will help all online creators with a major pain point. Fan engagement.</p>",
+     "createdAt": "2026-10-11T07:09:49Z",
+     "parentId": null,
+     "userId": "10200251"
+    },
+    {
+     "body": "<p>Hi Product Hunt, I'm Steven Hacker (yes, that's my real name), founder of MePersona.</p><p></p><p>I spent 25 years making film and TV with some of the biggest names in Hollywood. The artists I know all hit the same wall: burnout. They go silent, or hand replies to a social media manager who doesn't sound like them. True fans can tell.</p><p></p><p>MePersona learns how you talk from your posts, replies and a voice recording, then drafts answers to every fan comment and DM across nine platforms in one inbox. You approve, and it gets sharper with every reply.</p><p></p><p>Product Hunt exclusive: one month of Premium free, no card.</p><p><a href=\"https://mepersona.ai/free-month?c=founding50\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://mepersona.ai/free-month?c=founding50</a><br></p><p>Two questions:</p><p>1. Would you let an AI reply as you? What would it have to prove first?</p><p>2. Which platform's comments do you fall furthest behind on?</p><p></p><p>I know: That's really 3 questions.</p>",
+     "createdAt": "2026-09-30T02:31:04Z",
+     "parentId": null,
+     "userId": "10200251"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1246034",
+  "name": "Ayven",
+  "tagline": "Carries and drives your team's agenda",
+  "description": "Ayven drives your agenda. It means observing, cutting the work into pieces your team can take one at a time, putting an owner and a date on each, and filing them in Jira or YouTrack. Then it runs, tracks and talks about the work for weeks: asking whoever knows, waiting, chasing silence, moving work when someone is away. Your team answers in Slack and the board moves. Planning stops being the barrier and you ship your agenda like crazy.",
+  "slug": "ayven",
+  "dailyRank": 7,
+  "votesCount": 158,
+  "commentsCount": 15,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Messaging"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "10197628"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Howard here, founder of Alknoma.</p><p></p><p>We didn't start with a product. We started with an ANNOYANCE. Agents were impressive while you were talking to them, and then, as soon as you stopped typing, they effectively disappeared.</p><p>You'd put one in Slack and end up with another bot sitting in a channel waiting for someone to tell it what to do.<br></p><p><strong><em>You don't prompt your teammates.</em></strong></p><p><br>So the real problem was never, \"How do we make the model smarter?\" It was: how do you give a language model a spine? Something that lets it chain call after call, across days and months, reaching out to different people, all without a human babysitting it.</p><p>Sounds impossible if you know from experience just how complex chaining LLM calls can be. Three things turned out to matter, and we learned each one the painful way.</p><p><br>1. What a piece of <em>work</em> actually is.</p><p>Small enough that it can be validated, iterated, executed and closed 99.9% of the time.</p><p>Too big and the agent starts hallucinating. Too small and it loses all semantic meaning.</p><p><br>2. Resolving <em>time</em> should be first-class.</p><p>A lot of work in a team is essentially waiting.</p><p>Waiting isn't failure. It's the norm. And that happens to be one of the things LLM agents are worst at. Ayven reasons about when it should wake up next, EVERY SINGLE TIME, across thousands of runs a week.</p><p>It is about recognising a deadline, annual leave, or when a teammate has gone quiet. The async gap is hard to nail down. Ayven does that.</p><p><br>3. What is the base unit of a <em>fact</em>.</p><p>In a team, things change constantly. Someone changes their mind, a deadline moves, a customer replies, a meeting gets cancelled. An agent would treat information that was true two days ago as gospel. Change is the critical signal, and that was difficult to implement when teamwork is so unpredictable. Ayven makes sure the right things change with it.</p><p><br>The magic moment that wowed us, and made us decide to launch Ayven: we gave Ayven the agenda for September. Nothing else. The next thing we knew, the board was full, and accurate to our plans. It put together the pieces of what execution would look like.</p><p>Later, I asked: \"What's stopping us from launching on Product Hunt?\" Ayven then told me about every dependencies that I did not previously know. Nobody wrote that answer. It was just the work being captured in its truest, current state.</p><p></p><p>There is a lot more to Ayven that we haven't covered here.</p><p></p><p>Talk to us if you want this deployed in your own environment. Tell us what you want it connected to.</p><p>Ask me anything :)</p>",
+     "createdAt": "2026-09-09T18:19:38Z",
+     "parentId": null,
+     "userId": "10074026"
+    },
+    {
+     "body": "Really interesting Launch, the workflow on agenda mapping and tracking is a perfect target.. good wishes for its success Howard and team..",
+     "createdAt": "2026-10-11T20:45:35Z",
+     "parentId": null,
+     "userId": "9939168"
+    },
+    {
+     "body": "<p>\"resolving time should be first-class\" is the sharpest line in that post. waiting being the norm rather than a failure state is exactly the thing most task tools get wrong, they treat an open ticket as something going wrong instead of something just not due yet. the rerouting-when-someone's-away answer below is the part I'd want more detail on though - does the reassigned person get a say before the work lands on them, or does Ayven just move it and tell them after? autonomous reassignment without a check-in is the kind of thing that works great until it hands someone a deadline they didn't know was coming.</p>",
+     "createdAt": "2026-10-11T17:37:53Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "<p>This sounds like an interesting one. </p>",
+     "createdAt": "2026-10-11T14:02:33Z",
+     "parentId": null,
+     "userId": "2394165"
+    },
+    {
+     "body": "<p>The Slack connection sounds practical. It's easier to keep work moving when people can reply where they already chat.</p>",
+     "createdAt": "2026-10-11T13:00:18Z",
+     "parentId": null,
+     "userId": "10088681"
+    },
+    {
+     "body": "<p>Can Ayven adjust deadlines automatically when someone  on the team is away?</p>",
+     "createdAt": "2026-10-11T12:51:16Z",
+     "parentId": null,
+     "userId": "4153383"
+    },
+    {
+     "body": "<p>Chasing people for updates takes up so much time. Having something handle those reminders  would be  a real help.</p>",
+     "createdAt": "2026-10-11T12:48:53Z",
+     "parentId": null,
+     "userId": "4572879"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275628",
+  "name": "FocusWrite",
+  "tagline": "A local-first writing app with focus modes.",
+  "description": "A calm, local-first writing app with deep focus, ambient sounds, optional cloud sync, and PDF export.",
+  "slug": "focuswrite",
+  "dailyRank": 8,
+  "votesCount": 115,
+  "commentsCount": 19,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Web App"
+    },
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Writing"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10335810"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Congratulations on finishing the day at #8, Hein! \ud83c\udf89 A local-first writing app with ambient sounds and a real focus mode is a lovely combination, and keeping it free on donations makes it even easier for people to try. Hope the launch week treated you well!</p>",
+     "createdAt": "2026-10-13T14:22:26Z",
+     "parentId": null,
+     "userId": "969016"
+    },
+    {
+     "body": "<p>As others have said, ambient sounds built in is peak. I would love to be able to change the font\u2014the typewriter font is super vibey, but kinda hard to read \ud83e\udd72</p>",
+     "createdAt": "2026-10-12T08:23:25Z",
+     "parentId": null,
+     "userId": "10144068"
+    },
+    {
+     "body": "<p>Really useful!<br>I went through your website. Can you confirm that you plan to keep the product free and rely solely on donations?</p>",
+     "createdAt": "2026-10-12T06:46:05Z",
+     "parentId": null,
+     "userId": "8350640"
+    },
+    {
+     "body": "<p>I like this but can you give some options for changing the typing sound , I don't like the current one.<br>rest really good application I will be using this for my brainstroming idea sessions.</p>",
+     "createdAt": "2026-10-12T05:29:08Z",
+     "parentId": null,
+     "userId": "10342208"
+    },
+    {
+     "body": "<p>Does the optional cloud sync keep versions, or is it just a straight copy of the file? I write across a desktop and a laptop and I'm always nervous about which copy is the real one.</p>",
+     "createdAt": "2026-10-12T03:50:17Z",
+     "parentId": null,
+     "userId": "969016"
+    },
+    {
+     "body": "<p>Ambient sounds in a writing app is something I didn\u2019t know I wanted. Half the battle with writing is just getting quiet enough to start, so a calm setup like this makes sense..</p>",
+     "createdAt": "2026-10-11T19:20:45Z",
+     "parentId": null,
+     "userId": "10325199"
+    },
+    {
+     "body": "<p>Local-first with ambient sounds is a nice combo for a writing app. Does focus mode hide the word count too, or is there a way to keep it visible? I tend to either obsess over it or forget it exists.</p>",
+     "createdAt": "2026-10-11T16:17:00Z",
+     "parentId": null,
+     "userId": "6824487"
+    },
+    {
+     "body": "<p>love this. </p>",
+     "createdAt": "2026-10-11T10:00:17Z",
+     "parentId": null,
+     "userId": "2394165"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1270101",
+  "name": "Foley",
+  "tagline": "A voice to-do list that files, plans and asks first",
+  "description": "Say what needs doing. Foley turns it into a task with the project, date and reminder already set, and asks when it isn't sure instead of guessing. When plans change, say so and it moves the task. Ask it to plan your day, or what to work on first, and it answers from your list. Capture from your Apple Watch. The desktop app is free with no account, using your own OpenRouter key. Foley Pro runs the AI for you and syncs every device. On iPhone, Android, Mac, Windows and the web.",
+  "slug": "foley",
+  "dailyRank": 9,
+  "votesCount": 106,
+  "commentsCount": 26,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Task Management"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9068209"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt. I'm Jos\u00e9, a software engineer with over 25 years of experience (<a href=\"https://www.linkedin.com/in/joseairosa\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://www.linkedin.com/in/jose...</a>). I kept losing tasks I said out loud: mid-meeting, in the car, walking the dog. Foley is the to-do list I wanted for that. You talk, and it files.\n\nIt handles time the way people say it (\"next Tuesday morning\"), and it asks when it isn't sure instead of guessing. When plans change, say so and it moves the task. Ask it to plan your day, or what to work on first, and it answers from your own list.\n\nThe desktop app is free with no account, using your own OpenRouter key. Foley Pro is $8 a month on the web, and your first month there is $4, applied at checkout.\n\nI'll be here all day. Tell me what it got wrong.",
+     "createdAt": "2026-10-05T06:48:56Z",
+     "parentId": null,
+     "userId": "9068209"
+    },
+    {
+     "body": "<p>Will grab TestFlight this week \u2014 the ambiguous follow-up is exactly what I need when a voice note is just \"sort the invoices\" with no folder named.</p>",
+     "createdAt": "2026-10-13T15:38:57Z",
+     "parentId": null,
+     "userId": "10303877"
+    },
+    {
+     "body": "<p>FYI, <a href=\"mailto:hello@foleyapp.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">hello@foleyapp.com</a> bounces with a 550 from Google Workspace</p>",
+     "createdAt": "2026-10-13T07:20:33Z",
+     "parentId": null,
+     "userId": "9759349"
+    },
+    {
+     "body": "<p>Voice is the future!</p><p></p><p>The UI is very clean (dark mode reins supreme though)</p>",
+     "createdAt": "2026-10-12T06:02:16Z",
+     "parentId": null,
+     "userId": "10144068"
+    },
+    {
+     "body": "<p>When you ask it to plan your day, does it order tasks by the reminders already attached, or does it decide priority on its own? I'd want it to lean on the dates I already gave it rather than guess.</p>",
+     "createdAt": "2026-10-12T03:50:30Z",
+     "parentId": null,
+     "userId": "969016"
+    },
+    {
+     "body": "<p>Congrats on the launch. I like that it asks before filing \u2014 half my voice dumps are just \"call them back\" with zero context. Does the clarifying step happen on-device or after sync?</p>",
+     "createdAt": "2026-10-11T23:02:07Z",
+     "parentId": null,
+     "userId": "10303877"
+    },
+    {
+     "body": "<p>can the created tasks also be synced to desire PM tools like clickup </p><p></p>",
+     "createdAt": "2026-10-11T12:28:48Z",
+     "parentId": null,
+     "userId": "9147960"
+    },
+    {
+     "body": "<p>Using an Apple  Watch to capture tasks is a nice touch. Sometimes pulling out your phone is already too much friction.</p><p></p>",
+     "createdAt": "2026-10-11T10:09:45Z",
+     "parentId": null,
+     "userId": "10110275"
+    },
+    {
+     "body": "<p>Finally an assistant can help organize the chaos in my  head without making me type everything out.</p>",
+     "createdAt": "2026-10-11T10:01:48Z",
+     "parentId": null,
+     "userId": "10119877"
+    },
+    {
+     "body": "<p>can it handle task well even when plans change?</p>",
+     "createdAt": "2026-10-11T08:42:58Z",
+     "parentId": null,
+     "userId": "9769146"
+    },
+    {
+     "body": "<p>Handling relative time like \"next Tuesday morning\" is the part of voice capture that usually breaks first. Building voice AI for older adults, the trickiest case for us was self-corrections mid-sentence (\"Thursday, no wait, Friday\"). Does Foley treat the last thing said as the final intent, or does it ask you to confirm when it hears a correction like that?</p>",
+     "createdAt": "2026-10-11T07:48:27Z",
+     "parentId": null,
+     "userId": "1540007"
+    },
+    {
+     "body": "<p>\"asks when it isn't sure instead of guessing\" is the right default and most voice products get it backwards because asking feels like friction and guessing feels like magic, until the guess is wrong and now you've got a task filed under the wrong project with a made-up date. we fight the same tradeoff on calls at Dial. where's the line for you on what counts as \"not sure\", confidence score under some threshold, or ambiguity between two specific candidates like two projects with similar names?</p>",
+     "createdAt": "2026-10-11T07:31:50Z",
+     "parentId": null,
+     "userId": "9882085"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1276371",
+  "name": "Gboard Kurukuru Version",
+  "tagline": "Your fingers stay put. The keys come around",
+  "description": "Gboard Kurukuru Version is a conveyor belt keyboard from Google Japan's Gboard team, its 15th. Four belts carry 29 keys each past your fingers, so one hand can reach every character. It isn't for sale, but STL files, firmware and a build guide are on GitHub.",
+  "slug": "gboard-kurukuru-version",
+  "dailyRank": 10,
+  "votesCount": 95,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Custom Keyboards"
+    },
+    {
+     "name": "Hardware"
+    },
+    {
+     "name": "DIY"
+    }
+   ]
+  },
+  "makers": [],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi everyone!<br><br>Google Japan's Gboard team keeps coming up with <a href=\"https://blog.google/intl/ja-jp/products/android-chrome-play/gboard-collection/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">wonderfully odd keyboard ideas</a>, and it has become a <a href=\"https://www.youtube.com/playlist?list=PLLkq-mu9c_kYR7DJ4evrYLT82FNCBnqXS\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">yearly tradition</a>. This is the 15th, after a one-key Morse keyboard, a teacup, a rotary phone and a hat.<br><br>This year's is the Gboard Conveyor Belt Version in the repo, and \u304f\u308b\u304f\u308b in Japanese. Kurukuru is the sound of something going round and round, which is what the keys do. Four belts carry 29 keys each, 116 in total, and the letter you want comes around to your fingers. Upper and lower case are both on the belts, and one hand is enough for everything.<br><br>You can also build it. The <a href=\"https://github.com/google/mozc-devices/blob/main/mozc-conveyorbelt/buildguide.md\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">build guide</a> covers the 3D-printed frame, an N20 motor and Choc low-profile switches, with KiCad board files and firmware in the same repo. The keycaps in the parts list are blank, so what goes on them is up to you!</p>",
+     "createdAt": "2026-10-11T04:14:18Z",
+     "parentId": null,
+     "userId": "7991605"
+    },
+    {
+     "body": "<p>I love that Google still spends time building things like this haha. Is it practical? Probably not. Would I love to try it? Absolutely. Curious how long it would actually take to type a full sentence compared to a regular keyboard.</p>",
+     "createdAt": "2026-10-12T10:35:08Z",
+     "parentId": null,
+     "userId": "10330672"
+    },
+    {
+     "body": "<p>wtf</p>",
+     "createdAt": "2026-10-11T17:15:36Z",
+     "parentId": null,
+     "userId": "5466585"
+    },
+    {
+     "body": "<p>What a delightfully clever twist bringing the keys to your fingers instead of moving your fingers to the keys, and open-sourcing the whole build makes it even better.</p>",
+     "createdAt": "2026-10-11T14:17:51Z",
+     "parentId": null,
+     "userId": "3566192"
+    },
+    {
+     "body": "<p>the conveyor belt idea is smart and makes typing in diffrent languages much easier</p>",
+     "createdAt": "2026-10-11T08:39:41Z",
+     "parentId": null,
+     "userId": "9769146"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273545",
+  "name": "Edgee Mod for Claude Code",
+  "tagline": "Use any model inside Claude Code, keep your Claude plan",
+  "description": "A Claude Code mod that puts Edgee in your terminal. Keep your Claude plan, switch your session to any of 200+ models in one keystroke, and see live what compression and routing save you. Same conversation, same context. Two commands to install.",
+  "slug": "edgee-mod-for-claude-code",
+  "dailyRank": 11,
+  "votesCount": 87,
+  "commentsCount": 7,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Software Engineering"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "9336887"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b Sacha here, CEO of Edgee.\n\nLike a lot of you, we spend our days in Claude Code, on a Claude plan. It's great. But some tasks deserve another model: a cheaper one for routine work, a specialized coder, or the new model everyone is talking about this week. Until now, trying one meant leaving your session and losing your context.\n\nSo we built the Edgee Mod for Claude Code. It uses Claude Code's new mods system, so it runs inside Claude Code itself:\n\n\ud83d\udd00 Switch models in one keystroke. Open the Edgee panel, search 200+ models, press Enter. The next request goes to that model, in the same conversation. One click on \"Claude Code's choice\" and you're back on your plan.\n\ud83d\udcb8 See what you save. A live cost savings donut splits what compression and routing save you, per session.\n\ud83d\udcca Know what's happening. Requests, tokens, cache hits and models served, right next to your conversation. Folded, it's a single line above your prompt.\n\nGetting started takes two commands:\ncurl -fsSL <a href=\"https://edgee.ai/install.sh\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://edgee.ai/install.sh</a> | bash\nedgee launch claude\n\nFun timing: Mistral Large 4 just came out and it's already available in Edgee. It's the model we switch to in the demo video.\n\nWe'd love your feedback: which model would you try first inside Claude Code? I'll be here all day to answer questions.",
+     "createdAt": "2026-10-08T08:41:41Z",
+     "parentId": null,
+     "userId": "4996556"
+    },
+    {
+     "body": "<p>congrats on the launch!</p><p></p><p>different angle from the compression thread, two quick ones.</p><p></p><p>requests go through your gateway so whats retained? i work on a product where customer data cant leave the tenant, and someone always has to answer 'where did the code go' before we adopt anything.. self host, or logging you can turn off??</p><p></p><p>also, when a request routes to another model mid conversation there's no warm prefix on that side, so that call should be expensive. does the savings donut account for it?<br><br>(btw i'm not AI \ud83d\ude02)</p>",
+     "createdAt": "2026-10-12T04:10:16Z",
+     "parentId": null,
+     "userId": "9861884"
+    },
+    {
+     "body": "<p>switching models mid-conversation and keeping \"same context\" is the part I'd want to pressure-test. compression is probably fine for prose, but code context is unforgiving - a dropped variable name or a compressed-away line of a diff doesn't just lose nuance, it can make the next model's edit wrong in a way that's hard to notice until it breaks. is the compression ratio different for code blocks versus natural language in the conversation, or does it treat the whole context the same way?</p>",
+     "createdAt": "2026-10-11T17:36:55Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "Congrats on your launch! \ud83d\ude80",
+     "createdAt": "2026-10-11T16:39:47Z",
+     "parentId": null,
+     "userId": "1594215"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1270608",
+  "name": "Tori",
+  "tagline": "Japanese listening practice built from your own sentences",
+  "description": "One app packed with multiple ways to listen to what you use the most. Paste what you read or journal about your day, and Tori translates each sentence, adds furigana and audio, and files it into topic islands. Then hear it four ways: passive listening with the screen off, shadowing that plays your voice next to the model, AI stories at your level, and SRS flashcards with audio on every card. When you're ready, practice speaking with an AI tutor in 15 real scenarios.",
+  "slug": "tori-3",
+  "dailyRank": 12,
+  "votesCount": 84,
+  "commentsCount": 6,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Android"
+    },
+    {
+     "name": "Languages"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10307023"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "I've been learning Japanese with the owl for years now and after visiting Japan this year I quickly realized that I still don't know Japanese at all. After doing my youtube research I wanted to do more listening and immersion but felt lost since I never knew what anyone was saying. I made Tori to give you hours of listening while still allowing you to understand what is being said and build vocabulary that you use.",
+     "createdAt": "2026-10-05T14:55:26Z",
+     "parentId": null,
+     "userId": "10307023"
+    },
+    {
+     "body": "<p>building the listening material from your own journal entries instead of generic stock sentences is the part that'd actually get me to stick with it, the vocabulary gap is always \"the specific words I need\" not \"the textbook's words.\" one thing I'm curious about: when I journal in rough or simplified Japanese, does Tori clean the sentence up into how a native speaker would actually phrase it before generating the audio, or does it keep my literal phrasing so I'm not training my ear on wording nobody would really use?</p>",
+     "createdAt": "2026-10-11T22:36:34Z",
+     "parentId": null,
+     "userId": "9882085"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275891",
+  "name": "Agibot",
+  "tagline": "The always-on personal AI agent for your Mac. $0 forever",
+  "description": "Agibot is an always-on personal AI agent that runs on your Mac. It keeps working in the background, even after you close the window. It can send you a morning brief, keep an eye on things and tell you when something changes, and handle tasks on the web for you. Chat with it in the app, on Telegram or on Slack. It remembers what you tell it, learns from your corrections and asks before doing anything risky. Free forever with your own API key.",
+  "slug": "agibot",
+  "dailyRank": 13,
+  "votesCount": 82,
+  "commentsCount": 11,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Mac"
+    },
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10331527"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt, I'm \u00d6kte, the maker of Agibot.\n\nMost AI assistants only work while you're chatting with them. Close the tab and they stop. I wanted one that keeps going in the background and checks in with me when it matters.\n\nThat's Agibot: an always-on personal AI agent that runs on your own computer.\n\nWhat it does\n\n- Keeps working in the background, even after you close the window\n- Sends you updates on a schedule, like a morning brief\n- Keeps an eye on things and only messages you when something changes\n- Handles tasks on the web for you, and on Mac it can use your apps too\n- Talks with you in the app, on Telegram or on Slack, in one shared conversation\n\nWhy you can trust it\n\n- It asks before doing anything risky, and you decide what it can do on its own\n- Your chats and memories are saved on your computer\n- You can see, edit and delete everything it remembers\n- One click stops everything\n\nIt gets better as you use it\n\nCorrect it once, like \"keep my briefs to five lines\", and it remembers next time.\n\nWhat it costs\n\nFree forever with your own API key. Use OpenAI, Anthropic, Gemini and others, or run a free local model. You pay the AI provider directly, with nothing added on top.\n\nJoin the waitlist for Mac, with Windows next.\n\nI'll be here in the comments all day. What would you hand off to it first?\n\n<a href=\"https://agibot.sh\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://agibot.sh</a>",
+     "createdAt": "2026-10-10T13:04:40Z",
+     "parentId": null,
+     "userId": "10331527"
+    },
+    {
+     "body": "It seems like Agibot makes sense for people who don\u2019t want to run their AI agent in the cloud, but for everyone else, wouldn\u2019t Grok bot or dots be a better choice? Does Agibot have any advantages over those alternatives?",
+     "createdAt": "2026-10-11T08:19:18Z",
+     "parentId": null,
+     "userId": "8755052"
+    },
+    {
+     "body": "<p>\"asks before doing anything risky\" is doing a lot of work in that sentence and it's the part I'd actually want to understand before trusting an always-on agent with my own API key running unattended. is \"risky\" a fixed list you ship with, deleting files, sending messages, spending money, or something the agent itself judges case by case? a fixed list is auditable but will miss things, a judgment call is more flexible but means the bar moves depending on how the model is feeling that day.</p>",
+     "createdAt": "2026-10-11T07:33:38Z",
+     "parentId": null,
+     "userId": "9882085"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1274334",
+  "name": "SimpleSpread",
+  "tagline": "Native, open source Mac spreadsheet",
+  "description": "Ever double click a CSV or XLSX file on your mac and have to wait 30 seconds while Numbers loads? And when it loads it's filled with a ton of crap you don't need? Then I wrote this for you (well mostly me, but you might find it cool too). A small, fast spreadsheet for the Mac, written entirely in Swift. Free and MIT open source with XLSX as the native file format. 156 functions, incremental recalc, Excel-style keyboard editing.",
+  "slug": "simplespread",
+  "dailyRank": 14,
+  "votesCount": 83,
+  "commentsCount": 7,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Mac"
+    },
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Spreadsheets"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9744306"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi Everyone,<br><br>I wanted a spreadsheet on my Mac that opens fast, edits an .xlsx file and saves it back, and does nothing else. Numbers converts everything into its own format. Excel is a subscription and a big install for opening a CSV. Google Sheets wants a browser and an account.<br><br>So I built SimpleSpread. It is a native Mac app, written entirely in Swift, and the whole spreadsheet stack is from scratch: the model, the formula engine, the XLSX reader and writer (down to the ZIP layer), CSV and the grid. The only outside library is Sparkle, for updates.<br><br>\u2022 XLSX is the native format. Open a file from Excel, Numbers or Google Sheets, edit it, save it, send it back. Styles, number formats, formulas with cached values, merged ranges and frozen panes all survive the round trip.<br>\u2022 CSV done properly: delimiter sniffing, BOM and CP1252 detection, leading zeros kept, and a field like =cmd imports as text, never as a formula.<br>\u2022 156 functions with the coercion rules Sheets and Excel share: SUMIFS with wildcards, XLOOKUP, INDEX/MATCH, IRR/XIRR, dates and text. Incremental recalc and cycle detection.<br>\u2022 It edits like Excel: Enter/Edit modes, type to replace, F2, \u2318-arrow jumps, fill handle, \u2318D / \u2318R, real undo, Find, zoom.<br>\u2022 Notarized, and it updates itself in place.<br><br>Upfront about what it is not: no charts, no pivot tables, no conditional formatting, no array formulas, no INDIRECT/OFFSET yet, and no collaboration. Frozen panes and merged cells are kept in the file but not drawn yet. It is Apple Silicon only, macOS 14 or later, and en-US number and date input for now.<br><br>It's free, MIT licensed and on GitHub, so read it, fork it, send patches. I'd love to hear which missing feature stops you using it day to day. Find &amp; Replace and Paste Values are next on my list.</p>",
+     "createdAt": "2026-10-09T00:21:08Z",
+     "parentId": null,
+     "userId": "9744306"
+    },
+    {
+     "body": "<p>Clean, silicon-native version of bloated software that still uses the same filetype? Yes.</p>",
+     "createdAt": "2026-10-12T06:16:40Z",
+     "parentId": null,
+     "userId": "10144068"
+    },
+    {
+     "body": "<p>the CSV formula-injection detail (\"=cmd\" importing as text, never as a formula) is the kind of thing most hobby spreadsheet projects never even think about, let alone fix on purpose. that's a real security corner most people only learn about after getting bitten. also shipping pivot tables an hour after someone said that's what would stop them using it is a pretty wild turnaround, were they half-built already or did you actually just go build that from the comment?</p>",
+     "createdAt": "2026-10-11T22:37:29Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "<p>no pivot tables would stop me honestly, i lean on those way more than charts for quick totals</p>",
+     "createdAt": "2026-10-11T12:03:02Z",
+     "parentId": null,
+     "userId": "9500314"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273235",
+  "name": "Kooler",
+  "tagline": "Find cocktails you can make with what's in your bar",
+  "description": "Kooler is a free cocktail recipe app for people who like making drinks at home. - My Bar: add the bottles and ingredients you have and see every drink you can make right now - 100+ curated recipes: classics, modern cocktails and Brazilian drinks like Caipirinha, Rabo de Galo and Macuna\u00edma - Clear measurements, step-by-step methods and consistent photos - Check-ins: rate a drink you had at a bar and share it No ads, no paywall. Web + iOS.",
+  "slug": "kooler-2",
+  "dailyRank": 15,
+  "votesCount": 78,
+  "commentsCount": 10,
+  "topics": {
+   "nodes": [
+    {
+     "name": "iOS"
+    },
+    {
+     "name": "Food & Drink"
+    },
+    {
+     "name": "Lifestyle"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10341537"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt! I'm Edu, a product designer from S\u00e3o Paulo.\n\nKooler is actually a comeback. A friend and I built the first version back in 2010: a little social network for cocktail recipes, with one feature we loved \u2014 tell it what you have at home and it shows what you can make. In 2011 I moved to S\u00e3o Paulo for a new job and we shut it down.\n\nFifteen years later I rebuilt it. I'm a designer, not a developer, so this time I built it with AI tools, from the database to the iOS app.\n\nWhat's in it:\n- My Bar: add what's in your cabinet and see every drink you can make\n- 100+ curated recipes, from the classics to Brazilian drinks most cocktail apps skip (Rabo de Galo, Macuna\u00edma, Caju Amigo)\n- Clean recipe pages with clear measurements and consistent photos\n- Check-ins to rate a drink you had at a bar\n\nIt's free, with no ads. Recipe submissions from the community are next.\n\nI'd love your feedback: what's missing, what's confusing, and which drink you'd look up first. \ud83c\udf78",
+     "createdAt": "2026-10-08T01:10:54Z",
+     "parentId": null,
+     "userId": "10341537"
+    },
+    {
+     "body": "<p>Coming back to something you built 15 years ago says a lot. And a designer building the whole thing, database to iOS app, is pretty inspiring. Congrats Edu...</p>",
+     "createdAt": "2026-10-12T05:53:13Z",
+     "parentId": null,
+     "userId": "10331835"
+    },
+    {
+     "body": "<p>the my-bar matching is the feature that actually gets used daily, most cocktail apps assume you'll just go buy the one missing ingredient and quietly become a shopping list app instead. curious about the edge case though: when a recipe needs something close to what's already in my bar but not exact, a different vermouth, gin instead of a specific bitters, does it ever surface a \"one swap away\" match, or is the matching strict on exact ingredients only? that's the difference between \"here's what's technically in your bar\" and \"here's what you're actually drinking tonight.\" rebuilding this 15 years later as a solo designer with AI tools is a good story too, the first version clearly left a mark if you came back to it.</p>",
+     "createdAt": "2026-10-12T04:19:14Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "<p>Not every home bartender wants complicated recipes with 15 ingredients. Simple classics would be my go-to here.</p>",
+     "createdAt": "2026-10-11T08:33:34Z",
+     "parentId": null,
+     "userId": "10275333"
+    },
+    {
+     "body": "<p>I am not a beverage sommelier, but the platform looks pretty elegant!</p>",
+     "createdAt": "2026-10-11T07:21:21Z",
+     "parentId": null,
+     "userId": "4843676"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1272707",
+  "name": "Unboom",
+  "tagline": "Tames boomy room bass on your Mac without acoustic panels",
+  "description": "Unboom finds the bass note your untreated room exaggerates and gently turns just that down on your Mac. Scan with your mic or pick it by ear, choose Gentle, Medium, or Strong, and flip Correction on. Never boosts. No data collected. No subscription.",
+  "slug": "unboom",
+  "dailyRank": 16,
+  "votesCount": 74,
+  "commentsCount": 9,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Mac"
+    },
+    {
+     "name": "Menu Bar Apps"
+    },
+    {
+     "name": "Audio"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "7035434"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b\n\nIf you make music with studio monitors in a normal room, you've probably heard it: one bass note that booms while others disappear. That's not your speakers. It's your room.\n\nUnboom finds that note and turns just that part down:\n\nSit where you normally listen\nLet it scan with your Mac's mic (or tap \"That's the boom\" by ear)\nPick Gentle, Medium, or Strong\nFlip Correction On/Off and hear the difference\nAfter that it sits in your menu bar and corrects all Mac audio on those speakers. Each room remembers its speakers, headphones are left alone, it never boosts, and nothing is saved or sent.\n\nFree download with a 14-day trial, then a one-time $19.99 launch price (regular $29.99). Scans are always free.\n\nI'd love to hear what your room sounds like before and after. \ud83d\ude4f",
+     "createdAt": "2026-10-07T13:07:27Z",
+     "parentId": null,
+     "userId": "7035434"
+    },
+    {
+     "body": "<p>\"never boosts\" is the detail that makes this trustworthy instead of just another EQ preset, cutting one resonant note is a lot safer than anything that pushes gain elsewhere and risks clipping or exciting a different mode. question on the mic scan: if I move the desk or swap speakers, does it know to prompt a rescan, or is it on me to remember that the room's acoustic signature just changed and go redo it manually.</p>",
+     "createdAt": "2026-10-11T22:34:01Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "<p>Never boosts\" is the right call - most room correction tools make things worse by pushing up the nulls. How does the mic scan cope with a laptop's built-in mic, which rolls off right where the problem frequencies are? And does the correction apply system-wide or per output device?</p>",
+     "createdAt": "2026-10-11T17:46:35Z",
+     "parentId": null,
+     "userId": "10340586"
+    },
+    {
+     "body": "<p>This could be really useful for people working with music in small home studios where proper acoustic treatment isn't  practical.</p>",
+     "createdAt": "2026-10-11T07:28:52Z",
+     "parentId": null,
+     "userId": "10245220"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273845",
+  "name": "DevTerminal",
+  "tagline": "A macOS terminal with a Run button that knows your project",
+  "description": "DevTerminal is a normal macOS terminal (your shell, your config) where every tab knows what project it's in. \u2318R in an Android app installs it on your phone and streams logcat. In an iOS app it launches in the Simulator or on your iPhone. Spring Boot, Next.js, Flutter, React Native, Rust, Go, Django, Rails and more just work. Run output sits under your shell, so Claude Code keeps the tab. $39 once, no subscription.",
+  "slug": "devterminal",
+  "dailyRank": 17,
+  "votesCount": 73,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Mac"
+    },
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Developer Tools"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "5546285"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b I'm Nayan.\n\nI build an iOS app, its Android version, a Spring Boot backend and a couple of Next.js sites, mostly on my own. Every morning that meant Xcode, Android Studio, IntelliJ and VS Code open at once, mostly so I could press Run in each one. And these days Claude Code writes a lot of my code in a terminal anyway.\n\nSo I built DevTerminal: a normal macOS terminal (your shell, your config) where every tab knows what project it's in, and has a Run button.\n\n\u2022 Android: \u2318R builds, installs on your phone or emulator, launches the app and streams logcat. You can install emulators from a menu without opening Android Studio.\n\u2022 iOS: builds and launches in the Simulator or on your iPhone, with the console attached.\n\u2022 Spring Boot, Next.js, Node, Flutter, React Native, Rust, Go, Django, Rails, .NET: it finds the right command. Anything else gets a one-line .devterminal.json.\n\u2022 Run output goes to a panel under your shell, with find and filter, so Claude Code keeps the tab and the logs stay in view.\n\u2022 Chrome-style tabs, one per project, and Xcode's keys: \u2318R run, \u2318B build, \u2318U test.\n\nIt doesn't replace the toolchains. Xcode and the Android SDK still do the building. It replaces opening four IDEs to use them.\n\n\ud83c\udf81 Product Hunt offer: 20% off this week with code PRODUCTHUNT. $39 once, no subscription, 14-day refund.\n\nWhat should Run support next? I'm around all day to answer questions.",
+     "createdAt": "2026-10-08T13:33:52Z",
+     "parentId": null,
+     "userId": "5546285"
+    },
+    {
+     "body": "<p>the pitch holds up right until the moment you need to set a breakpoint. for a lot of people the reason the four IDEs stay open isn't the run button, it's that occasionally you need to stop execution and inspect a variable, and that's a debugger attached to the build, not a shell your run output lands in. when that moment hits, does DevTerminal hand off to lldb/jdb in a usable way, or is pulling up the real IDE still part of the workflow for that one case? if it's the latter, the honest claim is closer to \"skip the IDE for most of your run cycles\" rather than \"replace the IDEs,\" which is still a real win, just a narrower one than the headline suggests.</p>",
+     "createdAt": "2026-10-12T04:20:15Z",
+     "parentId": null,
+     "userId": "9882085"
+    },
+    {
+     "body": "<p>running on a physical iphone without having it plugged in every time would be huge, wireless debugging always feels flaky for me in xcode</p>",
+     "createdAt": "2026-10-11T12:03:37Z",
+     "parentId": null,
+     "userId": "9500314"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275171",
+  "name": "FloorGen",
+  "tagline": "Draw the house, or just ask. Free floor plans with AI",
+  "description": "Plan a remodel, an ADU or a whole house for free in your browser. Describe it and FloorGen AI builds it, every change an undo step. Then check it against the IRC, walk through it in 3D and print the plan set. Claude and ChatGPT can edit it too.",
+  "slug": "floorgen",
+  "dailyRank": 18,
+  "votesCount": 76,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Design Tools"
+    },
+    {
+     "name": "Home"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10335740"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey everyone, Vinit here.\n\nFloor plan tools usually make you pick: easy and rough, or precise and slow. FloorGen tries to be both, and now you can just ask.\n\n1. Draw: feet and inches to 1/16\u2033, live dimensions, 27 templates.\n2. Ask: tell FloorGen AI what you want. It proposes a plan, builds it, and checks its own work. Every change can be undone, and it stops to ask before deleting anything.\n3. Check: IRC checks as you draw (plus Canada, UK, Germany and Mexico City profiles), and \"Fix with AI\" on each issue.\n4. Walk through: every plan is a furnished 3D model, day or night.\n5. Print: elevations and plan sets to scale, as PDF, DXF, SVG or glTF.\n\nFor AI folks: Claude, ChatGPT and Cursor connect over MCP (149 tools), and their edits land live in the editor you have open.\n\nDesigning needs no account; FloorGen AI and sync need a free sign-in. Everything is free right now. Tell me what breaks and what you'd want next. I'm here all day.\n\nfloorgen.app",
+     "createdAt": "2026-10-09T18:19:21Z",
+     "parentId": null,
+     "userId": "10335740"
+    },
+    {
+     "body": "<p>Every plan I've got for a unit is an old scan of the whole floor, and the apartment is just one piece of it. How does the trace deal with pulling a single unit out?</p>",
+     "createdAt": "2026-10-12T18:37:35Z",
+     "parentId": null,
+     "userId": "1892067"
+    },
+    {
+     "body": "<p>the IRC check is the feature I'd be most careful about trusting. passing the base IRC doesn't mean a plan is permit ready, most cities and counties layer local amendments on top (setbacks, egress rules, sometimes stricter stair or ceiling height requirements) and those vary block by block in some places. \"fix with AI\" on an IRC issue is useful for catching the obvious stuff, but is there anything telling a user their specific jurisdiction needs a human stamp before this goes anywhere near a permit office?</p>",
+     "createdAt": "2026-10-11T22:33:18Z",
+     "parentId": null,
+     "userId": "9882085"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273246",
+  "name": "shippedit.me",
+  "tagline": "Launch Platform with SEO, AEO & Growth Insights",
+  "description": "Weekly launch battles + a permanent page that keeps working: dofollow backlink, AEO & CRO audits, competitor monitoring, real analytics, and AI fix cards.",
+  "slug": "shippedit-me",
+  "dailyRank": 19,
+  "votesCount": 74,
+  "commentsCount": 8,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Analytics"
+    },
+    {
+     "name": "Marketing"
+    },
+    {
+     "name": "SEO"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "8147191"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "For early founders joining our platform, we have 15 seats available for the Pro plan to subscribe only at $9/m, then it's $29/m",
+     "createdAt": "2026-10-08T01:41:14Z",
+     "parentId": null,
+     "userId": "8147191"
+    },
+    {
+     "body": "<p>From my experience, I ran a batch of directory submissions too, but then found very less worth submitting to. Most of them were nofollow or noindex. So dofollow backlink is the only thing that turns out to be valuable. </p>",
+     "createdAt": "2026-10-12T07:42:46Z",
+     "parentId": null,
+     "userId": "10292674"
+    },
+    {
+     "body": "<p><a href=\"https://www.producthunt.com/@nhrdev\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"nhrdev\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@nhrdev</a> hey your website is not rechable. Check.</p>",
+     "createdAt": "2026-10-12T06:22:49Z",
+     "parentId": null,
+     "userId": "1929653"
+    },
+    {
+     "body": "Is there a trial version available? If so, what features can we explore during the trial, and are there any limitations compared to the paid version?",
+     "createdAt": "2026-10-11T13:37:05Z",
+     "parentId": null,
+     "userId": "6040626"
+    },
+    {
+     "body": "<p>Hey, as the launch on X didn't go that well, means conversion was very low, and also there's too many launch directories, so I planned to pause this product and re-position it to something better<br><br>thanks for the support everyone, will update you when the new one comes :)</p>",
+     "createdAt": "2026-10-11T12:07:06Z",
+     "parentId": null,
+     "userId": "8147191"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1270515",
+  "name": "Poke Finder",
+  "tagline": "Catch Pok\u00e9mon while you browse and complete your Pok\u00e9dex.",
+  "description": "Catch Pok\u00e9mon while browsing. Discover Generations 1-9, Shiny Pok\u00e9mon, Mega Evolution and companions with Poke Finder.",
+  "slug": "poke-finder",
+  "dailyRank": 20,
+  "votesCount": 71,
+  "commentsCount": 0,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Chrome Extensions"
+    },
+    {
+     "name": "Pokemon"
+    },
+    {
+     "name": "Games"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10317509"
+   }
+  ],
+  "comments": {
+   "nodes": []
+  }
+ },
+ {
+  "id": "1273549",
+  "name": "Halo",
+  "tagline": "Notifications, dictation and AI agents in your Mac's notch",
+  "description": "Halo turns your Mac's notch into a Dynamic Island: messages from any app, dictation that types anywhere when you hold Fn, a little face that follows your cursor and watches your AI agents, plus music, calls and monitor brightness. $9.99 once.",
+  "slug": "halo-834092fe-8683-466b-9814-ef5d54ad0889",
+  "dailyRank": 21,
+  "votesCount": 69,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Menu Bar Apps"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9394339"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b I'm Otabek, and I make Halo on my own.\n\nHalo puts a Dynamic Island in your Mac's notch, or draws one on any screen that doesn't have a notch.\n\nSome of you saw the first version a while back. It did music and external monitor brightness. 2.0 is the version I wanted from the start:\n\n\ud83d\udd14 Notifications from any app land in the notch instead of the corner of the screen. You choose which apps get in.\n\ud83c\udf99 Hold Fn, talk, let go. Halo types what you said wherever your cursor is, in any app. It runs on your Mac, or on Whisper with your own Groq key.\n\ud83d\ude42 Buddy, a tiny face beside the notch. It follows your cursor, naps when you leave, and shows you when Claude Code or Codex is done or waiting for you.\n\nMusic with synced lyrics, calls, timers, a file shelf and real monitor brightness are all still there.\n\n$9.99 once. No subscription, no account, and dictation runs on your Mac unless you choose Whisper.\n\nWhat would you want to see in the notch next? I read every comment and I'll be here all day.",
+     "createdAt": "2026-10-08T08:48:14Z",
+     "parentId": null,
+     "userId": "9394339"
+    },
+    {
+     "body": "<p>Hey! interesting product.</p><p></p><p>What model is used for transcription? Is it local or cloud?</p>",
+     "createdAt": "2026-10-12T03:54:29Z",
+     "parentId": null,
+     "userId": "3474788"
+    },
+    {
+     "body": "<p>the Claude Code/Codex usage limit tracking in the notch is the feature that'd actually get me to install this, I check that in a separate terminal tab way too often. is it polling the CLI's own rate limit headers or scraping something, and does it survive a model switch mid-session without losing track of where you are in the window?</p>",
+     "createdAt": "2026-10-11T07:30:04Z",
+     "parentId": null,
+     "userId": "9882085"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1272903",
+  "name": "NewMinecraftServers",
+  "tagline": "Minecraft server discovery, analytics, & spoof detection.",
+  "description": "NewMinecraftServers helps players find their next Minecraft community and gives server owners tools to grow theirs. Discover Java and Bedrock servers, explore player statistics, and follow activity trends before choosing where to play. Owners can claim and promote their server listing, showcase their community, and access detailed analytics on player counts, uptime, peak activity, and busiest hours -- making it easier to understand their audience and attract new players.",
+  "slug": "newminecraftservers",
+  "dailyRank": 22,
+  "votesCount": 69,
+  "commentsCount": 2,
+  "topics": {
+   "nodes": [
+    {
+     "name": "User Experience"
+    },
+    {
+     "name": "Games"
+    },
+    {
+     "name": "Data & Analytics"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10327287"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "I built NewMinecraftServers to help server owners understand how players find their community. Once you claim your listing, you can see where it gets noticed, how often players copy your server address, and which pages drive the most interest. With 30-day and all-time breakdowns, you get a clearer picture of what\u2019s working when promoting your server.",
+     "createdAt": "2026-10-07T16:29:22Z",
+     "parentId": null,
+     "userId": "10327287"
+    },
+    {
+     "body": "<p>I was wondering how does your spoof detection work? How do you detect the faked player count?</p>",
+     "createdAt": "2026-10-12T06:58:51Z",
+     "parentId": null,
+     "userId": "10292674"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275665",
+  "name": "EdgeVolume",
+  "tagline": "Control your Mac\u2019s volume from your trackpad edge",
+  "description": "Slide one finger along your Mac\u2019s trackpad edge to adjust the volume. Choose the left edge, right edge, or both, and tune the sensitivity to your preference. EdgeVolume is a free, open-source macOS utility that runs in your menu bar. Currently in early access.",
+  "slug": "edgevolume",
+  "dailyRank": 23,
+  "votesCount": 69,
+  "commentsCount": 7,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Mac"
+    },
+    {
+     "name": "GitHub"
+    },
+    {
+     "name": "Menu Bar Apps"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "7230784"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b\nI came across Haptiker here and liked the idea of using trackpad edges as controls. It made me curious enough to build my own version, which became EdgeVolume.\nThe idea is simple: slide one finger up along the physical edge of your trackpad to increase the volume, or down to decrease it.\nYou can choose either edge, adjust the sensitivity, and keep the app running while you\u2019re watching videos or working in another app.\nIt\u2019s still an early prototype. I\u2019ve already had to rethink some accidental-swipe safeguards after making them too restrictive, so gesture reliability is where I\u2019m putting most of my attention.\nThe code is public, and I\u2019d love feedback from people with different MacBooks and trackpads:\n- Does the gesture feel natural?\n- Does it activate when you don\u2019t intend it to?\n- What would make you use this over the keyboard volume keys?\nThanks for giving it a try!\nLinks\n- Website: edgevolume.vercel.app\n- Source: <a href=\"https://github.com/reveuse12/edge-volume\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://github.com/reveuse12/edg...</a>",
+     "createdAt": "2026-10-10T07:58:13Z",
+     "parentId": null,
+     "userId": "7230784"
+    },
+    {
+     "body": "<p>Loving this, making the most out of the hardware. It's the little things.</p>",
+     "createdAt": "2026-10-12T05:38:44Z",
+     "parentId": null,
+     "userId": "10144068"
+    },
+    {
+     "body": "<p>Hi, The app icon is empty and I got the error message when I tried to install the app</p><img src=\"https://ph-files.imgix.net/d1bc27ec-9d79-48cd-ac5c-bcc7682e7a78.png?auto=compress,format&amp;codec=mozjpeg&amp;cs=strip\" style=\"max-width: 100%\"><p></p><p></p>",
+     "createdAt": "2026-10-12T00:54:54Z",
+     "parentId": null,
+     "userId": "9219887"
+    },
+    {
+     "body": "<p>probably if my other hand is already on the mouse, reaching up for the keyboard volume keys mid video feels dumb once you think about it</p>",
+     "createdAt": "2026-10-11T12:02:24Z",
+     "parentId": null,
+     "userId": "9500314"
+    },
+    {
+     "body": "<p>Can you adjust the sensitivity enough to make tiny volume  changes without accidentally moving it too far?</p>",
+     "createdAt": "2026-10-11T07:50:57Z",
+     "parentId": null,
+     "userId": "9313459"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1268121",
+  "name": "Pickle Sensei",
+  "tagline": "AI pickleball coach for solo practice, one swing at a time",
+  "description": "Pickle Sensei turns solo pickleball practice into a clear feedback loop. Step into the start zone, swing one stroke, and get an estimated player rating, technique score, checkpoint scores, and the one thing to fix next. Train serves, returns, drives, dinks, third-shot drops, volleys, and overheads with slow-motion skeleton review, 40+ drills, progress tracking, and ranks. Video stays on your device. Try one rating free, then Pro from $7.99/month.",
+  "slug": "pickle-sensei",
+  "dailyRank": 24,
+  "votesCount": 64,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Sports"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Fitness"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10310460"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt! I'm Raunak, the solo developer behind Pickle Sensei.</p><p></p><p>I play a lot of pickleball, and the hardest part of improving was knowing what I was actually doing wrong. Lessons are expensive and filming yourself doesn't tell you much on its own.</p><p></p><p>So I built a coach that lives on your phone. You set it up side-on, step into frame on your own, hit a stroke, and on-device pose tracking measures your form. Instead of a wall of stats, you get a score and one clear fix to work on next, plus a slow-mo replay that pauses at each key phase. It's built for solo practice, not for filming games.</p><p></p><p>A few things I cared about:</p><ul><li><p>Privacy: your video never leaves your phone.</p></li><li><p>- Honesty: ratings are coaching estimates, not official ratings, and a failed scan never uses your free rating.</p></li><li><p>- Fast: no shot picker or timer. It detects the stroke and stops on its own.</p></li></ul><p>It's free to try with one rating, and Pro unlocks unlimited. I'll be here all day answering questions.</p>",
+     "createdAt": "2026-10-03T01:00:11Z",
+     "parentId": null,
+     "userId": "10310460"
+    },
+    {
+     "body": "<p>one side-on camera is a real constraint for pickleball specifically, a lot of what separates a good dink from a bad one is paddle face angle and wrist position at contact, which a silhouette view from the side can hide or guess wrong on. the \"honesty\" framing in your post is the right instinct, so does the technique score account for what the single angle genuinely can't see, or is there a risk it confidently scores a stroke well when the real fault was never visible to the camera in the first place?</p>",
+     "createdAt": "2026-10-11T22:35:45Z",
+     "parentId": null,
+     "userId": "9882085"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275794",
+  "name": "Farol",
+  "tagline": "The macOS terminal that shows which coding agent needs you",
+  "description": "Farol is a macOS terminal for running Claude Code and Codex in parallel. A sidebar shows which agent is working, which is waiting for you and which is done, and the menu bar shows it from any app. Each task gets its own git worktree, started from a prompt, a GitHub issue or a Jira ticket. Review the diff, commit, push and open the PR in the same window. Built on libghostty, so it reads your Ghostty config. Free and MIT licensed. No account, no telemetry.",
+  "slug": "farol-d3dd992f-2c54-4c16-9c5d-8ae33d4d7ed5",
+  "dailyRank": 25,
+  "votesCount": 64,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Mac"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "3194743"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt, I'm Lucas, the maker of Farol.\n\nI run three or four Claude Code and Codex sessions at once, and I kept cycling through tabs to find the one stuck on a permission prompt. Farol is the terminal I built to stop doing that. The name is Portuguese for lighthouse.\n\nEach session has a dot in the sidebar: working, waiting for you, or done. The same state shows in the menu bar or at the notch, so I can be in another app and still see when an agent needs me.\n\nFarol doesn't wrap the agents. Claude Code and Codex run as they do in any terminal and report their state through their own hooks, which you turn on with one click.\n\nA few other things it does:\n\n- New task: describe it, or pick a GitHub issue or Jira ticket. It opens a git worktree on a new branch and starts the agent with the task as its first prompt.\n- Review: everything the session changed as one diff, then commit, push and open the PR.\n- Conflicts: a three-column merge view when a rebase or merge stops.\n\nThe terminal is libghostty, the engine behind Ghostty, so it renders like Ghostty and reads your Ghostty config. The app around it is native Swift. It's free, MIT licensed, with no account and no telemetry.\n\nIt's early, and Apple Silicon with macOS 14 or later only. I use it as my daily terminal, but expect rough edges.\n\nHow do you keep track of several agents today? I'd like to know what you'd want from a terminal built for it.",
+     "createdAt": "2026-10-10T10:38:07Z",
+     "parentId": null,
+     "userId": "3194743"
+    },
+    {
+     "body": "<p>separate worktrees solves the file-conflict half of running agents in parallel, but not the half that actually bites me: two tasks that touch the same API contract or shared schema from different worktrees, where neither agent can see the other's change until someone opens both diffs side by side at merge time. does Farol do anything to flag \"these two active tasks touched overlapping files or symbols\" before you're staring at a nasty rebase, or is that still on the human to catch by reading both PRs?</p>",
+     "createdAt": "2026-10-11T07:31:04Z",
+     "parentId": null,
+     "userId": "9882085"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275909",
+  "name": "NotchPit",
+  "tagline": "Your Mac's notch, rearranged into a control center",
+  "description": "NotchPit turns the space around your Mac's camera into a control center: music with synced lyrics, prayer times with adhan, your next meeting, and 64 extensions from uptime checks to revenue. Drag, resize and swipe them into your own layout. Try it free for 14 days, then buy once and keep it for life.",
+  "slug": "notchpit",
+  "dailyRank": 26,
+  "votesCount": 62,
+  "commentsCount": 2,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Menu Bar Apps"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10333766"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt \ud83d\udc4b\n\nI built NotchPit because the notch on my MacBook was just\u2026 a notch. I kept switching windows to skip a song, check the next prayer time, or see if my site was still up.\n\nNotchPit turns that space into a control center you arrange yourself:\n\u2022 Music from Spotify and Apple Music, with synced lyrics\n\u2022 Prayer times (JAKIM in Malaysia, MUIS in Singapore, AlAdhan elsewhere) and an optional adhan, with Stop right in the notch\n\u2022 Your next meeting, with one click to join\n\u2022 64 extensions you turn on only if you want them: notes, tasks, weather, currency, file shelf, and for builders uptime &amp; SSL checks, Polar revenue, Google Analytics, App Store and Play Console stats, GitHub, GitLab and Jira\n\u2022 New in 1.1: drag cards into any order, resize them, swipe through carousel rows, and pull the notch down to open it\n\nIt's a native SwiftUI app for Apple Silicon Macs on macOS 14+, and it works on displays without a notch too. It asks for a permission only when you turn on the feature that needs it, and API keys stay in your Mac's Keychain.\n\nPricing is simple: 14 days free with no account or card, then one payment for a lifetime license, with a 14-day refund window.\n\nWhat would you put in your notch? I'm here all day to answer questions.",
+     "createdAt": "2026-10-10T13:31:04Z",
+     "parentId": null,
+     "userId": "10333766"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1274214",
+  "name": "KarmaBoard",
+  "tagline": "A vintage split-flap message board for any TV",
+  "description": "A vintage split-flap message board for any TV. Display your own custom text, plus live feeds like weather, sports scores, stock prices and transit schedules... and watch every letter clack into place.",
+  "slug": "karmaboard",
+  "dailyRank": 27,
+  "votesCount": 63,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "SaaS"
+    },
+    {
+     "name": "Business"
+    },
+    {
+     "name": "Digital Art"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10332422"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "KarmaBoard is a split-flap message board that runs in any web browser. Display custom messages along with news, sports scores, stock prices, transit schedules and much more. Users control their screens from their phone or tablet - select light or dark mode, turn audio on or off, organize your playlists... from anywhere on the planet. Our platform is similar to Vestaboard, without the $3500 hardware investment.",
+     "createdAt": "2026-10-08T20:49:50Z",
+     "parentId": null,
+     "userId": "10332422"
+    }
+   ]
+  }
+ }
+]

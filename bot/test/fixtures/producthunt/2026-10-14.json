@@ -1,0 +1,2909 @@
+[
+ {
+  "id": "1221402",
+  "name": "Pancake",
+  "tagline": "The Vercel for GTM",
+  "description": "Pancake is the Vercel for GTM. It gives you the building blocks to deploy any go-to-market idea from your favorite AI agent, such as Claude or Codex: a GTM Brain, sending infrastructure, and 40+ data providers and enrichment, all accessible through one MCP connection.",
+  "slug": "pancake-7",
+  "dailyRank": 1,
+  "votesCount": 368,
+  "commentsCount": 37,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Sales"
+    },
+    {
+     "name": "Marketing"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9651201"
+   },
+   {
+    "id": "165165"
+   },
+   {
+    "id": "9828462"
+   },
+   {
+    "id": "1848688"
+   },
+   {
+    "id": "8014367"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt \ud83d\udc4b<br><br>We hit #1 here in May, then rebuilt almost everything. Here's why.<br><br>Claude and Codex can already plan your go-to-market. They can't run it: no data to find the right people, no way to reach them, no memory of your business.<br><br>Pancake is that piece. One MCP connection gives your agent:<br>\u2022 a GTM Brain that learns your business, ICP and voice from your website<br>\u2022 40+ data providers and enrichment<br>\u2022 sending infrastructure, from your own accounts<br><br>Describe who you want to reach in one sentence, and Pancake turns it into a Play that keeps finding leads, each with the reason they fit. Your agent decides, Pancake runs it. And if you'd rather click than prompt, there's a full app too.<br><br>Two early customers, in their words:<br>- \"I'm running all of my GTM in Codex using Pancake.\" Pierre-Alexandre, CEO of Kinro <br>- \"One Pancake Play replaced all our inbound tools.\" Adi, co-founder of AgentMail <br><br>What's the first GTM idea you'd deploy? We're here all day.</p>",
+     "createdAt": "2026-08-12T14:06:36Z",
+     "parentId": null,
+     "userId": "9651201"
+    },
+    {
+     "body": "<p>Let's go guys \ud83d\udc4f</p>",
+     "createdAt": "2026-10-14T16:31:02Z",
+     "parentId": null,
+     "userId": "347271"
+    },
+    {
+     "body": "<p>LFGGGG \ud83d\ude80 You are all legends! The best GTM team building for GTM \ud83e\uddbe\ud83e\udd5e\ud83e\udee1</p>",
+     "createdAt": "2026-10-14T16:29:26Z",
+     "parentId": null,
+     "userId": "3968464"
+    },
+    {
+     "body": "Prosumer or b2b?",
+     "createdAt": "2026-10-14T16:20:14Z",
+     "parentId": null,
+     "userId": "84903"
+    },
+    {
+     "body": "<p>Looks cool! Congrats on the launch</p>",
+     "createdAt": "2026-10-14T16:03:21Z",
+     "parentId": null,
+     "userId": "443008"
+    },
+    {
+     "body": "<p>Quick question: What are the credits? ball park how are they counted?</p>",
+     "createdAt": "2026-10-14T15:47:34Z",
+     "parentId": null,
+     "userId": "445755"
+    },
+    {
+     "body": "We are addicted to Pancake at Hexa !",
+     "createdAt": "2026-10-14T14:24:25Z",
+     "parentId": null,
+     "userId": "601"
+    },
+    {
+     "body": "<p>Thank you for powering Prismy's GTM! <br>Pancake consistently finds high-quality leads for us and the product improves day after day.<br>Keep it going, well done!</p>",
+     "createdAt": "2026-10-14T13:46:25Z",
+     "parentId": null,
+     "userId": "272549"
+    },
+    {
+     "body": "<p><a href=\"https://www.producthunt.com/@tricomte\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"tricomte\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@tricomte</a> The AI-powered GTM approach looks promising. How much setup is required for a new user ?</p>",
+     "createdAt": "2026-10-14T13:29:30Z",
+     "parentId": null,
+     "userId": "9371772"
+    },
+    {
+     "body": "<p>Congratulations on the launch, Pancake Team!</p><p></p><p>Is it available for small-size entrepreneurs too?</p>",
+     "createdAt": "2026-10-14T13:29:01Z",
+     "parentId": null,
+     "userId": "10313616"
+    },
+    {
+     "body": "<p>Congrats for the launch <a href=\"https://www.producthunt.com/@tricomte\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"tricomte\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@tricomte</a> <br><br>Can I use pancake to go from 0 to 1? Or is it more a tool for 2 to 100 ?</p>",
+     "createdAt": "2026-10-14T12:51:30Z",
+     "parentId": null,
+     "userId": "136438"
+    },
+    {
+     "body": "<p>Congrats on the launch!</p>",
+     "createdAt": "2026-10-14T12:41:37Z",
+     "parentId": null,
+     "userId": "286274"
+    },
+    {
+     "body": "<p>I am a lazy marketer and this solved it for me. It just built a mind map around Myreader (<a href=\"https://myreader.ai\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://myreader.ai</a>), and it's super accurate. And now it's finding leads for me on LinkedIn and reaching out to them automatically.</p><p></p><img src=\"https://ph-files.imgix.net/0af5858a-e054-4e26-8b60-ccb1c239580c.png?auto=compress,format&amp;codec=mozjpeg&amp;cs=strip\" style=\"max-width: 100%\"><p></p>",
+     "createdAt": "2026-10-14T11:39:34Z",
+     "parentId": null,
+     "userId": "4265913"
+    },
+    {
+     "body": "<p>Does it run locally and on my subscription model ?</p>",
+     "createdAt": "2026-10-14T11:34:51Z",
+     "parentId": null,
+     "userId": "1147117"
+    },
+    {
+     "body": "<p>What is done by the sending infrastructure to manage the domains, warming up, and deliverability so that a new user does not ruin his/her reputation?<br>Additionally, Congratulations <a href=\"https://www.producthunt.com/@tricomte\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@tricomte</a> , <a href=\"https://www.producthunt.com/@francoisdefitte\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@francoisdefitte</a> , <a href=\"https://www.producthunt.com/@guillaume_marquis3\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@guillaume_marquis3</a> and team Pancake \ud83c\udf8a\u270c\ufe0f</p>",
+     "createdAt": "2026-10-14T11:08:52Z",
+     "parentId": null,
+     "userId": "9965621"
+    },
+    {
+     "body": "Congrats on the launch! Can\u2019t wait to use this. I\u2019m curious\u2014if every company in the world used Pancake for GTM, what do you think would distinguish one marketing plan from another?",
+     "createdAt": "2026-10-14T09:59:18Z",
+     "parentId": null,
+     "userId": "415986"
+    },
+    {
+     "body": "<p>The Pancake team is craaaaazy (good)</p>",
+     "createdAt": "2026-10-14T09:37:05Z",
+     "parentId": null,
+     "userId": "40739"
+    },
+    {
+     "body": "<p>Such a smart way to go about it! </p><p>Been testing a few things.. I think you nailed it! </p><p></p><p>Leveraging Claude &amp; letting users use their own local context is awesome! \ud83d\ude4c </p>",
+     "createdAt": "2026-10-14T09:30:22Z",
+     "parentId": null,
+     "userId": "3127432"
+    },
+    {
+     "body": "<p>For 99$, do I get a pile of super qualified leads or a pile of pancakes ? I don't get it and I am not sure what I'd prefer !!<br><br>Congrats on the launch !</p>",
+     "createdAt": "2026-10-14T09:10:32Z",
+     "parentId": null,
+     "userId": "362659"
+    },
+    {
+     "body": "<p>Pancake is amazing! Congrats on the launch</p>",
+     "createdAt": "2026-10-14T08:55:45Z",
+     "parentId": null,
+     "userId": "9540841"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1265035",
+  "name": "Inferock",
+  "tagline": "Serverless inference, with credits back for failed calls.",
+  "description": "Get free signup credits to use all available models on Inferock. Bring your own keys: run your OpenAI, Claude or Gemini accounts, see where calls fail and what they cost, and get credits back on eligible failed calls. Serverless: pay-per-token LLM inference. Get signup credits to start using.",
+  "slug": "inferock",
+  "dailyRank": 2,
+  "votesCount": 299,
+  "commentsCount": 24,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Google Cloud Run"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "10044507"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi Product Hunt community, I\u2019m Bharath, founder of Inferock.</p><p></p><p>Every team running LLMs in production pays for calls that came back empty, truncated, timed out, or returned broken JSON. You usually find out from a user, and you can\u2019t prove it to anyone.</p><p></p><p>Inferock sits between your app and the provider and measures every call against a published baseline for quality, speed and cost. Each call gets a receipt that Inferock produces itself, so it doesn\u2019t depend on the provider\u2019s word.</p><p><br></p><p>Two ways to use it:</p><p></p><p>- Inferock Watch: bring your own OpenAI, Anthropic or Gemini keys. Free. You get the receipts and a monthly loss report. Enroll in the credit program and objectively broken calls accrue credits you can spend on Serve.</p><p>- Inferock Serve: serverless, pay-per-token inference through us. This is where your credits get spent.</p><p></p><p>How credits work: credits are non-cash, expire after 12 months, and are capped at $1,000 in the wallet and $1,000 applied per month. They cover verified, billed, unrecovered objective failures: downtime and timeouts, empty or truncated output, invalid structured output, billing and cache anomalies.&nbsp;</p><p></p><p><br>Tell us what the receipt should show that it doesn\u2019t yet.</p><p><br></p>",
+     "createdAt": "2026-10-13T22:12:57Z",
+     "parentId": null,
+     "userId": "10044526"
+    },
+    {
+     "body": "Congrats on the launch @bharath_koneti \nI have 2 questions: How do the credits work? Also, do we get to know where/why the output broke?",
+     "createdAt": "2026-10-14T16:05:14Z",
+     "parentId": null,
+     "userId": "10344317"
+    },
+    {
+     "body": "<p>Interesting launch! For the per-call receipt, I\u2019d want to see the expected cost alongside the billed cost, plus whether a retry was billed separately. Does the receipt also show when the provider pricing data was last updated?</p>",
+     "createdAt": "2026-10-14T15:24:07Z",
+     "parentId": null,
+     "userId": "10067492"
+    },
+    {
+     "body": "<p>Love the idea of an independent receipt for LLM calls, getting credits back on failed calls is a refreshingly user-first take on inference billing.</p>",
+     "createdAt": "2026-10-14T14:17:39Z",
+     "parentId": null,
+     "userId": "3566192"
+    },
+    {
+     "body": "<p>i think the strongest  part is making inference failures measurable. My concern would be how the published quality baseline handles different use cases and models.</p>",
+     "createdAt": "2026-10-14T12:43:17Z",
+     "parentId": null,
+     "userId": "10034207"
+    },
+    {
+     "body": "<p>Tracking quality, latency, and cost together sounds practical. I usually end up checking different logs and dashboards, so having one receipt for each call could help me understand issues faster.</p>",
+     "createdAt": "2026-10-14T12:36:35Z",
+     "parentId": null,
+     "userId": "10050155"
+    },
+    {
+     "body": "<p>I appreciate that Inferock Watch can work with my existing API keys. Being able to monitor calls without changing my entire setup makes the product more interesting to me</p>",
+     "createdAt": "2026-10-14T12:21:55Z",
+     "parentId": null,
+     "userId": "10272968"
+    },
+    {
+     "body": "<p>This addresses a frustrating part of working with LLM APIs. I think having evidence of failures instead of relying on provider logs could make troubleshooting much easier for me</p>",
+     "createdAt": "2026-10-14T12:18:52Z",
+     "parentId": null,
+     "userId": "10305829"
+    },
+    {
+     "body": "<p>I like the idea of getting a clear record of failed inference calls. When I\u2019m debugging an AI workflow, knowing exactly what went wrong and what it cost would be genuinely useful.</p>",
+     "createdAt": "2026-10-14T12:12:32Z",
+     "parentId": null,
+     "userId": "10318296"
+    },
+    {
+     "body": "<p>\u200bI just sent this over to our backend engineer. catching failed retries right when they happen is going to save us a lot on unexpected API costs.</p>",
+     "createdAt": "2026-10-14T11:43:14Z",
+     "parentId": null,
+     "userId": "10222829"
+    },
+    {
+     "body": "<p>It's not clear what should happen after that, should we contact Anthropic or openai for a refund for this calls?</p>",
+     "createdAt": "2026-10-14T11:39:38Z",
+     "parentId": null,
+     "userId": "1147117"
+    },
+    {
+     "body": "<p>Love the focus on transparency and accountability. Wishing the team great success! \ud83d\udc4f</p>",
+     "createdAt": "2026-10-14T11:32:01Z",
+     "parentId": null,
+     "userId": "2221918"
+    },
+    {
+     "body": "If the model returns invalid JSON, does it show exactly where the output broke? \n\nCongrats @bharath_koneti \ud83d\ude4c",
+     "createdAt": "2026-10-14T11:25:20Z",
+     "parentId": null,
+     "userId": "3979094"
+    },
+    {
+     "body": "<p>\u200bI love that it sits as a local proxy rather than requiring us to pipe sensitive request data tthrough a third party cloud dashboard.</p>",
+     "createdAt": "2026-10-14T09:50:39Z",
+     "parentId": null,
+     "userId": "10223256"
+    },
+    {
+     "body": "<p>\u200bI have been looking for an independent auditor for LLM tokens because developer dashboards often feel a bit opaque when it comes to exact token counts.</p>",
+     "createdAt": "2026-10-14T08:20:49Z",
+     "parentId": null,
+     "userId": "4730100"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:13Z",
+     "parentId": null,
+     "userId": "10044526"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273690",
+  "name": "Retriever AI",
+  "tagline": "Free AI browser agent: find leads, reach out, apply to jobs",
+  "description": "Retriever is a free AI browser agent that finishes work across websites. Ask it to find leads and send outreach, shortlist TikTok and Instagram creators for your next campaign, or apply to jobs. Run tasks in your own Chrome browser or in cloud browsers hosted by rtrvr. It beats OpenAI, Anthropic, and Muse on accuracy, runs 5x faster, and costs 300x less.",
+  "slug": "retriever-ai",
+  "dailyRank": 3,
+  "votesCount": 174,
+  "commentsCount": 19,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Chrome Extensions"
+    },
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "7951342"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt, Bhavani here, cofounder of rtrvr.ai \ud83d\udc4b\n\nArjun and I are two former Google engineers building an AI browser agent with 35,000+ users. Today, we're bringing our free agent to Product Hunt.\n\nWe believe you should choose your AI, your model, and which work to hand over. Let Retriever handle the repetitive browser work you'd happily stop doing.\n\nAsk Retriever to research leads and send outreach, shortlist TikTok and Instagram creators, or apply to jobs. Run tasks in your own Chrome browser or in cloud browsers hosted by Retriever.\n\nOur median AI cost is under 1\u00a2 per task. That's what makes free access possible.\n\nWe built our own DOM-based agent harness. It reads webpages as compact text, runs multiple actions together, checks results, and recovers from errors. Context caching, open-weight models, and continual learning through reusable site skills reduce the work each model has to do.\n\nThe performance matters just as much as the cost:\n\n- 81.4% task completion in our published Web Bench evaluation, ahead of OpenAI and Anthropic agents.\n- 5\u00d7 faster and 300x cheaper than OpenAI dots across our AI Agent Benchmark.\n\nYou can also connect Retriever to OpenAI dots, Claude, or Codex through MCP and let your preferred AI hand off web data and browser automation tasks to it. Bulent, a user who connected OpenAI dots to rtrvr, told us:\n\n&gt; \"I configured Dot to extensively use Retrieval AI on my behalf, and I'm getting much better results.\"\n\nSmall sponsored ads now and then help fund Free Mode. No subscription or API key needed. Start in the Chrome extension or Cloud dashboard.\n\nWe want solo founders, GTM experts, small businesses, students and anyone with work piling up to have access to our SOTA agent to automate their work for free.\n\nGive Retriever a task you've been putting off. What would you like to get off your plate? <a href=\"http://rtrvr.ai/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">http://rtrvr.ai/</a>",
+     "createdAt": "2026-10-08T10:45:35Z",
+     "parentId": null,
+     "userId": "9178316"
+    },
+    {
+     "body": "<p>This is a really awesome, efficient tool for agents. Thank you!</p>",
+     "createdAt": "2026-10-14T16:16:56Z",
+     "parentId": null,
+     "userId": "324271"
+    },
+    {
+     "body": "<p>Congrats on launch!!</p>",
+     "createdAt": "2026-10-14T15:49:58Z",
+     "parentId": null,
+     "userId": "3577919"
+    },
+    {
+     "body": "<p>Bhavani and Arjun have been killing it with rtrvr, great product and excited for everyone else to try out the product too! </p>",
+     "createdAt": "2026-10-14T15:48:39Z",
+     "parentId": null,
+     "userId": "3480339"
+    },
+    {
+     "body": "<p>Hi, so this i have connected the mcp to my agent, and also installed the extension, but it shows devices 0, does this needs an upgrade?</p>",
+     "createdAt": "2026-10-14T13:07:19Z",
+     "parentId": null,
+     "userId": "7036770"
+    },
+    {
+     "body": "very good team, very responsive with a solid technical background and feature-rich product. Still there is a long way to go until it becomes THE (only) Web AI agent you will ever need. but for now, at this stage, everything is going very well.",
+     "createdAt": "2026-10-14T11:41:10Z",
+     "parentId": null,
+     "userId": "4436719"
+    },
+    {
+     "body": "<p>This is insane. It is like a browser and executing agent in one.</p>",
+     "createdAt": "2026-10-14T10:58:26Z",
+     "parentId": null,
+     "userId": "4843676"
+    },
+    {
+     "body": "<p>from 35k+ users already, what are the most common tasks that you noticed people delegating in the \"let's see what it can do\" phase?</p>",
+     "createdAt": "2026-10-14T10:22:14Z",
+     "parentId": null,
+     "userId": "10277031"
+    },
+    {
+     "body": "<p>congrats <a href=\"https://www.producthunt.com/@bhavani_kalisetty\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"bhavani_kalisetty\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@bhavani_kalisetty</a> <a href=\"https://www.producthunt.com/@arjun_chintapalli\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"arjun_chintapalli\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@arjun_chintapalli</a> - it can send outreach on its own, great! until it sends 200 dms you didn't want. is there an approval step or a daily cap before anything goes under my name?</p><p></p>",
+     "createdAt": "2026-10-14T09:49:16Z",
+     "parentId": null,
+     "userId": "10185146"
+    },
+    {
+     "body": "<p><a href=\"https://www.producthunt.com/@arjun_chintapalli\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"arjun_chintapalli\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@arjun_chintapalli</a> impressive to see so many features in one AI agent which use case would you be recommend trying first ?</p>",
+     "createdAt": "2026-10-14T09:38:25Z",
+     "parentId": null,
+     "userId": "9371772"
+    },
+    {
+     "body": "<p>Cool that Retriever AI is a browser agent that finds leads and reaches out on its own, which takes a lot of the grunt work out of prospecting.</p>",
+     "createdAt": "2026-10-14T09:12:29Z",
+     "parentId": null,
+     "userId": "3749277"
+    },
+    {
+     "body": "<p>Congrats on the launch! </p><p>Really interesting concept curious to see how it performs in the wild...</p>",
+     "createdAt": "2026-10-14T08:53:09Z",
+     "parentId": null,
+     "userId": "8006526"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:06Z",
+     "parentId": null,
+     "userId": "9178316"
+    },
+    {
+     "body": "<p>Hey Product Hunt, Arjun here, the other cofounder!<br></p><p>A fun fact about this launch: Retriever helped run it. I had Claude hand our outreach to Retriever over MCP, and it sent our DMs on X and filled out our directory submissions while we worked on everything else. That\u2019s exactly the work we built it for: tedious, multi-step, and spread across sites that have no API.<br></p><p>A few things you can do with it today:</p><ul><li><p><strong>Free Mode:</strong> run tasks for free, funded by small sponsored ads</p></li><li><p><strong>Cloud schedules:</strong> have a task run every morning, even with your laptop closed. Our entire cloud browser infra is hosted on Cloud Run, shout out to <a href=\"https://www.producthunt.com/products/google-cloud-run\" data-node-type=\"mention\" data-mention-type=\"product\" data-mention-id=\"google-cloud-run\" target=\"_blank\" rel=\"noopener\">@Google Cloud</a> for amazing resilient infra!</p></li><li><p><strong>Cookie sync:</strong> log in once in Chrome, and cloud runs stay signed in</p></li><li><p><strong>Site skills:</strong> it remembers how a site works, so repeat tasks get faster and cheaper</p></li><li><p><strong>MCP:</strong> hand web tasks to Retriever from Claude, Codex or Cursor</p></li></ul><p>I\u2019m here all day. Drop a task you\u2019d want automated in the comments, and I\u2019ll run it and reply with what happened, good or bad. Honest feedback on where it breaks helps us most.<br></p><p>Arjun</p>",
+     "createdAt": "2026-10-13T09:34:24Z",
+     "parentId": null,
+     "userId": "7951342"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278698",
+  "name": "AdAnt 2.0",
+  "tagline": "Muse for Social Media Marketing",
+  "description": "AdAnt AI is your proactive, 24/7 social media marketing team. The Strategist researches your niche on TikTok, Instagram, YouTube and Meta Ads and writes content strategies that work. The Creator turns every strategy into a batch of videos. The Analyst listens on X and Reddit for conversations worth joining. The Manager plans the calendar and posts. Built on the strategies our founding team used to generate 100M+ organic views and cut paid acquisition costs by 60% on average.",
+  "slug": "adant-2-0-3",
+  "dailyRank": 4,
+  "votesCount": 149,
+  "commentsCount": 31,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Social Media"
+    },
+    {
+     "name": "Marketing"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "10105367"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi Product Hunt! \ud83d\udc4b<br><br>Building a product is no longer the bottleneck. <strong>Getting attention is</strong>.<br><br>Meet <strong>AdAnt 2.0</strong>, <strong>Muse for Social Media Marketing</strong>. Your whole AI marketing team, working proactively for you, <strong>24/7</strong>.<br><br>Paste your product URL, and four agents get to work. You set the direction; they keep things moving without waiting for you to prompt every step.<br><br>\ud83d\udd0e The <strong>Strategist</strong> studies what\u2019s working on TikTok, Instagram, YouTube, and Meta Ads to develop your content strategy.<br>\ud83c\udfac The <strong>Creator</strong> turns each strategy into a batch of videos.<br>\ud83d\udcac The <strong>Analyst</strong> finds conversations worth joining on X and Reddit.<br>\ud83d\udcc5 The <strong>Manager</strong> coordinates the agents, plans your calendar, and posts.<br><br>We\u2019re developers who struggled to grow our own products. We turned the playbooks behind <strong>100M+</strong> <strong>organic views </strong>and<strong> 60% lower customer acquisition costs on average</strong> into a team with the creative instincts of top creators and the coordination of a marketing agency.<br><br>You keep building. <strong>AdAnt keeps working to get you noticed</strong>.<br><br>\ud83c\udf81 <strong>Try it free with 40 credits.</strong> We\u2019d love your feedback: what\u2019s the first task you\u2019d give your AI marketing team?</p>",
+     "createdAt": "2026-10-13T07:51:31Z",
+     "parentId": null,
+     "userId": "7168985"
+    },
+    {
+     "body": "<p>I like that this starts from the reality of builders who truly care about their products, rather than trying to recreate enterprise marketing pipeline with AI sprinkled on top. Amazing work Iris!</p>",
+     "createdAt": "2026-10-14T16:10:15Z",
+     "parentId": null,
+     "userId": "8141578"
+    },
+    {
+     "body": "<p>Hey <a href=\"https://www.producthunt.com/@iris_tu\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"iris_tu\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@iris_tu</a> &amp; team, Congrats on launch and best wishes ahead\ud83d\ude04</p>",
+     "createdAt": "2026-10-14T15:36:31Z",
+     "parentId": null,
+     "userId": "7046338"
+    },
+    {
+     "body": "This really resonates as a founder. Building has gotten so much easier with AI, but distribution is still incredibly hard.",
+     "createdAt": "2026-10-14T14:45:51Z",
+     "parentId": null,
+     "userId": "6305492"
+    },
+    {
+     "body": "<p>Congrats on the launch! Making scroll-stopping ads for TikTok, Instagram and YouTube is a real pain for small teams, so AI creative agents are a great fit. Curious how you keep ads on-brand across platforms. Wishing you a great launch day!</p>",
+     "createdAt": "2026-10-14T14:20:11Z",
+     "parentId": null,
+     "userId": "9992512"
+    },
+    {
+     "body": "This is ambitious in the best way. Not another isolated AI feature, but an attempt to make the whole experience feel like working with a team.",
+     "createdAt": "2026-10-14T13:30:45Z",
+     "parentId": null,
+     "userId": "9399590"
+    },
+    {
+     "body": "<p>Seems promising. Are you able to add your own tone / details?</p>",
+     "createdAt": "2026-10-14T12:52:58Z",
+     "parentId": null,
+     "userId": "10273765"
+    },
+    {
+     "body": "<p>Most content tools optimize creation. The bigger bottleneck is often deciding what to say, where to say it, and doing it consistently.</p>",
+     "createdAt": "2026-10-14T12:11:37Z",
+     "parentId": null,
+     "userId": "1453154"
+    },
+    {
+     "body": "<p>Having a whole team in my pocket sounds super cool. How much stuff can it post in a day BTW?</p>",
+     "createdAt": "2026-10-14T11:31:35Z",
+     "parentId": null,
+     "userId": "5306357"
+    },
+    {
+     "body": "<p><a href=\"https://www.producthunt.com/@iris_tu\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"iris_tu\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@iris_tu</a> Very Cool to see this out in the world. The idea of having an AI teams that keeps working after you give it direction is really compelling.</p>",
+     "createdAt": "2026-10-14T11:16:33Z",
+     "parentId": null,
+     "userId": "10162197"
+    },
+    {
+     "body": "<p>when researching the niche through social media, how does AdAnt decide what's really worth adapting for the brand instead of just going for what's viral in the moment?</p>",
+     "createdAt": "2026-10-14T09:59:57Z",
+     "parentId": null,
+     "userId": "10277031"
+    },
+    {
+     "body": "<p>If the Analyst comes across good conversation topics on X and Reddit, does it create responses for my approval, or does it reply directly? The Reddit community could be sensitive to promotions.<br>Btw, Congratulations <a href=\"https://www.producthunt.com/@iris_tu\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@iris_tu</a> and <a href=\"https://www.producthunt.com/@lingjieweng\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@lingjieweng</a> \ud83c\udf8a\ud83d\ude80<br>Keep Hunt brilliant product's <a href=\"https://www.producthunt.com/@justin2025\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@justin2025</a> \u2b50\u270c\ufe0f</p>",
+     "createdAt": "2026-10-14T09:56:05Z",
+     "parentId": null,
+     "userId": "9965621"
+    },
+    {
+     "body": "<p>I like the idea of giving a small startup the capabilities of a much larger marketing team without having to hire one.</p>",
+     "createdAt": "2026-10-14T09:07:59Z",
+     "parentId": null,
+     "userId": "9182237"
+    },
+    {
+     "body": "<p>Love this concept. There\u2019s a big difference between an AI tool that helps when you ask and one that actually keeps things moving for you.</p>",
+     "createdAt": "2026-10-14T08:56:27Z",
+     "parentId": null,
+     "userId": "7020455"
+    },
+    {
+     "body": "Congrats on the launch! Love seeing AI move from helping with individual tasks to actually taking on an ongoing workflow like social media marketing",
+     "createdAt": "2026-10-14T08:12:50Z",
+     "parentId": null,
+     "userId": "4900875"
+    },
+    {
+     "body": "<p>Love the vision behind this. Having an AI team that can go from understanding your product to actually creating and managing content feels like a very natural next step for AI.</p>",
+     "createdAt": "2026-10-14T08:05:44Z",
+     "parentId": null,
+     "userId": "6744332"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:15Z",
+     "parentId": null,
+     "userId": "7168985"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278154",
+  "name": "daily.dev",
+  "tagline": "Where agents discover what's next",
+  "description": "daily.dev is where millions of developers find out what's next. Now your agent can too. Connect Claude, Cursor, Codex or any MCP client to read personalized feeds, search posts, learn from discussions, save bookmarks and tune your feed. In addition, plugin marketplace and apps ecosystem. YOUR AGENTS CAN READ daily.dev NOW!!",
+  "slug": "daily-dev-4",
+  "dailyRank": 5,
+  "votesCount": 140,
+  "commentsCount": 6,
+  "topics": {
+   "nodes": [
+    {
+     "name": "News"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "4773175"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt, Ante here! Today we're opening up <a href=\"http://daily.dev\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">daily.dev</a> to your agents. Your agent can now drive, but don't worry, you're still the one in charge of the destination.</p><p></p><p>Your agent knows your code, your stack and how to write code. What it doesn't know is what happened this week: what millions of developers are reading, upvoting and arguing about on daily.dev, and the comment threads where the real production stories live.</p><p>So we gave it a way in. <strong>YOUR AGENTS CAN READ </strong><a href=\"http://daily.dev\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><strong>daily.dev</strong></a><strong> NOW!!</strong></p><p></p><p><strong>Here's what's new</strong></p><p>- <strong>daily.dev MCP</strong>: connect Claude, Claude Code, Cursor, Codex or any MCP client and sign in with your daily.dev account. No token to copy, nothing to install. Your agent can read your feed, search posts, pull the discussions, save bookmarks and tune your feed.</p><p>- <strong>daily.dev Marketplace</strong>: plugins that teach your agent new tricks. Upgrade Scout tells you what breaks before you bump a dependency, Feed Builder sets up a feed from one sentence, Bookmarks to Notes turns your reading list into notes. Built by developers in the community.</p><p>- <strong>Public API</strong>: everything above over plain REST, free for every account (more usage with <a href=\"https://daily.dev/plus?d_id=dsc_01m4rsgkcepc28dt5e5ghpqxsk\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">daily.dev Plus</a> subscription)</p><p>- <strong>Sign in with daily.dev</strong>: building an app for other developers? Register it as an OAuth app and people sign in with their daily.dev account.</p><p></p><p><strong>Things I ask my agent(s)</strong></p><p>- \"What should I read today?\"</p><p>- \"What do developers actually think about Bun in production? Read the comments.\"</p><p>- \"I'm bumping Next.js to 16.3. Anything I should know?\"</p><p>- \"Make me a feed for Rust backend and observability. No videos.\"</p><p></p><p><strong>How to try it</strong></p><p>Add daily.dev to your agent (setup for every client <a href=\"https://docs.daily.dev/mcp-server/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">in our docs</a>), sign in with your daily.dev account and you are ready to go! Want more? Open our <a href=\"https://daily.dev/marketplace\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">plugin marketplace</a>, and pick from a variety of plugins: skills that teach your agent even more tricks, or apps built on top of daily.dev.</p><p></p><p>The Marketplace shelves are still fresh, so this is also a chance to be one of the first plugin authors up there. Tell me what you'd have your agent do with daily.dev, and if you build something, share it with us!</p><p></p><p>I'll be here throughout the day and happy to answer any questions \ud83c\udf7b</p>",
+     "createdAt": "2026-10-13T09:13:40Z",
+     "parentId": null,
+     "userId": "2824839"
+    },
+    {
+     "body": "<p>Congrats on the launch! This is really cool. Do you have any AEO metrics on whether agents/LLMs are finding <a href=\"https://daily.dev\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">daily.dev</a> posts in their searches? </p>",
+     "createdAt": "2026-10-14T15:55:03Z",
+     "parentId": null,
+     "userId": "10298465"
+    },
+    {
+     "body": "<p>Congrats guys! </p>",
+     "createdAt": "2026-10-14T15:39:06Z",
+     "parentId": null,
+     "userId": "596888"
+    },
+    {
+     "body": "<p>can the agent create it own feed?</p>",
+     "createdAt": "2026-10-14T11:13:58Z",
+     "parentId": null,
+     "userId": "1147117"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:06Z",
+     "parentId": null,
+     "userId": "2824839"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275120",
+  "name": "Tiden",
+  "tagline": "Intent verification for coding agents",
+  "description": "Tiden verifies your coding agents built what you actually asked for. Most checks run inside the session that wrote the code, so the tests agree with it by construction. Tiden keeps your intent as requirements that branch and merge like code, and checks every change against that record. The verdict comes from tests run in your environment; no model grades the diff. You decide what merges, and production errors trace back to the release. Works beside Claude Code, Cursor, Codex and Copilot.",
+  "slug": "tiden",
+  "dailyRank": 6,
+  "votesCount": 116,
+  "commentsCount": 17,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Software Engineering"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "10326971"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi Product Hunt, I'm Nikita, and this is Tiden, the product we've been building for the past year. It's for engineering teams shipping agent-written code every day who want to let agents do the coding while keeping control of what ships.</p><p></p><p>Qase is a software testing platform used by tens of thousands of builders, and 9 years of building it for them taught us a lot about how quality work gets done. Last year that changed on our own team: agents started producing most of the code, and the rest of our process didn't speed up with it. Review, testing, release, keeping requirements current: all of it became bottlenecks.</p><p></p><p>Other engineering teams tell the same story. A gaming publisher I talked to, with about 1k+ developers, saw pull request volume go up 4 to 5 times while the number of features they shipped stayed flat. A payments company described 10 times the coding output and 10% more delivery.</p><p></p><p><strong>The problem underneath it</strong></p><p>An agent session produces the code, the tests that pass on that code, and the docs describing what it built. The next session reads those docs as fact. Every artifact agrees with every other one, because they all came from the same place. A QA automation lead at a tax and accounting platform put it best: \"If you have an agent that decides what to build, and then another agent is grading what's being built against what was actually built, you're essentially encoding the wrong thing. Your tests will pass, they'll be green, but it wasn\u2019t what you wanted.\"</p><p></p><p>The two usual fixes, another rules file in the repo and better AI code review, both sit inside that same loop. The judge has to sit outside it.</p><p></p><p><strong>What Tiden does</strong></p><p>Tiden is that judge. It's intent verification for coding agents: it sits beside your agents, whichever ones you use, and verifies that what they built is what you actually asked for. It keeps that intent as specs, versioned like code, and checks every change against them rather than against the session that produced it.</p><p>Every agent session becomes a closed loop:</p><ul><li><p>A session hook captures what you asked for before the first edit</p></li><li><p>The change comes back as a requirement for you to review; requirements branch and merge like code</p></li><li><p>Tiden picks the tests the change touches, runs them in your environment, and the agent fixes what fails before anything merges</p></li><li><p>The gate is tied to the spec. Red tells the agent what to fix. Green is a pass you can defend, with the evidence attached</p></li><li><p>In production, an error traces back to the release, the change and the prompt behind it, and the fix comes with the test that was missing</p></li></ul><p>Tiden works beside Claude Code, Cursor, Codex and Copilot, and belongs to none of them. Specs live as one versioned record every agent reads from, instead of a growing pile of markdown. You set the thresholds and the gates, and a person approves anything the loop can't settle.</p><p></p><p>One limit, stated plainly: Tiden checks the work against what you asked for. Whether you asked for the right thing is still a human judgment.</p><p></p><p><strong>Get started</strong></p><p>Tiden is live at <a href=\"https://tiden.ai\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://tiden.ai</a>. The CLI installs in one command, the docs are at <a href=\"https://docs.tiden.ai\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://docs.tiden.ai</a>, and Starter and Team both come with a 14-day free trial. If you'd rather talk to us first, there's a short form on the site: <a href=\"https://tiden.ai/contact\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://tiden.ai/contact</a>.</p><p></p><p><strong>What I'd like from you</strong></p><p>Honest feedback over upvotes. Where does your team feel this gap most: review, regression, release, or production? What would make you trust an external check?</p>",
+     "createdAt": "2026-10-13T23:16:59Z",
+     "parentId": null,
+     "userId": "695056"
+    },
+    {
+     "body": "<p>I do believe that no model grading is the right call. Our evals had deterministic routing tests before it could ship. That split is what kept people trusting it. How so you handle cases where deterministic tests aren't enough, like \"this should feel fast\"</p>",
+     "createdAt": "2026-10-14T14:05:10Z",
+     "parentId": null,
+     "userId": "9918732"
+    },
+    {
+     "body": "<p>Hi Product Hunt Community,</p><p></p><p>I am Nitin, and I am product manager for Tiden. Today, after six months of building, we are finally sharing it with you.</p><p>Here is the problem in one line: your agents are fast, but your delivery is not.</p><p></p><p>Coding agents can write a change in minutes. Yet that same change often takes days to reach production. The PR waits because nobody is sure what else it touches. CI catches a regression on the second push. A reviewer spots a function the agent invented. The code got faster. The delivery did not.</p><p></p><p>The data backs this up. In Stack Overflow's 2025 Developer Survey, trust in <strong>AI accuracy fell to 29%</strong>, and 66% of developers said they spend more time fixing \"almost right\" code. Faros AI found that teams with high AI adoption merge 98% more PRs, while review time rises 91%. Google's DORA research put it simply: AI amplifies what is already there.</p><p></p><p>The market's answer so far has been a point AI tool for every phase: one for context, one for tests, one for PR review, one for release signals. They are faster cars on old roads. The lifecycle underneath was designed for humans who read specs and follow instructions. Agents sometimes do, sometimes do not, and sometimes invent things that were never there. Throwing more AI at the problems AI creates is not a solution. It is an illusion.</p><p></p><p>So we started from a blank slate. Tiden is a continuous verification system for agentic coding teams, built around one idea: an enforceable boundary.</p><p></p><p><strong>Here is how it works:</strong></p><p>1. Before a single line of code: Tiden builds a context graph of your system, linking features, requirements, tests and components. When a change comes in, the agent walks that map, finds what is affected and fills the gaps. The result is captured as intent, and that intent becomes the boundary the code must deliver against.</p><p>2. Clear context, not all the context: the coding agent gets exactly what is relevant, so it ships in fewer iterations and gets it right more often.</p><p>3. Before the PR, not after it: Tiden picks the functional and regression tests that matter for this change, based on requirements and risk, and runs them before a PR exists. Only when that quality gate passes can the agent open the PR.</p><p>4. After the merge: release evidence is assembled automatically, and production issues are tracked, feeding the next change.</p><p></p><p>In our own use, <strong>cycle time from starting a change to releasing it came down by almost half</strong>. Not because code was written faster, but because the most of rework loops simply stopped happening.</p><p></p><p>Tiden is built by the team behind Qase, so almost a decade of quality assurance thinking has gone into how verification should work when agents write the code.</p><p></p><p>We would love your honest feedback:</p><p>- Where does your agentic workflow break down today?</p><p>- What would you need to trust an agent's change without reading every line?</p><p>- What is missing?</p><p></p><p><strong>You can start a 14-day trial at </strong><a href=\"http://tiden.ai\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><strong>tiden.ai</strong></a><strong>.</strong> I will be here all day answering questions.</p><p>Agents build. Tiden verifies. Your team decides.</p>",
+     "createdAt": "2026-10-14T11:24:29Z",
+     "parentId": null,
+     "userId": "10326971"
+    },
+    {
+     "body": "<p>How easy is it to add Tiden to an existing project that's already using Cursor or Claude Code?</p>",
+     "createdAt": "2026-10-14T11:23:24Z",
+     "parentId": null,
+     "userId": "7038656"
+    },
+    {
+     "body": "<p>The ability to trace production errors back to a release is a useful addition. It could make debugging much less frustrating.</p>",
+     "createdAt": "2026-10-14T11:16:06Z",
+     "parentId": null,
+     "userId": "5112627"
+    },
+    {
+     "body": "<p>Can Tiden catch cases where the code passes all tests but still doesn't match what the user asked for?</p>",
+     "createdAt": "2026-10-14T11:15:27Z",
+     "parentId": null,
+     "userId": "4153383"
+    },
+    {
+     "body": "<p>I like that the final verdict comes from actual tests instead of an AI judging the code. That feels more reliable.</p>",
+     "createdAt": "2026-10-14T11:11:13Z",
+     "parentId": null,
+     "userId": "4572879"
+    },
+    {
+     "body": "<p>Keeping requirements updated alongside code changes sounds useful. It could help teams catch things that get missed development.</p>",
+     "createdAt": "2026-10-14T11:10:27Z",
+     "parentId": null,
+     "userId": "4968698"
+    },
+    {
+     "body": "<p>A green test suite can still be answering the wrong question. I like that Tiden keeps the request as a separate record for checking what ships.</p>",
+     "createdAt": "2026-10-14T07:28:03Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277882",
+  "name": "Confidence by Spotify ",
+  "tagline": "Build products at full speed, with both hands on the wheel",
+  "description": "Confidence is a product intelligence platform built by Spotify. Spotify's approach to building products has always combined data with judgment and taste, and that scientific rigor is what Confidence brings to customers. Confidence is born from experimentation, but that\u2019s now part of a wider story. Confidence analyzes your user signals, surfaces what's working, suggests the next move, and validates the hypothesis before it ships. You stay in the loop and approve the moves that matter.",
+  "slug": "confidence-by-spotify",
+  "dailyRank": 7,
+  "votesCount": 94,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Analytics"
+    },
+    {
+     "name": "A/B Testing"
+    },
+    {
+     "name": "SaaS"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "10333557"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey! Excited to share this this launch with the PH community! Let me know if there's any questions and we'll do our best to answer them fast :) </p>",
+     "createdAt": "2026-10-14T14:25:31Z",
+     "parentId": null,
+     "userId": "5304674"
+    },
+    {
+     "body": "<p>Pretty awesome for such a high profile company to open up its internal tools! Are you designing for similar companies mainly - large consumer co's, or are you seeing traction across b2b, enterprise, etc?</p>",
+     "createdAt": "2026-10-14T13:41:44Z",
+     "parentId": null,
+     "userId": "466162"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278817",
+  "name": "Exodus for Google Cloud Run",
+  "tagline": "Upgrade any app to Cloud Run, with your coding agent",
+  "description": "Cloud Run is Google's managed platform: no servers to look after, new copies in seconds under load, a bill only while your code works. Exodus takes your app there with your coding agent (Claude Code, Codex, Cursor): it checks the app on your machine, shows what you pay today and on Cloud Run and what to change, by 50+ playbooks from real moves. Then the agent makes the move, task by task, or designs a new app for Cloud Run. Free and open source. Try it on your repo today.",
+  "slug": "exodus-for-google-cloud-run",
+  "dailyRank": 8,
+  "votesCount": 90,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "GitHub"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "202653"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt! I'm Abdugafur, co-founder of elim.io, here with Alex.<br><br>Google Cloud Run is one of the best places to run an app: it scales to zero, bills only while your code works, and runs on Google's own network. Getting in is the hard part. It has its own rules, and many common architectures break on them quietly: a cron inside the process fires late or twice, a worker waiting on a queue stalls, uploads on local disk vanish, sessions in memory sign people out. So most teams stay on a PaaS and keep paying for hours their app sleeps, because the path there isn't clear.<br><br>We moved our own apps this year and wrote down every step. Exodus turns that into a path your coding agent follows, to upgrade any app to Cloud Run:<br><br>\u2192 Is your app ready? One line to your agent installs our open-source CLI and checks the repository on your machine: processes, data, settings and every pattern that breaks or bills while idle.<br>\u2192 What will it cost? Today's bill against Cloud Run at Google's list prices, with your traffic, 16 regions and a 12-month forecast.<br>\u2192 How should it be built? Your app drawn on Google Cloud, rebuilt by our 50+ playbooks: each change with the reason, the replacement and the order.<br>\u2192 Then move. Your agent works the plan, a commit per task, and the report ticks itself. exodus check in CI keeps it that way.<br>\u2192 Starting from zero? Describe the idea and Exodus designs it for Cloud Run block by block: services, database, stack, and the bill at launch and in a year.<br><br>Your code never leaves your machine, we run no AI of our own, and we never sign in to your Google Cloud. For the Cloud Run team: Exodus runs on Cloud Run itself, one Rust service with Firestore, scaling 0 to 3.<br><br>Free, no paid tier, and the CLI is open source. A real report, no sign-up: <a href=\"https://exodus.elim.io/demo\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://exodus.elim.io/demo</a><br><br>What keeps your app off Cloud Run today? We're here all day.</p>",
+     "createdAt": "2026-10-13T09:40:26Z",
+     "parentId": null,
+     "userId": "3271250"
+    },
+    {
+     "body": "<p>Lovely products. Congrats on launch &amp; best wishes ahead to the team. <a href=\"https://www.producthunt.com/@alexeynovikov\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"alexeynovikov\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@alexeynovikov</a> \ud83d\ude04</p>",
+     "createdAt": "2026-10-14T15:35:12Z",
+     "parentId": null,
+     "userId": "7046338"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:06Z",
+     "parentId": null,
+     "userId": "3271250"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1269704",
+  "name": "Reason",
+  "tagline": "A state-of-the-art coding agent for cost efficiency",
+  "description": "Reason is the best coding agent, in the cloud or locally. Give it a task and it writes code, runs tests and opens a pull request. Use Reason from the Mac app, terminal, web or Slack, with your choice of models and connected subscriptions. Start free on your own computer. Our published GPT-6 Astra evaluation scores 65.1 on the Coding Agent Index vs Codex\u2019s 62.5, at 22% lower cost per solved task.",
+  "slug": "reason-10",
+  "dailyRank": 9,
+  "votesCount": 90,
+  "commentsCount": 11,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "8773179"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>hey developers \ud83d\udc4b</p><p></p><p><strong>the problem</strong></p><p>Coding agents write good code, but they\u2019re still tied to your laptop. Close the lid and they die, your RAM caps how many you can run, and you still have to check every diff yourself.</p><p></p><p><strong>the solution</strong></p><p>Reason splits the agent in two. The brain (the harness) runs detached in the cloud and drives separate hands (a sandboxed machine). Sessions survive crashes, deploys and lost boxes, can be rewound, and hop between cloud Linux, a cloud Mac and your own Mac without losing state.</p><p></p><p>And it does more for less. On GPT-6 Astra, <strong>Reason scores 65.1 vs Codex\u2019s 62.5 on the Coding Agent Index</strong> at <strong>22% lower cost per solved task</strong>, and it\u2019s 15\u201323% cheaper per attempt on every benchmark. On GPT-6.1 Sol, median cost per task is 34% below Codex. Every score links to a public Harbor job.</p><p></p><p><strong>What\u2019s inside</strong></p><p></p><p>Built for the cache: a small set of tools and a short prompt, and each request only appends, so every turn is fully cache-eligible. That\u2019s where the savings come from.</p><p></p><p>A computer per session: full desktop, live browser and terminals, with your saved logins. Take the wheel any time.</p><p></p><p>PRs with proof: walkthrough video and before/after screenshots go on every PR, then review, CI fixes and the merge queue.</p><p></p><p>Bring your own subs: plug in the coding plans you already pay for. When one hits its rate limit, Reason rolls over to the next.</p><p></p><p>Resume any agent: import a Claude Code, Codex, OpenCode or Devin session and keep going.</p><p></p><p><strong>our ask</strong></p><p>Try it at reasonmachines.com and tell us what broke: <a href=\"mailto:contact@reasonmachines.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">contact@reasonmachines.com</a></p>",
+     "createdAt": "2026-10-14T07:06:43Z",
+     "parentId": null,
+     "userId": "7464224"
+    },
+    {
+     "body": "<p>Love to see your LLM on <a href=\"https://gertlabs.com/rankings\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://gertlabs.com/rankings</a></p>",
+     "createdAt": "2026-10-14T15:40:50Z",
+     "parentId": null,
+     "userId": "1754545"
+    },
+    {
+     "body": "<p>My codex app is addicted to my mac mini m4. Simulators, Terminal, Real device testing, Local github runner, talking to other codex sessions running on other computers like my macbook etc. How are the cloud computer setup in Reason? Are they virtual or are they also mac minis, that I can vnc into via tailscale etc? Impressive that your harness beats codex btw! Good job! love the competition!</p>",
+     "createdAt": "2026-10-14T14:50:53Z",
+     "parentId": null,
+     "userId": "445755"
+    },
+    {
+     "body": "<p>Being able to run coding tasks locally or in the cloud is really useful. I like having both options depending on the task.</p>",
+     "createdAt": "2026-10-14T11:33:40Z",
+     "parentId": null,
+     "userId": "10088681"
+    },
+    {
+     "body": "<p>The screen recording attached to a PR caught my eye. Seeing what the agent actually did in the app should help a reviewer understand the change before going through the diff.</p>",
+     "createdAt": "2026-10-14T07:31:05Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Hey everyone , Lars here, one of the engineers building Reason \ud83d\udc4b</p><p></p><p><strong>Reason is an autonomous software engineer.</strong> Give it a task, and it gives you back a pull request you can review, with proof that the change works.</p><p></p><p><strong>What a task looks like</strong></p><p>1. Start from wherever you are: the Mac app, terminal, web, Slack, or your phone. Assign a GitHub issue or describe the work.</p><p>2. Reason gets its own computer for the session, with a terminal, live browser, and your repo. You can watch it work or take control at any time.</p><p>3. It writes the code, runs the tests, and uses the app to check the change the same way you would.</p><p>4. It opens a PR with a screen recording and before/after screenshots, then handles review comments, CI failures, and the merge queue.</p><p></p><p><strong>Where it runs</strong></p><p>Run it locally on your own machine for free, or in the cloud so it keeps going after you close your laptop. Use the models you like and the coding plans you already pay for. Access from all your devices, even when you running on your personal computer!</p><p></p><p><strong>What we use it for every day</strong></p><p>Fixing bugs with regression tests. Tracking down slow code. Building internal dashboards. Splitting big changes across subagents. If you\u2019re in the middle of a Claude Code or Codex session, you can import it and let Reason finish the job.</p><p></p><p>Most of Reason is built by Reason, and that\u2019s still how we decide what to fix next.</p><p>If you have a backlog ticket you keep putting off, give it to Reason and tell us how it went. I\u2019ll be in the comments all day.</p>",
+     "createdAt": "2026-10-14T07:18:30Z",
+     "parentId": null,
+     "userId": "9413377"
+    },
+    {
+     "body": "<p><strong>Hey Product Hunt! , I\u2019m Adi, cofounder of Reason Machines. </strong><br></p><p>I think a coding agent should finish useful work without needing an engineer to babysit it or burn through tokens.</p><p><br>A cost-efficient coding harness</p><p><br>We spend a lot of our time on the harness: the tools, context and execution loop around the model. We keep the toolset small, run tools in parallel and preserve the prompt cache.</p><p>In our published GPT-6 Astra evaluation, Reason achieved:</p><p>- <strong>65.1 on the Coding Agent Index</strong>, versus Codex\u2019s 62.5</p><p>- <strong>22% lower cost per solved task</strong></p><p>Same model, same tasks, same graders. [See the benchmarks and methodology](<a href=\"https://reasonmachines.com/blog/introducing-reason-agent-1-1\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://reasonmachines.com/blog/introducing-reason-agent-1-1</a>).</p><p><br>In the cloud or on your computer</p><p><br>Give Reason a task and it <strong>writes code, runs tests and opens a pull request</strong>.</p><p>Use it from the <strong>Mac app, terminal, web or Slack</strong>, with your choice of models and connected subscriptions.<br></p><p><strong>[Start free on your own computer](</strong><a href=\"https://reasonmachines.com).**\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><strong>https://reasonmachines.com).</strong></a><br></p><p>Try it on a task you\u2019ve been putting off. Happy to answer questions about the product, harness or benchmarks.</p>",
+     "createdAt": "2026-10-14T07:10:04Z",
+     "parentId": null,
+     "userId": "8773179"
+    },
+    {
+     "body": "<p>The 22% lower cost sounds interesting . Does that hold up with larger codebases and longer tasks too?</p>",
+     "createdAt": "2026-10-14T07:06:18Z",
+     "parentId": null,
+     "userId": "10346571"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1135009",
+  "name": "AirJelly",
+  "tagline": "Your Proactive, Self-Organizing Second Brain",
+  "description": "AirJelly is an always-on desktop AI agent that proactively captures your intent, organizes your tasks, and gets things done. By observing your on-screen activities, it knows who you are and what you're working on. It doesn't just spot your to-dos \u2014 it foresees what's next and acts. It also tracks your personal interactions, so you'll never miss a follow-up or forget a promise. Everything in your life is managed by AirJelly \u2014 freeing your time for what AI can't do, or simply for you to enjoy.",
+  "slug": "airjelly",
+  "dailyRank": 10,
+  "votesCount": 88,
+  "commentsCount": 7,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Virtual Assistants"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "8661492"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "The world just started talking about AI Screen Context. We've been building something deeper \u2014 AirJelly can see your screen and remembers not just what you did, but who you are. No intent missed. No task overdue. \n\nIntroducing AirJelly today, the world's first context-aware proactive agent, that lives on your desktop, grows with your context, and proactively get works done.",
+     "createdAt": "2026-04-29T09:48:30Z",
+     "parentId": null,
+     "userId": "9585909"
+    },
+    {
+     "body": "<p>Watching the screen to catch follow-ups and promises is the part I would actually use. Since it sees everything on-screen, is there a way to exclude certain apps or windows, like a banking tab or a private chat, from what it observes?</p>",
+     "createdAt": "2026-10-14T14:47:08Z",
+     "parentId": null,
+     "userId": "6824487"
+    },
+    {
+     "body": "<p>Honestly, remembering who I owe a reply to would be a pretty big win. I always think I\u2019ll respond later and then completely forget \ud83d\ude05</p>",
+     "createdAt": "2026-10-14T08:33:33Z",
+     "parentId": null,
+     "userId": "10245220"
+    },
+    {
+     "body": "<p>I suppose this is for personal second-brain reservoirs? Any plans to add support for team / org second brains? </p>",
+     "createdAt": "2026-10-14T08:31:16Z",
+     "parentId": null,
+     "userId": "445755"
+    },
+    {
+     "body": "<p>An AI  that understands what I'm working on without needing constant prompts could save a lot of time.</p>",
+     "createdAt": "2026-10-14T08:10:30Z",
+     "parentId": null,
+     "userId": "10275333"
+    },
+    {
+     "body": "<p>Seeing what was on screen could give a reminder much more context than a task title alone. Interesting to see how you're bringing that into a desktop companion, Ziwen.</p>",
+     "createdAt": "2026-10-14T07:33:37Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Can I choose which apps or on-screen activities Air jelly is allowed to observe? </p>",
+     "createdAt": "2026-10-14T07:16:17Z",
+     "parentId": null,
+     "userId": "9300505"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277837",
+  "name": "Microsoft Maia 300",
+  "tagline": "Microsoft\u2019s own AI chip, headed to multi-gigawatts",
+  "description": "Maia 300 is Microsoft\u2019s next-generation AI inference platform, announced Oct 12, 2026. Per Microsoft, it\u2019s built for long-context reasoning, low-latency conversation, and agents, with 8 HBM4 stacks, TSMC N2P compute chiplets, and 96-accelerator racks. Microsoft claims 40% more tokens per megawatt. Production starts in 2027, and Azure Maia scales to multi-gigawatt deployments, becoming the main inference system for Microsoft\u2019s products.",
+  "slug": "microsoft-maia-300",
+  "dailyRank": 11,
+  "votesCount": 85,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Hardware"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p><strong>Maia 300</strong> is Microsoft\u2019s next-generation AI inference platform, announced October 12, 2026. Microsoft also said it will expand Azure Maia to multi-gigawatt deployments starting in 2027.</p><p></p><p><strong>Problem:</strong> Running AI at scale is limited by power and cost, and Microsoft has to serve a lot of models to a lot of products like Copilot and Teams. Microsoft\u2019s answer is to design its own silicon alongside the GPUs it buys.</p><p></p><p><strong>Solution:</strong> Maia 300 is built inference-first. Per Microsoft, it targets long-context reasoning, low-latency conversation and multi-step agent work. Microsoft says it will become the primary AI inference system for its own products and services. Satya Nadella is quoted calling it \u201cour biggest bet yet on our own silicon.\u201d</p><p></p><p><strong>What Microsoft reports about the design:</strong></p><ul><li><p>Eight HBM4 memory stacks with 18.0 TB/s peak bandwidth, and a 950 W power rating</p></li><li><p>Compute chiplets on TSMC\u2019s N2P process, with a multi-chiplet design that separates compute, memory control and I/O</p></li><li><p>Support for low-precision formats such as MXFP4 to cut memory and bandwidth needs</p></li><li><p>A custom AI transport for scale-up communication across accelerators and racks</p></li><li><p>One rack holds 96 accelerators in a 167 kW power envelope, with 27.6 TB of HBM</p></li></ul><p><strong>Performance: </strong>these are Microsoft\u2019s own claims, with no independent benchmarks. It says Maia 300 delivers 40% more tokens per megawatt. Coverage disagrees on what that is compared against, with some outlets saying the previous Maia and others saying leading GPU-based systems, so I\u2019d check Microsoft\u2019s post. It also expects a Maia 300 rack to reach up to 7x the token throughput of Maia 200 at rack scale.</p><p></p><p><strong>Timeline:</strong></p><ul><li><p>Maia 200 is already running production workloads in the US, Europe and Australia</p></li><li><p>Maia 300 begins production deployments in 2027</p></li><li><p>Multi-gigawatt scale-up of Azure Maia also starts in 2027 </p></li></ul><p>P.S. I hunt the latest and greatest launches in tech, SaaS and AI, follow to be notified <strong>\u2192</strong> <a href=\"https://www.producthunt.com/@rohanrecommends\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@rohanrecommends</a> </p>",
+     "createdAt": "2026-10-14T06:56:18Z",
+     "parentId": null,
+     "userId": "4325010"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279535",
+  "name": "Specreel",
+  "tagline": "Product demos that update themselves",
+  "description": "Paste your app's URL and Specreel walks it in a real browser, turning your key flows into narrated, shareable demos. Already on Playwright? It renders them from your test traces on every green build, so a demo can't go stale. Open-source CLI + hosted Cloud.",
+  "slug": "specreel",
+  "dailyRank": 12,
+  "votesCount": 84,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Marketing"
+    },
+    {
+     "name": "Developer Tools"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "859241"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt \ud83d\udc4b I'm Dylan, and I built Specreel.<br><br>AI has made building software dramatically faster, and my own projects were no exception. When I did find time to record a demo video, it was out of date within a week. Since I'm always spinning up something new, it kept happening. So I set out to solve my own problem.<br><br>The one thing that never went stale was my end-to-end tests. They recorded the exact same browser flows on every build, and when the app changed, they failed instead of quietly drifting.<br><br>So Specreel treats them as one artifact: a recorded browser flow. Replay it = demo. Share it = send. Assert it = test.<br><br>Three ways in:<br>\u2022 Paste your app's URL \u2192 we open it in a real browser, suggest the flows worth showing, and turn them into a narrated, shareable demo gallery. Behind a login? Add a test account and we sign in first.<br>\u2022 Already on Playwright? Turn on tracing and point the open-source CLI at your trace.zip files (JS/TS, Python, Java, .NET). A GitHub Action republishes on every green build, so your demo is never older than your last passing build.<br>\u2022 Prefer to just ask? The MCP server lets Claude Code or Cursor run the whole loop.<br><br>Things I cared about:<br>\u2013 Captions come straight from your actions and assertions. They're deterministic and need no AI. AI narration and voiceover are opt-in, bring your own key.<br>\u2013 Typed passwords and one-time codes are masked automatically.<br>\u2013 You never change your tests. The demo is just an output.<br>\u2013 Cloud is free to start. Team ($39/mo) adds scheduled re-checks and Slack/email alerts when a flow breaks. Viewers and reviewers are always free.<br></p><p>\ud83c\udf81 For the Product Hunt community: code PRODUCTHUNT takes 50% off any paid plan for your first 3 months (redeem by Nov 30). This link applies it when you sign up: <a href=\"https://app.specreel.dev/redeem/PRODUCTHUNT\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://app.specreel.dev/redeem/PRODUCTHUNT</a></p><p><br>The live gallery on our site is Specreel documenting itself: 12 flows of its own app, generated from its own test runs. Built for the Google Cloud Run hackathon: Specreel Cloud runs on Cloud Run.<br><br>I'd love your feedback, especially: what would you point it at first, and what would make you trust a demo you didn't record by hand?</p>",
+     "createdAt": "2026-10-13T21:44:54Z",
+     "parentId": null,
+     "userId": "859241"
+    },
+    {
+     "body": "<p>The dream for anyone who hates re-recording lol. can i still control the pacing and where the cursor lingers? and is the narration a real voice or captions? \ud83e\udef6</p>",
+     "createdAt": "2026-10-14T14:11:06Z",
+     "parentId": null,
+     "userId": "9994906"
+    },
+    {
+     "body": "<p>Linking demos to passing tests makes sense. For ecommerce demos, can I redact customer names, email addresses and order details before a gallery is published, and keep each refresh private until reviewed?</p>",
+     "createdAt": "2026-10-14T09:06:50Z",
+     "parentId": null,
+     "userId": "5761555"
+    },
+    {
+     "body": "<p>Demo tied to a green build is the right call. Stale demos are worse than none.</p>",
+     "createdAt": "2026-10-14T08:10:43Z",
+     "parentId": null,
+     "userId": "10313055"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:08Z",
+     "parentId": null,
+     "userId": "859241"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1272957",
+  "name": "Table Canon",
+  "tagline": "Automated notes, searchable history, prep ideas for GMs",
+  "description": "Focus on the session, not note taking. Simplify your prep time with a searchable memory-bank of what happened at your table. Table Canon turns uploaded game-night audio into a recap, outline, entity dossiers, searchable index, and prep ideas for tabletop RPG game masters. Memory evolves each session. No sign up required to get started, 6 hours of audio upload free! Message me that you saw the launch on Product Hunt and I\u2019ll credit your account with an extra 10 hours.",
+  "slug": "table-canon",
+  "dailyRank": 13,
+  "votesCount": 79,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "RPGs"
+    },
+    {
+     "name": "Games"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10207729"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Table Canon is for GMs who are tired of being the unpaid secretary between sessions. You upload the recording from game night. It writes the recap, keeps the people, places, and open threads, and you can ask what the table already decided on an earlier night. Prep is a short list of catalysts from what is still unresolved, so the next session starts from pressure instead of a blank page.\n\nWhisper plus a chat is fine for one night. This is for the campaign: week 8 still knows what happened in week 2, without pasting the whole history back in.\n\nYou can look before you upload anything. The sample campaign is several real nights, including questions that pull from an earlier session: <a href=\"https://tablecanon.app/example/tour\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://tablecanon.app/example/tour</a>\n\nTry it free as a guest. No credit card. Free is 6 hours of processed audio, lifetime, which is about one long night or two short ones. Session audio stays on your account and is NEVER used to train models: <a href=\"https://tablecanon.app/privacy\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://tablecanon.app/privacy</a>",
+     "createdAt": "2026-10-07T17:26:28Z",
+     "parentId": null,
+     "userId": "10207729"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:10Z",
+     "parentId": null,
+     "userId": "10207729"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277094",
+  "name": "Mira Tours",
+  "tagline": "AI Walking Tour Guide",
+  "description": "Mira is your AI tour guide. Walking audio tours, anywhere in the world: chat to build your own, or just start walking and hear the story of the places around you.",
+  "slug": "mira-tours",
+  "dailyRank": 14,
+  "votesCount": 78,
+  "commentsCount": 6,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Android"
+    },
+    {
+     "name": "Travel"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "2839454"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "When I visit a new city, I love to book a walking tour with a local. Last year, I found myself with a few hours to kill in Vienna and could not book something. So I wandered around with Google Maps (what\u2019s that?) and ChatGPT audio (tell me about it) and it was a good experience. \n\nI built an app that automated that and have used it on several trips. Recently, I put it on the app stores and also made a way to do at with with a street view. You can wander around or take pre-created tours. If you auth as a human, you can chat to create your own custom tour.",
+     "createdAt": "2026-10-11T21:11:27Z",
+     "parentId": null,
+     "userId": "2839454"
+    },
+    {
+     "body": "<p>Congrats on the launch! Love that you started the demo with a personal story.</p>",
+     "createdAt": "2026-10-14T16:15:41Z",
+     "parentId": null,
+     "userId": "10298465"
+    },
+    {
+     "body": "<p>Does it work in other languages, say Greek? And how do you make sure the stories are actually true and not made up by the AI?</p>",
+     "createdAt": "2026-10-14T11:18:40Z",
+     "parentId": null,
+     "userId": "7860732"
+    },
+    {
+     "body": "<p>Brian, the Vienna story makes this easy to understand. Being able to make a route around what interests you sounds like a good fit for those few spare hours between plans.</p>",
+     "createdAt": "2026-10-14T07:31:46Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:07Z",
+     "parentId": null,
+     "userId": "2839454"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1274767",
+  "name": "Rambox",
+  "tagline": "Ready-to-use workspaces as you switch tasks and contexts",
+  "description": "A major Rambox redesign focused on making everyday work simpler, faster and easier to navigate. The new interface reduces friction and the number of clicks needed to move between apps, workspaces, tasks and contexts, while a redesigned onboarding experience makes Rambox easier to set up and understand. This release also adds faster access to what you need, improved tabs and context persistence, Unified Search, Quick View, Command Center and new focus tools.",
+  "slug": "rambox-2",
+  "dailyRank": 15,
+  "votesCount": 77,
+  "commentsCount": 7,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Google Cloud Run"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "504741"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunters!<br><br>Ramiro here, CEO of Rambox! I'm really happy and proud to share the improvements we've made to Rambox, along with some new features.</p><p><br>First, as for the desktop app, we've completely redesigned its look and added new features like the <strong>Command Center</strong>, <strong>Unified Search</strong>, <strong>Internal Tabs for apps</strong>, a new <strong>Concentration Panel</strong>, and much more.</p><p><br>Personally, I really like Unified Search. I think it's a great addition to Rambox for all users, and we're for sure planning to spend more time improving it and adding more integrations, such as Google Workspace.</p><p></p><p>Getting started is easier than ever, too: we've built a <strong>brand-new onboarding</strong> that's much more intuitive and lets you set up your workspace in no time.</p><p><br>We've updated our website too, with a more modern design and clearer explanations of Rambox's new features.</p><p><br>We've also introduced a new authentication process through the web browser, as well as a <strong>web console</strong> where users and teams can manage their accounts and billing.</p><p><br>There's a lot to explore in this new version, and we're thrilled to finally share it with you all! \ud83d\ude0a</p><p><br>Give Rambox a try and let us know what you think!</p><p>We'd love to hear your feedback and suggestions. \ud83d\ude80</p>",
+     "createdAt": "2026-10-12T19:50:36Z",
+     "parentId": null,
+     "userId": "504741"
+    },
+    {
+     "body": "<p>Quick View and Command Center sound useful for people who spend most of their day jumping between apps. How customizable are they?</p>",
+     "createdAt": "2026-10-14T11:20:18Z",
+     "parentId": null,
+     "userId": "10120124"
+    },
+    {
+     "body": "<p>Having workspaces for different roles makes sense. My work setup and personal definitely don't need to be mixed together.</p>",
+     "createdAt": "2026-10-14T11:16:13Z",
+     "parentId": null,
+     "userId": "10119877"
+    },
+    {
+     "body": "<p>I like the focus on context switching . Something finding where you left off takes longer than the actual task.</p>",
+     "createdAt": "2026-10-14T10:50:41Z",
+     "parentId": null,
+     "userId": "10341054"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:04Z",
+     "parentId": null,
+     "userId": "504741"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278289",
+  "name": "Winq",
+  "tagline": "Control your Mac with a look and a wink",
+  "description": "Gaze focus switching: look at a window and it becomes the active one. Per-eye wink clicks: left wink and right wink are separate actions. Face-gesture shortcuts: map gestures to the actions you use most. Notch island: a small live indicator in the notch area shows what Winq detected. No extra hardware: it works with your Mac\u2019s built-in camera, with a short guided calibration. Private by design: all face tracking runs on your Mac, and no video leaves the device.",
+  "slug": "winq",
+  "dailyRank": 16,
+  "votesCount": 74,
+  "commentsCount": 11,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "User Experience"
+    },
+    {
+     "name": "Tech"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "4218021"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "First comment\n\nHey everyone \ud83d\udc4b\n\nI\u2019m Mahmoud, the maker of Winq.\n\nWinq started with a small frustration. I work across many windows all day, and so much of my time went into moving my hand to the mouse just to switch focus or click something. I wondered whether the camera already on my Mac could handle that for me.\n\nWinq lets you control your Mac with your face:\n\ud83d\udc40 Look at a window to focus it\n\ud83d\ude09 Wink your left or right eye to click\n\ud83d\ude42 Use face gestures to trigger shortcuts\n\ud83c\udfdd\ufe0f See every action confirmed in a small notch island\n\nIt works with your built-in camera and doesn\u2019t need any extra hardware. [Everything runs on-device.]\n\nLaunch offer: the first 100 users get a free lifetime license \ud83c\udf81\n\nWinq is still early, and I\u2019d really value your feedback:\n\nWhich gestures would you want to map?\nWhere did calibration or detection feel off?\nWould this help you, or someone you know, with accessibility needs?\n\nI\u2019ll be here all day answering questions. Thanks for checking it out! \ud83d\ude4f",
+     "createdAt": "2026-10-12T21:15:51Z",
+     "parentId": null,
+     "userId": "4218021"
+    },
+    {
+     "body": "<p>I'd try mapping a glance to summon the app switcher during long writing blocks \u2014 hands stay on the keyboard and I still catch when the wrong window stole focus.</p>",
+     "createdAt": "2026-10-14T14:54:21Z",
+     "parentId": null,
+     "userId": "10303877"
+    },
+    {
+     "body": "<p>probably mapping a wink to mute/unmute on calls, i forget to hit it manually half the time</p>",
+     "createdAt": "2026-10-14T12:23:26Z",
+     "parentId": null,
+     "userId": "9500314"
+    },
+    {
+     "body": "<p>Can we customize the wink gestures to perform different actions for specific apps? </p>",
+     "createdAt": "2026-10-14T09:00:30Z",
+     "parentId": null,
+     "userId": "9296414"
+    },
+    {
+     "body": "<p>If seamless interaction can be truly achieved, it will definitely be a major revolution in the history of human-computer interaction.</p>",
+     "createdAt": "2026-10-14T08:17:53Z",
+     "parentId": null,
+     "userId": "6156582"
+    },
+    {
+     "body": "<p>That little notch indicator makes sense when the input is a wink or a glance. You need to know what the camera picked up without breaking your focus.</p>",
+     "createdAt": "2026-10-14T07:32:30Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:16Z",
+     "parentId": null,
+     "userId": "4218021"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279309",
+  "name": "Nimble",
+  "tagline": "SOTA Decision Model",
+  "description": "Today, we are announcing Nimble-v4 and Nimble-v4-max which are pushing the frontier of decision models, outperforming Jev and other variants. On Decision Index public scores, our nimble-v4-max model and nimble-v4 models score +10.5 and +5.74 against Jev 1.13, making nimble-v4-max a top performing model. Beyond benchmarks, we have done a lot of internal evals, and see big improvements: 43% fewer mistakes than Jev, +50pp on model routing decisions, and so on. Try for free: console.bespokelabs.ai",
+  "slug": "nimble-90f6a585-1d47-49a9-b635-f5188b9c0d47",
+  "dailyRank": 17,
+  "votesCount": 74,
+  "commentsCount": 2,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Google Cloud Run"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "6204271"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>We released Nimble-v1 the same week as Jev, which has spurred a lot of activity in the community. For the past few weeks, we have been making meaningful advancements in data curation and modeling techniques, and put our platform to work, resulting in SOTA decision models.<br><br>Try it for free: <a href=\"http://console.bespokelabs.ai\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">console.bespokelabs.ai</a><br><br>We\u2019d love to hear which decision in your stack you\u2019d hand to Nimble first, and where it falls short. We\u2019ll be here all day answering questions. \ud83d\ude4f</p>",
+     "createdAt": "2026-10-13T17:21:30Z",
+     "parentId": null,
+     "userId": "10349142"
+    },
+    {
+     "body": "<p>Can I set my own threshold for when a person should step in? Good luck today !!</p>",
+     "createdAt": "2026-10-14T10:57:17Z",
+     "parentId": null,
+     "userId": "9432429"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:10Z",
+     "parentId": null,
+     "userId": "10349142"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279730",
+  "name": "Cloud Releases",
+  "tagline": "Every AWS, Azure, GCP and Cloudflare update in one feed",
+  "description": "\ud83d\udd25 Cloud providers ship thousands of updates a year across separate blogs and changelogs. Cloud Releases puts AWS, Azure, Google Cloud and Cloudflare in one feed. Follow only the services you run, and spot retirements before they break something.",
+  "slug": "cloud-releases",
+  "dailyRank": 18,
+  "votesCount": 74,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Tech"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10350489"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt \ud83d\udc4b I'm Dzung Nguyen, and I built <a href=\"https://cloudreleases.io/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><strong>Cloud Releases</strong></a>.</p><p></p><p><strong>The problem.</strong> I work with more than one cloud, and keeping up with what changed is a job in itself. AWS has \"What's New\", Azure has its updates page, Google Cloud has release notes, Cloudflare has a changelog. Four sites, four formats, thousands of posts a year. The one that matters to you (the runtime being retired, the feature you were waiting for) is buried under hundreds that don't.</p><p></p><p><strong>What it does.</strong> Cloud Releases collects all four into one place and files every update under the service it's about:</p><ul><li><p>One feed across AWS, Azure, Google Cloud and Cloudflare (700+ services, 4,700+ updates so far this year)</p></li><li><p>Follow just the services you run and get a feed of only those</p></li><li><p>Deprecations and retirements are pulled out on their own, so the things that need action don't get lost</p></li><li><p>Each update is labelled (feature, GA, preview, region, pricing, deprecation\u2026) and links to the provider's original post</p></li><li><p>Search every service across all four providers, light and dark themes</p></li></ul><p>It's free, and you can browse everything without an account. Signing in (emailed link or Google, no password) is only needed to follow services.</p><p></p><p><strong>What I'd love feedback on:</strong></p><ol><li><p>Which provider should come next? (Oracle Cloud, DigitalOcean, Vercel, Supabase\u2026?)</p></li><li><p>How do you want to be told about updates: email digest, RSS, Slack?</p></li><li><p>Anything filed under the wrong service \u2014 the matching is automatic and I know it isn't perfect yet.</p></li></ol><p>I'll be here all day answering. Thanks for taking a look \ud83d\ude4f</p>",
+     "createdAt": "2026-10-14T04:34:02Z",
+     "parentId": null,
+     "userId": "10350489"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277320",
+  "name": "Epherem",
+  "tagline": "Find login and database flaws in your AI-built app",
+  "description": "Epherem is a free source code security scanner for apps built with AI. It checks for common security issues involving authentication, database access, exposed API keys and vulnerable packages. Upload a ZIP or connect a GitHub repository to scan your app. Findings include plain-English explanations, suggested fixes and prompts you can paste into Claude Code, Lovable or Cursor. Reports can also be exported for review with your AI coding assistant, including issues the scanner couldn't verify.",
+  "slug": "epherem",
+  "dailyRank": 19,
+  "votesCount": 73,
+  "commentsCount": 7,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "GitHub"
+    },
+    {
+     "name": "Vibe coding"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10307304"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt!\n\nI'm launching Epherem today, a free source code security scanner for apps built with AI!\n\nThe idea came about when I was preparing to launch another product, a marketplace for university students and SMEs. As I was getting ready to ship, I started looking into the security risks of AI-built applications, and honestly, some of what I found was pretty concerning.\n\nI tried a few security scanners, but most seemed to be made for experienced developers. I could run the scans, but I often struggled to understand the findings or what I was supposed to do about them. The simpler tools I found mostly scanned URLs rather than the actual source code.\n\nSo I decided to build Epherem.\n\nAfter four months of working on it, I've finally released the first version!\n\nHere's what it does:\n\n- Scan your source code through GitHub or a ZIP upload.\n- Check for common security issues, exposed secrets and vulnerable dependencies.\n- Get explanations of the findings, suggested fixes and prompts you can give to Claude Code, Lovable or Cursor.\n- See what the scanner couldn't check, and export your report.\n\nIt's not a replacement for a professional security audit, but I hope it'll be a useful starting point for people building and shipping applications with AI.\n\nI initially planned to charge for the scanner, but decided to make it free during early access.\n\nRight now, I'm also trying to better understand how people building with AI approach security. I'd love to speak with anyone who's launched an AI-built application, hear about their experiences, and understand what they've struggled with. I'd be happy to personally walk you through a free scan of your application in return.\n\nI'd also really appreciate any feedback on Epherem itself, particularly what you think could be improved.\n\nThanks for checking it out!",
+     "createdAt": "2026-10-12T05:28:22Z",
+     "parentId": null,
+     "userId": "10307304"
+    },
+    {
+     "body": "<p>Love that you're attaching the caveats to the fix prompt instead of just the clean fix text. That's the detail most tools skip and then wonder why people blindly paste AI suggestions into prod. Congrats on the launch!</p>",
+     "createdAt": "2026-10-14T13:38:08Z",
+     "parentId": null,
+     "userId": "9737347"
+    },
+    {
+     "body": "<p>Really handy that Epherem scans an AI-built app for login and database flaws, since that is exactly the stuff I tend to miss when I ship fast.</p>",
+     "createdAt": "2026-10-14T09:09:36Z",
+     "parentId": null,
+     "userId": "3749277"
+    },
+    {
+     "body": "<p>Kirtik, keeping the checks you couldn't verify in the exported report is a useful detail. The prompt for a fix and the limits of the scan should travel together when it goes back to the coding agent.</p>",
+     "createdAt": "2026-10-14T07:33:17Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:08Z",
+     "parentId": null,
+     "userId": "10307304"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275818",
+  "name": "Make0 Brain",
+  "tagline": "A memory store that works across all of your AI agents.",
+  "description": "Make0 Brain is a personal memory store that works across ChatGPT, Claude, Cursor, and other MCP-compatible AI tools. AI agents can read and write to this memory and be in sync with your personal context. It is like dropbox but for memories - specifically built for agents to use. You can easily build your brain in just 2 minutes by importing your conversations from Claude, ChatGPT and even dropping your markdown files and documents.",
+  "slug": "make0-brain",
+  "dailyRank": 20,
+  "votesCount": 73,
+  "commentsCount": 2,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "8672025"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt! \ud83d\udc4b I\u2019m the solo founder behind Make0, and I\u2019m excited to finally bring Make0 Brain to the world!\n\nThe idea came from a frustration I kept running into while building with AI: every new conversation starts with a context gap.\n\nYour project decisions live in one chat. Your preferences are buried in another. Your coding agent knows things your research agent doesn\u2019t. And when you switch tools, you\u2019re back to explaining everything from scratch.\n\nI started building Make0 to solve this problem.\n\n\ud83e\udde0 Make0 Brain is a persistent, portable memory layer for AI. It brings your knowledge, conversations, preferences, and decisions into one connected Brain that works across supported AI tools.\n\nYou can import existing context and connect your Brain to tools like ChatGPT, Claude, Cursor, and other MCP-compatible applications.\n\nThe goal is simple: your AI should get more useful as it learns your context, not make you repeat yourself every time.\n\nI\u2019ve spent months building, iterating, and rethinking how AI memory should work. Now, I\u2019m opening it up for free because I want real people to use it, challenge my assumptions, and help shape what comes next.\n\n\ud83d\ude80 Make0 Brain is now in Open Beta!\n\nI\u2019d love your honest feedback:\n\n* What do you wish your AI remembered about you?\n* How do you manage context across different AI tools today?\n* What would make you trust a shared memory layer?\n\nGive it a try, tell me what breaks, and let me know what you\u2019d like to see next.\n\nThanks for checking out my launch! \u2764\ufe0f\n\nYour AI can change. Your Brain stays.",
+     "createdAt": "2026-10-10T11:10:24Z",
+     "parentId": null,
+     "userId": "8672025"
+    },
+    {
+     "body": "<p>I wish you had a post like this explaining why your tool is better than mem0, etc.</p>",
+     "createdAt": "2026-10-14T15:49:45Z",
+     "parentId": null,
+     "userId": "1754545"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279079",
+  "name": "Apple HomePod mini 2",
+  "tagline": "Apple's tiny smart speaker, now built for Siri AI",
+  "description": "HomePod mini 2 is Apple's next-generation compact smart speaker, built for a more personal Siri AI experience coming in a future update. It brings rich 360-degree sound, new colors, and Sound Glow lighting that responds to your music. Enjoy improved Mac audio, multiroom playback, and surround sound with Apple TV 4K, plus hands-free smart home control. Starting at $149, with preorders open now and availability from October 30.",
+  "slug": "apple-homepod-mini-2",
+  "dailyRank": 21,
+  "votesCount": 72,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Hardware"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Apple"
+    }
+   ]
+  },
+  "makers": [],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Apple finally updated the HomePod mini after six years.\n\nThe new HomePod mini 2 keeps the familiar design, but adds a faster chip, new colors, Sound Glow lighting that reacts to your music, and better integration with Macs and Apple TV.\n\nThe bigger change is Siri AI, which will eventually bring more natural conversations and personal context to the speaker. That part isn't available at launch, though.\n\nStarts at $149 and ships October 30. Curious to see how much better Siri gets on a device like this.",
+     "createdAt": "2026-10-13T13:43:17Z",
+     "parentId": null,
+     "userId": "7419054"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278703",
+  "name": "EditUI",
+  "tagline": "Point at your UI. Tell your coding agent what to change.",
+  "description": "Explaining to cursor/claude code/codex UI changes: spacing is off, this card is too tall, that CTA is too loud, mobile looks weird.....is annoying. With EditUI you open your actual app/website in Chrome, click anything, leave a quick instruction, keep reviewing, then send the whole batch to Claude Code at once. No repo setup. Just a Chrome extension. Free and open source. No signup, no backend.",
+  "slug": "editui",
+  "dailyRank": 22,
+  "votesCount": 69,
+  "commentsCount": 2,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Chrome Extensions"
+    },
+    {
+     "name": "Design Tools"
+    },
+    {
+     "name": "Developer Tools"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "8853"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Being able to point at the actual card or button saves a lot of describing which one you mean. Sending the notes as one batch is a thoughtful touch, Junu.</p>",
+     "createdAt": "2026-10-14T07:28:37Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1270975",
+  "name": "Spinachi AI",
+  "tagline": "Personal AI health manager on Whatsapp ",
+  "description": "Your health, finally in one place. Forward your lab reports on WhatsApp. Spinachi sorts them for you and your family. See where you stand, how it's changing, and when your next test is due. No app. Never a diagnosis.",
+  "slug": "spinachi-ai",
+  "dailyRank": 23,
+  "votesCount": 68,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Health & Fitness"
+    },
+    {
+     "name": "Messaging"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "2604018"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt, I'm Chinmay, the maker of Spinachi.\n\nA few months ago I broke my shoulder, and the recovery turned into a pile of scans, prescriptions, and lab reports. At the same time I was managing my parents' health documents too. Keeping all of it organised, and remembering what was due when, became a recurring headache for months.\n\nSo I built Spinachi. Think of it as a Google Drive for your medical records, on WhatsApp. You forward your lab reports and prescriptions, and it organises them for you and your family and reminds you when a retest is due. No app to download, and it never gives a diagnosis.\n\nIt's early and I'm sharing it with friends first. I'd love to hear how you currently manage health records for yourself or your parents, and what would make this more useful. Thanks for taking a look!",
+     "createdAt": "2026-10-05T21:06:37Z",
+     "parentId": null,
+     "userId": "3631058"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:15Z",
+     "parentId": null,
+     "userId": "3631058"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1276998",
+  "name": "Orbora",
+  "tagline": "Create personalized guided audio: meditation, breath, ASMR",
+  "description": "Orbora generates audio talks tailored to you: guided meditations, breathwork, ASMR and short wisdom talks. Follow a guided path that walks you through what you need. Then shape the result: voice, length, tone, background sound and themes. AI writes and voices each talk from your choices. Save favorites, build your own library, and listen offline.",
+  "slug": "orbora",
+  "dailyRank": 24,
+  "votesCount": 68,
+  "commentsCount": 6,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Android"
+    },
+    {
+     "name": "Health & Fitness"
+    },
+    {
+     "name": "Meditation"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "6494399"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt, I\u2019m Brian Giannini, the maker of Orbora, my first app presented here!\n\nI built this app mainly because I was unsatisfied with meditation apps where I spend more time looking for a session right for me instead of just enjoying the audio. And I was often disappointed by the talk or just annoyed by the voice or tone haha.\n\nInstead of a fixed library, you tell Orbora what you need and it writes and voices a talk for that moment. Available on iOS and Android\n\nYour first talk is free on register, you can also gain free credits by finishing the guided paths. What kind of talk would you want to generate?",
+     "createdAt": "2026-10-11T18:57:49Z",
+     "parentId": null,
+     "userId": "6494399"
+    },
+    {
+     "body": "<p>Hey Orbora team! Would you consider building a way to share talks you create with friends? It would be cool to be able to recommend one you like to someone else, or even a community board of favorites to see what others have created. </p>",
+     "createdAt": "2026-10-14T16:04:25Z",
+     "parentId": null,
+     "userId": "10298465"
+    },
+    {
+     "body": "<p>Sometimes you just need a few minutes to relax and clear your head. Short audio sessions like these could be really helpful.</p>",
+     "createdAt": "2026-10-14T09:21:49Z",
+     "parentId": null,
+     "userId": "10119929"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:06Z",
+     "parentId": null,
+     "userId": "6494399"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279093",
+  "name": "Kugel 3.5",
+  "tagline": "Text-to-speech that beats any other Model out there",
+  "description": "Kugel 3.5 beats four leading TTS models on 8 of 9 tests. It gets short words wrong at half the rate of the next-best model, reads long numbers exactly right 97.1% of the time and supports IPA. 5.25 cents a minute. Not on Kugel? Three lines to production.",
+  "slug": "kugel-3-5",
+  "dailyRank": 25,
+  "votesCount": 67,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "API"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Development"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9798134"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey everyone, we're back! This time it's Kugel 3.5, our new frontier TTS model. \nNobody wants to talk to a bot that sounds like one. Often the giveaway is small: a phone number read back wrong, or a \"yes\" that comes out mangled.\n\nSo we put Kugel 3.5 and four of the leading TTS models through the same 9 tests. Kugel 3.5 came first on 8: it gets short words wrong at half the rate of the next-best model (3% vs 6.1%) and reads long numbers exactly right 97.1% of the time, the highest of all five. It also costs 25% less than our previous model, 5.25 cents a minute. So, if your agents aren't running on Kugel yet, it's three lines to production.\n\nTry it on your hardest inputs and tell us where it breaks.",
+     "createdAt": "2026-10-13T13:51:15Z",
+     "parentId": null,
+     "userId": "9798134"
+    },
+    {
+     "body": "<p>Phone numbers are a good test case for speech tools: one wrong digit changes the whole message. Good to see that getting attention alongside how natural the voice sounds, Kajo.</p>",
+     "createdAt": "2026-10-14T07:31:27Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279402",
+  "name": "Hindsight 1.0 + Memlake",
+  "tagline": "Open source memory for AI agents to learn from experience",
+  "description": "Hindsight is open-source memory that lets AI agents learn from experience, #1 on every dataset of the Agent Memory Benchmark. Today it's 1.0, and the API is a promise. We're also launching Hindsight Memlake, a storage engine written in Rust that keeps agent memory in object storage: 100M memories at under 100 ms p99, with no database, consensus cluster or leader. Self-host it free, start on Hindsight Cloud with free credits, or run it in your own cloud with Enterprise.",
+  "slug": "hindsight-1-0-memlake",
+  "dailyRank": 26,
+  "votesCount": 66,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "7619573"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi Product Hunt, Chris from Vectorize here.<br><br>When we launched Hindsight here, the idea was that agents should learn from experience the way people do, not just retrieve documents. After a year in production and #1 results on every dataset of the Agent Memory Benchmark, Hindsight is now 1.0. From here, the API is a promise.<br><br>The other half of this launch is the part I'm most excited about as the person who runs it: Hindsight Memlake, for Enterprise customers with very large memory volumes. Agent memory only grows, and every recall runs vector, keyword, graph and time search over all of it. So Nicol\u00f2 and the team built a storage engine for that shape of data, in Rust:<br><br>\u2022 Object storage is the only source of truth: no database, no consensus cluster, no leader<br>\u2022 Only two objects ever change, through conditional writes, and the protocols are model-checked in TLA+<br>\u2022 100M memories at under 100 ms p99 on 4 servers, and recall on a 200k-memory bank went from 5.3 s on Postgres to 113 ms<br><br>Hat tip to turbopuffer, whose object-storage-first design inspired a lot of this.<br><br>Try Hindsight open source (MIT, runs on Postgres) or on Hindsight Cloud with free credits. Memlake comes with Hindsight Enterprise, and the full engineering write-up is here: <a href=\"https://hindsight.vectorize.io/blog/2026/10/13/memlake\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://hindsight.vectorize.io/b...</a><br><br>Happy to answer anything about agent memory, Memlake, or why we didn't just use Postgres.</p>",
+     "createdAt": "2026-10-13T18:51:24Z",
+     "parentId": null,
+     "userId": "7391890"
+    },
+    {
+     "body": "<p>Making this open source is a big plus. I'd love to see how developers use it to build agents tahat actually learn over time. </p>",
+     "createdAt": "2026-10-14T11:01:10Z",
+     "parentId": null,
+     "userId": "10088692"
+    },
+    {
+     "body": "<p>I like the idea of agents learning from past interactions instead of starting fresh every time. That could be ewally useful for long running tasks.</p>",
+     "createdAt": "2026-10-14T10:57:27Z",
+     "parentId": null,
+     "userId": "9300535"
+    },
+    {
+     "body": "<p>Storing agent memories in object storage without needing a separate database sounds interesting. The low-latency part is worth checking out too.</p><p></p>",
+     "createdAt": "2026-10-14T10:56:51Z",
+     "parentId": null,
+     "userId": "9049639"
+    },
+    {
+     "body": "<p>The API commitment caught my eye, Chris. With memory sitting inside an agent's workflow, predictable upgrades matter as much as the storage underneath.</p>",
+     "createdAt": "2026-10-14T07:30:43Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278222",
+  "name": "CraveLens",
+  "tagline": "See it. Crave it. Get it.",
+  "description": "CraveLens is a Chrome extension that uses on-device AI to identify food in supported videos and selected webpage regions, then prepare personalized Swiggy carts for your review.",
+  "slug": "cravelens",
+  "dailyRank": 27,
+  "votesCount": 66,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Chrome Extensions"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "GitHub"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10336384"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Ever watched Jon Favreau make late-night Aglio e Olio in Chef and wished that exact dish would magically appear on your coffee table? \ud83e\udd24\ud83c\udfac\n\nThe inspiration behind CraveLens started with immersive events like Sunset Cinema Club\u2019s Gourmet Cinema\u2014where dishes are served in sync with what plays on screen. It\u2019s pure magic. But it left us with one burning question:\n\n\ud83d\udc49 Why can\u2019t we bring this exact experience to everyone\u2019s living room?\n\nMost cravings don\u2019t strike at an exclusive pop-up; they hit mid-movie on the couch while you're unwinding and streaming your favorite shows around dinner time. \ud83d\udecb\ufe0f\ud83d\udcfa\n\nThat spark turned into our mission:\n\ud83d\udc40 See it.\n\ud83e\udd24 Crave it.\n\ud83d\udef5 Get it.\n\nToday, we're taking a massive leap toward making that reality: CraveLens has officially been selected for the Swiggy Builders Club! \ud83d\ude80\ud83e\udde1 \n\nJoining the Builders Club gives us direct access to Swiggy's developer ecosystem and MCP gateway. It allows us to bridge the visual inspiration on your screen directly with live restaurant menus, real-time availability, and doorstep delivery. \u26a1\ud83d\udce6\n\nCheck out what were building:\n\ud83d\udd17 <a href=\"https://cravelens.nishithp.page\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://cravelens.nishithp.page</a>\n\nA huge thank you to the Swiggy team for backing our vision. Now, the real build begins! \ud83d\udee0\ufe0f\u2728\n\nWhat is that one dish from a movie or TV show you\u2019ve always wanted to eat while watching? Drop it below! \ud83d\udc47",
+     "createdAt": "2026-10-12T19:47:38Z",
+     "parentId": null,
+     "userId": "10336384"
+    },
+    {
+     "body": "<p>I can't tell you how many times I've wished I had something like this! Congrats on an amazing launch! This is really awesome.</p>",
+     "createdAt": "2026-10-14T16:12:08Z",
+     "parentId": null,
+     "userId": "10298465"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:08Z",
+     "parentId": null,
+     "userId": "10336384"
+    },
+    {
+     "body": "<p>I\u2019ll go first: Remy\u2019s Ratatouille (Confit Byaldi) \ud83c\udf46\ud83c\udf45 <br>Ever since that scene with Anton Ego, I've wanted that exact dish delivered in 20 minutes.</p>",
+     "createdAt": "2026-10-12T19:56:15Z",
+     "parentId": null,
+     "userId": "10336384"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1271795",
+  "name": "Keysi",
+  "tagline": "See every shortcut of the app you're in",
+  "description": "Hold \u2318 in any Mac app to see every keyboard shortcut, read live from its menus. Click a row to run it. Free, no time limit. Keysi Pro ($14.99 once) teaches the ones you keep missing: a quiet reminder, spaced-repetition drills, and \"New\" marks after updates.",
+  "slug": "keysi",
+  "dailyRank": 28,
+  "votesCount": 66,
+  "commentsCount": 9,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Menu Bar Apps"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "603526"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey PH! \ud83d\udc4b\n\nKeysi started because I used to love CheatSheet, the little app that shows a Mac app's keyboard shortcuts when you hold a key, and it died on macOS Sonoma with nothing quite replacing it. Turned out the API it needed never actually broke, so I rebuilt the idea from scratch (no shared code).\n\nWhat it does:\n- Hold \u2318 and see every shortcut of the app you're in, read live from its menus. Every row is clickable: it's the actual menu, so clicking \"Export\u2026\" runs Export.\n- It tells you when macOS itself will intercept a shortcut before you ever press it, instead of leaving you wondering why nothing happened.\n- Ten built-in cheat sheets for shortcuts no menu lists (Figma, Slack, Notion, Obsidian, Excel, Word, Ghostty, Vim, tmux and Emacs), plus an editor for your own. Keysi looks inside your terminal, so the Vim and tmux sheets fire for Vim and tmux, not just the terminal app.\n- It reads the shortcuts you rebound yourself in Xcode, VS Code and JetBrains IDEs.\n- Localized into 9 languages.\n\nThe part people don't expect, in Keysi Pro: it notices when you pick something from a menu with the mouse that already has a shortcut, and quietly tells you once. Practice Mode then drills the ones you keep missing with spaced repetition. After an app updates, the overlay marks the shortcuts the update added, and if you keep clicking a command that has no shortcut at all, Keysi suggests a free key combination and where to set it.\n\nOne honest limitation: you can't type to search while holding \u2318 (a technical constraint, not a missing feature; happy to explain in the comments). A separate hotkey, \u21e7\u2318K, opens a proper searchable panel.\n\nPricing: the app is free, with no time limit and no account: the overlay, click-to-run, search, custom sheets and Markdown/PDF export. Keysi Pro is $14.99 once: Shortcut Coach, Practice Mode, and integrations like Raycast, Alfred and Shortcuts. You get 14 days of Pro when you grant access, and when they end the app keeps working as the free tier. macOS 14 or later.\n\nI'll be here all day; I'd love to hear what you think.",
+     "createdAt": "2026-10-06T15:55:36Z",
+     "parentId": null,
+     "userId": "603526"
+    },
+    {
+     "body": "<p>Keysi looks handy for muscle-memory apps where you forget half the shortcuts! Does it surface shortcuts for the frontmost app only, or can you peek at another app's map without switching to it?</p>",
+     "createdAt": "2026-10-14T14:08:43Z",
+     "parentId": null,
+     "userId": "969016"
+    },
+    {
+     "body": "<p>used cheatsheet for years, had no idea it died on sonoma until now lol. does the vim/tmux sheet work over ssh on a remote box or only local</p>",
+     "createdAt": "2026-10-14T12:28:36Z",
+     "parentId": null,
+     "userId": "9500314"
+    },
+    {
+     "body": "<p>Nice that Keysi shows every shortcut of whatever app I am in, so I can stop guessing and actually learn the keyboard flow.</p>",
+     "createdAt": "2026-10-14T09:03:47Z",
+     "parentId": null,
+     "userId": "3749277"
+    },
+    {
+     "body": "<p>I absolutely love it! I always needed something like this. </p>",
+     "createdAt": "2026-10-14T08:46:09Z",
+     "parentId": null,
+     "userId": "10351447"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1276786",
+  "name": "SupoClip",
+  "tagline": "Open-source AI clipper: long videos into viral shorts",
+  "description": "SupoClip turns long videos into vertical, captioned shorts. Paste a YouTube link or upload a file: AI transcribes it, picks the strongest 15\u201360s moments and scores each for virality, then crops 9:16 around the speaker and burns in word-synced captions and a hook title. Trim, split, merge and export for TikTok, Reels and Shorts. No watermarks. Open source (AGPL-3.0): self-host it free, or use the web app, iPhone app, REST API or MCP server.",
+  "slug": "supoclip",
+  "dailyRank": 29,
+  "votesCount": 65,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "GitHub"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "6113012"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b\n\nI'm Sami, and I built SupoClip.\n\nAI clipping tools are genuinely good, but your usage is metered by plan, some exports carry the platform's branding, and your content and workflow live on someone else's servers. I wanted the same pipeline without that, so I built it in the open.\n\nWhat it does: give it a long video (a YouTube link or a file) and it\n\u2022 transcribes it with word-level timestamps\n\u2022 has an LLM pick the strongest 15\u201360 second moments and score each one for hook, engagement, value and shareability\n\u2022 crops to 9:16 around the speaker's face, with split screens for wide shots\n\u2022 burns in word-synced animated captions and an AI-written hook title\n\u2022 optionally adds B-roll, then lets you trim, split or merge and export for TikTok, Reels or Shorts\n\nWays to use it:\n\ud83c\udf10 Hosted at supoclip.com, with nothing to set up\n\ud83d\udcf1 iPhone app on the App Store\n\ud83d\udc33 Self-host with docker-compose (AGPL-3.0, free, no monthly limits, works with Gemini, GPT, Claude or a local Ollama model)\n\ud83e\udd16 REST API + MCP server, so Claude, Cursor and other agents can clip videos for you\n\nNothing gets a watermark, on any plan.\n\n1,300+ people have starred it on GitHub so far. I'd love to hear what you'd clip with it and what's missing. I'll be here answering questions all day.",
+     "createdAt": "2026-10-11T14:50:46Z",
+     "parentId": null,
+     "userId": "6113012"
+    },
+    {
+     "body": "<p>When making shorts from a long videos can we choose what kind of moments we want or does the Ai pick them based on its own scoring?<br><br>Btw Congrats on the launch Sami.</p>",
+     "createdAt": "2026-10-14T09:40:02Z",
+     "parentId": null,
+     "userId": "9066518"
+    },
+    {
+     "body": "<p>Keeping trim, split and merge in the workflow matters even after AI has picked the clips. Good to see the final cut stays in the person's hands.</p>",
+     "createdAt": "2026-10-14T07:29:01Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275267",
+  "name": "Acyclic",
+  "tagline": "Rapid agent swarms for any agentic workflow",
+  "description": "Hand Acyclic a task from the CLI, the dashboard, or a coding agent over MCP. It splits the work across many agents, each in its own instant fork of the workspace, and merges the results, so long agentic workflows finish in a fraction of the time. Bring your own model keys.",
+  "slug": "acyclic",
+  "dailyRank": 30,
+  "votesCount": 65,
+  "commentsCount": 2,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "10336478"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt! I'm Ram, co-founder of Acyclic (YC F26). Agents can already do real work, but they still do it one step at a time, so long tasks take hours. Acyclic splits a task across many agents, each in its own instant fork of the workspace, and merges the results. Start one from the CLI, the dashboard, or a coding agent over MCP, using your own model keys. We'd love for you to try it and tell us what you'd run as a swarm.",
+     "createdAt": "2026-10-09T21:11:57Z",
+     "parentId": null,
+     "userId": "10332570"
+    },
+    {
+     "body": "<p>Been waiting for this to come out! massive W and so many more to come....</p>",
+     "createdAt": "2026-10-14T10:26:05Z",
+     "parentId": null,
+     "userId": "10108390"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279161",
+  "name": "Blade",
+  "tagline": "Find your first customers hiding in your inbox",
+  "description": "You\u2019ve spent years meeting people. A lot of those relationships are now buried in your inbox. Blade helps you find them again. Filter by how often you\u2019ve emailed, when you last connected, and whether someone\u2019s outside your company. With one click, send each person an individual email through your own Gmail. Whether you\u2019re launching something, asking for feedback, or inviting people to an event, you\u2019re starting with people who already know you.",
+  "slug": "blade-2ada5263-6487-4ffb-be26-2b5ac48f64b2",
+  "dailyRank": 31,
+  "votesCount": 64,
+  "commentsCount": 6,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Email"
+    },
+    {
+     "name": "Email Marketing"
+    },
+    {
+     "name": "Books"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "4320088"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Looking at Blade \u2014 pulling first customers out of an existing inbox is a smart angle! When someone replies to a cold note, does Blade keep that thread tagged as a lead, or does it drop back into normal mail once they answer?</p>",
+     "createdAt": "2026-10-14T14:08:07Z",
+     "parentId": null,
+     "userId": "969016"
+    },
+    {
+     "body": "<p>Does it consider the context of previous conversations, or does it mainly organize contacts based on email activity?</p>",
+     "createdAt": "2026-10-14T10:37:13Z",
+     "parentId": null,
+     "userId": "10110342"
+    },
+    {
+     "body": "<p>can it also proactively check the spam box? asking because sometimes, for no reason, important emails go there and you can find them when it's too late</p>",
+     "createdAt": "2026-10-14T09:51:21Z",
+     "parentId": null,
+     "userId": "10277031"
+    },
+    {
+     "body": "<p>Hey Product Hunt \u2014 I\u2019m Paul, cofounder of KAYAK and now Blade, which I built with Yasser Bashir, CEO of Arbisoft.<br><br>The idea started with my first book, <em>The Meeting Book</em>. I wanted to tell people about it and realized the people most likely to care were probably already in my inbox. I just needed a way to find them.<br><br>So we built Blade.<br><br>I used it to find everyone I\u2019d exchanged at least five emails with over the previous year. That surfaced about 400 people. I reviewed the list, trimmed it to 209, and sent each person an individual email through my Gmail via one screen in Blade.<br><br>45 wrote back asking for more information, and I also got 21 amazon reviews written! That surprised me!<br><br>That\u2019s the idea behind Blade: help you rediscover people you already know, choose who you want to reach, and send them a normal email from your own account.<br><br>I\u2019ve since used it for investor updates, event invitations, and product feedback.<br><br>We\u2019re making Blade free for the next 30 days. Give it a try at <a href=\"http://blade.net\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">blade.net</a>\u2014I\u2019d love to hear who you reconnect with.</p>",
+     "createdAt": "2026-10-13T19:07:31Z",
+     "parentId": null,
+     "userId": "4320088"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1274156",
+  "name": "OpenCouncil",
+  "tagline": "Voice rooms where your team and AIs debate together",
+  "description": "Put GPT, Gemini, Grok and your own agents in one live voice room with your team. They answer, push back on each other and never talk over you. A Scribe writes the decisions. Make the room public and anyone can listen, chat or take the stage. Works in your browser and Google Meet. Free to start: 2,000 credits, no card.",
+  "slug": "opencouncil",
+  "dailyRank": 32,
+  "votesCount": 64,
+  "commentsCount": 4,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Audio"
+    }
+   ]
+  },
+  "makers": [],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt \ud83d\udc4b I'm Douglas.</p><p></p><p>Think Clubhouse, but some of the speakers are AIs.</p><p></p><p>I kept pasting the same question into three AI tabs and then retyping the answers for my team. So we built OpenCouncil: a voice room where your team and several AIs talk it out together.</p><p></p><p>What's different:</p><p>\u2022 Multiplayer: your whole team in the room, not just you.</p><p>\u2022 Mix models: each agent can run on a different AI, with its own name, voice and role. Bring your own agent too.</p><p>\u2022 Turn-taking: OpenCouncil decides who speaks next, and the AIs never talk over a human.</p><p>\u2022 Open rooms: flip a room to public. Anyone can listen, chat and react without an account, then ask for the floor.</p><p>\u2022 Works in your browser and in Google Meet. Discord too. Zoom is next.</p><p></p><p>Jump into a live room, no signup: <a href=\"https://opencouncil.build/en/discovery\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://opencouncil.build/en/discovery</a></p><p>Want your own council? It's free to start: 2,000 credits, no card: <a href=\"https://opencouncil.build\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://opencouncil.build</a></p><p></p><p>I'd love brutal feedback: which room would you open first?</p>",
+     "createdAt": "2026-10-08T19:12:52Z",
+     "parentId": null,
+     "userId": "4066434"
+    },
+    {
+     "body": "<p>I call these rooms \"Boiler-rooms\" in my team \ud83d\ude38 This is definitely the future. One question is this for IRL or Google meets etc?</p>",
+     "createdAt": "2026-10-14T08:29:40Z",
+     "parentId": null,
+     "userId": "445755"
+    },
+    {
+     "body": "<p>I like that the team can join the conversation instead of just reading AI-generated responses. It makes discussions feel more interactive. </p>",
+     "createdAt": "2026-10-14T07:49:00Z",
+     "parentId": null,
+     "userId": "9313459"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279777",
+  "name": "RoleFit",
+  "tagline": "Tailor every job application without starting from scratch",
+  "description": "Hiring is slow, competition is tough, and tailoring every application takes time. RoleFit helps job seekers do more with less effort. Powered by Gemini AI, it analyzes job descriptions, identifies strengths and skill gaps, and creates personalized, ATS-friendly resumes, cover letters, and LinkedIn outreach messages. Refine documents with an AI copilot, export PDF/DOCX files, and track applications in one place. Built on Google Cloud Run.",
+  "slug": "rolefit",
+  "dailyRank": 33,
+  "votesCount": 64,
+  "commentsCount": 4,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Career"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "9876516"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt! \ud83d\udc4b\n\nI'm excited to launch RoleFit, an AI-powered job application copilot built with Google Gemini and deployed on Google Cloud Run! \ud83d\ude80\n\n\ud83d\udc94 Job hunting in 2026 is exhausting.\n\nHiring has slowed. Companies are more cautious. Job seekers can spend weeks or months applying, tailoring resumes, preparing for interviews, and waiting for responses that may never come.\n\nAnd here's the frustrating part: even when you're qualified, getting your experience across in an application can feel like an entirely separate job.\n\nI've experienced that frustration myself.\n\nEvery promising opportunity meant dissecting another job description, rewriting my resume, crafting a cover letter, reaching out to recruiters, and keeping track of everything.\n\nI realized I was spending so much time preparing applications that I had less time for networking, learning, and actual interview preparation.\n\nThat's why I built RoleFit.\n\nI can't control how quickly companies hire. But I wanted to make the application process faster, more organized, and more personalized.\n\n\ud83d\ude80 What RoleFit does today\n\n\ud83c\udfaf AI Fit Analysis: Understand how your experience matches a job, including strengths and skill gaps.\n\n\ud83d\udcc4 Tailored Resumes: Generate role-specific, ATS-friendly resumes based on your experience.\n\n\u2709\ufe0f Cover Letters &amp; Outreach: Create personalized cover letters and LinkedIn messages.\n\n\u2728 AI Copilot: Refine your application documents using natural-language instructions.\n\n\ud83d\udcca Application Tracker: Manage applications and track progress through different hiring stages.\n\n\ud83d\udce5 PDF &amp; DOCX Exports: Download your documents for review and submission.\n\n\ud83d\udcc8 Some encouraging early traction\n\nRoleFit started as a solution to my own problem, but others have begun using it too.\n\nSo far, Google Analytics has recorded:\n\n\u2022 95 users\n\u2022 524 AI generation starts\n\u2022 322 document download events\n\u2022 52 successful AI refinement events\n\nThese are usage events, not unique completed applications, but it's encouraging to see people using the tools I built.\n\n\ud83c\udfaf And what about actual hiring progress?\n\nAcross my own job search and those of other RoleFit users, we've seen RoleFit-assisted applications progress to recruitment stages including assessments, recruiter conversations, and interviews with companies such as Meta, Google, Morgan Stanley, Amazon, Revolut, Chegg, and Thomson Reuters.\n\nThese aren't guaranteed outcomes or company endorsements. I also can't claim RoleFit alone caused that progress. But seeing applications move forward in a challenging hiring environment is meaningful to me.\n\n\u2601\ufe0f Built with Google Cloud Run + Gemini\n\nRoleFit uses Gemini AI to analyze job requirements and create personalized application materials.\n\nThe application is deployed on Google Cloud Run, and I'm excited to share it as part of today's Product Hunt Cloud Run Hackathon.\n\n\u2764\ufe0f What I'm building toward\n\nI believe job seekers should spend less time formatting documents and more time pursuing opportunities, building relationships, and preparing for interviews.\n\nRoleFit is still evolving. My focus is improving accuracy, preserving each candidate's authentic experience, and making the application process less overwhelming.\n\nI'd love your feedback:\n\nWhat's the hardest part of job hunting right now?\n\nIs it finding relevant opportunities, tailoring applications, getting responses, or staying motivated through the process?\n\nI'd genuinely love to hear your experiences and what you'd like RoleFit to do better.\n\nThanks for checking out RoleFit and supporting an independent builder! \ud83d\ude80",
+     "createdAt": "2026-10-14T05:07:37Z",
+     "parentId": null,
+     "userId": "9779511"
+    },
+    {
+     "body": "<p>From an idea to a live product! \ud83d\ude80\u2764\ufe0f</p><p>Building RoleFit has been an incredible journey, driven by one simple belief: <em>job hunting is already hard. Applying shouldn't have to be.</em></p><p>Seeing RoleFit help job seekers create better applications and progress toward interviews makes all the late nights worthwhile.</p><p>Huge shoutout to my co-founder for the dedication and hard work behind this launch! \ud83d\ude4c</p><p>We're just getting started! \ud83d\udd25</p><p><em>Job seekers, what's ONE thing you'd change about the application process?</em></p><p>Would love your honest feedback! \u2764\ufe0f</p>",
+     "createdAt": "2026-10-14T10:22:08Z",
+     "parentId": null,
+     "userId": "9876516"
+    },
+    {
+     "body": "<p>Sahithi, keeping the tailored documents beside the application tracker makes sense. Once someone is applying to several roles, remembering which version went where becomes its own job.</p>",
+     "createdAt": "2026-10-14T07:30:22Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:09Z",
+     "parentId": null,
+     "userId": "9779511"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279216",
+  "name": "NoteHouse",
+  "tagline": "Private lending, without the paperwork headache.",
+  "description": "NoteHouse makes private lending easier. Whether you\u2019re lending to family, helping a friend, or managing multiple loans, you shouldn\u2019t need spreadsheets to keep track of everything. Create loan agreements, set repayment terms, track interest and payments, and see exactly what\u2019s owed. Both borrowers and lenders stay on the same page, with all their documents and payment history in one place.",
+  "slug": "notehouse",
+  "dailyRank": 34,
+  "votesCount": 63,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Fintech"
+    },
+    {
+     "name": "Finance"
+    },
+    {
+     "name": "Personal Finance"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "305261"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt!\n\nI started building NoteHouse because I have several loans with family members, and keeping track of everything was more complicated than it needed to be. Between repayment schedules, interest, agreements, and bank transfers, there wasn\u2019t an easy way for all of us to see where things stood.\n\nI figured we probably weren\u2019t the only ones dealing with this.\n\nNoteHouse lets you create and manage private loans, keep your documents organized, track payments, and give both sides a clear picture of what\u2019s owed.\n\nWe\u2019re starting with loans between family, friends, and private lenders, but I think there\u2019s a much bigger opportunity to make private lending easier and more accessible.\n\nI\u2019d love to hear how others are managing private loans today and what you\u2019d want to see us build next.\n\nThanks for checking it out!",
+     "createdAt": "2026-10-13T15:54:40Z",
+     "parentId": null,
+     "userId": "305261"
+    },
+    {
+     "body": "<p>Showing both people the same repayment history seems like the useful part here. With a family loan, being clear about where things stand can save an awkward conversation, Adam.</p>",
+     "createdAt": "2026-10-14T07:32:07Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:09Z",
+     "parentId": null,
+     "userId": "305261"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275986",
+  "name": "Screenwell.ai",
+  "tagline": "An AI interviewer that runs your first-round screening",
+  "description": "Screenwell screens every applicant for you: Luna holds a short screening call through a link in your job ad, on Google Meet or Teams, and hands you a ranked shortlist with scores and quotes. 14 days free, no card needed.",
+  "slug": "screenwell-ai",
+  "dailyRank": 35,
+  "votesCount": 63,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Hiring"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Human Resources"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10335138"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi Product Hunt,<br><br>We built Screenwell because the first round of hiring is where everything slows down. Applicants wait days for a screening call, recruiters repeat the same questions all day, and good people get hired somewhere else in the meantime.<br><br>Screenwell hands that first round to Luna, an AI interviewer:<br><br>- She joins your Google Meet or Teams call, or interviews a candidate the moment they apply through a link in your job ad.<br>- She pitches your company, answers the candidate's questions, asks follow-ups and can run a practical task.<br>- You get a scorecard for every candidate, with each score linked to the quote it's based on and the recording.<br><br>A few things we cared about while building it:<br><br>- Candidates know it's an AI. Luna says so at the start, and the interview is recorded with their consent.<br>- Same structure for everyone. Every candidate gets the same criteria, Luna never scores personal characteristics, and your team makes the decision.<br>- Harder to cheat. Follow-up questions and integrity signals, like leaving the tab or an answer that sounds read out, are flagged and linked to that moment in the recording.<br>- 30+ languages, so candidates can interview in their own.<br><br>You can try it free for 14 days, and you don't need a card.<br><br>We'd love your feedback, especially from recruiters and hiring managers. Would you let an AI run your first round? What would make you trust it?</p>",
+     "createdAt": "2026-10-10T15:32:35Z",
+     "parentId": null,
+     "userId": "10335138"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:15Z",
+     "parentId": null,
+     "userId": "10335138"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1226825",
+  "name": "CSuite",
+  "tagline": "All-in-one suite for AI content creation, fully private.",
+  "description": "All-in-one AI suite for text, images, audio, and video \u2014 local or cloud models, on your machine, fully private. One-time payment. No login. No subscriptions.",
+  "slug": "csuite",
+  "dailyRank": 36,
+  "votesCount": 63,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Privacy"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "552112"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt! \ud83d\udc4b\n\nCSuite is my third AI product. I built Rytr (AI writing) and then Fliki (script to voiceover and video), and both taught me the same lesson: people don't create in one format. A blog post becomes a voiceover, the voiceover becomes a video, and you end up juggling separate tools, subscriptions, and file dumps.\n\nCSuite is what that lesson adds up to: a desktop app where text, image, audio, and video each get a full workspace, and a workflow canvas chains them into one connected flow.\n\nThe other thing I took seriously is ownership. Almost every AI tool lives on someone's servers. In CSuite, generations save to a folder on your own disk, local models run entirely on your machine, and there's no account to create.\n\nWe're a small bootstrapped team, and the roadmap follows what creators actually chain together. Would love your feedback, especially from anyone who's tired of tool-hopping between formats. Ask me anything!",
+     "createdAt": "2026-08-19T14:02:34Z",
+     "parentId": null,
+     "userId": "552112"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278797",
+  "name": "SlashDocs by Razorpay",
+  "tagline": "Self-hosted collaboration layer for agent-written HTML",
+  "description": "SlashDocs is a self-hosted, open-source collaboration hub for AI agents. Agents publish real, interactive HTML documents, not plain text, and your team comments directly on the live doc. The agent reads that feedback and updates the same file in place, no new file every round, no feedback scattered across Slack or email. Self-hosted, agent-agnostic (works over MCP with any agent), and already powering about half of all documents created inside Razorpay.",
+  "slug": "slashdocs-by-razorpay",
+  "dailyRank": 37,
+  "votesCount": 63,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10348042"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b We\u2019re the team behind SlashDocs at Razorpay.\n\nHere\u2019s the problem we kept running into: agents got really good at creating things, decks, dashboards, reports, as real interactive HTML. But the moment a team needed to work on that together, it fell apart. Feedback happened somewhere else (Slack, email), and getting a fix back in meant a brand new file, never the one anyone had actually reviewed.\n\nSlashDocs fixes that part specifically:\n\ud83d\udcac Comment directly on the live document, any line, chart, or cell\n\ud83e\udd16 The agent reads that comment and updates the same file in place, no new copies\n\ud83d\udda5\ufe0f Self-hosted, run it on your own infrastructure\n\ud83d\udd0c Agent-agnostic, works with any MCP-speaking agent (Claude Code, Cursor, Copilot, Gemini CLI)\n\nWe ran this inside Razorpay for a full quarter before opening it up, it\u2019s now behind roughly half of all documents created internally. And now it's live and open source for anyone to self-host.\n\nRepo\u2019s here if you want to dig into the code: <a href=\"https://github.com/razorpay/slashdocs\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://github.com/razorpay/slas...</a>\nOr try it instantly without installing anything: <a href=\"https://tryslashdocs.razorpay.com/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://tryslashdocs.razorpay.com/</a>\n\nWould genuinely love feedback, especially from anyone running agent workflows across a team already.",
+     "createdAt": "2026-10-13T09:20:42Z",
+     "parentId": null,
+     "userId": "10346655"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275575",
+  "name": "T-Scriptor",
+  "tagline": "Be in the lecture. T-Scriptor takes the notes.",
+  "description": "T-Scriptor transcribes your lectures on your mac, So the audio never leaves it. After class it writes the notes: key concepts, what's due and the papers your professor mentioned. Before the exam it pulls the whole course together. The Mac app's live and you can download it on https://t-scriptor.app, the Iphone app is in Beta.",
+  "slug": "t-scriptor",
+  "dailyRank": 38,
+  "votesCount": 62,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Notes"
+    },
+    {
+     "name": "Meetings"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10337172"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt \ud83d\udc4b</p><p></p><p>I'm Bhuvanesh, a grad student, and this is T-Scriptor.</p><p></p><p>I couldn't listen and take notes at the same time, and I kept missing the papers my professors mentioned in passing. So I built something that sits in on the lecture for me, and now I just pay attention.</p><p>What it does: \u2022 <strong>Sits in on the lecture.</strong> Transcription runs on your Mac, so the recording never leaves it. \u2022 <strong>Writes the notes when class ends.</strong> Key concepts, what's due (with dates) and the references, including the paper your prof only half-named. It heard \"the Vaswani paper from 2017\" and found <em>Attention Is All You Need</em>. \u2022 <strong>Remembers the course.</strong> Later notes build on earlier lectures, and exam prep pulls the themes, what your prof stressed and a quiz into one sheet.</p><p></p><p>It's a Mac app today, with an iPhone beta. Free covers 10 lectures a month; Plus is <strong>$5.99/month</strong> for your first three months.</p><p></p><p>Visit - <a href=\"https://t-scriptor.app\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://t-scriptor.app</a> today!</p><p></p><p>Two honest notes: transcription covers 25 languages for now, and please only record where your class allows it.</p><p>Tell me where it falls short. I'm here all day.</p><p></p><p><strong>                                                                                          </strong></p><p><strong>                                                                                       Blot</strong> says hi!</p><img src=\"https://ph-files.imgix.net/9e8c706d-69a0-48d1-af65-4b981a06524d.gif?auto=compress,format&amp;codec=mozjpeg&amp;cs=strip\" alt=\"Image\" style=\"max-width: 100%\">",
+     "createdAt": "2026-10-10T05:46:29Z",
+     "parentId": null,
+     "userId": "10337172"
+    },
+    {
+     "body": "<p>does it need wifi the whole lecture or can it transcribe offline and sync notes after class</p>",
+     "createdAt": "2026-10-14T12:34:52Z",
+     "parentId": null,
+     "userId": "9500314"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:09Z",
+     "parentId": null,
+     "userId": "10337172"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273797",
+  "name": "Etchv",
+  "tagline": "invisible forensic watermarks in images, PDFs and videos",
+  "description": "Etchv embeds invisible forensic watermarks into images, PDFs, and short videos that survive screenshots, format changes, and compression. https://etchv.com/#try-it Key Features \u2022 A unique forensic watermark, written into the pixels by a neural net model, and made to survive resizing, cropping and compression. \u2022 Flexible Integration: Supports a direct developer API alongside official SDKs \u2022 No-Code Automation: Integrates with Zapier, n8n, and Make. \u2022 Live Demo: https://etchv.com/demo/trace",
+  "slug": "etchv",
+  "dailyRank": 39,
+  "votesCount": 62,
+  "commentsCount": 0,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Google Cloud Run"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10330837"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:09Z",
+     "parentId": null,
+     "userId": "10330837"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279751",
+  "name": "PixLate",
+  "tagline": "Translate documents. Preserve artwork and layout.",
+  "description": "PixLate translates PDFs, scans, and illustrated pages while preserving their artwork and layout. It combines AI translation with side-by-side review, correction tools, background processing, and PDF export. Projects stay on your device with pay-as-you-go credits.",
+  "slug": "pixlate",
+  "dailyRank": 40,
+  "votesCount": 62,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Languages"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10317914"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt! \ud83d\udc4b I\u2019m Krishna, the maker behind PixLate.\n\nThe idea started with a simple bedtime routine. I wanted to read illustrated children\u2019s stories to my kid in Nepali -- the language I grew up speaking. Finding physical books was tough, and running digital pages through standard translators completely destroyed the layouts, covered the artwork, and made them unreadable.\n\nThat frustration turned into PixLate: a dedicated workspace for translating content where the visual layout matters just as much as the words -- from comics and children's books to scanned diagrams and technical manuals.\n\nMost AI translation tools promise \"one-click magic,\" but anyone who has used them knows the reality: AI still misinterprets character names, drops tiny labels, or misaligns text boxes. That\u2019s why review and human-in-the-loop editing are the core of PixLate:\n* Keeps Layouts Intact: Translate across 100+ languages without stripping away original formatting, typography, or artwork.\n* Dual Engines: Visual AI for scanned artwork/comics, plus Text Layer mode for selectable vector PDFs.\n* Side-by-Side Review: Easily compare against the original page, adjust styles, and fix phrasing before exporting a clean, usable file.\n* Local-First &amp; Private: Your files stay stored on your device; cloud processing is used strictly for the AI generation.\n* Pay-as-You-Go: No recurring monthly subscriptions. Free credits are included at sign-up so you can test it immediately.\n\nI built this to solve a personal pain point, so your feedback directly shapes where we take the tool next. What kinds of visual documents or media have you struggled to translate in the past? Excited to answer questions and hear your thoughts! \ud83d\ude80",
+     "createdAt": "2026-10-14T04:47:07Z",
+     "parentId": null,
+     "userId": "10317914"
+    },
+    {
+     "body": "<p>keeping the artwork while translating is the hard part \ud83d\udc40 what happens when the german is 30% longer than the english and doesn't fit the speech bubble anymore? shrink the font or reflow lol</p>",
+     "createdAt": "2026-10-14T14:08:47Z",
+     "parentId": null,
+     "userId": "9994906"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:13Z",
+     "parentId": null,
+     "userId": "10317914"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279741",
+  "name": "WriterzRoom",
+  "tagline": "Governed multi-agent AI content for regulated industries",
+  "description": "Enterprise Content Intelligence platform. A multi-agent pipeline governed by vertical controls, template schema, and brand voice execution. Every generation is structured, validated, and review-ready before delivery. Runs fully serverless on Google Cloud Run.",
+  "slug": "writerzroom",
+  "dailyRank": 41,
+  "votesCount": 62,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Marketing"
+    },
+    {
+     "name": "SaaS"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "2435493"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p><strong>100% serverless on Google Cloud: 9 Cloud Run services (4 product, 5 internal ops agents), zero VMs to manage.<br></strong><br>Hey Product Hunt, I'm Jason, maker of <strong>WriterzRoom</strong>.<br><br>Generic AI writers produce text. Regulated teams need drafts a reviewer can sign off on. WriterzRoom runs each request through an <strong>8-agent LangGraph</strong> pipeline, constrained by template schema and vertical controls, and held at a mandatory Quality Gate until it passes. Professional and Enterprise plans add a claim-by-claim evidence record.</p><p></p><p>Our checks are deterministic rules, and a suite of documents with planted defects runs on every pull request: 23 of 23 seeded defects caught, 0 of 13 clean documents blocked. You can check a draft free, no credits needed.</p><p></p><p>The video above is an animated walkthrough with illustrative data.<br><br><strong>How we use Cloud Run:</strong></p><ul><li><p><strong>writerzroom-backend-api:</strong> FastAPI + LangGraph orchestration. Scales with generation and publishing load, and Cloud Run's request timeouts handle long-running agent chains.</p></li><li><p><strong>writerzroom-frontend-web:</strong> Next.js 15 (1 vCPU / 1 GiB, 1\u21925 instances, health-checked startup probe), serving writerzroom.com.</p></li><li><p><strong>writerzroom-mcp </strong>and<strong> writerzroom-corpus-mcp:</strong> two MCP servers that expose platform tools and the content corpus to the agents.</p></li><li><p><strong>Internal ops, same stack:</strong> five agents (analytics, competitive intel, prospect research, outreach, content pipeline) that I use to run WriterzRoom itself, deployed the same way as the product.</p></li><li><p><strong>Wiring: </strong>Cloud Build CI/CD (a regression suite gates every deploy) \u2192 Artifact Registry images \u2192 Cloud Run. Secret Manager for every credential, a Serverless VPC connector to private Cloud SQL Postgres, per-service IAM service accounts, and Cloud Scheduler for auto-publishing.</p></li></ul><p><strong>Why Cloud Run:</strong> elastic under load, one deploy path for every service, and no servers to patch.<br></p><p>Happy to dig into any of it: how we run LangGraph chains on Cloud Run, the validation layer, or how the services stay wired together. What would you want to see next?</p>",
+     "createdAt": "2026-10-14T04:35:23Z",
+     "parentId": null,
+     "userId": "2435493"
+    },
+    {
+     "body": "<p>Jason, the claim-by-claim evidence record is the detail I'd look at first. A reviewer needs something they can check when deciding whether a draft is ready to publish.</p>",
+     "createdAt": "2026-10-14T07:32:51Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:05Z",
+     "parentId": null,
+     "userId": "2435493"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279613",
+  "name": "Diagramly",
+  "tagline": "Sketch systems at the speed you think",
+  "description": "Hand-drawn diagrams and cheat sheets you can type or describe. Write Client -> API -> DB, or ask the AI, and it's drawn and laid out. Six looks, from paper to blueprint to neon. Present as slides, embed in docs, export PNG, SVG or PDF. Free, no sign-up.",
+  "slug": "diagramly-2",
+  "dailyRank": 42,
+  "votesCount": 61,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Design Tools"
+    },
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Digital Art"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "8224879"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b\n\nI wanted a tool that would help me **think through system design faster during interviews**. Most diagramming tools make you spend too much time dragging boxes, connecting arrows, and arranging everything before you can focus on the actual problem.\n\nSo I built **Diagramly**, a whiteboard where you can type your ideas, let AI turn them into diagrams, and get straight to solving the problem.\n\nFor example, type:\n\n`Client -&gt; API -(HTTPS)-&gt; Orders, Payments -&gt; Orders DB`\n\nPress Enter, and you get a clean, hand-drawn diagram with the layout handled for you. You can keep editing it with text, drag-and-drop, drawing tools, or AI.\n\nHere's what makes Diagramly different:**\n\n- \u26a1 Go from idea to diagram in seconds:** Describe a system in plain English or use a simple typing syntax. AI turns your ideas into diagrams you can refine, rather than making you build everything from scratch.\n- \ud83e\udd16 AI that works with your canvas:** Ask it to create a system, add a component, restructure a flow, or change an existing diagram. Every AI change can be reverted.\n- \ud83c\udfaf Views built for presenting:** Create multiple views on the same canvas, each highlighting a different part of your system. Switch between them with keyboard shortcuts during a presentation, keeping the audience focused on what matters.\n- \ud83c\udfac Turn diagrams into presentations:** Press `Shift + P` to turn your frames into slides that reveal information step by step.\n- \ud83c\udfa8 Six visual styles:** Switch between paper, notebook, blueprint, chalkboard, whiteboard marker, and ink &amp; neon with one click.\n- \ud83d\udcdd Cheat sheets and visual notes:** Combine diagrams with bullets, steps, flows, tables, and takeaways. Publish them as shareable cheat sheets.\n- \ud83c\udf10 Embed and share anywhere:** Share view-only links or embed diagrams in docs, wikis, websites, and social media posts.\n- \ud83d\udce4 Export your work:** Download as PNG, SVG, or PDF, or export to Mermaid. Pro also unlocks slide, GIF, and video exports.\n\nWhether you're preparing for a system design interview, explaining an architecture to your team, creating technical documentation, or making a visual post for social media, the goal is the same: **spend less time drawing and more time thinking.**\n\nDiagramly is free to use with no sign-up required, and your diagrams stay in your browser.\n\nPro ($6/month) adds unlimited cloud diagrams, 200 AI messages per day, version history, public pages, templates, one-click Tidy layout, and additional export options.\n\nI'd love to hear your feedback!\n\nWhat would you want to create with Diagramly, and what's missing from the current typing syntax?",
+     "createdAt": "2026-10-14T00:29:25Z",
+     "parentId": null,
+     "userId": "8224879"
+    },
+    {
+     "body": "<p>six looks from paper to neon \ud83d\udc40 which one do people actually pick? and can i bring my own colors and font so it matches a brand, or is it neon or nothing lol \ud83e\udef6</p>",
+     "createdAt": "2026-10-14T14:10:08Z",
+     "parentId": null,
+     "userId": "9994906"
+    },
+    {
+     "body": "<p>Every system design starts with a simple idea.<br><br>But turning that idea into a proper diagram? That\u2019s where the time goes.<br><br>You start with a few boxes, drag them around, fix arrows, rearrange services, and before you know it, you\u2019ve spent 40 minutes just drawing.<br><br>So I built <strong>Diagramly</strong> to make that process easier.<br><br>Just describe your system in plain English, and it turns your idea into a diagram with services, databases, queues, and labelled connections, organized into sections.<br><br>And you can keep refining it through conversation:<br>\u201cAdd a Redis cache in front of the orders DB.\u201d<br>\u201cScale the matching service to 3 replicas.\u201d<br>\u201cAdd an SLO checklist next to the API gateway.\u201d<br><br>It updates the existing diagram instead of starting from scratch.<br>There's also a Tidy feature to organize complex diagrams, route arrows around components, and make everything easier to follow.<br><br>Once you're happy with it, share a link with your team. The diagram is stored in the URL, so anyone can open it without signing up.<br><br>I went with a hand-drawn style intentionally. System designs are rarely perfect on the first try, and diagrams should feel easy to change, question, and improve.<br><br>That's what design reviews are all about.<br><br><strong>Diagramly is free to start and runs right in your browser.</strong><br><br>What would you build first?</p>",
+     "createdAt": "2026-10-14T09:30:12Z",
+     "parentId": null,
+     "userId": "8224879"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273902",
+  "name": "Dashrendr",
+  "tagline": "Build dashboards visually, embed them anywhere",
+  "description": "Dashrendr is a visual dashboard builder made for embedding in your SaaS. Drag charts onto a grid and have a dashboard ready in minutes, then get data in two ways: connect a data source, or POST JSON from your backend. Your app already knows who's logged in, so each customer only sees their own data, with no row-level security to set up. And when someone wants a chart changed, anyone on the team can do it in the builder, no code or new deployment needed.",
+  "slug": "dashrendr",
+  "dailyRank": 43,
+  "votesCount": 61,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "SaaS"
+    },
+    {
+     "name": "Business Intelligence"
+    },
+    {
+     "name": "Data Visualization"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9491840"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt \ud83d\udc4b<br></p><p>I'm Paloma and the person behind <strong>Dashrendr</strong>. Last year I decided to finally build something of my own.</p><p></p><p>In every project I've worked on, at some point we had to add analytics. And it never stopped there: managers (at lest mine) kept changing the chart visuals, the data to show kept changing, and every tweak meant updating queries and pushing a new deployment.</p><p></p><p>What it does:</p><ul><li><p>Visual builder: drag charts onto a grid and have a dashboard ready in minutes. Anyone on the team can make changes, no code or deployment needed.</p></li><li><p>Two ways to get data in: connect a data source, or POST JSON from your backend.</p></li><li><p>Built for multi-tenant SaaS: your app already knows who's logged in, so each customer only sees their own data, with no row-level security to configure.</p></li><li><p>Embed dashboards in your app or share them with your team.</p></li><li><p>Plenty of chart types and custom themes, so dashboards match your product.</p></li></ul><p>For the launch: <strong>18% extra off </strong>any plan with code <strong>PRODUCTHUNT</strong>, until November 14.</p><p></p><p>It's early and I'm looking for my first users, so I'd really appreciate honest feedback. I'm also deciding what to build next, and I don't want to add AI just for the sake of it:</p><ul><li><p>Would you use the connectors, the API, or both?</p></li><li><p>More connectors, or AI that builds a dashboard from a simple description (like \"monthly revenue by plan\")? Which would you actually use?</p></li><li><p>What would stop you from trying it?</p></li></ul><p>Thanks for checking it out!</p><p>Paloma</p>",
+     "createdAt": "2026-10-08T14:41:42Z",
+     "parentId": null,
+     "userId": "9491840"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:14Z",
+     "parentId": null,
+     "userId": "9491840"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279319",
+  "name": "AURORA Lifeline",
+  "tagline": "Know who a cyclone will cut off, before the roads close",
+  "description": "Turns the official IMD cyclone bulletin into a district plan: which PHCs, hospitals and villages will lose road access, how likely, when, and what to move first. Gemini reads the bulletin, 1,000+ WeatherNext and ECMWF storm futures run over every road, and code inserts every number. Officers approve everything. Open source, misses published.",
+  "slug": "aurora-lifeline",
+  "dailyRank": 44,
+  "votesCount": 61,
+  "commentsCount": 2,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "GitHub"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10337025"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt \ud83d\udc4b\n\nEvery cyclone season in India, warnings get better and evacuations save lives. But after landfall the roads flood, bridges and culverts close, and villages lose their only road to a hospital. A woman in labour, a snakebite, a dialysis patient: for days, help can't get through.\n\nThree days out, a district control room knows where the storm is going. What it doesn't know is which health centre will be cut off, how likely that is, when, and what to move there before the roads close. Today that's worked out by phone calls and experience.\n\nAURORA Lifeline starts from the official IMD bulletin and answers those four questions:\n\u2022 Gemini reads the bulletin PDF and quotes every value; code checks each one against the PDF.\n\u2022 Over a thousand storm futures from Google DeepMind WeatherNext and ECMWF, aligned to IMD's track, put wind, rain and surge on 5.4 lakh road segments, hour by hour.\n\u2022 For each future, a fast network search finds when every village and health facility loses its last road to a public hospital. You get a chance and a time window, never a falsely precise hour.\n\u2022 It ranks where to stage earthmovers, each with a deadline and its reason.\n\u2022 Gemini drafts the advisory in Telugu, Hindi or English, but it never writes a number: code inserts every figure. It's read aloud with Gemini TTS and exported as a CAP alert, and an officer approves before anything goes out.\n\u2022 An agent built with Google's Agent Development Kit answers officers' questions from the run's facts, with citations.\n\nTry the replay of Cyclone Montha (Andhra Pradesh, Oct 2025) exactly as it looked 62 hours before landfall, then Cyclone Dana in Odisha. Geography is configuration, so a new state is a config file and a map extract.\n\nHow it evolved: we started with \"which roads flood?\" and ended with \"which PHC loses its last road, and when?\". That shift made us build our own road network instead of using routing APIs. It also made us strict about uncertainty: a chance and a window, labelled priors, and validation against Sentinel-1 radar with our misses published on the Proof page.\n\nIt's open source (Apache-2.0) and was selected in the top 10 of Track 05 at Build with AI: Code for Communities. We'd love feedback, especially from anyone in disaster management or public health. What would make this useful in your district?",
+     "createdAt": "2026-10-13T17:36:00Z",
+     "parentId": null,
+     "userId": "10337025"
+    },
+    {
+     "body": "<p>Love that AURORA Lifeline turns the cyclone bulletins into a clear cutoff forecast, so responders can see who gets isolated before the roads close.</p>",
+     "createdAt": "2026-10-14T09:06:04Z",
+     "parentId": null,
+     "userId": "3749277"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:11Z",
+     "parentId": null,
+     "userId": "10337025"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1272193",
+  "name": "FamRelay",
+  "tagline": "Share facts between AI assistants \u2014 only what you approve",
+  "description": "AI assistants are islands. Yours knows the plumber's coming Tuesday; your wife's knows nothing, and you're back to being the messenger. It's a neutral relay layer between AI assistants. Tell your assistant to share specific facts with specific people \u2014 \"let Sam know the plumber's coming 8 to 10\" \u2014 and their assistant picks it up. Nothing moves until you approve what's sent. It also works solo: add the connector to two or more assistants you own \u2014 Claude at work, ChatGPT at home \u2014 and relay facts",
+  "slug": "famrelay",
+  "dailyRank": 45,
+  "votesCount": 60,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Family"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10322836"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey PH \u2014 here. I built FamRelay because my family kept hitting the same wall: my assistant knew about the christening, my wife's assistant knew nothing, and the group chat became a game of \"can you resend the flyer?\"\n\nThe idea I'm testing: AI assistants should be able to share facts the way people do \u2014 deliberately, one thing at a time, with approval \u2014 instead of either total amnesia or full memory merges. Per-item consent, encrypted so even I can't read what's relayed.\n\nWhat I'd most like from this community: where does per-item approval break down in real households? Is approving each share a chore, or is it the part that makes it trustworthy? Try the solo mode (two of your own assistants) \u2014 it's the fastest way to feel the loop.\n\nHappy to answer anything about the encryption model, the polling design, or what \"operator-blind\" actually costs us technically.",
+     "createdAt": "2026-10-07T02:03:24Z",
+     "parentId": null,
+     "userId": "10322836"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:07Z",
+     "parentId": null,
+     "userId": "10322836"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275927",
+  "name": "Elocuenti",
+  "tagline": "Agentic commerce: sell on WhatsApp and AI assistants",
+  "description": "Elocuenti is agentic commerce for WhatsApp and AI assistants. Your customers buy by chatting: on WhatsApp with your AI agent, or in ChatGPT and Claude, where their assistant searches your real catalog, builds the cart and places the order. Your agent learns from every customer, follows up, recovers carts and runs campaigns that send conversions back to Meta Ads.",
+  "slug": "elocuenti",
+  "dailyRank": 46,
+  "votesCount": 60,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Messaging"
+    },
+    {
+     "name": "Marketing"
+    },
+    {
+     "name": "E-Commerce"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10338553"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt! \ud83d\udc4b I'm Joseban, founder of Elocuenti.\n\nShopping is turning into a conversation. In Latin America, customers already buy on WhatsApp, and more and more people now ask ChatGPT or Claude what to buy. Most stores aren't ready for either: someone answers WhatsApp by hand, and AI assistants can't see the catalog.\n\nElocuenti fixes both with one platform:\n\n\ud83d\uded2 In AI assistants: your store works inside ChatGPT and Claude. The assistant searches your real catalog (real prices, real stock), builds the cart and places the order.\n\n\ud83d\udcac On WhatsApp (plus Instagram, Messenger and phone calls): your own AI agent answers, qualifies and sells 24/7, and hands off to your team with full context when needed.\n\n\ud83d\udcc8 After the sale: the agent learns from every customer, follows up, recovers abandoned carts and runs campaigns measured against a control group. Conversions go back to Meta Ads, so your ads learn from real sales.\n\nWe price per customer served by AI, not per message, so a sale that takes ten messages doesn't cost ten times more.\n\nI'd love your feedback: would you let an AI assistant shop for you? And what would it need to earn your trust?",
+     "createdAt": "2026-10-10T13:49:49Z",
+     "parentId": null,
+     "userId": "10338553"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:14Z",
+     "parentId": null,
+     "userId": "10338553"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1279512",
+  "name": "Payload Peek",
+  "tagline": "Catch Webhooks. Inspect Payloads. Generate TypeScript.",
+  "description": "A live webhook inbox for developers. Inspect HTTP requests, explore JSON payloads, and turn real events into TypeScript interfaces or Zod schemas. All in your browser, with no setup or account required.",
+  "slug": "payload-peek",
+  "dailyRank": 47,
+  "votesCount": 59,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "API"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "GitHub"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "420209"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt! \ud83d\udc4b<br><br>I'm excited to share <strong>Payload Peek</strong> - built for today's Google Cloud Run Takeover Hackathon! \ud83d\ude80<br><br><strong>The Problem</strong><br>Almost every developer has been there: you're integrating an external service (Stripe, GitHub, Shopify, Clerk, etc.), and you're waiting for a webhook. <br>You open a tunnel, send a test event, and get a wall of raw JSON. Now you have to manually inspect headers, check payload shapes, and spend 20 minutes writing TypeScript interfaces (or worse, typing it as `any`).<br><br><strong>What is Payload Peek?</strong><br>Payload Peek turns real incoming HTTP requests into typed code in seconds. No account, no CLI installation, no setup hassle:<br><br>1. <strong>Instant Inbox</strong>: Get a private webhook URL immediately upon visiting.<br>2. <strong>Inspect</strong>: Watch real HTTP requests arrive in real time with headers, methods, and formatted payloads.<br>3. <strong>Generate</strong>: Instantly infer clean, nested <strong>TypeScript interfaces</strong> and <strong>Zod schemas</strong> from real incoming data.<br>4. <strong>Copy &amp; Ship</strong>: Drop typed code straight into your application.<br><br><strong>Powered by Google Cloud Run</strong><br>Under the hood, Payload Peek runs as a single containerized Next.js service on <strong>Google Cloud Run</strong> backed by <strong>Cloud Firestore</strong>. Cloud Run's serverless autoscaling means the webhook receiver scales up instantly to handle bursty webhook traffic and scales down to zero when idle, with zero infrastructure management.<br><br>Try sending a test webhook or click any of the built-in 1-click sample events (Stripe, GitHub, Shopify, Clerk) right in your browser!<br><br>I'd love to hear your feedback, thoughts on the generated types, and what integrations or features you'd like to see next! \ud83d\ude4c</p>",
+     "createdAt": "2026-10-13T21:19:34Z",
+     "parentId": null,
+     "userId": "420209"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:12Z",
+     "parentId": null,
+     "userId": "420209"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1276020",
+  "name": "LegacyFixer",
+  "tagline": "Python dependency security scans with optional fix PRs",
+  "description": "Compared with Dependabot and Renovate, LegacyFixer focuses on security-first scanning of Python dependencies. It reports vulnerability findings even when an automated fix is not appropriate, and creates a fix pull request only when its policy and validation checks allow it. Each scan produces an explicit outcome, including detect-only (NO_ACTION) when no fix PR is created. LegacyFixer runs as a GitHub App on Google Cloud Run.",
+  "slug": "legacyfixer",
+  "dailyRank": 48,
+  "votesCount": 59,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "GitHub"
+    },
+    {
+     "name": "Security"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10119232"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt!\n\nLegacyFixer began without a business plan or even a product idea. I was curious about AI and wanted to explore one question: Could someone without formal programming education build a real software product by working side by side with AI?\n\nFrom February to August 2026, I worked with ChatGPT to find out. We discussed architecture, made technical decisions, wrote and revised code, investigated failures, and tested repeatedly. I didn't hand the project to an autonomous AI agent. Codex helped mainly with code reviews and testing.\n\nIt wasn't easy. We first ran the application on a separate server, then migrated it to Google Cloud Run and moved PostgreSQL to Cloud SQL. There were mistakes, unexpected problems, and a great deal to learn.\n\nWhat surprised me was how much I loved the process. Some nights I worked until midnight, completely absorbed in what we were building. The experiment had become something personally meaningful.\n\nToday, LegacyFixer is a working GitHub App that scans Python dependencies for security vulnerabilities and creates controlled fix pull requests only when its validation checks allow. Otherwise, it reports findings without changing the repository.\n\nI'm here for technical feedback, critical evaluation, and real-world use cases. \n\nLegacyFixer exists because a human and AI worked side by side.\n\nThanks for taking a look!",
+     "createdAt": "2026-10-10T16:30:10Z",
+     "parentId": null,
+     "userId": "10119232"
+    },
+    {
+     "body": "How did you use Cloud Run for this launch?",
+     "createdAt": "2026-10-14T07:01:07Z",
+     "parentId": null,
+     "userId": "10119232"
+    }
+   ]
+  }
+ }
+]

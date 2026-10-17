@@ -1,0 +1,39 @@
+{
+  "dataDir": "/var/lib/assistant",
+  "personalDatabaseDir": "/var/lib/assistant/personal-database",
+  "discord": {
+    "apiBaseUrl": "https://discord.com/api/v10",
+    "personUserId": "set at go-live",
+    "minerDaysForumId": "set at go-live"
+  },
+  "productHunt": {
+    "apiUrl": "https://api.producthunt.com/v2/api/graphql"
+  },
+  "gateway": {
+    "baseUrl": "http://127.0.0.1:3000/v1"
+  },
+  "roles": {
+    "miner": { "providers": ["openrouter"] }
+  },
+  "forwarder": {
+    "host": "172.17.0.1",
+    "port": 8787
+  },
+  "pi": {
+    "command": [
+      "docker", "exec", "-i",
+      "-e", "ASSISTANT_ROLE", "-e", "ASSISTANT_RUN_KIND", "-e", "ASSISTANT_RUN_TOKEN", "-e", "ASSISTANT_BOT_URL",
+      "assistant-pi", "pi-run"
+    ],
+    "env": {}
+  },
+  "miner": {
+    "startsAt": "01:00",
+    "launchesPerRun": 8,
+    "lineFloor": 7,
+    "runWallClockMinutes": 10
+  },
+  "rawInputs": {
+    "keepDays": 90
+  }
+}

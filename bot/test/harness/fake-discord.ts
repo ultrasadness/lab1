@@ -1,0 +1,363 @@
+// A fake Discord: the REST API and the gateway, enforcing the message limits the real one enforces.
+// Tests read what the person would see in each forum post, and tap buttons or submit pop-ups as a user.
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { WebSocketServer, type WebSocket } from 'ws';
+
+export const IS_COMPONENTS_V2 = 1 << 15;
+export const SUPPRESS_NOTIFICATIONS = 1 << 12;
+export const EPHEMERAL = 1 << 6;
+/** GUILD_MEMBERS, GUILD_PRESENCES and MESSAGE_CONTENT. */
+export const PRIVILEGED_INTENTS = (1 << 1) | (1 << 8) | (1 << 15);
+
+// Real Discord refuses a Components V2 message over these (verified in #29).
+const MAX_TEXT = 4000;
+const MAX_COMPONENTS = 40;
+
+interface Component {
+  type: number;
+  content?: string;
+  label?: string;
+  custom_id?: string;
+  style?: number;
+  url?: string;
+  components?: Component[];
+  accessory?: Component;
+  [key: string]: unknown;
+}
+
+export interface MessagePayload {
+  content?: string;
+  flags?: number;
+  components?: Component[];
+  allowed_mentions?: { parse?: string[]; users?: string[] };
+}
+
+interface StoredMessage {
+  id: string;
+  channelId: string;
+  payload: MessagePayload;
+}
+
+interface Thread {
+  id: string;
+  forumId: string;
+  name: string;
+  messages: StoredMessage[];
+}
+
+/** One line of a band message as the person sees it: its text and the button beside it. */
+export interface SeenLine {
+  text: string;
+  button?: { label: string; customId: string };
+}
+
+export interface SeenMessage {
+  id: string;
+  /** All text in the message, in reading order. */
+  text: string;
+  /** Text displays outside sections, such as a band's heading. */
+  headings: string[];
+  lines: SeenLine[];
+  silent: boolean;
+  mentionsNobody: boolean;
+  componentCount: number;
+  textLength: number;
+}
+
+export interface SeenPost {
+  id: string;
+  title: string;
+  messages: SeenMessage[];
+}
+
+export interface InteractionReply {
+  type: number;
+  data?: { content?: string; flags?: number; custom_id?: string; title?: string; components?: Component[] };
+}
+
+export class FakeDiscord {
+  readonly token: string;
+  readonly applicationId = '300000000000000001';
+  readonly botUserId = '300000000000000002';
+  readonly guildId = '400000000000000001';
+  /** Every IDENTIFY the bot sent, with its intents. */
+  readonly identifies: { intents: number }[] = [];
+  /** Requests Discord refused, with the reason it gave. */
+  readonly refused: { path: string; reason: string }[] = [];
+
+  #server: http.Server;
+  #wss: WebSocketServer;
+  #sockets = new Set<WebSocket>();
+  #forums = new Set<string>();
+  #threads = new Map<string, Thread>();
+  #seq = 0;
+  #nextId = 500000000000000000n;
+  #pending = new Map<string, (reply: InteractionReply) => void>();
+
+  private constructor(token: string) {
+    this.token = token;
+    this.#server = http.createServer((req, res) => void this.#handle(req, res));
+    this.#wss = new WebSocketServer({ server: this.#server, path: '/gateway' });
+    this.#wss.on('connection', (socket) => this.#gateway(socket));
+  }
+
+  static async start(options: { token: string; forums: string[] }): Promise<FakeDiscord> {
+    const discord = new FakeDiscord(options.token);
+    for (const forum of options.forums) discord.#forums.add(forum);
+    await new Promise<void>((resolve) => discord.#server.listen(0, '127.0.0.1', resolve));
+    return discord;
+  }
+
+  get #origin(): string {
+    return `127.0.0.1:${(this.#server.address() as AddressInfo).port}`;
+  }
+
+  get apiBaseUrl(): string {
+    return `http://${this.#origin}/api/v10`;
+  }
+
+  async close(): Promise<void> {
+    for (const socket of this.#sockets) socket.terminate();
+    await new Promise<void>((resolve) => this.#wss.close(() => resolve()));
+    this.#server.closeAllConnections();
+    await new Promise<void>((resolve) => this.#server.close(() => resolve()));
+  }
+
+  /** The posts in a forum, oldest first, as the person sees them. */
+  forumPosts(forumId: string): SeenPost[] {
+    return [...this.#threads.values()]
+      .filter((t) => t.forumId === forumId)
+      .map((t) => ({ id: t.id, title: t.name, messages: t.messages.map(seen) }));
+  }
+
+  /** Resolves once the bot has identified on the gateway. */
+  async connected(timeoutMs = 10_000): Promise<void> {
+    const until = Date.now() + timeoutMs;
+    while (this.identifies.length === 0) {
+      if (Date.now() > until) throw new Error('The bot never connected to the gateway');
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  }
+
+  /** A user taps a button; resolves with the bot's reply to the interaction. */
+  tap(options: { userId: string; customId: string; channelId: string; messageId: string }): Promise<InteractionReply> {
+    return this.#interact(options.userId, options.channelId, {
+      type: 3,
+      data: { custom_id: options.customId, component_type: 2 },
+      message: { id: options.messageId, channel_id: options.channelId },
+    });
+  }
+
+  /** A user submits a pop-up; resolves with the bot's reply. */
+  submitPopup(options: {
+    userId: string;
+    customId: string;
+    channelId: string;
+    fields: Record<string, string>;
+  }): Promise<InteractionReply> {
+    return this.#interact(options.userId, options.channelId, {
+      type: 5,
+      data: {
+        custom_id: options.customId,
+        components: Object.entries(options.fields).map(([custom_id, value]) => ({
+          type: 18,
+          component: { type: 4, custom_id, value },
+        })),
+      },
+    });
+  }
+
+  #interact(userId: string, channelId: string, rest: Record<string, unknown>): Promise<InteractionReply> {
+    const id = this.#id();
+    const token = `interaction-token-${id}`;
+    const interaction = {
+      id,
+      application_id: this.applicationId,
+      token,
+      version: 1,
+      guild_id: this.guildId,
+      channel_id: channelId,
+      member: { user: { id: userId, username: `user-${userId.slice(-4)}` } },
+      ...rest,
+    };
+    return new Promise<InteractionReply>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('The bot never answered the interaction')), 10_000);
+      this.#pending.set(`${id}/${token}`, (reply) => {
+        clearTimeout(timer);
+        resolve(reply);
+      });
+      this.#dispatch('INTERACTION_CREATE', interaction);
+    });
+  }
+
+  #id(): string {
+    this.#nextId += 1n;
+    return String(this.#nextId);
+  }
+
+  #dispatch(event: string, data: unknown): void {
+    this.#seq += 1;
+    for (const socket of this.#sockets) socket.send(JSON.stringify({ op: 0, t: event, s: this.#seq, d: data }));
+  }
+
+  #gateway(socket: WebSocket): void {
+    socket.send(JSON.stringify({ op: 10, d: { heartbeat_interval: 41_250 } }));
+    socket.on('message', (raw) => {
+      const frame = JSON.parse(String(raw)) as { op: number; d: Record<string, unknown> };
+      if (frame.op === 1) socket.send(JSON.stringify({ op: 11 }));
+      if (frame.op === 2) {
+        if (frame.d.token !== this.token) return socket.close(4004, 'Authentication failed.');
+        this.identifies.push({ intents: Number(frame.d.intents) });
+        this.#sockets.add(socket);
+        this.#seq += 1;
+        socket.send(
+          JSON.stringify({
+            op: 0,
+            t: 'READY',
+            s: this.#seq,
+            d: {
+              v: 10,
+              user: { id: this.botUserId, username: 'Assistant', bot: true },
+              guilds: [{ id: this.guildId, unavailable: true }],
+              session_id: 'fake-session',
+              resume_gateway_url: `ws://${this.#origin}/gateway`,
+              application: { id: this.applicationId, flags: 0 },
+            },
+          }),
+        );
+      }
+    });
+    socket.on('close', () => this.#sockets.delete(socket));
+  }
+
+  async #handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    const path = (req.url ?? '').replace(/^\/api\/v10/, '');
+    const reply = (status: number, body?: unknown) => {
+      res.writeHead(status, { 'content-type': 'application/json' });
+      res.end(body === undefined ? undefined : JSON.stringify(body));
+    };
+    const refuse = (reason: string) => {
+      this.refused.push({ path, reason });
+      reply(400, { code: 50035, message: 'Invalid Form Body', errors: { reason } });
+    };
+
+    let match: RegExpMatchArray | null;
+    if ((match = path.match(/^\/interactions\/(\d+)\/([^/]+)\/callback$/)) && req.method === 'POST') {
+      const resolve = this.#pending.get(`${match[1]}/${match[2]}`);
+      if (!resolve) return reply(404, { code: 10062, message: 'Unknown interaction' });
+      this.#pending.delete(`${match[1]}/${match[2]}`);
+      resolve(JSON.parse(raw) as InteractionReply);
+      return reply(204);
+    }
+
+    if (req.headers.authorization !== `Bot ${this.token}`) return reply(401, { code: 0, message: '401: Unauthorized' });
+
+    if (path === '/gateway/bot' && req.method === 'GET') {
+      return reply(200, {
+        url: `ws://${this.#origin}/gateway`,
+        shards: 1,
+        session_start_limit: { total: 1000, remaining: 1000, reset_after: 0, max_concurrency: 1 },
+      });
+    }
+
+    if ((match = path.match(/^\/channels\/(\d+)\/threads$/)) && req.method === 'POST') {
+      const forumId = match[1]!;
+      if (!this.#forums.has(forumId)) return reply(404, { code: 10003, message: 'Unknown Channel' });
+      const body = JSON.parse(raw) as { name?: string; message?: MessagePayload };
+      if (!body.name || body.name.length > 100) return refuse('name must be 1 to 100 characters');
+      const problem = body.message ? checkMessage(body.message) : 'message is required';
+      if (problem) return refuse(problem);
+      const id = this.#id();
+      // A forum post's first message has the post's own id.
+      this.#threads.set(id, { id, forumId, name: body.name, messages: [{ id, channelId: id, payload: body.message! }] });
+      return reply(201, { id, type: 11, parent_id: forumId, name: body.name, message: { id, channel_id: id } });
+    }
+
+    if ((match = path.match(/^\/channels\/(\d+)\/messages$/)) && req.method === 'POST') {
+      const thread = this.#threads.get(match[1]!);
+      if (!thread) return reply(404, { code: 10003, message: 'Unknown Channel' });
+      const body = JSON.parse(raw) as MessagePayload;
+      const problem = checkMessage(body);
+      if (problem) return refuse(problem);
+      const id = this.#id();
+      thread.messages.push({ id, channelId: thread.id, payload: body });
+      return reply(200, { id, channel_id: thread.id });
+    }
+
+    reply(404, { code: 0, message: '404: Not Found' });
+  }
+}
+
+function walk(components: Component[], visit: (c: Component) => void): void {
+  for (const c of components) {
+    visit(c);
+    if (c.components) walk(c.components, visit);
+    if (c.accessory) walk([c.accessory], visit);
+  }
+}
+
+/** Returns why real Discord would refuse this message, or undefined if it would accept it. */
+function checkMessage(message: MessagePayload): string | undefined {
+  const flags = message.flags ?? 0;
+  if (!(flags & IS_COMPONENTS_V2)) return 'expected a Components V2 message';
+  if (message.content) return 'content is not allowed with IS_COMPONENTS_V2';
+  const components = message.components ?? [];
+  if (components.length === 0) return 'components are required';
+  let count = 0;
+  let text = 0;
+  let problem: string | undefined;
+  walk(components, (c) => {
+    count += 1;
+    if (c.type === 10) text += (c.content ?? '').length;
+    if (c.type === 9 && (!c.components?.length || c.components.length > 3 || !c.accessory)) {
+      problem = 'a section needs 1 to 3 text displays and an accessory';
+    }
+    if (c.type === 2 && c.style !== 5 && (!c.custom_id || c.custom_id.length > 100)) problem = 'a button needs a custom_id of 1 to 100 characters';
+    if (c.type === 2 && (c.label ?? '').length > 80) problem = 'a button label is over 80 characters';
+  });
+  if (count > MAX_COMPONENTS) return `${count} components, over ${MAX_COMPONENTS}`;
+  if (text > MAX_TEXT) return `COMPONENT_DISPLAYABLE_TEXT_SIZE_EXCEEDED: ${text} characters, over ${MAX_TEXT}`;
+  return problem;
+}
+
+function seen(message: StoredMessage): SeenMessage {
+  const payload = message.payload;
+  const texts: string[] = [];
+  const headings: string[] = [];
+  const lines: SeenLine[] = [];
+  let count = 0;
+  let length = 0;
+  const visit = (cs: Component[], inSection: boolean) => {
+    for (const c of cs) {
+      count += 1;
+      if (c.type === 10) {
+        texts.push(c.content ?? '');
+        length += (c.content ?? '').length;
+        if (!inSection) headings.push(c.content ?? '');
+      }
+      if (c.type === 9) {
+        const text = (c.components ?? []).map((t) => t.content ?? '').join('\n');
+        const a = c.accessory;
+        lines.push({ text, ...(a?.type === 2 ? { button: { label: a.label ?? '', customId: a.custom_id ?? '' } } : {}) });
+        visit(c.components ?? [], true);
+        if (a) count += 1;
+        continue;
+      }
+      if (c.components) visit(c.components, inSection);
+    }
+  };
+  visit(payload.components ?? [], false);
+  return {
+    id: message.id,
+    text: texts.join('\n'),
+    headings,
+    lines,
+    silent: Boolean((payload.flags ?? 0) & SUPPRESS_NOTIFICATIONS),
+    mentionsNobody: Array.isArray(payload.allowed_mentions?.parse) && payload.allowed_mentions.parse.length === 0 && !payload.allowed_mentions.users?.length,
+    componentCount: count,
+    textLength: length,
+  };
+}

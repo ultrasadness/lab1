@@ -1,0 +1,11 @@
+#!/bin/sh
+# Starts one Pi run for the Assistant: Pi in RPC mode with nothing loaded but our extension. No session is kept,
+# no project files are read, and no built-in tool, skill, MCP server or other extension is available.
+# The bot sets ASSISTANT_ROLE, ASSISTANT_RUN_KIND, ASSISTANT_RUN_TOKEN and ASSISTANT_BOT_URL for each run.
+set -eu
+: "${ASSISTANT_ROLE:?}" "${ASSISTANT_RUN_KIND:?}" "${ASSISTANT_RUN_TOKEN:?}" "${ASSISTANT_BOT_URL:?}"
+export PI_OFFLINE=1 PI_SKIP_VERSION_CHECK=1 PI_TELEMETRY=0
+exec "${PI_BIN:-pi}" --mode rpc --no-session --no-approve \
+  --no-extensions --extension "${ASSISTANT_PI_EXTENSION:-/opt/assistant/pi/extension/index.ts}" \
+  --no-builtin-tools --no-mcp --no-skills --no-prompt-templates --no-themes --no-context-files \
+  --provider assistant --model "$ASSISTANT_ROLE" --thinking off

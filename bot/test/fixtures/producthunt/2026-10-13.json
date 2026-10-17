@@ -1,0 +1,2146 @@
+[
+ {
+  "id": "1267617",
+  "name": "Articos MCP",
+  "tagline": "See how simulated buyers react, right in your agent",
+  "description": "Most teams ship, then hope it lands. Articos MCP lets you check first. Right inside Claude or ChatGPT, run your headlines, positioning, or pages past simulated buyers based on your actual customers, and see how they respond before it goes out. Validated against human research from Baymard and Nielsen Norman, it agrees 86% of the time.",
+  "slug": "articos-mcp",
+  "dailyRank": 1,
+  "votesCount": 331,
+  "commentsCount": 102,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Marketing"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "7809162"
+   },
+   {
+    "id": "10173164"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>This sounds great. But like a lot of folks are asking, across different personas, can you still validate against actual human taste? </p>",
+     "createdAt": "2026-10-14T09:30:42Z",
+     "parentId": null,
+     "userId": "10348370"
+    },
+    {
+     "body": "<p>testing ideas on simulated buyers inside the agent is a usefull idea \ud83d\ude4c how close do they match real customers?</p>",
+     "createdAt": "2026-10-14T07:46:11Z",
+     "parentId": null,
+     "userId": "3426683"
+    },
+    {
+     "body": "<p>Coming from ad ops, the gap I see most is between copy that tests well and what the ad platform\u2019s delivery actually rewards. Do you let users feed real campaign results back in, like CTR or CVR by headline, so the simulated buyers get calibrated to their own account over time?</p>",
+     "createdAt": "2026-10-14T06:30:41Z",
+     "parentId": null,
+     "userId": "9747111"
+    },
+    {
+     "body": "<p>So I actually use this to settle arguments with my cofounder about button colors and other things. It is of annoying because sometimes the bot persona gets fixated on random words in our drafts and just ignores the main layout. We end up spending twenty minutes arguing with a buyer, about font sizes.</p>",
+     "createdAt": "2026-10-14T06:21:04Z",
+     "parentId": null,
+     "userId": "10205761"
+    },
+    {
+     "body": "<p>This whole simulated buyer concept feels like an echo chamber that simply repeats your own marketing ideas. You upload customer data and the LLM suddenly says your new landing page is a winner.. What exactly happens to the proprietary persona data that we send to their servers? What does the LLM do with that persona data once it lands on their servers?</p>",
+     "createdAt": "2026-10-14T06:15:20Z",
+     "parentId": null,
+     "userId": "10158189"
+    },
+    {
+     "body": "<p>do you plan to validate the product's predictions against the live A/B tests? for example, by running the same messaging tests with simulated audiences and real users.</p>",
+     "createdAt": "2026-10-14T05:58:23Z",
+     "parentId": null,
+     "userId": "10277031"
+    },
+    {
+     "body": "<p>Testing messaging is one of those things every team agrees they should do, but just doesn't happen right up until a launch deadline \ud83d\ude05<br></p><p>Making it possible to pressure-test a positioning change in the middle of the workflow is a very very interesting use of MCP.</p>",
+     "createdAt": "2026-10-14T05:16:44Z",
+     "parentId": null,
+     "userId": "9178379"
+    },
+    {
+     "body": "<p><a href=\"https://www.producthunt.com/@chrismessina\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"chrismessina\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@chrismessina</a> Can't wait to try it, we are constantly testing our LP's for the right kind of audience. Will share my review here.</p>",
+     "createdAt": "2026-10-14T04:46:57Z",
+     "parentId": null,
+     "userId": "10344317"
+    },
+    {
+     "body": "<p>It saves you so much time and guessing when you test your messaging before spending money on launching it.</p>",
+     "createdAt": "2026-10-14T04:34:54Z",
+     "parentId": null,
+     "userId": "10330011"
+    },
+    {
+     "body": "<p>I believe that verifying the messaging or presentation of something before bringing it to market is a truly effective idea. Even a slight change in how a product is portrayed can lead to a significant difference in peoples perception of it. Moreover, integrating this process into the relevant team's existing workflow makes the concept even more appealing.</p>",
+     "createdAt": "2026-10-14T04:17:14Z",
+     "parentId": null,
+     "userId": "3549013"
+    },
+    {
+     "body": "<p>The concept of simulated customer feedback seems quite intriguing. I am interested to know how Articos handles products with multiple customer segments especially when a single message might appeal to one group while having no impact on another. Can users compare these reactions side by side?</p>",
+     "createdAt": "2026-10-14T04:07:47Z",
+     "parentId": null,
+     "userId": "2719612"
+    },
+    {
+     "body": "<p>Congrats Shaheer and Owais on the MCP launch. The pitch that you can stay inside Claude, draft a headline, and get ICP-matched pushback before shipping is clear. One edge I keep hitting in practice: after two or three rewrite rounds in the same chat, do the personas stay frozen, or can a later prompt quietly drift the ICP so the third test is no longer comparable to the first?</p>",
+     "createdAt": "2026-10-14T01:29:48Z",
+     "parentId": null,
+     "userId": "148667"
+    },
+    {
+     "body": "This is the kind of MCP that doubles or triples the value and convenience of a product like this. \n\nBy being able to pull in your Articos synthetic audiences into your chat agent, you can connect to the data, marketing materials, and related content right from the conversations you already have going on. \n\nBrilliant!",
+     "createdAt": "2026-10-14T01:23:56Z",
+     "parentId": null,
+     "userId": "18280"
+    },
+    {
+     "body": "<p>ICP is where I would use this tbh. we always think we know our buyers and then the data says otherwise. Can you pressure test that too, or is it more for messaging?</p>",
+     "createdAt": "2026-10-13T18:47:48Z",
+     "parentId": null,
+     "userId": "10247267"
+    },
+    {
+     "body": "<p>i am really into claude all day and bringing my buyers into my agent is just amazing but i wonder what would be the the quality and how close they are ?</p>",
+     "createdAt": "2026-10-13T18:16:46Z",
+     "parentId": null,
+     "userId": "10289169"
+    },
+    {
+     "body": "<p>Pre-launch page copy is where I stall \u2014 MCP-in-chat for a quick headline gut-check sounds useful. Congrats on the launch.</p>",
+     "createdAt": "2026-10-13T18:09:40Z",
+     "parentId": null,
+     "userId": "10303877"
+    },
+    {
+     "body": "<p>I'm tightening a pre-launch page and keep second-guessing headline vs sub \u2014 the MCP-in-chat angle sounds useful so I'm not jumping out of Claude to sanity-check copy. Have you tried it on a \"who is this for\" line before the main CTA?</p>",
+     "createdAt": "2026-10-13T18:09:11Z",
+     "parentId": null,
+     "userId": "10303877"
+    },
+    {
+     "body": "<p>Interesting product, I will be using this test it for my launches. </p>",
+     "createdAt": "2026-10-13T17:57:23Z",
+     "parentId": null,
+     "userId": "10313055"
+    },
+    {
+     "body": "<p>Love the idea behind Articos , Being able to validate messaging and positioning with simulated buyers directly inside Claude or ChatGPT before launching could save teams a lot of guesswork. The 86% human accuracy claim is especially interesting. Congrats on the launch, and wishing the team great success! </p>",
+     "createdAt": "2026-10-13T17:21:37Z",
+     "parentId": null,
+     "userId": "9294620"
+    },
+    {
+     "body": "<p>Can Articos identify potential objections customers might have before they decide to purchase a product or service?</p>",
+     "createdAt": "2026-10-13T15:33:54Z",
+     "parentId": null,
+     "userId": "8991953"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278232",
+  "name": "OpenCode 2.0",
+  "tagline": "The open source AI coding agent",
+  "description": "OpenCode is an open source AI coding agent. It\u2019s available as a terminal-based interface, desktop app, or web app.",
+  "slug": "opencode-2-0",
+  "dailyRank": 2,
+  "votesCount": 304,
+  "commentsCount": 14,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "GitHub"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "5196421"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p><a href=\"https://github.com/anomalyco/opencode/tree/v2\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">213K stars</a> can't be wrong! Sounds like OpenCode is <a href=\"https://anoma.ly/notes/opencode-2-0\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">really growing up</a>!</p><blockquote><p>OpenCode 2.0 is a major overhaul. It draws on millions of daily users' experience to deliver a system that can flex to everything an agent needs to be. There are quite a lot of new features, performance improvements, and bug fixes but here are some of the more impactful user-facing changes.</p></blockquote>",
+     "createdAt": "2026-10-12T20:10:54Z",
+     "parentId": null,
+     "userId": "18280"
+    },
+    {
+     "body": "<p>So I actually just use this thing to fix the spacing in my big folder of old text files. It is of strange because the tool expects real programming. That's okay. The default green text color is a little hard on my eyes, at night anyway.</p>",
+     "createdAt": "2026-10-14T06:36:21Z",
+     "parentId": null,
+     "userId": "10218679"
+    },
+    {
+     "body": "<p>Congrats! Can i run 6 sessions with one account with a single provider credential (for example an Anthropic API key, or OpenCode Zen), can all 6 sessions run concurrently? Are there per-account limits on your side, or is it purely the provider's rate limits?</p>",
+     "createdAt": "2026-10-14T02:47:52Z",
+     "parentId": null,
+     "userId": "10339569"
+    },
+    {
+     "body": "<p>Congrats to Fang and the OpenCode team on 2.0. Shipping TUI, desktop, and IDE as first-class surfaces is a real step up from terminal-only agents. For teams that bounce between laptop and remote box, do MCP servers, permissions, and session history sync across those surfaces, or is each install still its own silo today?</p>",
+     "createdAt": "2026-10-14T01:37:55Z",
+     "parentId": null,
+     "userId": "148667"
+    },
+    {
+     "body": "<p>How do i add custom llm endpoints ?</p>",
+     "createdAt": "2026-10-13T17:34:04Z",
+     "parentId": null,
+     "userId": "1754545"
+    },
+    {
+     "body": "<p>Really like working with OpenCode. Thanks for a great tool.</p>",
+     "createdAt": "2026-10-13T15:13:56Z",
+     "parentId": null,
+     "userId": "10330665"
+    },
+    {
+     "body": "<p>Is there a desktop app like Claude desktop?</p>",
+     "createdAt": "2026-10-13T15:10:45Z",
+     "parentId": null,
+     "userId": "10270196"
+    },
+    {
+     "body": "<p>Congrats on 2.0! I spend most of my day building with Claude Code, so having a choice of models in the same terminal setup is interesting to me. Can you switch models partway through a task and keep the session going?</p>",
+     "createdAt": "2026-10-13T14:57:39Z",
+     "parentId": null,
+     "userId": "9022824"
+    },
+    {
+     "body": "<p>Great! Are you launching a 2.0 desktop app at the same time?</p>",
+     "createdAt": "2026-10-13T13:01:55Z",
+     "parentId": null,
+     "userId": "10292814"
+    },
+    {
+     "body": "<p>we're using opencode for months already in our company and the team loves it. looking forward to the 2.0 upgrade. </p>",
+     "createdAt": "2026-10-13T08:48:06Z",
+     "parentId": null,
+     "userId": "13369"
+    },
+    {
+     "body": "<p>Niceee! Good luck today</p>",
+     "createdAt": "2026-10-13T07:37:46Z",
+     "parentId": null,
+     "userId": "5329602"
+    },
+    {
+     "body": "<p>Congrats on 2.0! I'm firmly in the \"the harness matters more than the model\" camp, so model-agnostic is the right bet. Curious how sessions handle the context wall now. Do you checkpoint and resume, or still summarise once you get near the limit? Lossy summaries right before the finish line were the #1 way my agents broke.</p>",
+     "createdAt": "2026-10-13T07:32:22Z",
+     "parentId": null,
+     "userId": "617409"
+    },
+    {
+     "body": "<p>oss ftw!</p>",
+     "createdAt": "2026-10-13T07:22:53Z",
+     "parentId": null,
+     "userId": "25713"
+    },
+    {
+     "body": "<p>That's so cool. Great work, OpenCode team. :)</p>",
+     "createdAt": "2026-10-13T07:13:50Z",
+     "parentId": null,
+     "userId": "5751238"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1254833",
+  "name": "Fina Business",
+  "tagline": "The flexible $20/mo QuickBooks alternative for founders",
+  "description": "You started a business, not an accounting department. Fina Business gives founders the essentials of business accounting without the complexity of traditional tools. Track business and personal finances your way, automate invoices, accept Stripe payments, manage customers, and get double-entry bookkeeping, P&L, and balance sheets. Start at $20/mo and customize Fina around how your business actually works.",
+  "slug": "fina-business",
+  "dailyRank": 3,
+  "votesCount": 266,
+  "commentsCount": 54,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Business"
+    },
+    {
+     "name": "Accounting"
+    },
+    {
+     "name": "Budgeting"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "4035678"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Hunters! \ud83d\udc4b I\u2019m Shawn, founder of Fina Money.</p><p></p><p>Since launching 3 years ago, thousands of users have loved Fina for its flexibility and its unique multi-profile workspace which allowing founders to seamlessly manage both personal and business finances under one roof.</p><p></p><p>Based on your feedback, we\u2019re taking things to the next level: <strong>Fina Business is now a full double-entry accounting system!</strong> \ud83d\ude80</p><p></p><p>Here\u2019s what\u2019s inside the new Business tier:</p><ul><li><p>\ud83d\udcc1 <strong>Flexible Chart of Accounts:</strong> The same effortless category setup you already know and love.</p></li><li><p>\ud83e\udd16 <strong>Smart AI Categorization:</strong> Accurately routes your live bank feeds into the right buckets automatically.</p></li><li><p>\ud83d\udcd1 <strong>General Ledger Control:</strong> Quickly review and assign postings with ease.</p></li><li><p>\ud83d\udcca <strong>Executive-Ready Reports:</strong> Instant, shareable Cash Flow, Balance Sheet, and P&amp;L statements.</p></li><li><p>\ud83e\uddfe <strong>Invoice Automation:</strong> Create, send, and automatically track client invoices without manual follow-ups.</p></li></ul><p>Most impressively, Fina supports <strong>multiple</strong> <strong>businesses</strong> alongside your personal finances through its unique <strong>multi-profile</strong> design.</p><p></p><p>\ud83d\udcb0 <strong>A $20/mo QuickBooks Alternative</strong></p><p>We know how bloated and expensive legacy tools can get. At just <strong>$20/mo</strong>, Fina Business gives you enterprise-grade accounting clarity without the steep price tag\u2014or the headache.</p><p>Whether you're launching a startup or growing a freelance business, Fina is built to be your financial co-pilot. \ud83e\udd1d</p><p></p><p></p><p>\ud83c\udf81 <strong>Launch Gift for Product Hunt Users</strong></p><p>Try Fina Business today with a <strong>7-day free trial</strong> with our exclusive Product Hunt launch coupon!</p><p></p><p>I\u2019ll be hanging out in the comments all day, I\u2019d love to hear your thoughts, feedback, and feature requests! \ud83d\udc47</p>",
+     "createdAt": "2026-09-22T17:37:16Z",
+     "parentId": null,
+     "userId": "3858557"
+    },
+    {
+     "body": "<p>Love the simplicity of the spreadsheet/input-table F logo \ud83d\udc4c It's the little things.</p>",
+     "createdAt": "2026-10-14T12:51:50Z",
+     "parentId": null,
+     "userId": "10144068"
+    },
+    {
+     "body": "<p>looks very interesting, is the tool for the US market?</p>",
+     "createdAt": "2026-10-14T06:36:13Z",
+     "parentId": null,
+     "userId": "5293309"
+    },
+    {
+     "body": "<p>Congrats on the 4th launch and the #4 spot yesterday. Coming back with a new product each time shows the team keeps listening...</p>",
+     "createdAt": "2026-10-14T06:13:35Z",
+     "parentId": null,
+     "userId": "10338966"
+    },
+    {
+     "body": "<p>Founders will happily spend hours figuring out their next growth channel and then avoid looking at their books for three weeks \ud83d\ude02 Making finance less of a headache is a genuinely useful problem to work on. congrats on the launch!</p>",
+     "createdAt": "2026-10-14T06:00:29Z",
+     "parentId": null,
+     "userId": "9178379"
+    },
+    {
+     "body": "<p>Can founders build their own views for tracking runway and monthly expenses?</p>",
+     "createdAt": "2026-10-14T03:08:55Z",
+     "parentId": null,
+     "userId": "158432"
+    },
+    {
+     "body": "<p>Congrats Shawn, Xiao, and the Fina team on Fina Business. The $20/mo QuickBooks-lite angle plus multi-profile personal and business in one workspace is the part founders will actually try. When Stripe invoices and bank feeds land in the business profile, how do you stop a miscategorized personal card swipe from quietly polluting that profile's P&amp;L before month-end close?</p>",
+     "createdAt": "2026-10-14T01:34:03Z",
+     "parentId": null,
+     "userId": "148667"
+    },
+    {
+     "body": "<p>This is great, Shawn. Would love to put it in front of my founders. </p>",
+     "createdAt": "2026-10-13T20:41:05Z",
+     "parentId": null,
+     "userId": "10002863"
+    },
+    {
+     "body": "<p>quickbooks has TERRIBLE reporting. Plus for small business owners, often times their personal finances are heavily intertwined with their business finances. Bringing them all into one unified system is the best way to get a handle on your money as a small business owner!</p>",
+     "createdAt": "2026-10-13T17:43:02Z",
+     "parentId": null,
+     "userId": "3443577"
+    },
+    {
+     "body": "<p><a href=\"https://www.producthunt.com/@shawn_cao\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"shawn_cao\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@shawn_cao</a> Can i manage my personal and business finances in one place? How easy is it to set everything up?</p>",
+     "createdAt": "2026-10-13T17:03:36Z",
+     "parentId": null,
+     "userId": "10162197"
+    },
+    {
+     "body": "<p>Can you manage the multiple businesses with separate profit and loss reports for each one , or are the reports combined ?</p>",
+     "createdAt": "2026-10-13T16:21:21Z",
+     "parentId": null,
+     "userId": "8268626"
+    },
+    {
+     "body": "<p>Congrats Shawn! The separate profiles for different businesses caught my eye, especially with bookkeeping and invoices in the same place. Can you share just one business profile with an accountant while keeping the others private?</p>",
+     "createdAt": "2026-10-13T14:56:32Z",
+     "parentId": null,
+     "userId": "9022824"
+    },
+    {
+     "body": "<p>The multi profile setup is the reason I would try this over a plain accounting app. Keeping a side project and the main business apart without paying for two tools is exactly the mess I am in right now! My question is about the categorization: when it learns from how I tag a transaction, does it apply that only inside the profile I was working in, or can a rule from my business profile leak into the personal one? Getting that boundary wrong would be a bad surprise at tax time.</p>",
+     "createdAt": "2026-10-13T14:28:00Z",
+     "parentId": null,
+     "userId": "969016"
+    },
+    {
+     "body": "<p>Looks great, but is it US only?</p>",
+     "createdAt": "2026-10-13T13:20:31Z",
+     "parentId": null,
+     "userId": "9459745"
+    },
+    {
+     "body": "<p>Shawn, keeping separate business profiles alongside personal finances makes sense for a founder with more than one project. Nice to see the ledger and reports fit into that existing setup. Congrats on Fina Business!</p>",
+     "createdAt": "2026-10-13T12:34:46Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Custom categories are a lifesaver because every business tracks money differently and pre set defaults always fall short.</p>",
+     "createdAt": "2026-10-13T10:23:11Z",
+     "parentId": null,
+     "userId": "10281958"
+    },
+    {
+     "body": "<p>Switching between business and personal accounts on the same dashboard without constantly signing back in saves so much daily friction.</p>",
+     "createdAt": "2026-10-13T10:17:52Z",
+     "parentId": null,
+     "userId": "4730100"
+    },
+    {
+     "body": "<p>How does Fina make double-entry accounting less complicated for non-accountants? Are there founders who don\u2019t even have to deal with debits and credits but an accountant still sees the entire ledger?<br>Btw, Congratulations <a href=\"https://www.producthunt.com/@shawn_cao\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"shawn_cao\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@shawn_cao</a> and team Fina Business \ud83c\udf8a\u270c\ufe0f</p>",
+     "createdAt": "2026-10-13T09:55:47Z",
+     "parentId": null,
+     "userId": "9965621"
+    },
+    {
+     "body": "<p>haha same here quickbooks is such a pain once it starts getting cluttered glad you caught this right when you needed it.</p>",
+     "createdAt": "2026-10-13T09:52:56Z",
+     "parentId": null,
+     "userId": "5936784"
+    },
+    {
+     "body": "<p>am super curious about data privacy here are financial accounts linked via plaid or a proprietary API integration?</p>",
+     "createdAt": "2026-10-13T09:46:03Z",
+     "parentId": null,
+     "userId": "5941316"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278066",
+  "name": "Muse Wonder",
+  "tagline": "Meta\u2019s most capable models for personal agents",
+  "description": "Muse Wonder is Meta\u2019s new model series for personal and professional agents, with two models: Muse Wonder and Muse Wonder Full. Active Memory carries your context across conversations, Active Focus keeps working through blockers on hard goals, and it adds domain expertise in law, finance, and health plus stronger coding. Muse Wonder is live on the Meta Model API and Muse Code. Muse Wonder Full is for Muse Code subscribers.",
+  "slug": "muse-wonder",
+  "dailyRank": 4,
+  "votesCount": 241,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p><strong>Muse Wonder</strong> is Meta\u2019s new model series for personal and professional agents, from Meta AI Research. It has two models, Muse Wonder and Muse Wonder Full. Meta calls them its most capable models, and the post says they were trained at its Prometheus data center.</p><p></p><p><strong>Problem:</strong> Most AI assistants forget you between chats and give up or drift on long, hard tasks. The post frames personal agents as needing to remember context, stay on a goal and handle private information carefully.</p><p></p><p><strong>Solution:</strong> Meta built the series around four things:</p><ul><li><p>Active Memory: carries important context about you across conversations and pulls up the relevant details for the current task</p></li><li><p>Active Focus: keeps working toward a hard goal by trying other approaches and working through blockers, and asks for clarification or checks in before important actions</p></li><li><p>Domain expertise: specialized knowledge in law, finance and health, such as understanding a lease</p></li><li><p>Frontier coding: tracks requirements, edits codebases and iterates through testing cycles, trained on long-running tasks</p></li></ul><p><strong>What makes it different:</strong> the focus on long-running, personal work. Meta shows demos like a Saturday run plan built across a browser and other apps, custom swag ordered from Instagram photos, and a playable 3D kitchen game built from image inputs. You can try the <a href=\"https://research.meta.ai/artifacts/introducing-muse-wonder/kitchen-game/v6/index.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Kitchen Game demo</a> and the <a href=\"https://research.meta.ai/artifacts/introducing-muse-wonder/step-and-repeat/v6/index.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">step-and-repeat demo</a>.</p><p></p><p><strong>How it performs: </strong>Meta says it reaches state-of-the-art results on benchmarks for personal and professional agents, memory and coding. The named evaluations are Harvey\u2019s Legal Agent Benchmark, FocusBench and SWE-Marathon. These are Meta\u2019s own claims, and the post\u2019s text gives no scores, since the comparisons are in charts. The <a href=\"https://research.meta.ai/static/muse-wonder-model-card\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">model report</a> has the full evaluation details.</p><p></p><p><strong>Availability:</strong></p><ul><li><p>Muse Wonder is available now through the <a href=\"https://developer.meta.com/ai/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Meta Model API</a> and <a href=\"https://developer.meta.com/ai/products/muse-code\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Muse Code</a></p></li><li><p>Muse Wonder Full is available now for Muse Code subscribers</p></li><li><p>The <a href=\"https://muse.ai/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Muse app</a> will soon be powered by Muse Wonder, rolling out first to subscribers</p></li></ul><p><strong>Safety:</strong> Meta says it has its strongest safeguards to date against chemical, biological, radiological, nuclear and cyber misuse, under its <a href=\"https://research.meta.ai/static/meta-superintelligence-scaling-framework\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Superintelligence Scaling Framework</a>.</p><p></p><p><strong>Who it\u2019s for: </strong>developers building agents through the API or Muse Code, and people who want a personal assistant that keeps context over time.</p><p></p><p>Read the <a href=\"https://research.meta.ai/blog/muse-wonder\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">full announcement</a>. </p><p></p><p>P.S. I hunt the latest and greatest launches in tech, SaaS and AI, follow to be notified <strong>\u2192</strong> <a href=\"https://www.producthunt.com/@rohanrecommends\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@rohanrecommends</a> </p>",
+     "createdAt": "2026-10-13T06:56:06Z",
+     "parentId": null,
+     "userId": "4325010"
+    },
+    {
+     "body": "<p>Keep your context windows separate, by project folders when using the API. Mixing finance tasks and coding tasks in the active memory stream will cause it to hallucinate variables quickly.</p>",
+     "createdAt": "2026-10-14T06:49:52Z",
+     "parentId": null,
+     "userId": "10250335"
+    },
+    {
+     "body": "<p>Wait is the version actually going to cost extra on top of the standard API pricing or what</p>",
+     "createdAt": "2026-10-14T06:43:13Z",
+     "parentId": null,
+     "userId": "10283409"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1259407",
+  "name": "Kai",
+  "tagline": "Autonomous assistant designed to handle meetings and email",
+  "description": "Kai is an AI executive assistant for solopreneurs, freelancers and startup founders. It works across your email, calendar and tasks: it triages your inbox and drafts replies, schedules around your availability, records and transcribes your meetings, then turns them into summaries and action items. Workflows run in the background, and Kai hands tasks to Claude or ChatGPT with the context of the meeting or email they came from. Web, desktop and mobile. Product Hunt sign-ups get 2x trial credits.",
+  "slug": "hirekai",
+  "dailyRank": 5,
+  "votesCount": 198,
+  "commentsCount": 49,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Email"
+    },
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "3620154"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt \ud83d\udc4b</p><p></p><p>Today we\u2019re launching Kai, and I want to share a bit about why we built it.</p><p></p><p><strong>Every founder and team lead has two jobs!</strong></p><p>We\u2019ve spent more than five years in productivity building Morgen, and we kept hearing the same thing from founders and team leads. They all juggle two jobs:</p><ol><li><p>The job they were hired to do</p></li><li><p>Everything around it: managing coordination across people, the back-and-forth, jumping between calls, scheduling meetings, answering emails, chasing people</p></li></ol><p>The second job quietly eats the first one. <strong>We built Kai for the second job.</strong></p><p></p><p><strong>Why now</strong></p><p>AI tools like Claude and ChatGPT get more capable every month. But they still wait for you to ask, and they don\u2019t really know you. They don\u2019t see the promise you made on Tuesday\u2019s call, the reply you\u2019re still waiting on, or the clash hiding in next week\u2019s calendar. That context lives in your meetings, your email and your calendar, and that\u2019s exactly where Kai works.</p><p></p><p>Honestly, I\u2019m sick of hearing about CLIs, MCPs and connected workflows. I just wanted to build an extremely simple, delightful personal assistant that gives people back hours every day, without asking them to become prompt engineers.</p><p></p><p><strong>AI deserves a real interface</strong></p><p>I\u2019m a big UI and UX nerd. Every AI product I\u2019ve tried was either a chat bar stuck onto an existing app, or a plain chat with almost no interface. We set out to make Kai the first AI that gets both right: an agent you can talk to, and a UI that\u2019s a joy to use.</p><p></p><p>So Kai doesn\u2019t wait to be asked. It shows up with a question and a fix ready:</p><p></p><p>\ud83d\udce9 <em>\u201cJim wants to push the 2:00 investor call by 30 minutes. You\u2019re free at 2:30. Should I move it and draft a reply?\u201d</em> One tap, and you press Send.</p><p></p><p>\ud83c\udf99\ufe0f You say \u201cI\u2019ll build the Q3 deck tonight\u201d on a call, and it\u2019s on your task list before you hang up, ready to hand to Claude with the meeting context attached.</p><p></p><p>\u2600\ufe0f You ask the same question every morning, and Kai offers to just brief you at 8 am instead.</p><p>Nothing goes out without you. Kai drafts; you press Send.</p><p></p><p><strong>Where we\u2019re going</strong></p><p>This is day one. Over the next 12 months we\u2019re doubling down on three things: making Kai more proactive, making the experience even more delightful, and expanding what it can take off your plate.</p><p></p><p><strong>Try it today \ud83c\udf81</strong></p><p>Kai is free to start on Web, Mac, iPhone, and Android at <a href=\"https://go.hirekai.ai/producthunt\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">hirekai.ai</a> <strong>(every Product Hunter who signs up today gets 2x the trial credits!).</strong></p><p></p><p>I\u2019ll be here all day reading every comment, and I\u2019d love to know: <strong>what\u2019s the part of your \u201csecond job\u201d you\u2019d hand to Kai first?</strong> \ud83d\udc47</p><p></p><p>David</p><p></p><p>PS: A huge shoutout to our hundreds of beta users who've showered us with love and feedback over the last few months. We wouldn\u2019t be here without you!</p>",
+     "createdAt": "2026-10-12T17:47:35Z",
+     "parentId": null,
+     "userId": "2985602"
+    },
+    {
+     "body": "<p>Kai has been really great for me. I have ADHD and it has really handled a lot of my executive function challenges. As an early tester, I have seen Kai develop and refine and features continue to be added to improve functionality and flexibility. The iPhone app is superb (still in beta). </p><p></p><p>This is an app that is not just for entrepreneurs - its for all kinds of busy professionals. I'm a health, safety and wellbeing consultant, and it helps me keep on top of things and juggle.</p><p></p><p>The routines function has been a great addition for me, as it has allowed me to set up triggers based on events and tasks. So for example when I add a client event, Kai now automatically adds a task to contact them and introduce myself 4 weeks before, and then creates a task to write the report due 10 days after!</p><p></p><p>I am dying for a native Windows app (pretty please). Not having this limits my ability to use note taking and transcription in MS Teams - there is no good workaround at the moment.</p>",
+     "createdAt": "2026-10-14T10:02:23Z",
+     "parentId": null,
+     "userId": "10351788"
+    },
+    {
+     "body": "<p>Congratulations! Can\u2019t wait to try KAI out in my law practice. </p>",
+     "createdAt": "2026-10-13T20:38:07Z",
+     "parentId": null,
+     "userId": "10349793"
+    },
+    {
+     "body": "<p>Great, well done on getting off to a good start! Is it possible to add more than one email address? Personal and professional? </p>",
+     "createdAt": "2026-10-13T15:58:51Z",
+     "parentId": null,
+     "userId": "10275937"
+    },
+    {
+     "body": "<p>Super happy and proud of the journey we've had the past 8 months to give birth to Kai. This will only be the start of Kai's takeover &gt;:)<br><br>There's a lot of these AI assistants out there, from veteran players like Meta Muse or fresher companies like Instinct, but I'm confident in our perspective and taste on what a practical but enjoyable experience looks like.<br><br>Hope everyone has a good time with Kai!</p>",
+     "createdAt": "2026-10-13T15:30:29Z",
+     "parentId": null,
+     "userId": "4547710"
+    },
+    {
+     "body": "<p>Nice to see an AI product that cares this much about the interface. Can I use it on my phone as well as on my laptop?</p>",
+     "createdAt": "2026-10-13T15:23:12Z",
+     "parentId": null,
+     "userId": "5365166"
+    },
+    {
+     "body": "<p>The example where Kai sees that Jim wants to push the investor call and already has the new time and a draft reply ready is the part that sold me. That is the difference between an assistant that waits for a prompt and one that actually watches your calendar and inbox. I have lost real hours to exactly that kind of back and forth over email! One question: when Kai drafts a reply, does it pull in earlier messages from the same thread so it knows what was already promised, or does it only look at the latest message? That context is usually where my own replies go wrong.</p>",
+     "createdAt": "2026-10-13T14:27:41Z",
+     "parentId": null,
+     "userId": "969016"
+    },
+    {
+     "body": "<p>I'm super excited to have been testing Kai for a while now as one of it's beta users. The \"go be human\" phrasing of Kai is incredibly accurate. I've always loved what the Kai team built with Morgen, and although i've got the technical know-how to connect up all my tools, when <a href=\"https://www.producthunt.com/@dannyhatcher\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"dannyhatcher\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@dannyhatcher</a> introduced me to what the team were making I was like... oh I can just <em>do the things. </em></p><p></p><p>Now I use Kai for a variety of things, Inbox Management, Food Prep, Study Sessions... Medicine Reminders for all the things you know you've gotta do... but always end up being a little bit slippy. </p><p></p><p>It's just nice to have a <em>single </em>place to go to be able to check my calendar, emails and tasks without having to think about the connective tissue behind it. </p><p></p><p>That <strong><em>plus </em></strong>the fact there's an MCP so I can connect with my local agents, means that there's an easy customisable pipeline for me to do the work i gotta do, whilst also juggling life admin, looking after two children, and running a business with multiple moving parts at the same time. </p><p></p><p>The clean interface that just works means I don't have to <em>think </em>about <em>how </em>to make it work... it learns what I do, and makes it possible without having to futz around with connectors or... anything else technical... <em>if you don't wanna. </em></p><p></p><p>Sure productivity is great and all... but frankly just being able to send a quick message to remember something whilst cooking food and my children ask me for something... and it just appears scheduled in my calendar makes things <em>far faaar </em>easier than it ever used to be.... </p><p>And unlike other tools that <em>say they do the same things as Kai... </em>They are just missing the features or the UI that makes sense for how I work. </p><p></p><p>Congrats to the team! You all did a fantastic job!</p>",
+     "createdAt": "2026-10-13T13:39:59Z",
+     "parentId": null,
+     "userId": "10347525"
+    },
+    {
+     "body": "<p>Congrats folks! Amazing launch and amazing product, thanks for letting me beta test it! Can't wait to see what's coming next</p>",
+     "createdAt": "2026-10-13T12:38:54Z",
+     "parentId": null,
+     "userId": "4988430"
+    },
+    {
+     "body": "<p>David, carrying the meeting context into a task before handing it to Claude makes sense. Saves the person having to reconstruct what was promised on the call. Congrats on the launch!</p>",
+     "createdAt": "2026-10-13T12:35:54Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Hey, I really like the retro editorial style and UX! Your attention to detail always stands out, and with all your experience building calendar and task integrations, this feels like a natural next step.</p><p></p><p>A few technical questions out of curiosity \ud83d\ude0a</p><ul><li><p>Are background tasks predefined and scheduled by the backend, or can the agent decide when and how to act?</p></li><li><p>How do you choose models for different tasks, and when do you escalate to a stronger model?</p></li><li><p>How do you protect the agent against prompt injection from incoming emails?</p></li></ul>",
+     "createdAt": "2026-10-13T11:06:20Z",
+     "parentId": null,
+     "userId": "4422903"
+    },
+    {
+     "body": "<p>Does Kai make recordings through a bot joining the meeting or straight from the desktop application? How are guests notified?<br>Btw, Congrats <a href=\"https://www.producthunt.com/@david_tedaldi1\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"david_tedaldi1\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@david_tedaldi1</a> , <a href=\"https://www.producthunt.com/@andrezzoid\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"andrezzoid\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@andrezzoid</a> , <a href=\"https://www.producthunt.com/@alaamoucharrafie\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"alaamoucharrafie\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@alaamoucharrafie</a> and team Kai \ud83c\udf8a</p>",
+     "createdAt": "2026-10-13T10:52:18Z",
+     "parentId": null,
+     "userId": "9965621"
+    },
+    {
+     "body": "<p>I'm glad the user still gets the final say before anything is sent. With email especially, a little human oversight goes a long way. Congrats team!</p>",
+     "createdAt": "2026-10-13T10:32:10Z",
+     "parentId": null,
+     "userId": "6203476"
+    },
+    {
+     "body": "<p>Watching Kai improve over the beta has been great. The team ships fast and actually listens to feedback. </p><p></p><p>What was the most requested feature from beta users that made it into the launch?</p>",
+     "createdAt": "2026-10-13T09:49:51Z",
+     "parentId": null,
+     "userId": "1069244"
+    },
+    {
+     "body": "Dude, drop this now, please, I beg you. Waiting for years on such a solution. For private and pro use !",
+     "createdAt": "2026-10-13T09:32:42Z",
+     "parentId": null,
+     "userId": "10295821"
+    },
+    {
+     "body": "<p>Congratulations on the launch \ud83c\udf89 Can I use Kai for both work and personal matters? </p>",
+     "createdAt": "2026-10-13T09:09:57Z",
+     "parentId": null,
+     "userId": "4452449"
+    },
+    {
+     "body": "<p>Happy launch day! Incredible to see what you have built over these past 8 months!!</p>",
+     "createdAt": "2026-10-13T09:08:58Z",
+     "parentId": null,
+     "userId": "10285068"
+    },
+    {
+     "body": "<p>Impressive what Kai can do for you! The perfect solution for my one dev army business!</p>",
+     "createdAt": "2026-10-13T08:57:37Z",
+     "parentId": null,
+     "userId": "4794158"
+    },
+    {
+     "body": "<p>Good luck for the launch chaps! \u2705</p>",
+     "createdAt": "2026-10-13T08:48:17Z",
+     "parentId": null,
+     "userId": "302484"
+    },
+    {
+     "body": "<p>Hi everyone,</p><p>I\u2019m Marco, CTO at Kai. First, a big thank you to our entire team. I\u2019m proud of what we\u2019ve achieved together.</p><p></p><p>Kai could build on the battle-tested infrastructure of Morgen, our daily planner used by thousands of people every day. Even so, building Kai brought its own set of challenges:</p><ul><li><p><strong>Balancing text and visual interfaces.</strong> Text is common and expressive, but often hard to digest. Sometimes pressing a button is faster than chatting, so we wanted Kai to offer whichever UX fits each use case best. With Kai, we wanted to reduce the number of tools you need to look at, not add one more. In fact, I think you won't need to look at your Gmail or Outlook anymore. </p><p></p></li><li><p><strong>Answering with depth, breadth, and speed.</strong> An agent building a product can happily work in the background for half an hour. We wanted Kai to be snappy, like a real assistant. More easily said than done, given the current state of the technology, yet I think we achieved our goal here.</p><p></p></li><li><p><strong>Aggregating information efficiently, securely, and effectively.</strong> Kai connects the dots between what was said in a meeting and the emails that follow on the same topic weeks later. It also keeps track of your preferences and adapts to your preferred workflows.</p></li></ul><p>We\u2019re just getting started and I hope you like what we are building. Give it a try and let us know what you think!</p>",
+     "createdAt": "2026-10-13T08:43:07Z",
+     "parentId": null,
+     "userId": "3620154"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1271264",
+  "name": "MentionBird",
+  "tagline": "Ahrefs for AI Search",
+  "description": "We took the top 3 Product Hunt launches and asked ChatGPT, Gemini and Claude the exact questions their buyers ask: \u201cBest browser for Claude Code?\u201d \u201cHow do I track agent run costs?\u201d \u201cBest open-source Grok alternative?\u201d Nine answers. Zero mentions. AI sent their buyers elsewhere. That\u2019s how AI search works. It pulls from pages it trusts\u2014listicles, Reddit, comparisons, YouTube. If you\u2019re not there, you\u2019re not in the answer. MentionBird helps you fix that.",
+  "slug": "mentionbird",
+  "dailyRank": 6,
+  "votesCount": 158,
+  "commentsCount": 24,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Marketing"
+    },
+    {
+     "name": "SEO"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "10245256"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt, I'm Salil, maker of MentionBird.<br><br>I spent a decade helping brands get found on Google. Then buyers started asking ChatGPT, Gemini and Perplexity \"what's the best X for Y\" instead, and most brands had no idea what AI was saying about them. When they checked, the answer usually stung: years of Google rankings, and still not named.<br><br>AI answers aren't built from your rankings. They're built from the sources AI trusts: review sites, listicles, forums, publications. If you're not in those, you're not in the answer.<br><br>MentionBird makes that visible and fixable:<br>- Enter your company and URL, and it finds the buying questions that matter in your category<br>- It tracks daily which brands ChatGPT, Gemini, Perplexity and Claude name in their answers, and which sources those answers are built on<br>- The Answer Agent turns that into a ranked action plan: which sources to get into, what to publish or fix, ordered by impact and effort<br><br>Recently shipped: a rebuilt Answer Agent and a new YouTube Answer Agent.<br><br>For the Product Hunt community: your first 3 months of Starter is $19 with code PH19.<br><br>I'd love to hear from you: which AI answer in your category would you most want to win?</p>",
+     "createdAt": "2026-10-06T06:13:08Z",
+     "parentId": null,
+     "userId": "66816"
+    },
+    {
+     "body": "<p>How do you handle prompt wording? The same buyer question phrased two ways can name completely different brands, so I'm curious how many variants you track per question before calling something a trend</p>",
+     "createdAt": "2026-10-14T04:51:57Z",
+     "parentId": null,
+     "userId": "4974782"
+    },
+    {
+     "body": "<p>Congrats on the launch \u2014 the \"Ahrefs for AI Search\" framing clicked instantly.</p><p></p><p>We checked our own AI referrals recently, and the honest numbers are humbling: single-digit sessions a week. Easy to dismiss at that size, but worth tracking anyway.</p><p></p><p>One GA4 gotcha we hit that others here might too: the \"AI Assistant\" channel group only catches part of the picture \u2014 our chatgpt.com sessions show up there, but Perplexity and Copilot land in plain \"Referral\", so channel-level views undercount AI traffic. Reading session source/medium directly is what surfaced ours. If you surface source-level splits, that distinction will save people real confusion.</p>",
+     "createdAt": "2026-10-14T03:52:44Z",
+     "parentId": null,
+     "userId": "9099529"
+    },
+    {
+     "body": "<p>Tried out the tool, really good onboarding. Question - does the Starter plan surface a list of competitors who ARE showing up for the prompts? Or must you add competitors yourself in order to track them? I'm thinking of local service businesses, like a plumber for example. They might not know who to compare themselves to, or they might input competitors who aren't ranking either, so their own picks wouldn't help as much as if MentionBird suggested some. Congrats on a great tool at a great time!</p>",
+     "createdAt": "2026-10-13T21:33:27Z",
+     "parentId": null,
+     "userId": "6255379"
+    },
+    {
+     "body": "<p>Salil, being able to open the actual answer behind a mention rate stood out to me. That should make it easier to understand what changed before deciding what to work on next. Congrats on the launch!</p>",
+     "createdAt": "2026-10-13T12:32:50Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>How do you determine the prompts that potential customers could ask from AI about the product?</p>",
+     "createdAt": "2026-10-13T12:16:55Z",
+     "parentId": null,
+     "userId": "10277031"
+    },
+    {
+     "body": "<p>Congrats on the launch! Curious to know how this is different from tools like Profound &amp; scrunch etc?</p>",
+     "createdAt": "2026-10-13T10:56:31Z",
+     "parentId": null,
+     "userId": "9178379"
+    },
+    {
+     "body": "<p>Hey Salil, congrats on the launch. I see you have an Answer Agent. When the Agent make recommendations and someone follows through on all of them, do you guarantee results?</p>",
+     "createdAt": "2026-10-13T10:23:46Z",
+     "parentId": null,
+     "userId": "2782089"
+    },
+    {
+     "body": "<p>Congrats on the launch, Salil! AI answers shift a lot between runs and with each user's memory and location. How many times do you sample each buying question per day before calling a brand \"mentioned\"? And do you show that as a share of answers or a single snapshot?</p>",
+     "createdAt": "2026-10-13T09:59:37Z",
+     "parentId": null,
+     "userId": "4994958"
+    },
+    {
+     "body": "<p>Like the idea behind it. <br><br>One suggestion: I would add the demo video to the landing page :)</p>",
+     "createdAt": "2026-10-13T08:29:45Z",
+     "parentId": null,
+     "userId": "4843676"
+    },
+    {
+     "body": "<p>Congrats on launching MentionBird! Hope today's going well. We're launching Benson alongside you: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or some support if you have time today. Good luck with the launch!</p>",
+     "createdAt": "2026-10-13T08:24:25Z",
+     "parentId": null,
+     "userId": "1885150"
+    },
+    {
+     "body": "<p>MentionBird.ai has been designed specifically to help you find out how your brand performs in AI search and what you should do next in marketing to win more AI answers and customers who now ask AI. </p>",
+     "createdAt": "2026-10-07T07:02:18Z",
+     "parentId": null,
+     "userId": "10245256"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1271564",
+  "name": "MausBot",
+  "tagline": "Open source Grok Bot: Free, Local",
+  "description": "Give each bot a job and work with it in a familiar chat interface. MausBot brings your supported AI agents together on your computer, with tools and routines for getting work done. Free and open source under Apache 2.0. Bring your own provider account or API key; provider fees and limits apply.",
+  "slug": "mausbot",
+  "dailyRank": 7,
+  "votesCount": 137,
+  "commentsCount": 19,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "5860301"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt! \ud83d\udc4b I\u2019m Omkar, building MausBot with Milind and our open-source contributors.</p><p></p><p><strong>MausBot is a free, open-source Grokbot alternative: your own team of AI bots, in a chat app.</strong></p><p></p><p>We open-sourced MausBot about two hours after Grokbot officially launched. We were already building something similar, and seeing the launch gave us the push to share our work, make it open source, and keep building with the community.<br><br>The idea behind MausBot is simple: your own team of AI bots, in a chat app. Give each bot a job, choose its model, and keep its conversations and work together.<br><br>With MausBot, you can:<br><br>- Run bots in parallel for research, writing, and coding.<br>- Use Claude, Codex, and other supported engines in one app.<br>- Connect tools like GitHub, Gmail, and Slack.<br>- Let bots work on your Mac or a connected cloud desktop, with permissions and approval settings you control.<br><br>For example, ask one bot to turn customer feedback into a prioritized engineering brief, then ask another to investigate a reported bug in your repository. Review their work and decide what happens next.<br><br>We\u2019re continuing to build toward that experience, with the code open for anyone to inspect, modify, and contribute to.<br><br>The app is free and open source under Apache 2.0. Bring a supported AI account or API key; provider fees and limits apply. Paid cloud hosting is optional.<br><br>Try it: <a href=\"https://mausbot.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://mausbot.com</a> <br>Source: <a href=\"https://github.com/milind-soni/OpenMausBot\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://github.com/milind-soni/O...</a><br>Community: <a href=\"https://discord.gg/9Wb8MEpXRs\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://discord.gg/9Wb8MEpXRs</a><br><br>What\u2019s the first job you\u2019d give your bots? We\u2019d especially love feedback on setup, your first useful task, and what you think we should build next.</p>",
+     "createdAt": "2026-10-06T12:05:49Z",
+     "parentId": null,
+     "userId": "10207346"
+    },
+    {
+     "body": "<p>This is incredibly powerful product! </p><p>It allows you to spin up a team of bots that can use any available AI model, and basically replace almost everything that grok bot offers, if you have a bit of tech knowledge and know how to setup a vps server.</p><p>It appeared in my X timeline last week, and after playing with it during several days, I cancelled my Grok bot subscription. </p><p></p>",
+     "createdAt": "2026-10-13T20:45:22Z",
+     "parentId": null,
+     "userId": "1441630"
+    },
+    {
+     "body": "<p>Nice work on this one guys! Thank-you. I must have been using this since the day you launched and I must say... it has been a real game changer for me and my productivity. <br><br>I was initially drawn to Grokbot upon their launch but wasn't going to make the leap across to Grok (ew) and instantly went looking for an alternative solution where I could plug in my Claude account and go. Glad I dug a little deeper and stumbled across MausBot.<br><br>As someone running multiple businesses constantly drowning in tedious and often super repetitive tasks, MausBot has provided me the platform and framework to easily delegate and orchestrate teams of employees I wish I had always had the money to hire \ud83d\ude02<br><br>Now I can easily multi-task and keep on top of all the things right across all businesses, including coding multiple apps and websites at the same time, designing via Photoshop or animating in After Effects whilst searching for the best car insurance policy before I went away \u2013 all from the comfort of my own bed whilst watching a movie with my wife. <br><br>I don't know what I was doing before and I haven't tried any other similar platforms out there but I don't really have any reason to do so. Glad to be on board with you for the journey. Keep it up! \ud83d\udc4a\ud83c\udffe</p>",
+     "createdAt": "2026-10-13T12:39:07Z",
+     "parentId": null,
+     "userId": "10347872"
+    },
+    {
+     "body": "<p>Keeping each bot's job, conversations and work together makes sense. Much easier to pick a task back up when those things stay in one place. Congrats, Omkar and team!</p>",
+     "createdAt": "2026-10-13T12:36:21Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Can different bots share information with each other when working on a bigger task?</p>",
+     "createdAt": "2026-10-13T10:10:46Z",
+     "parentId": null,
+     "userId": "9049639"
+    },
+    {
+     "body": "<p>Very cool product! I have been in search for a grokbot alternatives where i connect any provider I want, amazing!</p>",
+     "createdAt": "2026-10-13T08:38:29Z",
+     "parentId": null,
+     "userId": "9713728"
+    },
+    {
+     "body": "<p>Hey, congrats on the MausBot launch! We're sharing a launch day with Benson: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or a little support if you have time today. Wishing you a great launch!</p>",
+     "createdAt": "2026-10-13T08:24:46Z",
+     "parentId": null,
+     "userId": "1885150"
+    },
+    {
+     "body": "<p>Its the AI agent tool that your Grandma can use as well :D<br><br>Best thing is it works with my existing subscriptions</p>",
+     "createdAt": "2026-10-13T08:15:43Z",
+     "parentId": null,
+     "userId": "5860301"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277012",
+  "name": "Takes for Mac",
+  "tagline": "Record talking-head videos. Claude Code does the edit.",
+  "description": "A free, open-source Mac app for talking-head videos. A teleprompter that follows your voice, one-button recording of camera and screen, and every take in plain folders. Claude Code, on your own Claude plan, cuts the edit, makes the vertical version and drafts the posts. Leave notes on the frame; it turns them into rules and remembers them.",
+  "slug": "takes-for-mac",
+  "dailyRank": 8,
+  "votesCount": 135,
+  "commentsCount": 27,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Video"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "7754467"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt, I'm Marvin.<br><br>I used to love making videos, but every session started with ten minutes of OBS settings and ended with an hour in an editor. So on Sept 27 I started building Takes for myself, with Claude Code. Every video I've made since was recorded and edited in it.<br><br>Three parts:<br>- Record: one button records camera and screen together. A teleprompter next to the lens follows your voice. Every take lands in a plain folder next to its script.<br>- Edit: no timeline. Claude Code, on your own Claude plan, cuts silences, ums and restarts, makes the 9:16 version, adds captions in your style and drafts the posts. You leave notes on the frame (\"too fast here\") and it makes a new version. Old versions stay.<br>- Remember: notes that matter beyond one video become rules Claude reads before the next edit. About 320 notes so far turned into 88 rules, so I rarely give the same note twice.<br><br>It's free, MIT, no account, and your files stay on your Mac. It needs Apple silicon, macOS 15 and a paid Claude plan for the editing.<br><br>Mehmet in the screenshots is a demo. Your shop, desk or kitchen works too.<br><br>What should it do next?</p>",
+     "createdAt": "2026-10-11T19:12:40Z",
+     "parentId": null,
+     "userId": "7754467"
+    },
+    {
+     "body": "<p>congrats on launch!! actually want to use this one \ud83d\ude03</p><p></p><p>i'm korean, and i record in korean. not worried about the editing since that's claude doing it, but the teleprompter following my voice and cutting ums sounds like theres speech recognition in there somewhere. does that part care what language im speaking?</p><p></p><p>also, 320 notes turning into 88 rules, do they ever contradict each other? i keep a similar pile for my coding setup and it gets messy around that size.</p><p></p><p>(btw, i'm not AI \ud83d\ude02 i don't know why attached 'likely AI' badge)</p>",
+     "createdAt": "2026-10-14T08:10:12Z",
+     "parentId": null,
+     "userId": "9861884"
+    },
+    {
+     "body": "<p>I am interested in this product and looks really good. Going to try it out soon. <br>Couple of things I wanted to let you know:<br><br>1) I was in the onboarding phase, I was not allowed to Skip (kept hitting button but no action) and when I said generate script, I could see it being written in the background but there was no way for the onboarding screen and overlay to close. I had to quit the entire app and start it back again. I am on MacOS Golden Gate. </p><p></p>",
+     "createdAt": "2026-10-14T01:07:13Z",
+     "parentId": null,
+     "userId": "9941262"
+    },
+    {
+     "body": "<p>Just curious, is the person in the demo AI-generated, or is it real footage edited with AI?</p>",
+     "createdAt": "2026-10-13T21:24:43Z",
+     "parentId": null,
+     "userId": "10350055"
+    },
+    {
+     "body": "<p>I am doing my first video from the demo project, the 60-sec recording cut to 37 seconds, and took like an hour to process - is that usually how it works or will it get better with every new project?</p><p></p><p>Kudos on the release, this is something I was actually looking for!</p>",
+     "createdAt": "2026-10-13T14:54:35Z",
+     "parentId": null,
+     "userId": "241752"
+    },
+    {
+     "body": "<p>Marvin, keeping the old edit versions while you give notes on a new cut is a useful detail. Much easier to decide whether a change helped when you can go back to the earlier one. Congrats on the launch!</p>",
+     "createdAt": "2026-10-13T12:35:17Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>What level of control is available ? </p>",
+     "createdAt": "2026-10-13T11:38:53Z",
+     "parentId": null,
+     "userId": "12011"
+    },
+    {
+     "body": "<p>Does it export the cut as an XML so I can open it in Resolve or Premiere and finish it there?</p>",
+     "createdAt": "2026-10-13T11:35:57Z",
+     "parentId": null,
+     "userId": "7860732"
+    },
+    {
+     "body": "<p>Nice that Takes for Mac records the talking head video and lets Claude Code handle the edit, so I can just talk and skip the timeline fiddling.</p>",
+     "createdAt": "2026-10-13T09:09:16Z",
+     "parentId": null,
+     "userId": "3749277"
+    },
+    {
+     "body": "<p>Happy launch day! Congrats on Takes for Mac. Nice to be launching alongside you today. We're launching Benson too: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or some support if you've got time. Hope the day goes well!</p>",
+     "createdAt": "2026-10-13T08:24:38Z",
+     "parentId": null,
+     "userId": "1885150"
+    },
+    {
+     "body": "<p>320 notes into 88 rules is the most useful number on this page. The thing I'd watch is rule 89 contradicting rule 12, because a note you gave once in March quietly beating one you gave this morning is near impossible to debug from the output side. Can you see the rule list and delete one? Derived rules you can't edit turn into folklore fast.</p>",
+     "createdAt": "2026-10-13T07:47:33Z",
+     "parentId": null,
+     "userId": "8457400"
+    },
+    {
+     "body": "<p>interesting product</p>",
+     "createdAt": "2026-10-13T07:37:25Z",
+     "parentId": null,
+     "userId": "5329602"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273007",
+  "name": "PostNitro for Agents",
+  "tagline": "Let your AI agent design and publish social posts",
+  "description": "Most social APIs let an agent publish text or media it already has. PostNitro lets it design the post too. Connect from Claude or ChatGPT in one click (OAuth, no API key), or use our 35-tool MCP server, CLI or REST API. Your agent turns a topic, article or X thread into an on-brand carousel, image post or animated video, then schedules it to LinkedIn, Instagram, TikTok, Threads, Facebook and Pinterest. Or it hands you an editable draft to finish.",
+  "slug": "postnitro-for-agents",
+  "dailyRank": 9,
+  "votesCount": 133,
+  "commentsCount": 29,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Social Media"
+    },
+    {
+     "name": "Marketing"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "9992512"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt! \ud83d\udc4b Muneeb here, founder of PostNitro.\n\nWhen we last launched here in 2023, PostNitro was a carousel generator you used by hand. Since then, more and more of our users stopped opening the editor at all. They were asking Claude, ChatGPT or an n8n flow to make the post for them.\n\nThe catch: most social APIs an agent can reach only publish. They post text, or media you already made. Nobody designs the actual post.\n\nSo PostNitro for Agents gives your agent the whole design engine:\n\n\ud83c\udfa8 Designs on-brand carousels, image posts and animated video from a topic, article URL or X thread, in your fonts, colours and logo, across 100+ templates\n\ud83d\udcc5 Publishes natively to LinkedIn (as a PDF document), Instagram, TikTok, Threads, Facebook Pages and Pinterest\n\ud83e\udd1d Hands off to a human: ask for the DESIGN output and the draft opens in our editor so you can tweak it before it goes out\n\nWays in:\n\u2192 Claude &amp; ChatGPT: one click from their directories, OAuth, no API key\n\u2192 MCP server: 35 tools at mcp.postnitro.ai\n\u2192 CLI: npm i -g @postnitro/cli\n\u2192 REST API, OpenClaw skill, n8n, Zapier, Make\n\nTry asking your agent: \"Turn this article into a 6-slide LinkedIn carousel and schedule it for Thursday 9am.\"\n\nYou can start with a trial subscription to try it with your own agent.\n\n\ud83c\udf81 Product Hunt exclusive: PH40AGENTS takes 40% off annual Creator+ or Team+ plan, until Oct 23.\n\nI'd love to know: what would you let your agent post on autopilot, and what would you never let it post without checking first? The team and I are here all day. \ud83d\ude80",
+     "createdAt": "2026-10-07T18:23:38Z",
+     "parentId": null,
+     "userId": "4122645"
+    },
+    {
+     "body": "<p>Great to see Postnitro has grown into full fledge content creation platform. Keep it up muneeb!</p>",
+     "createdAt": "2026-10-13T12:47:38Z",
+     "parentId": null,
+     "userId": "455690"
+    },
+    {
+     "body": "<p>Does the agent automatically adapt each post to each platform\u2019s format such as carousel dimensions on LinkedIn and Pinterest or video duration on TikTok?<br>Additionally,  Congratulations <a href=\"https://www.producthunt.com/@muneebawan\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"muneebawan\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@muneebawan</a> &amp; <a href=\"https://www.producthunt.com/@umair_builds\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"umair_builds\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@umair_builds</a> \ud83c\udf8a<br>It was really good seeing you in person. \ud83d\ude07</p>",
+     "createdAt": "2026-10-13T11:25:03Z",
+     "parentId": null,
+     "userId": "9965621"
+    },
+    {
+     "body": "<p>Oh finally, Postnitro works with agents. Great update.<br><br>How does it differ from Canva?</p>",
+     "createdAt": "2026-10-13T10:41:07Z",
+     "parentId": null,
+     "userId": "532397"
+    },
+    {
+     "body": "<p>This is insane to be honest :D you created something more complex! </p>",
+     "createdAt": "2026-10-13T10:13:54Z",
+     "parentId": null,
+     "userId": "4843676"
+    },
+    {
+     "body": "<p>Great that PostNitro lets my agent build the on brand carousel or short video itself and schedule it, instead of only publishing media it already has.</p>",
+     "createdAt": "2026-10-13T09:03:21Z",
+     "parentId": null,
+     "userId": "3749277"
+    },
+    {
+     "body": "<p>This is awesome! \ud83d\udc4f Taking AI agents beyond text generation and letting them handle the entire creative workflow is a great idea. Congrats on the launch, team!</p>",
+     "createdAt": "2026-10-13T07:28:10Z",
+     "parentId": null,
+     "userId": "3598262"
+    },
+    {
+     "body": "<p>Great team! Great product!</p>",
+     "createdAt": "2026-10-13T07:26:13Z",
+     "parentId": null,
+     "userId": "3117947"
+    },
+    {
+     "body": "<p>Hey PH community \ud83d\udc4b</p><p></p><p>Excited to hunt PostNitro for Agents today.</p><p></p><p>Most of us now have an AI agent helping with our work, yet social content still means jumping between a design tool, a scheduler and a bunch of tabs. Muneeb and the team are building for a world where your agent handles all of it, from designing the post to scheduling it.</p><p></p><p>Design is what stood out for me. Most social APIs only let an agent publish text or media it already has, while PostNitro lets your agent create an on brand carousel, image post or short video itself, then schedule it to LinkedIn, Instagram, TikTok, Threads, Facebook and Pinterest.</p><p></p><p>Setup is light too, since you can connect it to Claude or ChatGPT in one click, or plug into their MCP server, CLI or API.</p><p></p><p> If you'd rather stay in the loop, your agent can hand you an editable draft to finish instead.</p><p></p><p>Try it at <a href=\"https://postnitro.ai\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://postnitro.ai</a></p><p></p><p>Big shoutout to <a href=\"https://www.producthunt.com/@muneebawan\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"muneebawan\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@muneebawan</a> and the PostNitro team for building this. They're around all day to answer your questions, so drop them a comment.</p><p></p><p>Give it a spin and let the team know what your agent creates with PostNitro \ud83d\ude80</p>",
+     "createdAt": "2026-10-09T01:25:31Z",
+     "parentId": null,
+     "userId": "500004"
+    },
+    {
+     "body": "<p>Really excited to be part of this launch as one of the makers behind PostNitro! <br></p><p>What started as a carousel editor has evolved into something much bigger. We\u2019ve spent a lot of time building the infrastructure that lets AI agents not just generate ideas or text, but actually turn those ideas into beautifully designed, on-brand content and get it ready to publish.</p><p><br>From MCP and APIs to CLI and automation integrations, there\u2019s been a lot happening behind the scenes to make PostNitro work seamlessly with the tools people already use.</p><p><br>I\u2019m especially excited to see what developers and AI builders do with it.</p>",
+     "createdAt": "2026-10-08T12:17:00Z",
+     "parentId": null,
+     "userId": "9992512"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278439",
+  "name": "Toby",
+  "tagline": "Realistic mock interviews with an AI hiring manager",
+  "description": "Paste a job description. Toby researches the company, maps every round and interviews you on a Meet, Teams or Zoom-style call. Then you get a scored debrief and a stronger version of each answer, built only from what you said. Real mode runs it straight through; Coach mode gives a note and a retry. No subscription: 50p a minute on a call. First 5 minutes free.",
+  "slug": "toby-707112ab-957d-4947-b507-538ecfafb12a",
+  "dailyRank": 10,
+  "votesCount": 112,
+  "commentsCount": 8,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Hiring"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Career"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "1381338"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hi Product Hunt, I'm Rob. Toby is the first product I've ever built myself end-to-end, and this is my first launch.<br><br>I've spent my career in product, and as most PMs will know, that means a notebook full of ideas which until recently just sat lost among the pages. AI coding tools changed that for me. Toby is the first idea I've taken from a sketch to something people can actually use and pay for, on my own.<br><br>Why this idea: I'm leaving my current role, and I've been sitting in interviews for my own replacement. Somewhere around the fourth one, I started wondering how candidates were preparing. Probably asking ChatGPT or Claude for a list of likely questions. But a list doesn't push back, and it can't tell you that your best example had no numbers in it. What they really needed was a practice run with me. So I wondered, could I automate myself?<br><br>Toby is the interview before the interview, and it works like this:<br><br>1. Paste the job description. Toby researches the company and maps every round, from recruiter screen to case.<br>2. Take the call in a Meet, Teams or Zoom-style room. Real mode runs it straight through. Coach mode gives you a note after each answer and a retry.<br>3. Get the debrief. A score against the role's rubric, the quote behind each score, pace and filler words, and a stronger version of each answer built only from what you actually said.<br><br>Pricing is simple. No subscription. You just pay 50p a minute for time on a call; briefs and debriefs are included.<br><br>As a first-time builder, the most useful thing you can give me is honesty: run one round for a role you actually want (or are hiring for), then tell me where the debrief was wrong. I still have a lot of work to do, but feedback would really help me out!</p>",
+     "createdAt": "2026-10-13T02:51:31Z",
+     "parentId": null,
+     "userId": "1381338"
+    },
+    {
+     "body": "I love the icon! Typical Toby\u2019s look \ud83d\ude06\ud83e\uddd0",
+     "createdAt": "2026-10-13T10:14:13Z",
+     "parentId": null,
+     "userId": "2460644"
+    },
+    {
+     "body": "<p>Really like that Toby runs a realistic mock interview with an AI hiring manager you can actually interrupt mid question, like a real conversation.</p>",
+     "createdAt": "2026-10-13T09:06:24Z",
+     "parentId": null,
+     "userId": "3749277"
+    },
+    {
+     "body": "<p>Hey, congrats on the Toby launch! We're sharing a launch day with Benson: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or a little support if you have time today. Wishing you a great launch!</p>",
+     "createdAt": "2026-10-13T08:27:07Z",
+     "parentId": null,
+     "userId": "1885150"
+    },
+    {
+     "body": "<p>Useful product. Congratulations !<br>How do you handle the latency that makes the conversation feel a little artificial?</p>",
+     "createdAt": "2026-10-13T07:08:50Z",
+     "parentId": null,
+     "userId": "8350640"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1274276",
+  "name": "Genchi",
+  "tagline": "Project delivery predictions, from the people doing the work",
+  "description": "Genchi shows engineering leaders a prediction of which projects are heading for a missed deadline and which aren't, from the people doing the work. We've rebuilt it from the ground up. Team members vote with one anonymous click in Slack. Leaders see a combined score for every and trend in one portfolio view, so they know where to step in and which teams to leave alone. Genchi works with Jira and Asana. You can see your live portfolio inside Claude, ChatGPT and Grok. Free for teams of up to 10.",
+  "slug": "genchi-4",
+  "dailyRank": 11,
+  "votesCount": 105,
+  "commentsCount": 13,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "GitHub"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "1761036"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi, I'm Rowland, Genchi's founder.\n\nGenchi shows engineering leaders a prediction of which projects are heading for a missed deadline and which aren't, from the people doing the work. Giving every engineer a way to be heard, this prediction comes from their anonymous, one-click confidence vote in response to a regular, automated Slack prompt. Those votes are combined by project into a single score, tracked over time, so leaders can spot projects in trouble sooner and step in where needed, and, more importantly, know which teams to leave alone.\n\nWhy another tool?\n\nStandups (and standup tools) are intra-team focused. They tell a team how the team is doing, and often perform a \"status thumb check,\" but that view rarely travels beyond the team.\n\nDeveloper Productivity Insight Platforms are analytical. They forecast from work already completed, so they can't see what hasn't reached the tracker yet: the vague requirement, the shaky dependency, the worry nobody has raised.\n\nGenchi makes it easy to capture the signal directly from the people doing the work. Think of a rolling SAFe confidence vote (fist of five), from 1 (Doubtful) to 5 (Certain), combined by project and visualized across the portfolio.\n\nI first launched Genchi here in 2021, and it was stalled by COVID. This is a complete rebuild, with Jira and Asana integrations and an MCP App that shows your live portfolio inside Claude, ChatGPT and Grok.\n\nIt's free for teams of up to 10.\n\nI'd love to hear if you use other tools to capture the \"wisdom of crowds\" directly from team members, and whether that signal has helped you better predict project outcomes.",
+     "createdAt": "2026-10-08T22:18:55Z",
+     "parentId": null,
+     "userId": "1761036"
+    },
+    {
+     "body": "<p>predictions from the people actually doing the work is a smart angle, most trackers just guess \ud83d\udc4f do teams plug it into github only?</p>",
+     "createdAt": "2026-10-14T07:45:06Z",
+     "parentId": null,
+     "userId": "3426683"
+    },
+    {
+     "body": "<p>This is a huge upgrade over the last version I saw.  The MCP connector is the big win.  Now I can use Claude to mine the Genchi data and integrate it with my other decision-making.</p>",
+     "createdAt": "2026-10-13T16:52:05Z",
+     "parentId": null,
+     "userId": "10349180"
+    },
+    {
+     "body": "<p>Love this! Really appreciate how simple the interface is yet offers such strong insights. Nicely done!</p>",
+     "createdAt": "2026-10-13T16:10:05Z",
+     "parentId": null,
+     "userId": "356264"
+    },
+    {
+     "body": "<p>Congrats on the launch <a href=\"https://www.producthunt.com/@rowland\" data-node-type=\"mention\" data-mention-type=\"user\" data-mention-id=\"rowland\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@rowland</a>!  </p>",
+     "createdAt": "2026-10-13T15:58:05Z",
+     "parentId": null,
+     "userId": "9311"
+    },
+    {
+     "body": "<p>This is great. I\u2019m sure the team is fed up with the \u201cHow\u2019s it going\u201d round of conversations each week. I know I am. It\u2019ll be great to simply automate that and track the results over time. </p>",
+     "createdAt": "2026-10-13T14:38:41Z",
+     "parentId": null,
+     "userId": "1879622"
+    },
+    {
+     "body": "<p>Rowland, an anonymous confidence vote gives the team a small way to flag a worry before it turns into a missed deadline. Keeping the trend by project should make those changes easier to spot. Congrats on the rebuild!</p>",
+     "createdAt": "2026-10-13T12:25:49Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1271089",
+  "name": "OpenWhispr for iOS",
+  "tagline": "100% open source, free & on device transcription",
+  "description": "100% open source, with local models that run on your iPhone or iPad. Transcribe on-device for free, without usage limits, an account or a subscription. Speak your reply, draft an email or capture an idea without uploading your audio for transcription. Download a model once and transcribe offline. Choose optional cloud processing or bring your own API key.",
+  "slug": "openwhispr-for-ios",
+  "dailyRank": 12,
+  "votesCount": 102,
+  "commentsCount": 11,
+  "topics": {
+   "nodes": [
+    {
+     "name": "iOS"
+    },
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Open Source"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "10319005"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey Product Hunt \u2014 Josh from OpenWhispr here \ud83d\udc4b</p><p></p><p>OpenWhispr is on iPhone and iPad, and today we\u2019re bringing it to Product Hunt.</p><p></p><p>It\u2019s 100% open source, with local models that let you transcribe on your device for free, without usage limits or an account.</p><p></p><p>Right now, you can:</p><p></p><p>\u2022 Write with your voice in any app<br>\u2022 Draft messages with your voice assistant<br>\u2022 Adjust your writing\u2019s tone to match your vibe<br>\u2022 Record and transcribe conversations<br>\u2022 Sync your notes with desktop on Pro<br>\u2022 Choose on-device transcription, OpenWhispr Cloud or your own API key for supported workflows</p><p></p><p>Already on Pro? Just sign in. Mobile is included. On-device transcription stays free and unlimited; the voice assistant uses Cloud or your own API key.</p><p></p><p>For the developers here: on-device transcription uses NVIDIA\u2019s Parakeet through FluidAudio and Apple\u2019s Core ML and Neural Engine, plus OpenAI\u2019s Whisper through whisper.rn/whisper.cpp. The app chooses the engine based on your selected languages and downloaded models.</p><p></p><p>Speaker labeling runs locally too. Saved voice profiles help recognise familiar speakers across recordings: strong matches get a name automatically, while uncertain matches become suggestions you can confirm. The profiles and matching stay on your device.</p><p></p><p>Give it a try and tell us what works, what doesn\u2019t, or what you\u2019d like us to add. We\u2019re here to improve it with you.</p><p></p><p>Thanks for being early,<br>Josh and the OpenWhispr team</p>",
+     "createdAt": "2026-10-06T00:56:42Z",
+     "parentId": null,
+     "userId": "10261881"
+    },
+    {
+     "body": "<p>Local is the future! That slew of privacy-compliance badges also goes a long way towards trust :) Great job to the whole team.</p>",
+     "createdAt": "2026-10-14T12:56:39Z",
+     "parentId": null,
+     "userId": "10144068"
+    },
+    {
+     "body": "<p>Ooh, does this work if you switch languages mid-sentence?</p>",
+     "createdAt": "2026-10-14T03:29:56Z",
+     "parentId": null,
+     "userId": "9022824"
+    },
+    {
+     "body": "<p>Loving this, what model would you suggest for best accuracy on M4 Max chip machine but without having to start noisy fans </p>",
+     "createdAt": "2026-10-13T18:08:44Z",
+     "parentId": null,
+     "userId": "10313055"
+    },
+    {
+     "body": "<p>Josh, leaving uncertain speaker matches for someone to confirm is a nice detail. A wrong name in a transcript can be harder to notice than a wrong word. Congrats on the iOS launch!</p>",
+     "createdAt": "2026-10-13T12:26:06Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Ive been using Openwhispr a lot on my linux and I absolutely love it, excited to see it come to my Iphone!!</p>",
+     "createdAt": "2026-10-13T09:08:54Z",
+     "parentId": null,
+     "userId": "9713728"
+    },
+    {
+     "body": "<p>Congrats on the iOS launch, Josh! Nice to be launching alongside you today. We're launching Benson too: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or some support if you've got time today. Hope it's a great launch day!</p>",
+     "createdAt": "2026-10-13T08:20:40Z",
+     "parentId": null,
+     "userId": "1885150"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277613",
+  "name": "Servor",
+  "tagline": "One console to run and monitor all your servers",
+  "description": "One console for every server you run: web terminal, file editor, scheduled jobs, fleet-wide commands, 150+ install recipes, plus monitoring, phone alerts and status pages. No open port, and every command is signed in your browser.",
+  "slug": "servor",
+  "dailyRank": 13,
+  "votesCount": 99,
+  "commentsCount": 5,
+  "topics": {
+   "nodes": [
+    {
+     "name": "SaaS"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Security"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10082836"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b\n\nI'm Benjamin, the maker of Servor: one console to run all your servers from the browser.\n\nA lightweight agent on each server, and everything goes through it:\n\u2022 A web terminal, a file explorer with an editor, live logs, container and systemd actions\n\u2022 Scheduled jobs that run on the machine, with their history and output\n\u2022 One command across a whole fleet, in one click\n\u2022 150+ install recipes, plus your own team recipes\n\u2022 Servers grouped by client, and per-server access for each teammate\n\u2022 Built-in monitoring: 11 monitor types, alerts on 20 channels and on your phone\n\u2022 Public status pages on your own domain, in each visitor's language\n\nThe agent only connects outbound, no open ports, and every command is signed in your browser and verified by the agent before it runs.\n\nFree for 2 servers.",
+     "createdAt": "2026-10-12T10:15:09Z",
+     "parentId": null,
+     "userId": "10082836"
+    },
+    {
+     "body": "<p>Been really enjoying using Servor so far. Having everything in one place makes server management much smoother. I especially like the potential for agentic workflows, being able to let AI agents handle more of the day-to-day server ops instead of having to do everything manually. Definitely something I see myself using more as these capabilities evolve!</p>",
+     "createdAt": "2026-10-13T21:25:30Z",
+     "parentId": null,
+     "userId": "2970332"
+    },
+    {
+     "body": "<p>Can I manage servers running on different Linux distributions from the same console?</p>",
+     "createdAt": "2026-10-13T07:58:39Z",
+     "parentId": null,
+     "userId": "10127751"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278148",
+  "name": "vibesmonitor.com",
+  "tagline": "The ops center for everything you ship",
+  "description": "Vibesmonitor puts traffic, errors, user feedback and cookie consent for every project you ship on one screen, with an inbox of what needs you first. One script per site. Or ask Claude, Cursor or any MCP agent which project needs you today.",
+  "slug": "vibesmonitor-com-2",
+  "dailyRank": 14,
+  "votesCount": 98,
+  "commentsCount": 11,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Analytics"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "1760883"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b\n\nSix projects. One place. That's the whole idea.\n\nShipping got cheap. With a coding agent, I was launching something new every few weeks. What didn't scale was paying attention. My projects weren't failing loudly. They went quiet: a signup button broken on Safari, a user writing \"export is broken\" that I read eleven days later. And once, a project I'd given up on had its best week ever, and I only found out by accident. [Swap in your real story if it differs.]\n\nEach project had its own analytics tab, its own error tool, maybe a feedback form. Nobody checks six of those every morning.\n\nSo Vibesmonitor is one operations center for everything you ship:\n\n\ud83d\udcca Analytics: traffic, sources and devices per project, and all of them side by side \ud83d\udc1e Errors: browser errors from the script, server errors from a small package for Node, Bun and Deno \ud83d\udcac Feedback: an in-app widget with screen capture \ud83c\udf6a Consent: a configurable cookie banner that also warns you about cookies set before consent or never declared \ud83d\udce5 Needs attention: one inbox of open errors and feedback across every project, so you know where to look first\n\nAnd because most of us build with an agent now, there's an MCP server. Connect Claude, Cursor or any MCP client and ask \"which of my projects needs me today?\" It reads the same live data you see, and it can create projects, configure the widgets and lay out a dashboard for you.\n\nSetup is one script tag per site. Starting with one project is free.\n\nI'd love to hear two things:\n\nHow many projects are you running right now, and how do you keep an eye on them?\nWhat's the first thing you check when you open a project in the morning?\nI'll be here all day answering. Thanks for checking it out! \ud83d\ude4f",
+     "createdAt": "2026-10-12T18:25:04Z",
+     "parentId": null,
+     "userId": "1377993"
+    },
+    {
+     "body": "<p>Didn't expect cookie consent checks in an ops dashboard, but that's actually a nice addition. Easy to overlook those things when you're busy shipping new projects. Nice work on this!</p>",
+     "createdAt": "2026-10-13T12:13:13Z",
+     "parentId": null,
+     "userId": "10001124"
+    },
+    {
+     "body": "<p>One ops center makes a lot of sense, even more now when everybody is shipping faster and faster. Wish you all the best here</p>",
+     "createdAt": "2026-10-13T12:00:59Z",
+     "parentId": null,
+     "userId": "1453154"
+    },
+    {
+     "body": "<p>Cool that vibesmonitor pulls everything I ship into one ops view, so I can see the status across projects instead of hopping between six dashboards.</p>",
+     "createdAt": "2026-10-13T09:13:16Z",
+     "parentId": null,
+     "userId": "3749277"
+    },
+    {
+     "body": "<p>Congrats, <a href=\"http://vibesmonitor.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">vibesmonitor.com</a> team! Nice to be launching alongside you today. Benson is live too: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or some support if you get a spare minute. Hope it's a good day for you!</p>",
+     "createdAt": "2026-10-13T08:26:38Z",
+     "parentId": null,
+     "userId": "1885150"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278016",
+  "name": "Google Fitbit Edge",
+  "tagline": "Google\u2019s smartest fitness tracker ever with 7-day battery ",
+  "description": "Fitbit Edge is Google\u2019s slim, screen-based fitness tracker for active lifestyles and everyday wear. It has built-in GPS, over 50 workout modes, ECG, skin temperature, and up to seven days of battery per Google. It\u2019s Fitbit\u2019s first repairable tracker, with a replaceable battery. $179.99, pre-order now, on shelves Oct 27. Includes 3 months of Google Health Premium, which is needed for the Health Coach and Health Guardian.",
+  "slug": "google-fitbit-edge-2",
+  "dailyRank": 15,
+  "votesCount": 95,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Health & Fitness"
+    },
+    {
+     "name": "Wearables"
+    },
+    {
+     "name": "Fitness"
+    }
+   ]
+  },
+  "makers": [],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p><strong>Fitbit Edge</strong> is Google\u2019s next-generation fitness tracker, a slim, screen-based wearable for active lifestyles and everyday wear. It sits between the Pixel Watch and the screenless Fitbit Air. You can pre-order it now, and it goes on shelves October 27.</p><p></p><p><strong>Problem:</strong> Fitness trackers tend to force a choice. Screenless bands are light but give you little on your wrist, while smartwatches do more but are bulkier and need charging more often.</p><p></p><p><strong>Solution:</strong> The Edge is a tracker with a screen that stays slim and light. Per Google, the case is 11.5mm thick and 45% lighter than the Apple Watch Series 12. The Hybrid OLED display is Google\u2019s largest and brightest tracker screen yet, with 46% more viewing area than previous Fitbit trackers.</p><p></p><p><strong>What makes it different:</strong></p><ul><li><p>Battery: up to seven days on a charge, which is Google\u2019s figure from pre-production testing, so real results may be lower. Fast charging gives a full day of battery in five minutes with a 30W adapter, sold separately.</p></li><li><p>Repairable: Google calls it Fitbit\u2019s first repairable fitness tracker, with a replaceable battery and modular internals.</p></li><li><p>GPS: built-in GPS that works without your phone, with up to 40% better tracking accuracy than previous generations, per Google.</p></li></ul><p><strong>Key features:</strong></p><ul><li><p>More than 50 workout modes with real-time guidance such as pace targets, heart rate zones and track splits</p></li><li><p>Automatic recognition of up to 100 workouts</p></li><li><p>Continuous heart rate, on-wrist ECG (not in all countries), skin temperature and an altimeter</p></li><li><p>Sleep stages and HRV that feed a morning recovery score</p></li><li><p>Smartwatch basics: Google Maps, media controls, and call and message notifications</p></li><li><p>Four finishes (Obsidian, Fog, Olive, Canyon) and several band styles, sold separately</p></li><li><p>Stephen Curry Special Edition</p></li></ul><p><strong>Health Guardian:</strong> with Google Health Premium, it tracks blood pressure and insulin resistance trends in the background and sends high and low heart rate alerts. Google says these are for general wellness only. They aren\u2019t diagnosis, medical advice or screening for diabetes or hypertension.</p><p></p><p><strong>Good to know:</strong></p><ul><li><p>Google Health Premium is sold separately and is needed for the Google Health Coach and Health Guardian. Three months come with purchase.</p></li><li><p>Google lists \u201cwater-resistant up to 50 meters\u201d as \u201ccoming soon\u201d. It also says the device is not waterproof or dust proof.</p></li><li><p>It works with Android 11 or higher, or iOS 16.4 or higher. Some features vary by region.</p></li></ul><p><strong>Price: </strong>$179.99, or $219.99 for the Stephen Curry Special Edition.</p><p></p><p><a href=\"https://store.google.com/us/product/google_fitbit_edge\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Pre-order on the Google Store</a> \u00b7 <a href=\"https://blog.google/products-and-platforms/devices/fitbit/google-fitbit-edge/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Read the announcement</a> </p><p></p><p>P.S. I hunt the latest and greatest launches in tech, SaaS and AI, follow to be notified <strong>\u2192</strong> <a href=\"https://www.producthunt.com/@rohanrecommends\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">@rohanrecommends</a> </p>",
+     "createdAt": "2026-10-13T06:55:00Z",
+     "parentId": null,
+     "userId": "4325010"
+    },
+    {
+     "body": "<p>Replaceable battery in tracker this size is good news. Most wearables die because battery is glued and after 2-3 years capacity is gone, rest of device is fine.<br>Interesting how they did it without losing water resistance. Gasket or screws? Would like to see teardown.</p>",
+     "createdAt": "2026-10-14T12:58:21Z",
+     "parentId": null,
+     "userId": "10340124"
+    },
+    {
+     "body": "<p>oh! Fitbit's also finally fallen into the display trap \ud83d\ude05</p><p>I think I'd be particularly inclined because of the 7 day battery life. I am so tired of charging my apple watch every single day</p>",
+     "createdAt": "2026-10-13T10:40:22Z",
+     "parentId": null,
+     "userId": "9178379"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1271434",
+  "name": "Agent Craft",
+  "tagline": "100\u00d7 your social engagement and leads",
+  "description": "Agent Craft gets your whole team posting from their own social accounts, where posts earn ~7\u00d7 the engagement of a company page. Each person answers a daily prompt with a 3-minute voice note or video. Craft turns it into native posts for 8 platforms, you approve them in one review queue, and they publish from each person's account. Comments and DMs from likely buyers are qualified and sent to your CRM. $95/month first teammate, $75 each after. 30-day free trial, no card.",
+  "slug": "agent-craft",
+  "dailyRank": 16,
+  "votesCount": 94,
+  "commentsCount": 7,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Sales"
+    },
+    {
+     "name": "Social Media"
+    },
+    {
+     "name": "Marketing"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "7467284"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi, I'm Mark, founder of Agent Craft. I've led five companies, and every time social media was the thing we couldn't crack. What finally worked was simple, authentic founder-led video. \n\nA person's own account gets ~7\u00d7 the engagement of the company page; multiply that across 8 platforms and your whole team and you get our 100\u00d7. Each person answers a daily prompt with a 3-minute voice note or video. \n\nCraft turns it into native posts, you approve them in one review queue, and comments and DMs from likely buyers go to your CRM. \n\nI'd love your feedback: what would stop your team using this?",
+     "createdAt": "2026-10-06T09:44:33Z",
+     "parentId": null,
+     "userId": "9942762"
+    },
+    {
+     "body": "<p>Getting window cleaners to type out marketing copy never works. Talking into a phone for three minutes between stops is something a technician might actually finish.</p>",
+     "createdAt": "2026-10-13T20:04:25Z",
+     "parentId": null,
+     "userId": "10128058"
+    },
+    {
+     "body": "<p>Congrats, Agent Craft team! Nice to be launching alongside you today. Benson is live too: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or some support if you get a spare minute. Hope it's a good day for you!</p>",
+     "createdAt": "2026-10-13T08:23:22Z",
+     "parentId": null,
+     "userId": "1885150"
+    },
+    {
+     "body": "<p>To answer your question: for a small team like ours the hard part would be the daily habit. Day 1 everyone records, by week 2 it's only the founders. Does Craft do anything when someone goes quiet, or does the queue just get thinner? Also curious how you decide a comment or DM is from a \"likely buyer\". We qualify leads from WhatsApp chats and getting that right is the hard part.</p>",
+     "createdAt": "2026-10-13T07:43:12Z",
+     "parentId": null,
+     "userId": "9879530"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1275664",
+  "name": "CLI Manager",
+  "tagline": "Let one AI agent open and drive your other CLI agents",
+  "description": "CLI Manager now has an AI Control API. Claude Code, Codex or any script can open sessions in CLI Manager, send prompts, wait, and read the screen - in terminals you can watch. Sessions an AI is driving turn green in the sidebar, the orchestrator gets a crown, and Disconnect AI takes control back anytime. Local only (REST + MCP on 127.0.0.1), off by default. Plus everything from launch #1: Claude Code, Codex and Gemini CLI in one sidebar. Free, MIT open source, macOS.",
+  "slug": "cli-manager-2",
+  "dailyRank": 17,
+  "votesCount": 92,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9097075"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "What if one AI agent could run the rest of them?\n\nLast December I launched CLI Manager to keep all my CLI agents in one place. After that I kept doing the same thing by hand: open a session per repo, paste the task, check back on each one.\n\nSo I added an AI Control API. Now my Claude Code session opens one session per repo, they work in terminals I can watch, and it reports back in a table. If anything looks off, I click Disconnect AI and take over.\n\nIt's also free and MIT open source now \u2014 the two things people asked about most last time. macOS only for now. What would you hand off to an orchestrator first?",
+     "createdAt": "2026-10-10T07:57:50Z",
+     "parentId": null,
+     "userId": "9097075"
+    },
+    {
+     "body": "<p>Congrats, CLI Manager team! Nice to be launching alongside you today. Benson is live too: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or some support if you get a spare minute. Hope it's a good day for you!</p>",
+     "createdAt": "2026-10-13T08:25:40Z",
+     "parentId": null,
+     "userId": "1885150"
+    },
+    {
+     "body": "<p>Hey, love that the control API is off by default. First thing I'd hand off is the boring loop: run the tests, read the failure, re-prompt. The hard part is knowing when the orchestrator should stop and pull in a human. Are you planning hooks so it can check \"is this actually done\" against the original task? That's where most of my multi-agent runs drift.</p>",
+     "createdAt": "2026-10-13T07:31:56Z",
+     "parentId": null,
+     "userId": "617409"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278551",
+  "name": "The Drive AI",
+  "tagline": "The AI agent that does the work on your files",
+  "description": "Most AI tools can read your files. The Drive AI does the work after reading. One agent across Google Drive, SharePoint, OneDrive, Dropbox, your computer and your NAS. It organizes thousands of files in one prompt, finds duplicates, builds new documents like a closing binder from 20 PDFs, and runs routines on autopilot as new files arrive. It shows the plan first, waits for your OK, and every change can be undone.",
+  "slug": "the-drive-ai-5",
+  "dailyRank": 18,
+  "votesCount": 90,
+  "commentsCount": 7,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Android"
+    },
+    {
+     "name": "Chrome Extensions"
+    },
+    {
+     "name": "Productivity"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "1945292"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b I\u2019m Bigyan, founder of The Drive AI.\n\nWe started as a student tool for asking questions about documents. People kept asking it to do the actual work: rename the files, sort them, build the report. So we built that.\n\nThe Drive AI is an agent for all your files. It works across Google Drive, SharePoint, OneDrive, Dropbox, your computer and your NAS, right where your files already live. No migrating anything.\n\nA few things it does today:\n\u2022 Organizes thousands of files in one prompt (2,023 files into 260 vendor folders in our demo)\n\u2022 Finds duplicates and cleans them up\n\u2022 Builds new documents from your files, like a closing binder from 20 PDFs\n\u2022 Runs routines on autopilot as new files arrive\n\nThe part we care about most: you stay in charge. It shows the plan before it acts, waits for your OK, and every change can be undone. It never deletes on its own.\n\nModels can read files now. Reading is the easy part. Order is the work.\n\n\ud83c\udf81 Product Hunt special: 50% off any plan for your first 3 months with code PRODUCTHUNT50. This week only.\n\nI\u2019ll be here all day. Tell me about the messiest folder you have, and I\u2019ll tell you what it would do with it \ud83d\udc47",
+     "createdAt": "2026-10-13T05:39:16Z",
+     "parentId": null,
+     "userId": "1945292"
+    },
+    {
+     "body": "<p>When the agent works on files on Android, can you see a clear before/after of what it changed, or does it apply edits without a review step? Also wondering how it decides which folder or file is in scope when you give it a vague ask.</p>",
+     "createdAt": "2026-10-14T03:51:21Z",
+     "parentId": null,
+     "userId": "969016"
+    },
+    {
+     "body": "<p>Bigyan, seeing the proposed file changes before approving them feels useful when a folder has years of work in it. Being able to undo the changes makes that easier to try. Congrats on the launch!</p>",
+     "createdAt": "2026-10-13T12:26:33Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Happy launch day! Congrats on The Drive AI. Nice to be launching alongside you today. We're launching Benson too: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or some support if you've got time. Hope the day goes well!</p>",
+     "createdAt": "2026-10-13T08:25:20Z",
+     "parentId": null,
+     "userId": "1885150"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278420",
+  "name": "HarnessHive",
+  "tagline": "AI-Native, Simple & Collaborative Wire Harness Design",
+  "description": "HarnessHive is the AI-native design ecosystem for wiring harness engineers. Schematic, layout, BOM and a to/scale formboard, all in one live document. With an AI assistant that helps you at every step.",
+  "slug": "harnesshive",
+  "dailyRank": 19,
+  "votesCount": 91,
+  "commentsCount": 7,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Design Tools"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "10348630"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "We\u2019re three founders building HarnessHive, a cloud based tool for wiring harness design. The incumbents are expensive, take months to onboard, and have been slow to adopt features like real time collaboration and AI. Our CEO Matteo ran into this firsthand while designing harnesses for a rocket association and no suitable tool existed. We\u2019d really value your honest feedback!",
+     "createdAt": "2026-10-13T02:17:04Z",
+     "parentId": null,
+     "userId": "10325644"
+    },
+    {
+     "body": "<p>wire harness design is such a niche pain, finally someone going after it \ud83d\udd0c congrats! is the ai doing bom checks too?</p>",
+     "createdAt": "2026-10-14T07:45:34Z",
+     "parentId": null,
+     "userId": "3426683"
+    },
+    {
+     "body": "<p>Daniel, for teams looking to migrate from legacy suites, how easy is it to import existing component libraries and schematics into HarnessHive?</p>",
+     "createdAt": "2026-10-13T14:47:01Z",
+     "parentId": null,
+     "userId": "8624887"
+    },
+    {
+     "body": "<p>Daniel, keeping the schematic, BOM and formboard in one live document caught my eye. I can see why you'd want those to stay together as the design changes. Congrats to the three of you!</p>",
+     "createdAt": "2026-10-13T12:31:37Z",
+     "parentId": null,
+     "userId": "2734924"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277124",
+  "name": "Scape",
+  "tagline": "Orchestrate agent fleets with custom tools built on macOS",
+  "description": "A working example of a loop orchestrator: an AI agent that runs a fleet on a heartbeat, manages its own tickets table as memory, and surfaces bugs from the logs before anyone reports them.",
+  "slug": "scape-5",
+  "dailyRank": 20,
+  "votesCount": 89,
+  "commentsCount": 2,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Developer Tools"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "10006942"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hey everyone please check out <a href=\"https://www.scape.work/argus\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://www.scape.work/argus</a> if you'd like to create your own loop orchestrator in scape. I'll be hanging out in the comments if anyone has any questions!</p>",
+     "createdAt": "2026-10-11T22:09:39Z",
+     "parentId": null,
+     "userId": "44868"
+    },
+    {
+     "body": "<p>Congrats on launching Scape! Hope today's going well. We're launching Benson alongside you: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or some support if you have time today. Good luck with the launch!</p>",
+     "createdAt": "2026-10-13T08:27:34Z",
+     "parentId": null,
+     "userId": "1885150"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277481",
+  "name": "Xiryn",
+  "tagline": "The open-source personal agent that runs on your computer",
+  "description": "Xiryn is a free, open-source personal agent that does what Muse, Grok Bot and Dots do \u2014 on your own computer. Each agent gets its own Linux desktop in Docker, so it browses, researches, codes and fills forms in the background without touching your screen. No account, no telemetry: your data stays on your disk. Any model, local ones too. Control it from anywhere through Telegram \u2014 approve payments with one tap or take over its screen from your phone. One command sets it up.",
+  "slug": "xiryn",
+  "dailyRank": 21,
+  "votesCount": 89,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Privacy"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9334988"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b I'm Sourav, the maker of Xiryn.\n\nThis year Muse, Grok Bot and Dots showed what a personal agent with its own computer can do. But they run in someone else's cloud \u2014 with your conversations, your logins and, when they shop for you, your card. I wanted the same thing, on my own machine. So I built Xiryn and open-sourced it.\n\nWhat makes it different:\n\n\ud83d\udda5\ufe0f Its own computer \u2014 every agent works on a Linux desktop in Docker on your machine. It never moves your mouse or takes your screen, so you keep working while it browses, researches and codes.\n\ud83d\udd12 Private by design \u2014 no account, no telemetry. Chats, memory and keys live in one file on your disk. Cards and logins sit in an encrypted vault; the agent never sees them, and every payment waits for your yes.\n\ud83d\udcf1 Control from anywhere \u2014 message your agents on Telegram, approve a payment with one tap, or take over the agent's screen from your phone.\n\ud83e\udde0 Any model \u2014 OpenAI, Anthropic, Gemini, xAI, Groq, Mistral, DeepSeek, OpenRouter, or local with Ollama and LM Studio.\n\ud83d\udc65 Squads \u2014 agents hand work to each other, each on its own model and machine.\n\nSetup is one command (or paste one prompt into Claude Code, Codex or Cursor). It's MIT licensed and free \u2014 you only pay your model provider, or nothing with a local model.\n\nI'd love your feedback: what's the first thing you'd hand to your own agent?",
+     "createdAt": "2026-10-12T08:12:39Z",
+     "parentId": null,
+     "userId": "9334988"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1270518",
+  "name": "Remocn Studio",
+  "tagline": " Ship a launch video without opening After Effects",
+  "description": "A free, open-source macOS app where your own Claude Code, Codex, Copilot or Grok builds your video as a real Remotion project. Watch it change live, click any element to tune it, give notes in chat, export MP4 up to 4K. No timeline. No lock-in",
+  "slug": "remocn-studio",
+  "dailyRank": 22,
+  "votesCount": 89,
+  "commentsCount": 1,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "GitHub"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9152391"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b\n\nI'm Dima. I built Remocn Studio because every launch I shipped ended the same way:\nthe product was done, and the video wasn't.\n\nAI video tools make you pick one of two bad options. You either get generated\npixels you can't edit, or a template everyone has already seen. I wanted a third\nroute: let a coding agent write the motion design as code, and let me direct it\nlike a film set.\n\nSo Remocn Studio is a Mac app where your own coding agent (Claude Code, Codex,\nGitHub Copilot or Grok Build, signed in with the subscription you already pay for)\nbuilds the video as a real Remotion project in a folder on your disk.\n\nHow it works:\n\ud83c\udfac Describe the video. The agent runs a 7-stage pipeline (analysis \u2192 brand \u2192 script\n\u2192 motion \u2192 build \u2192 choreography \u2192 review) and writes a readable doc at each stage,\nso you can overrule any decision.\n\ud83d\udc46 Point at things. Click any element in the live preview and drag its type,\nspacing and easing curves. The value goes straight back into the TSX. Or drag a\nSnapshot box and talk about that crop.\n\ud83c\udfa8 Stay on brand. Drop in a DESIGN.md or set your colors once.\n\ud83d\udce6 Export MP4, WebM, GIF or ProRes up to 4K, with presets for YouTube, Shorts,\nReels and TikTok.\n\nWhat it isn't:\n - No timeline, no keyframes, no tracks\n - No API keys, no extra token bill\n - No lock-in. It's plain Remotion: open it in your editor, commit it, take it anywhere.\n- No telemetry. Crash reports are opt-in.\n\nIt's free and MIT-licensed. I'd love to hear what video you'd make with it first, and where it breaks. I'm here all day \ud83d\ude4f",
+     "createdAt": "2026-10-05T13:15:43Z",
+     "parentId": null,
+     "userId": "9152391"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1277419",
+  "name": "Music Dawn",
+  "tagline": "A recorder for musicians. Every idea sounds finished.",
+  "description": "Music Dawn is a recorder made for musicians. Record an idea in one tap, hear it with a finished sound right away, and keep every take in one library on all your devices. iPhone, iPad, and Apple Watch. Free, with optional Pro.",
+  "slug": "music-dawn",
+  "dailyRank": 23,
+  "votesCount": 89,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "iOS"
+    },
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Music"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10343139"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "<p>Hello everyone,</p><p></p><p>I've designed and built apps since 2001, for iPhone since 2009, mostly for other companies. In 2025 I decided to go back to making things my own way.</p><p></p><p>I'm also a musician. For years every song idea I had went into Apple's Music Memos. When Apple retired it, I kept thinking about what it could have become. So I built Music Dawn, a personal vault for song ideas, made for musicians, singers and dreamers.</p><p></p><p>Sometimes a rough recording sends a good idea straight to the trash. In Music Dawn every take plays back through EQ, compression, a warm plate reverb and a master, for free, so you hear what the idea could become. The goal is to give your ideas enough of a push that you take them into a DAW or a studio, instead of letting them fade.</p><p></p><p>Also in there:</p><p>\u2022 A tuner, and a headphone click that stays out of the take</p><p>\u2022 A waveform that draws a landscape from your song. Every song looks different.</p><p>\u2022 iPhone, iPad and Apple Watch, synced through your own iCloud. No account.</p><p>\u2022 Easy import from Voice Memos, so your old ideas come along</p><p>\u2022 Settings to dig into if you like: recording quality, which mic, mono or stereo</p><p></p><p>Most people will never need more than the free app. Pro adds presets for vocals and piano, noise removal, every effect, your own effect chains, hearing yourself live with effects while you sing, and chord, key and BPM detection (beta).</p><p></p><p>I've tweaked and polished the design and features with everything I've learned from the apps I've built over the years. Tell me what you think, and what you'd want next.</p>",
+     "createdAt": "2026-10-12T07:10:35Z",
+     "parentId": null,
+     "userId": "10343139"
+    },
+    {
+     "body": "<p>Hey, congrats on the Music Dawn launch! We're sharing a launch day with Benson: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or a little support if you have time today. Wishing you a great launch!</p>",
+     "createdAt": "2026-10-13T08:26:30Z",
+     "parentId": null,
+     "userId": "1885150"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1273136",
+  "name": "Upsolve Row-Level Security",
+  "tagline": "Data permissions your AI agent can't talk its way past",
+  "description": "Row-level security enforced server side, before any query runs. Set rules from user and org properties, test them as any user, and deploy one agent to thousands of tenants. The agent never sees the rules, so it can't bypass them.",
+  "slug": "upsolve-row-level-security",
+  "dailyRank": 24,
+  "votesCount": 87,
+  "commentsCount": 13,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Analytics"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Security"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "9485398"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt, Ka Ling from Upsolve AI.\n\nThe first question every security team asks about a data agent is: what stops it from showing one customer another customer's data? If your answer is \"the prompt\", you don't have an answer.\n\nUpsolve Row-Level Security takes permissions out of the agent entirely. You register orgs and users with properties like country or tenant ID, then set global rules (column country = user.country) or write your own SQL rules per table. Every query, whether the agent or a person wrote it, gets pre-filtered on the server before it runs. The agent never even sees the rules.\n\nYou can test any rule as any user before you ship. In the demo, Grace sees four APAC countries and Carlos sees only Brazil, from the same agent.\nThis is what lets you put one agent in front of thousands of tenants. How are you handling permissions for AI features today?",
+     "createdAt": "2026-10-07T21:50:36Z",
+     "parentId": null,
+     "userId": "5724896"
+    },
+    {
+     "body": "<p>Hi ! sharing live numbers with customers always gave me a small knot in my stomach, that worry someone catches a figure meant for another account. This is the kind of thing that'd let me relax about it.</p>",
+     "createdAt": "2026-10-13T13:06:42Z",
+     "parentId": null,
+     "userId": "9970558"
+    },
+    {
+     "body": "<p>Ka Ling, testing a rule as a particular user before shipping it stood out to me. Much easier to check what a customer will actually see when the permissions are enforced before the query runs. Congrats on the launch!</p>",
+     "createdAt": "2026-10-13T12:27:17Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Hey, congrats on the Upsolve Row-Level Security launch! We're sharing a launch day with Benson: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or a little support if you have time today. Wishing you a great launch!</p>",
+     "createdAt": "2026-10-13T08:24:09Z",
+     "parentId": null,
+     "userId": "1885150"
+    },
+    {
+     "body": "<p>Agree with \"if your answer is the prompt, you don't have an answer\". We run AI agents for many stores, and keeping one store's customers away from another store's agent is the one thing I would never leave to the model. One question: the rules are on tables and columns. What happens when the agent calls a tool or an API instead of writing SQL, say fetching an order from Shopify? Is that outside what this covers?</p>",
+     "createdAt": "2026-10-13T07:44:57Z",
+     "parentId": null,
+     "userId": "9879530"
+    },
+    {
+     "body": "<p>\"If your answer is the prompt, you don't have an answer\" is spot on. Same thing goes for quality: you enforce it in infrastructure, you don't ask for it in a CLAUDE.md. Do you log denied queries back to the agent so it learns the boundary, or does it stay invisible to it?</p>",
+     "createdAt": "2026-10-13T07:32:39Z",
+     "parentId": null,
+     "userId": "617409"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278447",
+  "name": "OpenFlowKit 2",
+  "tagline": "Free, open-source diagrams you and your agent edit together",
+  "description": "A free, open-source diagram canvas: MIT, local-first, no account, in your browser. One canvas, five ways in. Draw it. Write it as code, or paste Mermaid, D2 or Structurizr. Ask any of 10 AI providers, or a local model. Hand it to your coding agent: Claude Code edits the canvas you have open, live, over MCP. Or pull it from a GitHub repo, every arrow citing its file and line. The CLI checks drift in CI, so diagrams keep up with your code.",
+  "slug": "openflowkit-2",
+  "dailyRank": 25,
+  "votesCount": 86,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Design Tools"
+    },
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "GitHub"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9458328"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi everyone, I'm Varun. OpenFlowKit was here about 8 months ago as v1. Version 2 is a rebuild from scratch:\n\n- One canvas, five ways in: draw it, write it as code, ask any AI model (or a local one), hand it to your coding agent, or pull it from a GitHub repo\n- Your coding agent edits the canvas you have open, live, over MCP (npx -y openflowkit mcp). Every change is one undo step\n- Text and canvas are the same diagram: write it as code, or paste Mermaid, D2 or Structurizr\n- The repo map cites the file and line behind every arrow, so you can check it instead of trusting it\n\nWhy I built it: every team I've worked on had an architecture diagram that was right once. The code kept moving, the diagram didn't, and new people learned the system from a picture nobody trusted. So everything here is built to keep the diagram current: you, your AI and your agent all edit the same one.\n\nTry it with no account: app.openflowkit.com\n\nHonest limits: the map reads code statically (imports and config files, not running traffic), reads public GitHub repos in the browser (run the CLI on a checkout for private ones), and is weaker on .NET and Elixir projects without containers. There's no real-time collaboration yet.\n\nIt's free and MIT licensed, and I built it on my own.\n\nA real question: what's the diagram you keep redrawing? Try it there and tell me what got in the way.",
+     "createdAt": "2026-10-13T03:05:37Z",
+     "parentId": null,
+     "userId": "9458328"
+    },
+    {
+     "body": "<p>The one I keep redrawing is which service is allowed to touch which table, and static imports is exactly where that one falls over. An import graph tells you what can call what, not what does, so the edges I care about are the ones that only exist at runtime, a queue, a webhook, a cron job hitting an endpoint nobody imports. Drift check will happily tell me the diagram is current while the edge that would actually hurt me was never on it. Worth saying you listed that limit yourself, most launches bury it.</p>",
+     "createdAt": "2026-10-13T07:49:36Z",
+     "parentId": null,
+     "userId": "8457400"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1270905",
+  "name": "Vincentt",
+  "tagline": "Bring your ideas to life through the camera.",
+  "description": "Vincentt is the fastest way to build and launch camera experiences on the web. Build with your own coding agent (Claude Code, or Codex) and our open SDK, preview live on your phone, then publish to a link anyone can open. No app store, no headset.",
+  "slug": "vincentt",
+  "dailyRank": 26,
+  "votesCount": 84,
+  "commentsCount": 8,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    },
+    {
+     "name": "Augmented Reality"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "0"
+   },
+   {
+    "id": "6061228"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b\n\nWe've been building camera-based AR for clients for years, and every project meant rebuilding the same plumbing: camera setup, HTTPS so a phone can even open the camera, preview links, hosting, deploys. Vincentt is that plumbing, done once.\n\nHow it works:\n1. Build on your own machine with the coding agent you already use (Claude Code, Cursor, Codex). Our SDK and starter template are open and need no account.\n2. Run a preview and open a live HTTPS link on your phone. Edits show up on reload, and logs from the phone come back to your agent, so no more USB cables or pasting screenshots.\n3. Spot something wrong? Tap \"Send feedback\" on the phone, mark it up, and it lands straight in your agent's session.\n4. Publish from the terminal to yourname.vincentt.app. Every publish is a versioned release, and rollback is instant.\n\nThere's also a library of 1,000+ 3D and visual assets your agent can search in plain words, and a gallery of live experiences you can try on your phone and clone as a starting point.\n\nThe Free plan includes one published project. Paid plans add unlimited projects, more traffic and custom domains.\n\nWe'd love your feedback: what would you build first, and where did setup slow you down?",
+     "createdAt": "2026-10-05T19:49:14Z",
+     "parentId": null,
+     "userId": "10318191"
+    },
+    {
+     "body": "<p>Sending marked-up feedback from the phone straight into the agent's session is a nice touch. It closes the gap between seeing a problem on the device and describing it back at your desk. Congrats, Htut and team!</p>",
+     "createdAt": "2026-10-13T12:28:47Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Can I host my 3D game developed in Claude Code with Vincentt?</p>",
+     "createdAt": "2026-10-13T12:10:10Z",
+     "parentId": null,
+     "userId": "10311461"
+    },
+    {
+     "body": "<p>Congrats on launching Vincentt! Hope today's going well. We're launching Benson alongside you: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or some support if you have time today. Good luck with the launch!</p>",
+     "createdAt": "2026-10-13T08:25:12Z",
+     "parentId": null,
+     "userId": "1885150"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1258540",
+  "name": "Mi Speaks 2.0",
+  "tagline": "Books and PDFs read aloud by neural voices, on device",
+  "description": "Mi Speaks reads your books, articles and PDFs aloud. 2.0 adds 28 neural Studio Voices, American and British, generated entirely on your iPhone: nothing is uploaded, and they work in airplane mode. Import a PDF and follow along on the real page with the spoken word lit, jump to any chapter, and prepare a whole document so it plays to the end with the screen locked. Free has no length limit; Premium adds Studio Voices.",
+  "slug": "mi-speaks-2-0",
+  "dailyRank": 27,
+  "votesCount": 84,
+  "commentsCount": 4,
+  "topics": {
+   "nodes": [
+    {
+     "name": "iOS"
+    },
+    {
+     "name": "Productivity"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "9278119"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hi Product Hunt, Blaine here. I launched Mi Speaks here last December, and this is the first update big enough to come back with.\n\nThe weak spot of 1.x was that it sounded like a phone reading to you: it used the system voices, and a fresh iPhone only has the compact ones. So 2.0 is mostly about the voice. There are now 28 Studio Voices, American and British, generated by a neural model entirely on your iPhone. Your text is never uploaded, there's no account, and it works in airplane mode.\n\nRunning a neural voice on the phone has one real limit: iOS won't let an app use the graphics processor while it's off screen. So there's Prepare Full Document, which renders the whole book up front and then plays to the end with the screen locked. If you skip that, reading doesn't stop. Any passage that isn't ready yet is read in your system voice.\n\nAlso new since last time: PDFs open as the actual page with the spoken word highlighted where it sits, chapters come from the book's outline (or from its headings when it has none), there's an Apple Watch app that gets the prepared Studio audio from your phone, and a Resume Reading widget.\n\nThe free tier used to cut you off at 255 characters, which meant nobody could really try it. Now free has no length limit: any document, any voice already on your device, three saved documents. Premium adds the Studio Voices, an unlimited synced library, audio export and Turbo speeds. You can buy it monthly, yearly, or once for life, and the subscriptions start with a 7-day trial.\n\nWhat do you listen to most, and which voice did you end up picking? I'd like to hear what sounds wrong, too.",
+     "createdAt": "2026-09-22T19:45:40Z",
+     "parentId": null,
+     "userId": "9278119"
+    },
+    {
+     "body": "<p>Blaine, preparing the whole document for playback with the screen locked is a useful detail. Nice to see the phone's limits explained clearly alongside the new voices. Congrats on 2.0!</p>",
+     "createdAt": "2026-10-13T12:24:10Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Congrats, Mi Speaks 2.0 team! Nice to be launching alongside you today. Benson is live too: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or some support if you get a spare minute. Hope it's a good day for you!</p>",
+     "createdAt": "2026-10-13T08:24:55Z",
+     "parentId": null,
+     "userId": "1885150"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1278291",
+  "name": "AdHelm CLI",
+  "tagline": "An Open Sourced CLI for Managing Ads",
+  "description": "AdHelm is a free, Apache-2.0 command-line tool that lets your AI agent connect to your own ad and analytics accounts, report performance, audit them, and recommend changes, entirely on your machine.",
+  "slug": "adhelm-cli",
+  "dailyRank": 28,
+  "votesCount": 82,
+  "commentsCount": 3,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Open Source"
+    },
+    {
+     "name": "Analytics"
+    },
+    {
+     "name": "Advertising"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "4757399"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b\n\nSome people fish. Some do woodcraft. Some collect stamps. My dopamine goes to building things that make my everyday life a little easier. This time it might make yours easier too, if you're a marketer.\n\nAdHelm is a free, open-source command-line tool that gives Claude Code and Codex access to your ad accounts: Google Ads, Meta, TikTok, Reddit, and more.\n\nYou ask your agent, \"How did Google Ads do last week? Anything worth fixing?\" It runs the AdHelm commands, reads your report, and audits the account. Every finding shows what it read and the evidence behind it.\n\nA few things I cared about:\n\u2022 It runs on your machine. No hosted service, no telemetry, no account to sign up for.\n\u2022 Your keys stay in your OS keychain. That's a bit more setup for you, but nothing sits on a server I run.\n\u2022 Version 0.1.1 reads, audits, and recommends. It doesn't change anything in your accounts. The recommendations come from agent skills built on years of B2B marketing experience.\n\nIt's early. Like pre-alpha early. I've tested it on a few accounts, and I expect you'll find things to improve. That's why I'm here.\n\nSo try it on your own accounts and tell me what breaks. Which provider should I dig into next, and what do you wish an audit caught that your dashboards miss?\n\nInstall: uv tool install adhelm\n52-second demo: <a href=\"https://aptsonic.com/adhelm\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://aptsonic.com/adhelm</a>\nSource: <a href=\"https://github.com/jasonhowie/adhelm\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">https://github.com/jasonhowie/ad...</a>",
+     "createdAt": "2026-10-12T21:24:56Z",
+     "parentId": null,
+     "userId": "4757399"
+    },
+    {
+     "body": "<p>Jason, showing the evidence behind each finding is a useful detail for an ad account audit. I like the starting point of reading and recommending while the person decides what to change. Congrats on the launch!</p>",
+     "createdAt": "2026-10-13T12:33:23Z",
+     "parentId": null,
+     "userId": "2734924"
+    },
+    {
+     "body": "<p>Happy launch day! Congrats on AdHelm CLI. Nice to be launching alongside you today. We're launching Benson too: <a href=\"https://www.producthunt.com/products/benson-2\" target=\"_blank\" rel=\"noopener\">https://www.producthunt.com/products/benson-2</a>. Would appreciate a comment or some support if you've got time. Hope the day goes well!</p>",
+     "createdAt": "2026-10-13T08:25:57Z",
+     "parentId": null,
+     "userId": "1885150"
+    }
+   ]
+  }
+ },
+ {
+  "id": "1274375",
+  "name": "FutureMail",
+  "tagline": "Email on your domain, built for people and their AI agents",
+  "description": "Email hosting for your own domain, built for people and their AI agents: unlimited addresses, a fast keyboard-first inbox, agent inboxes, a REST API, CLI and remote MCP server (Resend-compatible). $20/month.",
+  "slug": "futuremail-2",
+  "dailyRank": 29,
+  "votesCount": 52,
+  "commentsCount": 2,
+  "topics": {
+   "nodes": [
+    {
+     "name": "Email"
+    },
+    {
+     "name": "Developer Tools"
+    },
+    {
+     "name": "Artificial Intelligence"
+    }
+   ]
+  },
+  "makers": [
+   {
+    "id": "10332789"
+   }
+  ],
+  "comments": {
+   "nodes": [
+    {
+     "body": "Hey Product Hunt \ud83d\udc4b\n\nI built FutureMail because my AI agents kept needing email (sign-up codes, receipts, replies from humans) and every option was either a send-only API or a consumer mailbox that agents can't really use.\n\nFutureMail is real email hosting on your own domain, where your agents are first-class users:\n\n\u2022 Agent inboxes: give each agent its own mailbox, address and scoped API key\n\u2022 wait_for_email: long-polls until a matching email lands and hands back the extracted OTP code and links\n\u2022 Remote MCP server for Claude, Cursor and any MCP client, plus a REST API and the fm CLI (npm i -g futuremail)\n\u2022 Resend-compatible API: point the official Resend SDK at FutureMail and keep your code\n\u2022 For humans: a fast, keyboard-first inbox with threading and Gmail-style search, unlimited domains, addresses, aliases and catch-all\n\nDNS setup (DKIM, SPF via custom MAIL FROM, DMARC) is generated for you with live verification. Pro is $20/month with 50,000 recipients and hard caps, so no surprise overage bills.\n\nI'd love your feedback, especially on what your agents need from an inbox. I'll be here all day answering questions!",
+     "createdAt": "2026-10-09T01:54:01Z",
+     "parentId": null,
+     "userId": "10332789"
+    },
+    {
+     "body": "<p>I was actually just hacking together something similar, and this looks really nice.</p><p></p><p>When you say 50,000 recipients each month, what does that mean? Is that allowing me to send an unlimited amount of emails to anyone so long as I don't send to more than 50,000 unique email addresses? I think you mean total emails sent, but I'm not sure.</p><p></p><p>What kind of hard caps do you have?</p><p></p><p>What kind of data retention do you have? I don't see anything related to whether or not emails are stored or are transient. </p>",
+     "createdAt": "2026-10-14T12:45:20Z",
+     "parentId": null,
+     "userId": "10306993"
+    }
+   ]
+  }
+ }
+]

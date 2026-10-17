@@ -1,0 +1,146 @@
+// A fake Product Hunt API v2. It serves fixture Launches through the one GraphQL endpoint, paged as the real API
+// pages them, and records every request so tests can check what was asked for.
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { readFileSync } from 'node:fs';
+
+/** A Launch as the real API returned it on Oct 11–14 (the fixtures). */
+export interface FixturePost {
+  id: string;
+  name: string;
+  tagline: string;
+  description: string;
+  slug: string;
+  dailyRank: number | null;
+  votesCount: number;
+  commentsCount: number;
+  topics: { nodes: { name: string }[] };
+  makers: { id: string }[];
+  comments: { nodes: FixtureComment[] };
+}
+
+export interface FixtureComment {
+  body: string;
+  createdAt: string;
+  parentId: string | null;
+  userId: string;
+}
+
+export function fixtureDay(date: string): FixturePost[] {
+  return JSON.parse(readFileSync(new URL(`../fixtures/producthunt/${date}.json`, import.meta.url), 'utf8')) as FixturePost[];
+}
+
+interface Served {
+  post: FixturePost;
+  featured: boolean;
+  /** When the Launch was posted; for a Featured Launch this is also when it was featured. */
+  at: string;
+}
+
+export interface ProductHuntRequest {
+  kind: 'posts' | 'comments';
+  query: string;
+  variables: Record<string, unknown>;
+}
+
+const PAGE = 20;
+
+export class FakeProductHunt {
+  readonly requests: ProductHuntRequest[] = [];
+  #served: Served[] = [];
+  #server: http.Server;
+  #token: string;
+
+  private constructor(token: string) {
+    this.#token = token;
+    this.#server = http.createServer((req, res) => void this.#handle(req, res));
+  }
+
+  static async start(options: { token: string }): Promise<FakeProductHunt> {
+    const ph = new FakeProductHunt(options.token);
+    await new Promise<void>((resolve) => ph.#server.listen(0, '127.0.0.1', resolve));
+    return ph;
+  }
+
+  get apiUrl(): string {
+    return `http://127.0.0.1:${(this.#server.address() as AddressInfo).port}/v2/api/graphql`;
+  }
+
+  async close(): Promise<void> {
+    this.#server.closeAllConnections();
+    await new Promise<void>((resolve) => this.#server.close(() => resolve()));
+  }
+
+  /** Serves `posts` as Featured Launches, featured at `featuredAt`, in this order of rank. */
+  addFeatured(posts: FixturePost[], featuredAt: string): void {
+    for (const post of posts) this.#served.push({ post, featured: true, at: featuredAt });
+  }
+
+  /** Serves `posts` as Launches Product Hunt did not feature. */
+  addUnfeatured(posts: FixturePost[], postedAt: string): void {
+    for (const post of posts) this.#served.push({ post, featured: false, at: postedAt });
+  }
+
+  async #handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    const reply = (status: number, body: unknown) => {
+      res.writeHead(status, {
+        'content-type': 'application/json',
+        'x-rate-limit-limit': '6250',
+        'x-rate-limit-remaining': String(6250 - 100 * this.requests.length),
+        'x-rate-limit-reset': '900',
+      });
+      res.end(JSON.stringify(body));
+    };
+    if (req.method !== 'POST' || !req.url?.startsWith('/v2/api/graphql')) return reply(404, { error: 'not_found' });
+    if (req.headers.authorization !== `Bearer ${this.#token}`) {
+      return reply(401, { error: 'invalid_oauth_token', error_description: 'The access token is invalid' });
+    }
+    const { query, variables = {} } = JSON.parse(raw) as { query: string; variables?: Record<string, unknown> };
+
+    if (/\bpost\s*\(\s*id:/.test(query)) {
+      this.requests.push({ kind: 'comments', query, variables });
+      const served = this.#served.find((s) => s.post.id === variables.id);
+      if (!served) return reply(200, { data: { post: null } });
+      return reply(200, { data: { post: { id: served.post.id, comments: commentsPage(served.post, variables.after) } } });
+    }
+
+    if (/\bposts\s*\(/.test(query)) {
+      this.requests.push({ kind: 'posts', query, variables });
+      const after = Date.parse(String(variables.postedAfter));
+      const before = Date.parse(String(variables.postedBefore));
+      const featuredOnly = /featured:\s*true/.test(query);
+      const matching = this.#served.filter((s) => {
+        const at = Date.parse(s.at);
+        return at >= after && at < before && (s.featured || !featuredOnly);
+      });
+      const start = variables.after ? Number(Buffer.from(String(variables.after), 'base64').toString()) : 0;
+      const page = matching.slice(start, start + PAGE);
+      const end = start + page.length;
+      return reply(200, {
+        data: {
+          posts: {
+            pageInfo: { hasNextPage: end < matching.length, endCursor: Buffer.from(String(end)).toString('base64') },
+            nodes: page.map((s) => ({
+              ...s.post,
+              featuredAt: s.featured ? s.at : null,
+              createdAt: s.at,
+              comments: commentsPage(s.post, undefined),
+            })),
+          },
+        },
+      });
+    }
+
+    reply(200, { errors: [{ message: 'The fake only answers posts and post comments queries' }] });
+  }
+}
+
+function commentsPage(post: FixturePost, cursor: unknown) {
+  const all = post.comments.nodes;
+  const start = cursor ? Number(Buffer.from(String(cursor), 'base64').toString()) : 0;
+  const nodes = all.slice(start, start + PAGE).map((c, i) => ({ id: `${post.id}-c${start + i}`, ...c }));
+  const end = start + nodes.length;
+  return { pageInfo: { hasNextPage: end < all.length, endCursor: Buffer.from(String(end)).toString('base64') }, nodes };
+}
