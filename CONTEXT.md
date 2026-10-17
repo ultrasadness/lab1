@@ -109,6 +109,10 @@ _Avoid_: Keychain, password store, vault (alone)
 The person's facts and the Assistant's records about them, kept where the person can read and edit them directly.
 _Avoid_: Knowledge base, memory, vault
 
+**Question**:
+Something the person asks about the Personal database, answered only from it, with every claim pointing to the lines it came from.
+_Avoid_: Query, chat, conversation
+
 **Profile**:
 The everyday facts about the person: names they go by and the email addresses to use. Their everyday address is a fact here, never a Signup identity. Deliberately excludes sensitive data.
 _Avoid_: User info, bio
