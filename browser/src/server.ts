@@ -1,0 +1,62 @@
+// HTTP over the Unix socket. The bot is the only client, so the server only routes and parses.
+import fs from 'node:fs';
+import http from 'node:http';
+import type { Health, ReadOutcome } from './api.ts';
+
+export interface Handlers {
+  health(): Health;
+  read(url: unknown): Promise<ReadOutcome>;
+}
+
+const MAX_BODY = 16 * 1024;
+
+export async function listen(socketPath: string, handlers: Handlers): Promise<http.Server> {
+  const server = http.createServer(async (req, res) => {
+    try {
+      if (req.method === 'GET' && req.url === '/health') return send(res, 200, handlers.health());
+      if (req.method === 'POST' && req.url === '/read') {
+        const body = await readJson(req);
+        const outcome = await handlers.read(body?.url);
+        if (outcome.ok) return send(res, 200, outcome.page);
+        return send(res, outcome.error.kind === 'bad-url' ? 400 : 502, { error: outcome.error });
+      }
+      send(res, 404, { error: { kind: 'not-found', message: `${req.method} ${req.url}` } });
+    } catch (e) {
+      send(res, 500, { error: { kind: 'internal', message: e instanceof Error ? e.message : String(e) } });
+    }
+  });
+  fs.rmSync(socketPath, { force: true });
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(socketPath, resolve);
+  });
+  // The socket's directory gives it the bot's group; only that group may connect.
+  fs.chmodSync(socketPath, 0o660);
+  return server;
+}
+
+function send(res: http.ServerResponse, status: number, body: unknown) {
+  const data = JSON.stringify(body);
+  res.writeHead(status, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data) });
+  res.end(data);
+}
+
+function readJson(req: http.IncomingMessage): Promise<Record<string, unknown> | null> {
+  return new Promise((resolve, reject) => {
+    let text = '';
+    req.setEncoding('utf8');
+    req.on('data', (chunk: string) => {
+      text += chunk;
+      if (text.length > MAX_BODY) req.destroy(new Error('request body too large'));
+    });
+    req.on('end', () => {
+      try {
+        const value = text ? JSON.parse(text) : null;
+        resolve(value && typeof value === 'object' ? value : null);
+      } catch {
+        resolve(null);
+      }
+    });
+    req.on('error', reject);
+  });
+}

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign up · Fir Mail</title>
+</head>
+<body>
+<h1>Create your Fir Mail account</h1>
+<form action="/api/signup" method="post">
+  <label>Email <input type="email" name="email" required></label>
+  <div class="cf-turnstile" data-sitekey="0x4AAAAAAAB">
+    <iframe src="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/turnstile/if/ov2/av0/rcv/0/light/normal" title="Widget containing a Cloudflare security challenge" width="300" height="65" style="border: 0"></iframe>
+  </div>
+  <button type="submit">Sign up</button>
+</form>
+</body>
+</html>

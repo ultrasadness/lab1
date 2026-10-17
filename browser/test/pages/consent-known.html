@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Delta Sheets</title>
+<style>
+  .cmplz-cookiebanner { position: fixed; inset: auto 0 0 0; padding: 16px; background: #fff; border-top: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<h1>Spreadsheets that explain themselves</h1>
+<p id="choice">No cookie choice yet</p>
+<!-- The markup of a Complianz banner, one of the consent managers autoconsent has a rule for. -->
+<div id="cmplz-cookiebanner-container">
+  <div class="cmplz-cookiebanner" role="dialog" aria-label="Manage consent">
+    <p>We use cookies to improve your experience.</p>
+    <button type="button" class="cmplz-btn cmplz-accept">Accept</button>
+    <button type="button" class="cmplz-btn cmplz-deny">Deny</button>
+  </div>
+</div>
+<script>
+  const choose = (choice) => {
+    document.cookie = 'cmplz_banner-status=dismissed';
+    document.getElementById('choice').textContent = `Cookie choice: ${choice}`;
+    document.querySelector('.cmplz-cookiebanner').remove();
+  };
+  document.querySelector('.cmplz-accept').addEventListener('click', () => choose('accepted'));
+  document.querySelector('.cmplz-deny').addEventListener('click', () => choose('denied'));
+</script>
+</body>
+</html>

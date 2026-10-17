@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign up · Acme Notes</title>
+</head>
+<body>
+<header><a href="/">Acme Notes</a> <a href="/pricing">Pricing</a></header>
+<h1>Create your Acme Notes account</h1>
+<form id="signup" action="/api/signup" method="post">
+  <input type="hidden" name="csrf" value="Zq8xT3mW9pL2vR7nK4bY6cH1">
+  <p><label for="name">Full name</label> <input id="name" name="name" autocomplete="name" required></p>
+  <p><label>Work email <input type="email" name="email" autocomplete="email" required></label></p>
+  <p><label for="pw">Password</label> <input id="pw" type="password" name="password" autocomplete="new-password" minlength="12" required></p>
+  <p><label for="role">Your role</label>
+    <select id="role" name="role">
+      <option value="">Choose one</option>
+      <option value="dev" selected>Developer</option>
+      <option value="pm">Product manager</option>
+    </select></p>
+  <fieldset><legend>Plan</legend>
+    <label><input type="radio" name="plan" value="free" checked> Free</label>
+    <label><input type="radio" name="plan" value="pro"> Pro</label>
+  </fieldset>
+  <p><input type="text" name="company" placeholder="Company (optional)"></p>
+  <div hidden><input name="referrer"></div>
+  <p><label><input type="checkbox" name="terms" required> I agree to the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a></label></p>
+  <button type="submit">Create account</button>
+</form>
+<p><label><input type="checkbox" name="newsletter" form="signup" checked> Send me product news</label></p>
+<!-- Payment scripts load hidden frames on pages with no card fields. -->
+<iframe src="http://checkoutshopper-live.adyen.com/checkoutshopper/securedfields/card.html" width="0" height="0" style="border: 0; position: absolute" aria-hidden="true" tabindex="-1"></iframe>
+<footer><a href="http://www.acme.test/blog">Blog</a></footer>
+</body>
+</html>

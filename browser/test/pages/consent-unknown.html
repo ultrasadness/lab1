@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Elm Forms</title>
+<style>
+  #ck-notice { position: fixed; inset: auto 0 0 0; padding: 16px; background: #fff; border-top: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<h1>Forms without the fuss</h1>
+<p id="choice">No cookie choice yet</p>
+<!-- A home-made banner that no consent rule names. -->
+<div id="ck-notice" role="dialog">
+  <p>This site uses cookies for analytics.</p>
+  <button type="button" onclick="choose('allowed')">Allow all</button>
+  <button type="button" onclick="choose('necessary only')">Only necessary</button>
+</div>
+<script>
+  function choose(choice) {
+    document.getElementById('choice').textContent = `Cookie choice: ${choice}`;
+    document.getElementById('ck-notice').remove();
+  }
+</script>
+</body>
+</html>

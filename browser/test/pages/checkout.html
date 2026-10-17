@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Checkout · Cobalt CRM</title>
+</head>
+<body>
+<h1>Add a card to continue</h1>
+<form action="/api/subscribe" method="post">
+  <label>Email <input type="email" name="email" required></label>
+  <iframe src="http://checkoutshopper-live.adyen.com/checkoutshopper/securedfields/card.html" title="Iframe for card number" style="width: 400px; height: 44px; border: 0"></iframe>
+  <button type="submit">Subscribe</button>
+</form>
+</body>
+</html>

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Start your trial · Cobalt CRM</title>
+</head>
+<body>
+<h1>Start your 14-day trial</h1>
+<form action="/api/trial" method="post">
+  <label>Email <input type="email" name="email" autocomplete="email" required></label>
+  <label>Card number <input name="card" autocomplete="cc-number" inputmode="numeric" required></label>
+  <label>Expiry <input name="exp" autocomplete="cc-exp" required></label>
+  <label>CVC <input name="cvc" autocomplete="cc-csc" required></label>
+  <button type="submit">Start trial</button>
+</form>
+</body>
+</html>

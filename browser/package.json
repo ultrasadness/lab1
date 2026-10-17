@@ -1,0 +1,22 @@
+{
+  "name": "lab1-browser",
+  "private": true,
+  "description": "The browser service: Playwright in its own hardened container, reached by the bot through a Unix socket (ADR 0006).",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/main.ts",
+    "typecheck": "tsc -p .",
+    "test": "node --test --test-concurrency=1 --test-timeout=120000 --test-global-setup=test/global-setup.ts \"test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@duckduckgo/autoconsent": "16.55.0",
+    "playwright-core": "1.64.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

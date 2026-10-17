@@ -1,0 +1,25 @@
+# The browser seam harness: the production service definition, on a network with no internet, beside a
+# server of local test pages that answers for every host the tests name.
+services:
+  browser:
+    image: lab1-browser:test
+    environment:
+      READ_LIMIT_MS: 20000
+
+  pages:
+    image: lab1-browser:test
+    pull_policy: never
+    command: ["node", "/pages/server.ts"]
+    volumes:
+      - ./test/pages:/pages:ro
+    networks:
+      browser:
+        aliases:
+          - acme.test
+          - www.acme.test
+          - accounts.authvendor.test
+          - checkoutshopper-live.adyen.com
+
+networks:
+  browser:
+    internal: true

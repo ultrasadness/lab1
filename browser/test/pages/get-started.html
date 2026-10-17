@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Birch Docs</title>
+<style>#signup { display: none; }</style>
+</head>
+<body>
+<h1>Docs your team will actually read</h1>
+<button type="button" onclick="document.getElementById('signup').style.display = 'block'">Get started</button>
+<form id="signup" action="/api/signup" method="post">
+  <label>Email <input type="email" name="email" required></label>
+  <label>Password <input type="password" name="password" required></label>
+  <button type="submit">Sign up</button>
+</form>
+</body>
+</html>

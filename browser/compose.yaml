@@ -1,0 +1,35 @@
+# The browser service's container, hardened as ADR 0006 lists. Its only interface is the Unix socket in
+# BROWSER_SOCKET_DIR, which only the bot's user can reach: the directory is the bot's (mode 2770), and the
+# container joins its group through BROWSER_SOCKET_GID. It publishes no port, and its network is its own.
+name: lab1-browser
+
+services:
+  browser:
+    build: .
+    image: lab1-browser:local
+    init: true
+    user: pwuser
+    group_add:
+      - "${BROWSER_SOCKET_GID:?the bot's group id}"
+    # Chromium's namespace sandbox needs SYS_CHROOT: without it the sandbox's zygote dies at launch.
+    cap_drop: [ALL]
+    cap_add: [SYS_CHROOT]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./seccomp_profile.json
+    read_only: true
+    tmpfs:
+      - /tmp
+      # With a root-owned home, Chrome's crash handler aborts the browser at launch.
+      - /home/pwuser:uid=1001,gid=1001
+      # Xvfb compiles its keymap here.
+      - /var/lib/xkb
+    shm_size: 1g
+    volumes:
+      - "${BROWSER_SOCKET_DIR:?the socket's directory}:/run/browser"
+    environment:
+      SOCKET_PATH: /run/browser/browser.sock
+    networks: [browser]
+
+networks:
+  browser: {}

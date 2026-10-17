@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Grove Maps</title>
+</head>
+<body>
+<h1>Maps of where you are</h1>
+<p id="notifications">notifications: asking</p>
+<p id="geolocation">geolocation: asking</p>
+<script>
+  Notification.requestPermission().then((answer) => {
+    document.getElementById('notifications').textContent = `notifications: ${answer}`;
+  });
+  navigator.geolocation.getCurrentPosition(
+    () => (document.getElementById('geolocation').textContent = 'geolocation: granted'),
+    (e) => (document.getElementById('geolocation').textContent = `geolocation: ${e.code === e.PERMISSION_DENIED ? 'denied' : 'failed'}`),
+  );
+</script>
+</body>
+</html>
