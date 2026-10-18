@@ -1,0 +1,5 @@
+{
+  "permissions": {
+    "deny": ["Read(~/.config/lab1/**)", "Edit(~/.config/lab1/**)"]
+  }
+}
