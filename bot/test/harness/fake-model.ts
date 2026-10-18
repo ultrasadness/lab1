@@ -58,6 +58,8 @@ export class FakeModelProvider {
   endDelayMs = 0;
   /** While true, the provider takes requests and never answers them. */
   hold = false;
+  /** The media type a streamed reply is labelled with; media types are case-insensitive. */
+  contentType = 'text/event-stream';
 
   #server: http.Server;
   #keys: Set<string>;
@@ -105,7 +107,7 @@ export class FakeModelProvider {
     if (this.hold) return;
 
     const n = this.requests.length;
-    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.writeHead(200, { 'content-type': this.contentType });
     const send = (choices: unknown[], extra: Record<string, unknown> = {}) =>
       res.write(
         `data: ${JSON.stringify({ id: `chatcmpl-${n}`, object: 'chat.completion.chunk', created: 1, model: this.upstreamModel, choices, ...extra })}\n\n`,

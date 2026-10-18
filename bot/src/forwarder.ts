@@ -98,7 +98,8 @@ export async function startForwarder(options: {
     }
 
     res.writeHead(upstream.status, { 'content-type': upstream.headers.get('content-type') ?? 'application/json' });
-    const usage = new UsageReader(Boolean(upstream.headers.get('content-type')?.startsWith('text/event-stream')));
+    // Media types are case-insensitive.
+    const usage = new UsageReader(/^text\/event-stream\b/i.test(upstream.headers.get('content-type') ?? ''));
     let recorded = false;
     // Recorded before Pi has the reply's last event, so the tool calls in it are made under this request. A reply
     // cut off part way is recorded too, with whatever usage it reached.

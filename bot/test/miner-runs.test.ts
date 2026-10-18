@@ -3,6 +3,9 @@
 // run recorded with its role, provider, model and exact tokens.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { MINER_DAYS_FORUM, TOKENS, startWorld } from './harness/world.ts';
 import { fixtureDay, type FixturePost } from './harness/fake-product-hunt.ts';
@@ -22,6 +25,25 @@ function fenced(prompt: string): { outside: string[]; inside: string[] } {
   }
   assert.equal(open, false, 'every fence is closed');
   return { outside, inside };
+}
+
+/** Each Launch the model was asked about, by Post id: its fields in order, each with the text of its fence. */
+function launchesAsked(prompt: string): Map<string, [label: string, value: string | null][]> {
+  const launches = new Map<string, [string, string | null][]>();
+  const lines = prompt.split('\n');
+  let fields: [string, string | null][] | undefined;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const launch = line.match(/^Launch · Post id (\d+)$/);
+    if (launch) launches.set(launch[1]!, (fields = []));
+    else if (fields && line === 'Maker comment: none') fields.push(['Maker comment', null]);
+    else if (fields && line.endsWith(':') && lines[i + 1] === '<<<') {
+      const end = lines.indexOf('>>>', i + 2);
+      fields.push([line.slice(0, -1), lines.slice(i + 2, end).join('\n')]);
+      i = end;
+    }
+  }
+  return launches;
 }
 
 test('runs judge at most 8 Launches each, in Product Hunt order', async (t) => {
@@ -145,12 +167,28 @@ test('Product Hunt text reaches the model only inside data fences, and no Launch
 test('a Launch is judged from its name, tagline, topics, description and Maker comment alone, on the fixed bands', async (t) => {
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());
-  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  const day = fixtureDay('2026-10-12');
+  world.productHunt.addFeatured(day, '2026-10-12T07:01:00Z');
 
   await world.advanceTo('2026-10-12T08:00:00Z');
 
   const asked = world.model.requests.filter(opensRun);
   assert.equal(asked.length, 3);
+  const launches = new Map(asked.flatMap((r) => [...launchesAsked(said(r, 'user'))]));
+  assert.deepEqual([...launches.keys()].sort(), ids(day).sort(), 'every Launch is asked about');
+  for (const post of day) {
+    const fields = launches.get(post.id)!;
+    assert.deepEqual(
+      fields.map(([label]) => label),
+      ['Name', 'Tagline', 'Topics', 'Description', 'Maker comment'],
+      `Post id ${post.id} has each field once, in order`,
+    );
+    const value = (label: string) => fields.find(([l]) => l === label)![1];
+    assert.equal(value('Name'), post.name.trim());
+    assert.equal(value('Tagline'), post.tagline.trim());
+    assert.equal(value('Topics'), post.topics.nodes.map((n) => n.name).join(', ').trim() || 'none');
+    assert.equal(value('Description'), post.description.trim() || 'none');
+  }
   for (const request of asked) {
     // Outside the fences there are only the run's own words and one label per field: no votes, no rank.
     const labels = fenced(said(request, 'user')).outside.filter((line) => line !== '');
@@ -206,6 +244,23 @@ test('each judgment and each run records its role, provider, model and exact tok
   }
 });
 
+test('a streamed reply has its exact tokens counted however the provider writes its media type', async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  world.model.contentType = 'Text/Event-Stream; charset=utf-8';
+  world.model.usage = { prompt_tokens: 1234, completion_tokens: 56, cached_tokens: 200 };
+
+  await world.advanceTo('2026-10-12T08:00:00Z');
+
+  const judged = world.logs.filter((l) => l.event === 'miner.judged');
+  assert.equal(judged.length, 19);
+  for (const j of judged) assert.deepEqual(j.requestTokens, { input: 1234, cached: 200, output: 56 });
+  for (const run of world.logs.filter((l) => l.event === 'run.finished')) {
+    assert.deepEqual(run.tokens, { input: 2468, cached: 400, output: 112 });
+  }
+});
+
 test('a judgment is kept under the reply that held it, even when the provider ends that reply late', async (t) => {
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());
@@ -244,4 +299,42 @@ test('stopping the Assistant ends a run in flight, even one whose command ignore
 
   const outcome = await Promise.race([world.assistant.stop().then(() => 'stopped'), delay(15_000).then(() => 'still stopping')]);
   assert.equal(outcome, 'stopped');
+});
+
+test('stopping the Assistant ends every process of a run, even one the command leaves behind', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'assistant-run-'));
+  const pidFile = join(dir, 'left-behind.pid');
+  // The command starts a process that ignores SIGTERM and holds the run's pipes, then becomes Pi.
+  const world = await startWorld({
+    now: '2026-10-12T07:30:00Z',
+    piCommand: (piRun) => ['sh', '-c', 'trap "" TERM; sleep 600 & echo $! > "$1"; exec sh "$0"', piRun, pidFile],
+  });
+  const leftBehind = () => Number(readFileSync(pidFile, 'utf8'));
+  t.after(async () => {
+    await world.stop();
+    try {
+      process.kill(leftBehind(), 'SIGKILL');
+    } catch {}
+    rmSync(dir, { recursive: true, force: true });
+  });
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  world.model.hold = true;
+
+  world.clock.advanceTo('2026-10-12T08:00:00Z');
+  while (world.model.requests.length === 0) await delay(20);
+  await world.assistant.stop();
+
+  // A killed process is gone once it has been reaped, which takes a moment.
+  const running = async (pid: number) => {
+    for (let i = 0; i < 50; i++) {
+      try {
+        process.kill(pid, 0);
+      } catch {
+        return false;
+      }
+      await delay(20);
+    }
+    return true;
+  };
+  assert.equal(await running(leftBehind()), false, 'nothing the run started is still running');
 });

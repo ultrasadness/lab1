@@ -101,13 +101,9 @@ export class PiRunner {
     await Promise.all(
       [...this.#running].map(async ([child, closed]) => {
         signal(child, 'SIGTERM');
-        const kill = setTimeout(() => {
-          signal(child, 'SIGKILL');
-          // Anything outside the group still holding the pipes no longer keeps the run open.
-          for (const stream of [child.stdin, child.stdout, child.stderr]) stream?.destroy();
-        }, KILL_GRACE_MS);
+        const killer = setTimeout(() => kill(child), KILL_GRACE_MS);
         await closed;
-        clearTimeout(kill);
+        clearTimeout(killer);
       }),
     );
   }
@@ -136,11 +132,12 @@ export class PiRunner {
       let timedOut = false;
       let stderr = '';
       let pending = Buffer.alloc(0);
+      let killer: NodeJS.Timeout | undefined;
 
       const timer = setTimeout(() => {
         timedOut = true;
         send({ type: 'abort' });
-        setTimeout(() => signal(child, 'SIGKILL'), KILL_GRACE_MS).unref();
+        killer = setTimeout(() => kill(child), KILL_GRACE_MS);
       }, request.wallClockMs);
 
       const send = (command: Record<string, unknown>) => {
@@ -189,6 +186,7 @@ export class PiRunner {
       });
       child.on('close', (code) => {
         clearTimeout(timer);
+        clearTimeout(killer);
         this.#running.delete(child);
         if (timedOut) return resolve({ runId, outcome: 'timed out', error: `the run passed ${request.wallClockMs / 60000} minutes` });
         error ??= modelError;
@@ -201,12 +199,21 @@ export class PiRunner {
   }
 }
 
-/** Signals the run's whole process group: the command and Pi under it. */
+/**
+ * Signals the run's whole process group: the command and everything it started, which can outlive the command
+ * itself. Once the group is gone there is nothing left to signal.
+ */
 function signal(child: ChildProcess, name: NodeJS.Signals): void {
-  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return;
+  if (child.pid === undefined) return;
   try {
     process.kill(-child.pid, name);
   } catch {
-    child.kill(name);
+    if (child.exitCode === null && child.signalCode === null) child.kill(name);
   }
+}
+
+/** Kills the run's process group and lets go of its pipes, so the run closes even if something else holds them. */
+function kill(child: ChildProcess): void {
+  signal(child, 'SIGKILL');
+  for (const stream of [child.stdin, child.stdout, child.stderr]) stream?.destroy();
 }
