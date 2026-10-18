@@ -1,9 +1,13 @@
 // The day post (#29): one silent post per Miner day in the Miner days forum. A summary comes first, then one
 // message per band, each Launch on one line with its own Correct button. Every message stays within Discord's
-// limits; a band longer than 12 lines splits into parts.
+// limits; a band longer than 12 lines splits into parts. A date whose judging run hit a cap even after its automatic
+// retry opens its post early (#45): a waiting summary, then a notice with Retry for each capped run. Once the date is
+// judged, the summary and title are rewritten in place and the bands follow the notices. If the date is dropped
+// instead, the post says so and its Retry buttons are turned off.
 import {
   Accent,
   button,
+  ButtonStyle,
   container,
   escapeMarkdown,
   fits,
@@ -12,7 +16,9 @@ import {
   text,
   type MessagePayload,
 } from '../discord/components.ts';
-import { dayLabel, leaderboardUrl } from '../pacific.ts';
+import { dayLabel, leaderboardUrl, pacificDate, pacificTime } from '../pacific.ts';
+import { capText } from '../pi-runs.ts';
+import type { MinerRetry } from '../store.ts';
 import { BANDS, bandOf, outcomeOf, type Band, type DayLine } from './day-line.ts';
 
 export interface DayPostLaunch {
@@ -36,6 +42,9 @@ const LINES_PER_MESSAGE = 12;
 
 /** The Correct button's id. Correct itself is wired in #48. */
 export const correctId = (postId: string) => `correct:launch:${postId}`;
+
+/** The Retry button's id, by the Retry's id in the store. */
+export const retryId = (retry: number) => `retry:miner:${retry}`;
 
 const launchUrl = (slug: string) => `https://www.producthunt.com/posts/${encodeURIComponent(slug)}`;
 
@@ -79,6 +88,76 @@ export function renderDayPost(input: { date: string; line: DayLine; floor: numbe
     messages.push(...bandMessages(heading(band, line.line), band === 'dossiers' ? Accent.dossiers : Accent.progress, lines));
   }
   return { title, messages };
+}
+
+/** The post as it opens before its list: a summary of how far judging got. */
+export function renderWaitingPost(input: { date: string; judged: number; featured: number }): { title: string; summary: MessagePayload } {
+  const { date, judged, featured } = input;
+  return {
+    title: `${dayLabel(date)} · judging`,
+    summary: silentMessage([
+      container(Accent.progress, [
+        text(
+          [
+            `## Miner · ${dayLabel(date)}`,
+            `${judged} of ${count(featured, 'Featured Launch', 'Featured Launches')} judged. The day's list follows here once every one has a Fit.`,
+            `-# [Data sourced from Product Hunt](${leaderboardUrl(date)})`,
+          ].join('\n'),
+        ),
+      ]),
+    ]),
+  };
+}
+
+/** The post once its date is dropped: it says so, and its list never follows. */
+export function renderDroppedPost(input: { date: string; at: Date; catchUpDates: number }): { title: string; summary: MessagePayload } {
+  const { date, at, catchUpDates } = input;
+  return {
+    title: `${dayLabel(date)} · dropped`,
+    summary: silentMessage([
+      container(Accent.progress, [
+        text(
+          [
+            `## Miner · ${dayLabel(date)}`,
+            `Dropped at ${pacificTime(at)} PT ${dayLabel(pacificDate(at))}, outside the ${catchUpDates}-day catch-up. Its list won't go out.`,
+            `-# [Data sourced from Product Hunt](${leaderboardUrl(date)})`,
+          ].join('\n'),
+        ),
+      ]),
+    ]),
+  };
+}
+
+/**
+ * What a Retry's runs hit, as one clause: `a judging run of 8 Launches hit its turn cap (20 turns), and so did its
+ * automatic retry`, or `the run your Retry started for 8 Launches hit its token cap (200,000 tokens)`.
+ */
+export function cappedText(retry: MinerRetry): string {
+  const [first, second] = retry.cappedRuns;
+  if (retry.afterRetry || !second) return `the run your Retry started for ${count(first!.launches, 'Launch', 'Launches')} hit its ${capText(first!.cap)}`;
+  const run = `a judging run of ${count(first!.launches, 'Launch', 'Launches')} hit its ${capText(first!.cap)}`;
+  const of = second.launches < first!.launches ? ` of the ${second.launches} left` : '';
+  const same = second.cap.limit === first!.cap.limit && second.cap.max === first!.cap.max;
+  return same ? `${run}, and so did its automatic retry${of}` : `${run}, and its automatic retry${of} hit its ${capText(second.cap)}`;
+}
+
+/** Which caps stopped judging, with Retry; once tapped or dropped, Retry is off. */
+export function renderRetryNotice(retry: MinerRetry, dropped = false): MessagePayload {
+  const what = cappedText(retry);
+  const left = count(retry.postIds.length, 'Launch', 'Launches');
+  const then = retry.tappedAt
+    ? `-# Retried at ${pacificTime(new Date(retry.tappedAt))} PT`
+    : dropped
+      ? '-# Dropped with the date.'
+      : `-# The day's list waits on the ${left} still without a Fit.`;
+  return silentMessage([
+    container(Accent.progress, [
+      section(
+        `**Judging stopped** · ${what[0]!.toUpperCase()}${what.slice(1)}.\n${then}`,
+        button(retryId(retry.id), 'Retry', ButtonStyle.Primary, Boolean(retry.tappedAt) || dropped),
+      ),
+    ]),
+  ]);
 }
 
 function whyTheLine(line: DayLine, floor: number): string {

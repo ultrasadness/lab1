@@ -14,6 +14,7 @@ import { FakeProductHunt } from './fake-product-hunt.ts';
 export const PERSON = '100000000000000001';
 export const STRANGER = '100000000000000009';
 export const MINER_DAYS_FORUM = '200000000000000001';
+export const STATUS = '200000000000000002';
 export const TOKENS = {
   discord: 'discord-test-token',
   productHunt: 'product-hunt-test-token',
@@ -36,6 +37,8 @@ export interface World {
   advanceTo(when: string): Promise<void>;
   /** Stops the bot and starts it again on the same store, as after a restart. */
   restart(): Promise<void>;
+  /** Stops the bot, moves the clock to `until` while it is down, and starts it again on the same store. */
+  outage(until: string): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -55,16 +58,18 @@ export async function startWorld(options: {
   writeFileSync(join(credentials, 'producthunt-token'), `${TOKENS.productHunt}\n`);
   writeFileSync(join(credentials, 'newapi-key-miner'), `${TOKENS.minerKey}\n`);
   copyFileSync(new URL('../fixtures/interest-scope.md', import.meta.url), join(personalDatabase, 'profile', 'interest-scope.md'));
+  // Pi retries a failed model request itself, after 2, 4 and 8 seconds by default; here after milliseconds.
+  writeFileSync(join(dir, 'pi-agent', 'settings.json'), JSON.stringify({ retry: { baseDelayMs: 5 } }));
 
   const clock = new FakeClock(options.now);
-  const discord = await FakeDiscord.start({ token: TOKENS.discord, forums: [MINER_DAYS_FORUM] });
+  const discord = await FakeDiscord.start({ token: TOKENS.discord, forums: [MINER_DAYS_FORUM], textChannels: [STATUS] });
   const productHunt = await FakeProductHunt.start({ token: TOKENS.productHunt });
   const model = await FakeModelProvider.start({ apiKeys: [TOKENS.minerKey] });
 
   const config: Config = {
     dataDir,
     personalDatabaseDir: personalDatabase,
-    discord: { apiBaseUrl: discord.apiBaseUrl, personUserId: PERSON, minerDaysForumId: MINER_DAYS_FORUM },
+    discord: { apiBaseUrl: discord.apiBaseUrl, personUserId: PERSON, minerDaysForumId: MINER_DAYS_FORUM, statusChannelId: STATUS },
     productHunt: { apiUrl: productHunt.apiUrl },
     gateway: { baseUrl: model.baseUrl },
     roles: { miner: { providers: ['openrouter'] } },
@@ -79,7 +84,14 @@ export async function startWorld(options: {
       },
       cwd: join(dir, 'pi-work'),
     },
-    miner: { startsAt: '01:00', launchesPerRun: 8, lineFloor: 7, runWallClockMinutes: 10 },
+    miner: { startsAt: '01:00', launchesPerRun: 8, lineFloor: 7, catchUpDates: 3, retryMinutes: 30, lateAt: '06:00' },
+    runCaps: {
+      'miner-judging': { wallClockMinutes: 10, turns: 20, tokens: 200_000 },
+      'walkthrough-preparation': { wallClockMinutes: 20, turns: 40, tokens: 1_000_000 },
+      fill: { wallClockMinutes: 3, turns: 30, tokens: 300_000 },
+      mail: { wallClockMinutes: 5, turns: 10, tokens: 100_000 },
+      question: { wallClockMinutes: 10, turns: 40, tokens: 500_000 },
+    },
     rawInputs: { keepDays: 90 },
   };
 
@@ -100,6 +112,12 @@ export async function startWorld(options: {
     },
     async restart() {
       await world.assistant.stop();
+      world.assistant = await start();
+      await world.assistant.whenIdle();
+    },
+    async outage(until) {
+      await world.assistant.stop();
+      clock.advanceTo(until);
       world.assistant = await start();
       await world.assistant.whenIdle();
     },

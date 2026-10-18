@@ -1,7 +1,7 @@
 // Discord's REST API, with its rate limits obeyed: a route that reports no requests left waits for its reset, and
 // a 429 waits as long as Discord asks before trying again.
 import type { Log } from '../log.ts';
-import type { MessagePayload } from './components.ts';
+import type { MessagePayload, PlainMessage } from './components.ts';
 
 export class DiscordError extends Error {
   readonly status: number;
@@ -12,6 +12,12 @@ export class DiscordError extends Error {
     this.code = code;
   }
 }
+
+/**
+ * Whether Discord refused a request outright, so it surely didn't take it. Anything else, such as a timeout or a
+ * server error, leaves it uncertain.
+ */
+export const refused = (error: unknown) => error instanceof DiscordError && error.status < 500;
 
 export interface InteractionResponse {
   type: number;
@@ -55,9 +61,19 @@ export class DiscordRest {
     return { threadId: body.id };
   }
 
-  async sendMessage(channelId: string, message: MessagePayload): Promise<{ messageId: string }> {
+  async sendMessage(channelId: string, message: MessagePayload | PlainMessage): Promise<{ messageId: string }> {
     const body = (await this.#request('POST', `/channels/${channelId}/messages`, message)) as { id: string };
     return { messageId: body.id };
+  }
+
+  /** Rewrites one of the bot's messages. An archived thread must be unarchived first. */
+  async editMessage(channelId: string, messageId: string, message: MessagePayload): Promise<void> {
+    await this.#request('PATCH', `/channels/${channelId}/messages/${messageId}`, message);
+  }
+
+  /** Renames a thread, such as a forum post, or archives or unarchives it. */
+  async editThread(threadId: string, change: { name?: string; archived?: boolean }): Promise<void> {
+    await this.#request('PATCH', `/channels/${threadId}`, change);
   }
 
   /**

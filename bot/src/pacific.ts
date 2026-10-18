@@ -26,6 +26,11 @@ function ymd(date: string): [number, number, number] {
   return [y!, m!, d!];
 }
 
+/** The Pacific wall-clock time (`HH:MM`) at an instant. */
+export function pacificTime(instant: Date): string {
+  return wall(instant).time;
+}
+
 /** The earliest instant at which the Pacific wall clock reads `time` on `date`. */
 export function pacificInstant(date: string, time: string): Date {
   const [y, m, d] = ymd(date);
@@ -44,8 +49,13 @@ export function pacificInstant(date: string, time: string): Date {
 }
 
 export function nextDate(date: string): string {
+  return addDays(date, 1);
+}
+
+/** The date `days` after `date`, or before it when `days` is negative. */
+export function addDays(date: string, days: number): string {
   const [y, m, d] = ymd(date);
-  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
 /** The instants a Pacific date starts and ends: midnight to the next midnight. */

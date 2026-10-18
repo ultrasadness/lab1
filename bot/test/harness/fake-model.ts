@@ -40,6 +40,10 @@ export interface ModelRequest {
 export interface SeenRun {
   kind: 'miner-judging' | 'other';
   postIds: string[];
+  /** Whether the model ran away in this run: it recorded nothing and called its tool turn after turn. */
+  ranAway: boolean;
+  /** The model requests the run made, its first included. */
+  requests: number;
 }
 
 export class FakeModelProvider {
@@ -51,6 +55,8 @@ export class FakeModelProvider {
     if (!scripted) throw new Error(`No scripted judgment for the Launch with Post id ${postId}`);
     return scripted;
   };
+  /** Whether the model runs away in a Miner run that starts now, asked once per run. */
+  runaway: (run: SeenRun) => boolean = () => false;
   usage: ScriptedUsage = { prompt_tokens: 2400, completion_tokens: 380, cached_tokens: 0 };
   /** The model id the upstream reports in its responses. */
   upstreamModel = 'judge-model-1';
@@ -58,11 +64,15 @@ export class FakeModelProvider {
   endDelayMs = 0;
   /** While true, the provider takes requests and never answers them. */
   hold = false;
+  /** While true, every request is refused with a 503, as when no provider of the role can serve it. */
+  failing = false;
   /** The media type a streamed reply is labelled with; media types are case-insensitive. */
   contentType = 'text/event-stream';
 
   #server: http.Server;
   #keys: Set<string>;
+  /** The run now going on; the bot runs one at a time. */
+  #current: SeenRun | undefined;
 
   private constructor(keys: string[]) {
     this.#keys = new Set(keys);
@@ -104,7 +114,28 @@ export class FakeModelProvider {
     };
     const tools = (body.tools ?? []).map((t) => t.function.name);
     this.requests.push({ authorization: req.headers.authorization, model: body.model, messages: body.messages, tools, raw });
+    const startsRun = !body.messages.some((m) => m.role === 'assistant');
+    if (startsRun) {
+      const judging = tools.includes('record_judgment');
+      const user = body.messages.filter((m) => m.role === 'user').map(text).join('\n');
+      const run: SeenRun = {
+        kind: judging ? 'miner-judging' : 'other',
+        postIds: judging ? [...new Set([...user.matchAll(/Post id (\d+)/g)].map((m) => m[1]!))] : [],
+        ranAway: false,
+        requests: 0,
+      };
+      this.runs.push(run);
+      run.ranAway = judging && this.runaway(run);
+      this.#current = run;
+    }
+    const run = this.#current;
+    if (run) run.requests += 1;
     if (this.hold) return;
+    if (this.failing) {
+      res.writeHead(503, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'No provider of the role is available', type: 'new_api_error' } }));
+      return;
+    }
 
     const n = this.requests.length;
     res.writeHead(200, { 'content-type': this.contentType });
@@ -112,42 +143,42 @@ export class FakeModelProvider {
       res.write(
         `data: ${JSON.stringify({ id: `chatcmpl-${n}`, object: 'chat.completion.chunk', created: 1, model: this.upstreamModel, choices, ...extra })}\n\n`,
       );
+    const callTools = (calls: Record<string, unknown>[]) => {
+      send([
+        {
+          index: 0,
+          delta: {
+            role: 'assistant',
+            tool_calls: calls.map((args, index) => ({
+              index,
+              id: `call_${n}_${index}`,
+              type: 'function',
+              function: { name: 'record_judgment', arguments: JSON.stringify(args) },
+            })),
+          },
+          finish_reason: null,
+        },
+      ]);
+      send([{ index: 0, delta: {}, finish_reason: 'tool_calls' }]);
+    };
+    const reply = (content: string) => {
+      send([{ index: 0, delta: { role: 'assistant', content }, finish_reason: null }]);
+      send([{ index: 0, delta: {}, finish_reason: 'stop' }]);
+    };
 
-    const startsRun = !body.messages.some((m) => m.role === 'assistant');
-    if (startsRun && tools.includes('record_judgment')) {
-      const user = body.messages.filter((m) => m.role === 'user').map(text).join('\n');
-      const postIds = [...new Set([...user.matchAll(/Post id (\d+)/g)].map((m) => m[1]!))];
-      this.runs.push({ kind: 'miner-judging', postIds });
-      const calls = postIds.flatMap((postId) => {
+    if (run?.ranAway) {
+      // A judgment for no Launch of the run: the bot refuses it, and the model tries again.
+      callTools([{ postId: '0', fit: 5, notAProduct: false, reason: 'still deciding', rulesApplied: [] }]);
+    } else if (startsRun && run?.kind === 'miner-judging') {
+      const calls = run.postIds.flatMap((postId) => {
         const j = this.judgment(postId);
         if (j === 'omit') return [];
         return [{ postId, ...j, rulesApplied: [] }];
       });
-      if (calls.length > 0) {
-        send([
-          {
-            index: 0,
-            delta: {
-              role: 'assistant',
-              tool_calls: calls.map((args, index) => ({
-                index,
-                id: `call_${n}_${index}`,
-                type: 'function',
-                function: { name: 'record_judgment', arguments: JSON.stringify(args) },
-              })),
-            },
-            finish_reason: null,
-          },
-        ]);
-        send([{ index: 0, delta: {}, finish_reason: 'tool_calls' }]);
-      } else {
-        send([{ index: 0, delta: { role: 'assistant', content: 'Nothing to record.' }, finish_reason: null }]);
-        send([{ index: 0, delta: {}, finish_reason: 'stop' }]);
-      }
+      if (calls.length > 0) callTools(calls);
+      else reply('Nothing to record.');
     } else {
-      if (startsRun) this.runs.push({ kind: 'other', postIds: [] });
-      send([{ index: 0, delta: { role: 'assistant', content: 'Recorded.' }, finish_reason: null }]);
-      send([{ index: 0, delta: {}, finish_reason: 'stop' }]);
+      reply('Recorded.');
     }
     const u = this.usage;
     send([], {

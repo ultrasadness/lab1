@@ -1,15 +1,29 @@
 // The live store (ADR 0007): one SQLite file the bot alone writes, the single source of truth for live state.
-// It holds each Miner date's Launches, judgments by Post id, Day's lines by date, the day posts on Discord,
-// run and model-request records, and the index of raw inputs kept outside git.
+// It holds the Miner dates the bot has taken on, each date's Launches, judgments by Post id, Day's lines by date, the
+// day posts on Discord, the Retries a capped date waits on, run and model-request records, and the index of raw
+// inputs kept outside git.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
 import type { DayLine } from './miner/day-line.ts';
 import type { JudgmentRecord } from './miner/judging.ts';
+import type { RunCap } from './pi-runs.ts';
 
 export interface Tokens {
   input: number;
   cached: number;
   output: number;
+}
+
+/** A Miner date the bot has taken on: one whose start passed while the bot ran, or that it caught up on. */
+export interface MinerDay {
+  date: string;
+  takenAt: string;
+  /** The latest reason the date couldn't finish, for its late line. */
+  problem: string | null;
+  lateNotedAt: string | null;
+  /** When the date left the catch-up window without its list, and when #status was told. */
+  droppedAt: string | null;
+  dropNotedAt: string | null;
 }
 
 /** A Featured Launch as the Miner judges it: Product Hunt data only. */
@@ -49,12 +63,39 @@ export interface StoredDayLine extends DayLine {
 export interface DayPost {
   date: string;
   postIntended: boolean;
+  /** The title the post was created under, or last renamed to. */
+  title: string | null;
   threadId: string | null;
   /** Message ids by their place in the post; the first is the summary, which is the post itself. */
   messageIds: string[];
   /** How many messages, the summary included, were intended so far. */
   messagesIntended: number;
   postedAt: string | null;
+}
+
+/** A judging run that hit a cap: how many Launches it was judging, and the cap. */
+export interface CappedRun {
+  launches: number;
+  cap: RunCap;
+}
+
+/**
+ * Launches whose judging run hit a cap after its automatic retry, or after the person's Retry. They wait for the
+ * person to tap Retry on the notice in the day's post, and then for the run that Retry starts.
+ */
+export interface MinerRetry {
+  id: number;
+  date: string;
+  /** The Launches still without a judgment. */
+  postIds: string[];
+  /** The capped runs, oldest first: a run and its automatic retry, or the one run a Retry started. */
+  cappedRuns: CappedRun[];
+  /** Whether the last capped run was one the person's Retry started. */
+  afterRetry: boolean;
+  createdAt: string;
+  tappedAt: string | null;
+  /** When the run the tap started ended; until then the Launches still wait on it. */
+  ranAt: string | null;
 }
 
 export interface ModelRequest {
@@ -86,6 +127,18 @@ export interface RawInput {
 }
 
 const SCHEMA = `
+CREATE TABLE IF NOT EXISTS miner_cursor (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  date TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS miner_days (
+  date TEXT PRIMARY KEY,
+  taken_at TEXT NOT NULL,
+  problem TEXT,
+  late_noted_at TEXT,
+  dropped_at TEXT,
+  drop_noted_at TEXT
+);
 CREATE TABLE IF NOT EXISTS miner_dates (
   date TEXT PRIMARY KEY,
   featured_count INTEGER NOT NULL,
@@ -123,6 +176,7 @@ CREATE TABLE IF NOT EXISTS day_lines (
 );
 CREATE TABLE IF NOT EXISTS day_posts (
   date TEXT PRIMARY KEY,
+  title TEXT,
   thread_id TEXT,
   messages_intended INTEGER NOT NULL DEFAULT 0,
   posted_at TEXT
@@ -133,6 +187,17 @@ CREATE TABLE IF NOT EXISTS day_post_messages (
   message_id TEXT NOT NULL,
   PRIMARY KEY (date, idx)
 );
+CREATE TABLE IF NOT EXISTS miner_retries (
+  id INTEGER PRIMARY KEY,
+  date TEXT NOT NULL REFERENCES miner_dates(date),
+  post_ids TEXT NOT NULL,
+  capped_runs TEXT NOT NULL,
+  after_retry INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  tapped_at TEXT,
+  ran_at TEXT
+);
+CREATE INDEX IF NOT EXISTS miner_retries_by_date ON miner_retries(date, id);
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL,
@@ -171,6 +236,28 @@ type Row = Record<string, SQLInputValue>;
 const tokensOf = (row: Row): Tokens | null =>
   row.input_tokens === null ? null : { input: Number(row.input_tokens), cached: Number(row.cached_tokens), output: Number(row.output_tokens) };
 
+const textOrNull = (value: SQLInputValue | undefined) => (value === null || value === undefined ? null : String(value));
+
+const minerDayOf = (row: Row): MinerDay => ({
+  date: String(row.date),
+  takenAt: String(row.taken_at),
+  problem: textOrNull(row.problem),
+  lateNotedAt: textOrNull(row.late_noted_at),
+  droppedAt: textOrNull(row.dropped_at),
+  dropNotedAt: textOrNull(row.drop_noted_at),
+});
+
+const minerRetryOf = (row: Row): MinerRetry => ({
+  id: Number(row.id),
+  date: String(row.date),
+  postIds: JSON.parse(String(row.post_ids)) as string[],
+  cappedRuns: JSON.parse(String(row.capped_runs)) as CappedRun[],
+  afterRetry: Boolean(row.after_retry),
+  createdAt: String(row.created_at),
+  tappedAt: textOrNull(row.tapped_at),
+  ranAt: textOrNull(row.ran_at),
+});
+
 export class Store {
   #db: DatabaseSync;
 
@@ -198,6 +285,56 @@ export class Store {
       this.#db.exec('ROLLBACK');
       throw error;
     }
+  }
+
+  // ---------- The Miner dates the bot has taken on ----------
+
+  /** The latest date the Miner has taken on or dropped; every later date is still to come. */
+  minerCursor(): string | undefined {
+    const row = this.#db.prepare('SELECT date FROM miner_cursor WHERE id = 1').get();
+    return row ? String(row.date) : undefined;
+  }
+
+  saveMinerCursor(date: string): void {
+    this.#db.prepare('INSERT INTO miner_cursor (id, date) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET date = excluded.date').run(date);
+  }
+
+  /** Takes on a date, or records it as dropped at once when it is already outside the window. */
+  addMinerDay(date: string, takenAt: string, droppedAt: string | null): void {
+    this.#db
+      .prepare('INSERT INTO miner_days (date, taken_at, dropped_at) VALUES (?, ?, ?) ON CONFLICT (date) DO NOTHING')
+      .run(date, takenAt, droppedAt);
+  }
+
+  minerDay(date: string): MinerDay | undefined {
+    const row = this.#db.prepare('SELECT * FROM miner_days WHERE date = ?').get(date);
+    return row ? minerDayOf(row) : undefined;
+  }
+
+  /** Every date taken on, oldest first. */
+  minerDays(): MinerDay[] {
+    return this.#db.prepare('SELECT * FROM miner_days ORDER BY date').all().map(minerDayOf);
+  }
+
+  saveMinerDayProblem(date: string, problem: string | null): void {
+    this.#db.prepare('UPDATE miner_days SET problem = ? WHERE date = ?').run(problem, date);
+  }
+
+  /** Marks the late line as said, or as not said after all. */
+  saveMinerDayLateNoted(date: string, at: string | null): void {
+    this.#db.prepare('UPDATE miner_days SET late_noted_at = ? WHERE date = ?').run(at, date);
+  }
+
+  saveMinerDayDropped(date: string, at: string): void {
+    this.#db.prepare('UPDATE miner_days SET dropped_at = ? WHERE date = ? AND dropped_at IS NULL').run(at, date);
+  }
+
+  /** Marks the dropped line as said, or as not said after all. */
+  saveMinerDaysDropNoted(dates: string[], at: string | null): void {
+    const update = this.#db.prepare('UPDATE miner_days SET drop_noted_at = ? WHERE date = ?');
+    this.#transaction(() => {
+      for (const date of dates) update.run(at, date);
+    });
   }
 
   // ---------- A Miner date's Launches ----------
@@ -308,6 +445,7 @@ export class Store {
     return {
       date,
       postIntended: Boolean(row),
+      title: textOrNull(row?.title),
       threadId: row?.thread_id ? String(row.thread_id) : null,
       messageIds,
       messagesIntended: Number(row?.messages_intended ?? 0),
@@ -325,6 +463,20 @@ export class Store {
       .run(date, index + 1);
   }
 
+  /** Marks the post as about to be created under this title. */
+  saveDayPostCreating(date: string, title: string): void {
+    this.#db
+      .prepare(
+        `INSERT INTO day_posts (date, title, messages_intended) VALUES (?, ?, 1)
+         ON CONFLICT (date) DO UPDATE SET title = excluded.title, messages_intended = max(messages_intended, 1)`,
+      )
+      .run(date, title);
+  }
+
+  saveDayPostTitle(date: string, title: string): void {
+    this.#db.prepare('UPDATE day_posts SET title = ? WHERE date = ?').run(title, date);
+  }
+
   /** Keeps the post's id, which is also the id of its first message. */
   saveDayPostThread(date: string, threadId: string): void {
     this.#transaction(() => {
@@ -339,6 +491,35 @@ export class Store {
 
   saveDayPosted(date: string, at: string): void {
     this.#db.prepare('UPDATE day_posts SET posted_at = ? WHERE date = ?').run(at, date);
+  }
+
+  // ---------- Retries a capped Miner date waits on ----------
+
+  saveMinerRetry(retry: Omit<MinerRetry, 'id' | 'tappedAt' | 'ranAt'>): number {
+    const result = this.#db
+      .prepare('INSERT INTO miner_retries (date, post_ids, capped_runs, after_retry, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(retry.date, JSON.stringify(retry.postIds), JSON.stringify(retry.cappedRuns), retry.afterRetry ? 1 : 0, retry.createdAt);
+    return Number(result.lastInsertRowid);
+  }
+
+  /** The date's Retries, in the order their notices go into the day's post. */
+  minerRetries(date: string): MinerRetry[] {
+    return this.#db.prepare('SELECT * FROM miner_retries WHERE date = ? ORDER BY id').all(date).map(minerRetryOf);
+  }
+
+  minerRetry(id: number): MinerRetry | undefined {
+    const row = this.#db.prepare('SELECT * FROM miner_retries WHERE id = ?').get(id);
+    return row ? minerRetryOf(row) : undefined;
+  }
+
+  /** Records the person's tap. Only the first tap counts; a later one returns false. */
+  saveMinerRetryTapped(id: number, at: string): boolean {
+    const result = this.#db.prepare('UPDATE miner_retries SET tapped_at = ? WHERE id = ? AND tapped_at IS NULL').run(at, id);
+    return Number(result.changes) > 0;
+  }
+
+  saveMinerRetryRan(id: number, at: string): void {
+    this.#db.prepare('UPDATE miner_retries SET ran_at = ? WHERE id = ?').run(at, id);
   }
 
   // ---------- Runs and model requests ----------

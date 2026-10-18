@@ -2,15 +2,16 @@
 // of tokens and the only writer of the live store, and every outside call goes through it.
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Clock } from './clock.ts';
+import { inMinutes, type Clock } from './clock.ts';
 import { checkConfig, ROLES, type Config, type Role } from './config.ts';
-import { Flags } from './discord/components.ts';
+import { Flags, type MessagePayload } from './discord/components.ts';
 import { DiscordGateway, type Interaction } from './discord/gateway.ts';
 import { DiscordRest } from './discord/rest.ts';
 import { startForwarder } from './forwarder.ts';
 import { createLog, errorText, stdoutSink, type Log, type LogEntry, type LogSink } from './log.ts';
 import { Miner } from './miner/miner.ts';
 import { nextDate, pacificDate, pacificInstant } from './pacific.ts';
+import { Status } from './status.ts';
 import { PiRunner } from './pi-runs.ts';
 import { ProductHunt } from './product-hunt.ts';
 import { RawInputs } from './raw-inputs.ts';
@@ -72,6 +73,7 @@ export async function startAssistant(options: {
     env: config.pi.env,
     cwd: config.pi.cwd,
     botUrl: config.forwarder.urlForPi ?? forwarder.url,
+    caps: config.runCaps,
     forwarder,
     store,
     clock,
@@ -83,9 +85,8 @@ export async function startAssistant(options: {
     rest: discord,
     token: discordToken,
     log,
-    onInteraction: (interaction) => void answer(interaction, config.discord.personUserId, discord, log),
+    onInteraction: (interaction) => void answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry }),
   });
-  gateway.start();
 
   const productHunt = new ProductHunt({
     apiUrl: config.productHunt.apiUrl,
@@ -93,33 +94,70 @@ export async function startAssistant(options: {
     keepRaw: (body, date) => rawInputs.keep('producthunt', date, body),
     log,
   });
-  const miner = new Miner({ config, store, productHunt, pi, discord, clock, log });
+  const status = new Status({ discord, channelId: config.discord.statusChannelId, log });
+  const miner = new Miner({ config, store, productHunt, pi, discord, status, clock, log });
 
   // The background lane runs one job at a time (#11).
   const lane = new Lane(log);
-  const mine = (date: string) => lane.add(`miner ${date}`, () => miner.mine(date));
+  const retry = (id: number) => {
+    const tapped = miner.tapRetry(id);
+    if ('work' in tapped) lane.add(`miner retry ${id}`, tapped.work);
+    return tapped;
+  };
+  gateway.start();
+  // The Miner catches up at its daily start, at every start of the bot (a start missed while it was down runs
+  // now), and every 30 minutes while a date in its window can't finish.
+  let stopped = false;
+  let cancelRetry = () => {};
+  const catchUp = () =>
+    lane.add('miner', async () => {
+      cancelRetry();
+      let unfinished = true;
+      try {
+        unfinished = await miner.catchUp();
+      } finally {
+        if (unfinished && !stopped) {
+          cancelRetry = inMinutes(clock, config.miner.retryMinutes, catchUp);
+        }
+      }
+    });
   const daily = () => {
     lane.add('raw-inputs expiry', async () => rawInputs.expire());
-    mine(pacificDate(clock.now()));
+    catchUp();
   };
   const cancelDaily = everyPacificDay(clock, config.miner.startsAt, daily);
+  // The late line is plain code, so it never waits behind a run in the lane.
+  const lateChecks = new Set<Promise<void>>();
+  const cancelLate = everyPacificDay(clock, config.miner.lateAt, () => {
+    const check = miner.noteLate().catch((error: unknown) => log('miner.late-check-failed', { error: errorText(error) }));
+    lateChecks.add(check);
+    void check.finally(() => lateChecks.delete(check));
+  });
+  const whenIdle = async () => {
+    for (;;) {
+      await lane.whenIdle();
+      if (lateChecks.size === 0) return;
+      await Promise.all(lateChecks);
+    }
+  };
 
-  // A date already past its start whose list isn't out picks up where it stopped.
   lane.add('raw-inputs expiry', async () => rawInputs.expire());
-  const today = pacificDate(clock.now());
-  if (clock.now() >= pacificInstant(today, config.miner.startsAt) && !miner.posted(today)) mine(today);
+  catchUp();
 
   log('assistant.started', { forwarder: forwarder.url });
   let stopping: Promise<void> | undefined;
   return {
-    whenIdle: () => lane.whenIdle(),
+    whenIdle,
     stop() {
       // A second stop, such as a second signal, waits for the first.
       stopping ??= (async () => {
+        stopped = true;
         cancelDaily();
+        cancelLate();
+        cancelRetry();
         lane.close();
         await pi.stop();
-        await lane.whenIdle();
+        await whenIdle();
         gateway.stop();
         await forwarder.close();
         store.close();
@@ -186,7 +224,17 @@ class Lane {
 }
 
 /** Taps and pop-ups. The bot acts only for the person's own Discord user id. */
-async function answer(interaction: Interaction, personUserId: string, discord: DiscordRest, log: Log): Promise<void> {
+async function answer(
+  interaction: Interaction,
+  options: {
+    personUserId: string;
+    discord: DiscordRest;
+    log: Log;
+    /** Retry on a Miner notice: what the notice becomes, or why the tap is refused. */
+    retry(id: number): { update: MessagePayload } | { refused: string };
+  },
+): Promise<void> {
+  const { personUserId, discord, log } = options;
   const userId = interaction.member?.user?.id ?? interaction.user?.id;
   const reply = (content: string) =>
     discord.respond(interaction.id, interaction.token, { type: 4, data: { content, flags: Flags.EPHEMERAL, allowed_mentions: { parse: [] } } });
@@ -197,6 +245,12 @@ async function answer(interaction: Interaction, personUserId: string, discord: D
     }
     if (interaction.data?.custom_id?.startsWith('correct:')) {
       return await reply("Correct isn't wired up yet. It arrives with Corrections to Miner judgments.");
+    }
+    const retry = interaction.data?.custom_id?.match(/^retry:miner:(\d+)$/);
+    if (retry) {
+      const tapped = options.retry(Number(retry[1]));
+      if ('refused' in tapped) return await reply(tapped.refused);
+      return await discord.respond(interaction.id, interaction.token, { type: 7, data: { ...tapped.update } });
     }
     await reply("That button isn't wired up.");
   } catch (error) {

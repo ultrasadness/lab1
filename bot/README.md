@@ -6,10 +6,11 @@ The spec is #41; this first slice (#42) brings up the Miner's path from Product 
 
 | Path | What it is |
 |---|---|
-| `bot/src/assistant.ts` | Starts every part and the 01:00 PT schedule; the background lane; who may tap |
-| `bot/src/miner/` | Judging runs, the Day's line, the day post |
+| `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane; who may tap |
+| `bot/src/miner/` | Judging runs, the Day's line, the day post, the 3-date catch-up and Retry |
+| `bot/src/status.ts` | Silent lines in the `#status` text channel |
 | `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, and run records |
-| `bot/src/pi-runs.ts` | One `pi --mode rpc` process per run |
+| `bot/src/pi-runs.ts` | One `pi --mode rpc` process per run, capped on wall clock, turns and tokens |
 | `bot/src/store.ts` | The live store (SQLite) |
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 and Discord |
 | `pi/extension/` | Our Pi extension: the forwarder as provider, and each run kind's record tool and prompt |
@@ -46,6 +47,9 @@ for the installed bot: the `assistant` user has no `docker` group and reaches Do
 only value it passes into the container is each run's own token, which lets Pi reach the forwarder for that run
 alone and is never a key.
 
+The run caps in `config/assistant.json` are starting values. The wall clocks were decided in #26; the turn and token
+caps are first guesses, to tune from the `run.finished` lines.
+
 The bot logs one JSON line per event to stdout. A `run.finished` line carries the run's role, providers, models and
-exact tokens. A `miner.judged` line names the model request whose reply held the judgment, with that request's exact
-tokens; one reply usually judges every Launch in its run.
+exact tokens, and for a capped run the cap it hit. A `miner.judged` line names the model request whose reply held
+the judgment, with that request's exact tokens; one reply usually judges every Launch in its run.

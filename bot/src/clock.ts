@@ -7,6 +7,11 @@ export interface Clock {
   at(when: Date, fn: () => void): () => void;
 }
 
+/** Calls `fn` once, `minutes` from now. Returns a function that cancels the call. */
+export function inMinutes(clock: Clock, minutes: number, fn: () => void): () => void {
+  return clock.at(new Date(clock.now().getTime() + minutes * 60_000), fn);
+}
+
 // Long timers are re-armed in steps, so a suspended VM or a clock change can't leave one far off.
 const STEP_MS = 60 * 60 * 1000;
 

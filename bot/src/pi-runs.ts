@@ -1,15 +1,14 @@
 // Pi runs (ADR 0001): one `pi --mode rpc` process per run, started through a fixed command (in production the
 // Pi container's helper). The bot sends the run's one prompt and waits until Pi settles. The run's records come
-// in through the forwarder as the run goes; its model requests are counted there too.
+// in through the forwarder as the run goes; its model requests are counted there too. Every run is capped on wall
+// clock, turns and tokens (#26), read from the events Pi streams, and aborted at the first cap it passes.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import type { Clock } from './clock.ts';
-import type { Role } from './config.ts';
+import { inMinutes, type Clock } from './clock.ts';
+import type { Role, RunCaps, RunKind } from './config.ts';
 import type { Forwarder, RecordResult } from './forwarder.ts';
 import { errorText, type Log } from './log.ts';
 import type { Store } from './store.ts';
-
-export type RunKind = 'miner-judging';
 
 export interface RunRequest {
   kind: RunKind;
@@ -17,13 +16,21 @@ export interface RunRequest {
   /** What the run works on, such as a Miner date. */
   item: string;
   prompt: string;
-  wallClockMs: number;
   onRecord(record: unknown, runId: string): RecordResult;
+}
+
+/** The cap a run passed, and its value. */
+export interface RunCap {
+  limit: keyof RunCaps;
+  max: number;
 }
 
 export interface RunResult {
   runId: string;
-  outcome: 'settled' | 'failed' | 'timed out';
+  /** `stopped`: the Assistant stopped, and ended the run before it settled. */
+  outcome: 'settled' | 'failed' | 'capped' | 'stopped';
+  /** The cap that stopped the run, when it was capped. */
+  cap?: RunCap;
   error?: string;
 }
 
@@ -35,6 +42,7 @@ export class PiRunner {
   #env: Record<string, string>;
   #cwd: string | undefined;
   #botUrl: string;
+  #caps: Record<RunKind, RunCaps>;
   #forwarder: Forwarder;
   #store: Store;
   #clock: Clock;
@@ -49,6 +57,8 @@ export class PiRunner {
     cwd?: string;
     /** The forwarder's address as Pi reaches it. */
     botUrl: string;
+    /** Each run kind's caps. */
+    caps: Record<RunKind, RunCaps>;
     forwarder: Forwarder;
     store: Store;
     clock: Clock;
@@ -58,6 +68,7 @@ export class PiRunner {
     this.#env = options.env;
     this.#cwd = options.cwd;
     this.#botUrl = options.botUrl;
+    this.#caps = options.caps;
     this.#forwarder = options.forwarder;
     this.#store = options.store;
     this.#clock = options.clock;
@@ -86,6 +97,7 @@ export class PiRunner {
       role: request.role,
       item: request.item,
       outcome: result.outcome,
+      ...(result.cap ? { cap: result.cap } : {}),
       ...(result.error ? { error: result.error } : {}),
       providers: totals.providers,
       models: totals.models,
@@ -126,19 +138,28 @@ export class PiRunner {
     });
     this.#running.set(child, new Promise((resolve) => child.once('close', () => resolve())));
 
+    const caps = this.#caps[request.kind];
     return new Promise<RunResult>((resolve) => {
       let error: string | undefined;
       let modelError: string | undefined;
-      let timedOut = false;
+      let cap: RunCap | undefined;
+      let settled = false;
+      let turns = 0;
+      let tokens = 0;
       let stderr = '';
       let pending = Buffer.alloc(0);
       let killer: NodeJS.Timeout | undefined;
 
-      const timer = setTimeout(() => {
-        timedOut = true;
+      // The first cap passed aborts the run; one that settled already has nothing left to stop.
+      const stopAt = (passed: RunCap) => {
+        if (cap || settled) return;
+        cap = passed;
         send({ type: 'abort' });
         killer = setTimeout(() => kill(child), KILL_GRACE_MS);
-      }, request.wallClockMs);
+      };
+      const cancelWallClock = inMinutes(this.#clock, caps.wallClockMinutes, () =>
+        stopAt({ limit: 'wallClockMinutes', max: caps.wallClockMinutes }),
+      );
 
       const send = (command: Record<string, unknown>) => {
         if (child.stdin?.writable) child.stdin.write(`${JSON.stringify(command)}\n`);
@@ -149,16 +170,22 @@ export class PiRunner {
           error = `Pi refused the prompt: ${String(record.error)}`;
           child.stdin?.end();
         }
+        if (record.type === 'turn_start' && ++turns > caps.turns) stopAt({ limit: 'turns', max: caps.turns });
         if (record.type === 'message_end') {
           // Pi retries a failed model request itself, so only the last reply says whether the run failed.
-          const message = record.message as { role?: string; stopReason?: string; errorMessage?: string } | undefined;
+          const message = record.message as { role?: string; stopReason?: string; errorMessage?: string; usage?: PiUsage } | undefined;
           if (message?.role === 'assistant') {
             modelError = message.stopReason === 'error' ? (message.errorMessage ?? 'the model request failed') : undefined;
+            tokens += usedTokens(message.usage);
+            if (tokens > caps.tokens) stopAt({ limit: 'tokens', max: caps.tokens });
           }
         }
         if (record.type === 'extension_error') error = `extension error: ${String(record.error)}`;
         // Pi will not go on by itself; closing stdin asks it to shut down.
-        if (record.type === 'agent_settled') child.stdin?.end();
+        if (record.type === 'agent_settled') {
+          settled = true;
+          child.stdin?.end();
+        }
       };
 
       // Pi's RPC records are JSON lines split on LF only; U+2028 inside a string is not a line break.
@@ -185,10 +212,11 @@ export class PiRunner {
         error = `Pi could not start: ${e.message}`;
       });
       child.on('close', (code) => {
-        clearTimeout(timer);
+        cancelWallClock();
         clearTimeout(killer);
         this.#running.delete(child);
-        if (timedOut) return resolve({ runId, outcome: 'timed out', error: `the run passed ${request.wallClockMs / 60000} minutes` });
+        if (cap) return resolve({ runId, outcome: 'capped', cap, error: `the run passed its ${capText(cap)}` });
+        if (this.#stopped && !settled) return resolve({ runId, outcome: 'stopped', error: 'the Assistant stopped' });
         error ??= modelError;
         if (!error && code !== 0) error = `Pi exited with ${code}: ${stderr.trim().split('\n').slice(-3).join(' | ')}`;
         resolve(error ? { runId, outcome: 'failed', error } : { runId, outcome: 'settled' });
@@ -196,6 +224,36 @@ export class PiRunner {
 
       send({ id: 'prompt', type: 'prompt', message: request.prompt });
     });
+  }
+}
+
+/** Token counts as Pi reports them on each assistant message. */
+interface PiUsage {
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  totalTokens?: number;
+}
+
+/** A count from Pi's output; anything that isn't a count counts as none. */
+const tokenCount = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0);
+
+function usedTokens(usage: PiUsage | undefined): number {
+  if (!usage) return 0;
+  if (typeof usage.totalTokens === 'number') return tokenCount(usage.totalTokens);
+  return tokenCount(usage.input) + tokenCount(usage.output) + tokenCount(usage.cacheRead) + tokenCount(usage.cacheWrite);
+}
+
+/** A cap as the person reads it: `time cap (10 min)`, `turn cap (20 turns)`, `token cap (200,000 tokens)`. */
+export function capText(cap: RunCap): string {
+  switch (cap.limit) {
+    case 'wallClockMinutes':
+      return `time cap (${cap.max} min)`;
+    case 'turns':
+      return `turn cap (${cap.max} turns)`;
+    case 'tokens':
+      return `token cap (${cap.max.toLocaleString('en-US')} tokens)`;
   }
 }
 

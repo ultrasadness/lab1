@@ -4,7 +4,8 @@
   "discord": {
     "apiBaseUrl": "https://discord.com/api/v10",
     "personUserId": "set at go-live",
-    "minerDaysForumId": "set at go-live"
+    "minerDaysForumId": "set at go-live",
+    "statusChannelId": "set at go-live"
   },
   "productHunt": {
     "apiUrl": "https://api.producthunt.com/v2/api/graphql"
@@ -31,7 +32,16 @@
     "startsAt": "01:00",
     "launchesPerRun": 8,
     "lineFloor": 7,
-    "runWallClockMinutes": 10
+    "catchUpDates": 3,
+    "retryMinutes": 30,
+    "lateAt": "06:00"
+  },
+  "runCaps": {
+    "miner-judging": { "wallClockMinutes": 10, "turns": 20, "tokens": 200000 },
+    "walkthrough-preparation": { "wallClockMinutes": 20, "turns": 40, "tokens": 1000000 },
+    "fill": { "wallClockMinutes": 3, "turns": 30, "tokens": 300000 },
+    "mail": { "wallClockMinutes": 5, "turns": 10, "tokens": 100000 },
+    "question": { "wallClockMinutes": 10, "turns": 40, "tokens": 500000 }
   },
   "rawInputs": {
     "keepDays": 90

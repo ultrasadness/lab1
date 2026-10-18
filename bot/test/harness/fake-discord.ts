@@ -10,9 +10,10 @@ export const EPHEMERAL = 1 << 6;
 /** GUILD_MEMBERS, GUILD_PRESENCES and MESSAGE_CONTENT. */
 export const PRIVILEGED_INTENTS = (1 << 1) | (1 << 8) | (1 << 15);
 
-// Real Discord refuses a Components V2 message over these (verified in #29).
+// Real Discord refuses a Components V2 message over these (verified in #29), and plain content over 2,000 characters.
 const MAX_TEXT = 4000;
 const MAX_COMPONENTS = 40;
+const MAX_CONTENT = 2000;
 
 interface Component {
   type: number;
@@ -51,7 +52,7 @@ interface Thread {
 /** One line of a band message as the person sees it: its text and the button beside it. */
 export interface SeenLine {
   text: string;
-  button?: { label: string; customId: string };
+  button?: { label: string; customId: string; disabled: boolean };
 }
 
 export interface SeenMessage {
@@ -65,6 +66,14 @@ export interface SeenMessage {
   mentionsNobody: boolean;
   componentCount: number;
   textLength: number;
+}
+
+/** A plain message in a text channel, such as a #status line. */
+export interface SeenTextMessage {
+  id: string;
+  content: string;
+  silent: boolean;
+  mentionsNobody: boolean;
 }
 
 export interface SeenPost {
@@ -93,9 +102,11 @@ export class FakeDiscord {
   #sockets = new Set<WebSocket>();
   #forums = new Set<string>();
   #threads = new Map<string, Thread>();
+  /** Each plain text channel's messages, oldest first. */
+  #textChannels = new Map<string, StoredMessage[]>();
   #seq = 0;
   #nextId = 500000000000000000n;
-  #pending = new Map<string, (reply: InteractionReply) => void>();
+  #pending = new Map<string, { messageId?: string; resolve: (reply: InteractionReply) => void }>();
   #lost: { kind: 'post' | 'message'; remaining: number }[] = [];
 
   private constructor(token: string) {
@@ -105,9 +116,10 @@ export class FakeDiscord {
     this.#wss.on('connection', (socket) => this.#gateway(socket));
   }
 
-  static async start(options: { token: string; forums: string[] }): Promise<FakeDiscord> {
+  static async start(options: { token: string; forums: string[]; textChannels?: string[] }): Promise<FakeDiscord> {
     const discord = new FakeDiscord(options.token);
     for (const forum of options.forums) discord.#forums.add(forum);
+    for (const channel of options.textChannels ?? []) discord.#textChannels.set(channel, []);
     await new Promise<void>((resolve) => discord.#server.listen(0, '127.0.0.1', resolve));
     return discord;
   }
@@ -132,6 +144,16 @@ export class FakeDiscord {
     return [...this.#threads.values()]
       .filter((t) => t.forumId === forumId)
       .map((t) => ({ id: t.id, title: t.name, messages: t.messages.map(seen) }));
+  }
+
+  /** The messages in a plain text channel, oldest first. */
+  textMessages(channelId: string): SeenTextMessage[] {
+    return (this.#textChannels.get(channelId) ?? []).map(({ id, payload }) => ({
+      id,
+      content: payload.content ?? '',
+      silent: Boolean((payload.flags ?? 0) & SUPPRESS_NOTIFICATIONS),
+      mentionsNobody: mentionsNobody(payload),
+    }));
   }
 
   /**
@@ -209,9 +231,13 @@ export class FakeDiscord {
     };
     return new Promise<InteractionReply>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('The bot never answered the interaction')), 10_000);
-      this.#pending.set(`${id}/${token}`, (reply) => {
-        clearTimeout(timer);
-        resolve(reply);
+      const message = rest.message as { id: string } | undefined;
+      this.#pending.set(`${id}/${token}`, {
+        messageId: message?.id,
+        resolve: (reply) => {
+          clearTimeout(timer);
+          resolve(reply);
+        },
       });
       this.#dispatch('INTERACTION_CREATE', interaction);
     });
@@ -220,6 +246,14 @@ export class FakeDiscord {
   #id(): string {
     this.#nextId += 1n;
     return String(this.#nextId);
+  }
+
+  #message(messageId: string): StoredMessage | undefined {
+    for (const thread of this.#threads.values()) {
+      const found = thread.messages.find((m) => m.id === messageId);
+      if (found) return found;
+    }
+    return undefined;
   }
 
   #threadObject(t: Thread) {
@@ -283,10 +317,19 @@ export class FakeDiscord {
 
     let match: RegExpMatchArray | null;
     if ((match = path.match(/^\/interactions\/(\d+)\/([^/]+)\/callback$/)) && req.method === 'POST') {
-      const resolve = this.#pending.get(`${match[1]}/${match[2]}`);
-      if (!resolve) return reply(404, { code: 10062, message: 'Unknown interaction' });
+      const pending = this.#pending.get(`${match[1]}/${match[2]}`);
+      if (!pending) return reply(404, { code: 10062, message: 'Unknown interaction' });
       this.#pending.delete(`${match[1]}/${match[2]}`);
-      resolve(JSON.parse(raw) as InteractionReply);
+      const answer = JSON.parse(raw) as InteractionReply;
+      // UPDATE_MESSAGE rewrites the message whose component was tapped.
+      if (answer.type === 7) {
+        const stored = pending.messageId ? this.#message(pending.messageId) : undefined;
+        if (!stored) return reply(400, { code: 50035, message: 'Invalid Form Body', errors: { reason: 'no message to update' } });
+        const problem = checkEdit(stored.payload, answer.data as MessagePayload);
+        if (problem) return refuse(problem);
+        stored.payload = edited(stored.payload, answer.data as MessagePayload);
+      }
+      pending.resolve(answer);
       return reply(204);
     }
 
@@ -318,6 +361,7 @@ export class FakeDiscord {
 
     if ((match = path.match(/^\/channels\/(\d+)$/)) && req.method === 'GET') {
       if (this.#forums.has(match[1]!)) return reply(200, { id: match[1], type: 15, guild_id: this.guildId });
+      if (this.#textChannels.has(match[1]!)) return reply(200, { id: match[1], type: 0, guild_id: this.guildId });
       const thread = this.#threads.get(match[1]!);
       if (!thread) return reply(404, { code: 10003, message: 'Unknown Channel' });
       return reply(200, { id: thread.id, type: 11, parent_id: thread.forumId, guild_id: this.guildId, name: thread.name });
@@ -350,6 +394,41 @@ export class FakeDiscord {
       if (!thread) return reply(404, { code: 10003, message: 'Unknown Channel' });
       const newestFirst = [...thread.messages].reverse().slice(0, 100);
       return reply(200, newestFirst.map((m) => ({ id: m.id, channel_id: m.channelId, author: { id: this.botUserId, bot: true } })));
+    }
+
+    if ((match = path.match(/^\/channels\/(\d+)\/messages\/(\d+)$/)) && req.method === 'PATCH') {
+      const thread = this.#threads.get(match[1]!);
+      const stored = thread?.messages.find((m) => m.id === match![2]);
+      if (!thread || !stored) return reply(404, { code: 10008, message: 'Unknown Message' });
+      if (thread.archivedAt) return reply(400, { code: 50083, message: 'Thread is archived' });
+      const body = JSON.parse(raw) as MessagePayload;
+      const problem = checkEdit(stored.payload, body);
+      if (problem) return refuse(problem);
+      stored.payload = edited(stored.payload, body);
+      return reply(200, { id: stored.id, channel_id: thread.id });
+    }
+
+    // Renames a post, or archives or unarchives it.
+    if ((match = path.match(/^\/channels\/(\d+)$/)) && req.method === 'PATCH') {
+      const thread = this.#threads.get(match[1]!);
+      if (!thread) return reply(404, { code: 10003, message: 'Unknown Channel' });
+      const body = JSON.parse(raw) as { name?: string; archived?: boolean };
+      if (body.name !== undefined && (!body.name || body.name.length > 100)) return refuse('name must be 1 to 100 characters');
+      // Only unarchiving touches an archived thread; anything else must unarchive it in the same request.
+      if (thread.archivedAt && body.archived !== false) return reply(400, { code: 50083, message: 'Thread is archived' });
+      if (body.name !== undefined) thread.name = body.name;
+      if (body.archived === false) delete thread.archivedAt;
+      if (body.archived === true) thread.archivedAt = new Date().toISOString();
+      return reply(200, this.#threadObject(thread));
+    }
+
+    if ((match = path.match(/^\/channels\/(\d+)\/messages$/)) && req.method === 'POST' && this.#textChannels.has(match[1]!)) {
+      const body = JSON.parse(raw) as MessagePayload;
+      const problem = checkPlainMessage(body);
+      if (problem) return refuse(problem);
+      const id = this.#id();
+      this.#textChannels.get(match[1]!)!.push({ id, channelId: match[1]!, payload: body });
+      return reply(200, { id, channel_id: match[1] });
     }
 
     if ((match = path.match(/^\/channels\/(\d+)\/messages$/)) && req.method === 'POST') {
@@ -402,6 +481,29 @@ function checkMessage(message: MessagePayload): string | undefined {
   return problem;
 }
 
+/** Returns why real Discord would refuse this plain text message. */
+function checkPlainMessage(message: MessagePayload): string | undefined {
+  if ((message.flags ?? 0) & IS_COMPONENTS_V2) return 'this channel takes plain lines only';
+  if (message.components?.length) return 'this channel takes plain lines only';
+  const length = (message.content ?? '').length;
+  if (length === 0 || length > MAX_CONTENT) return `content must be 1 to ${MAX_CONTENT} characters, not ${length}`;
+  return undefined;
+}
+
+const mentionsNobody = (payload: MessagePayload) =>
+  Array.isArray(payload.allowed_mentions?.parse) && payload.allowed_mentions.parse.length === 0 && !payload.allowed_mentions.users?.length;
+
+/**
+ * Returns why real Discord would refuse this edit. An edit keeps the message's flags; of the flags this bot uses only
+ * IS_COMPONENTS_V2 may be sent, and it can't be taken off.
+ */
+function checkEdit(before: MessagePayload, edit: MessagePayload): string | undefined {
+  if ((edit.flags ?? 0) & ~IS_COMPONENTS_V2) return 'an edit may set only IS_COMPONENTS_V2 of these flags';
+  return checkMessage(edited(before, edit));
+}
+
+const edited = (before: MessagePayload, edit: MessagePayload): MessagePayload => ({ ...before, ...edit, flags: before.flags });
+
 function seen(message: StoredMessage): SeenMessage {
   const payload = message.payload;
   const texts: string[] = [];
@@ -420,7 +522,10 @@ function seen(message: StoredMessage): SeenMessage {
       if (c.type === 9) {
         const text = (c.components ?? []).map((t) => t.content ?? '').join('\n');
         const a = c.accessory;
-        lines.push({ text, ...(a?.type === 2 ? { button: { label: a.label ?? '', customId: a.custom_id ?? '' } } : {}) });
+        lines.push({
+          text,
+          ...(a?.type === 2 ? { button: { label: a.label ?? '', customId: a.custom_id ?? '', disabled: a.disabled === true } } : {}),
+        });
         visit(c.components ?? [], true);
         if (a) count += 1;
         continue;
@@ -435,7 +540,7 @@ function seen(message: StoredMessage): SeenMessage {
     headings,
     lines,
     silent: Boolean((payload.flags ?? 0) & SUPPRESS_NOTIFICATIONS),
-    mentionsNobody: Array.isArray(payload.allowed_mentions?.parse) && payload.allowed_mentions.parse.length === 0 && !payload.allowed_mentions.users?.length,
+    mentionsNobody: mentionsNobody(payload),
     componentCount: count,
     textLength: length,
   };
