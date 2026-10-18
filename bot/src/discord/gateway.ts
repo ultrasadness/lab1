@@ -1,6 +1,6 @@
 // Discord's gateway, used only to receive interactions: taps and pop-up submissions. The bot identifies with no
 // intents at all, so it needs no privileged intent and never sees message content.
-import type { Log } from '../log.ts';
+import { errorText, type Log } from '../log.ts';
 import type { DiscordRest } from './rest.ts';
 
 export interface Interaction {
@@ -72,7 +72,7 @@ export class DiscordGateway {
       socket.addEventListener('message', (event) => this.#receive(socket, JSON.parse(String(event.data)) as Frame));
       socket.addEventListener('close', (event) => this.#closed(socket, event.code));
     } catch (error) {
-      this.#log('discord.gateway-unreachable', { error: error instanceof Error ? error.message : String(error) });
+      this.#log('discord.gateway-unreachable', { error: errorText(error) });
       this.#scheduleReconnect();
     }
   }

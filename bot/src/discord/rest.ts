@@ -18,6 +18,15 @@ export interface InteractionResponse {
   data?: Record<string, unknown>;
 }
 
+/** A thread as Discord lists it; a forum post is one. */
+interface ThreadObject {
+  id: string;
+  parent_id: string;
+  owner_id: string;
+  name: string;
+  thread_metadata: { archive_timestamp: string };
+}
+
 const MAX_RETRIES = 5;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -51,14 +60,30 @@ export class DiscordRest {
     return { messageId: body.id };
   }
 
-  /** The open post the bot started in a forum under this title, if there is one. */
-  async findForumPost(forumId: string, title: string): Promise<string | undefined> {
+  /**
+   * The post the bot started in a forum under this title, open or archived, if there is one. A forum archives a
+   * post that goes quiet, after an hour by default; only posts archived since `since` are looked through.
+   */
+  async findForumPost(forumId: string, title: string, since: Date): Promise<string | undefined> {
     const me = await this.#botUserId();
+    const ours = (t: ThreadObject) => t.parent_id === forumId && t.owner_id === me && t.name === title;
     const forum = (await this.#request('GET', `/channels/${forumId}`)) as { guild_id: string };
-    const active = (await this.#request('GET', `/guilds/${forum.guild_id}/threads/active`)) as {
-      threads: { id: string; parent_id: string; owner_id: string; name: string }[];
-    };
-    return active.threads.find((t) => t.parent_id === forumId && t.owner_id === me && t.name === title)?.id;
+    const active = (await this.#request('GET', `/guilds/${forum.guild_id}/threads/active`)) as { threads: ThreadObject[] };
+    const open = active.threads.find(ours);
+    if (open) return open.id;
+    // Archived posts come most recently archived first, a page at a time.
+    let before = '';
+    for (;;) {
+      const page = (await this.#request(
+        'GET',
+        `/channels/${forumId}/threads/archived/public?limit=50${before && `&before=${encodeURIComponent(before)}`}`,
+      )) as { threads: ThreadObject[]; has_more: boolean };
+      const found = page.threads.find(ours);
+      if (found) return found.id;
+      const last = page.threads.at(-1)?.thread_metadata.archive_timestamp;
+      if (!page.has_more || !last || Date.parse(last) < since.getTime()) return undefined;
+      before = last;
+    }
   }
 
   /** The ids of the bot's own latest messages in a channel, oldest first. */

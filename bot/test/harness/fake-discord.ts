@@ -44,6 +44,8 @@ interface Thread {
   forumId: string;
   name: string;
   messages: StoredMessage[];
+  /** When the thread was archived, while it is. */
+  archivedAt?: string;
 }
 
 /** One line of a band message as the person sees it: its text and the button beside it. */
@@ -140,6 +142,11 @@ export class FakeDiscord {
     this.#lost.push({ kind, remaining: nth });
   }
 
+  /** Archives a post, as a forum does once it has been inactive for its auto-archive time. */
+  archive(threadId: string, at: string): void {
+    this.#threads.get(threadId)!.archivedAt = at;
+  }
+
   #replyLost(kind: 'post' | 'message'): boolean {
     let lost = false;
     for (const l of this.#lost.filter((x) => x.kind === kind)) {
@@ -213,6 +220,17 @@ export class FakeDiscord {
   #id(): string {
     this.#nextId += 1n;
     return String(this.#nextId);
+  }
+
+  #threadObject(t: Thread) {
+    return {
+      id: t.id,
+      type: 11,
+      parent_id: t.forumId,
+      owner_id: this.botUserId,
+      name: t.name,
+      thread_metadata: { archived: Boolean(t.archivedAt), archive_timestamp: t.archivedAt ?? new Date(0).toISOString(), locked: false },
+    };
   }
 
   #dispatch(event: string, data: unknown): void {
@@ -307,8 +325,24 @@ export class FakeDiscord {
 
     if ((match = path.match(/^\/guilds\/(\d+)\/threads\/active$/)) && req.method === 'GET') {
       if (match[1] !== this.guildId) return reply(404, { code: 10004, message: 'Unknown Guild' });
-      const threads = [...this.#threads.values()].map((t) => ({ id: t.id, type: 11, parent_id: t.forumId, owner_id: this.botUserId, name: t.name }));
+      const threads = [...this.#threads.values()].filter((t) => !t.archivedAt).map((t) => this.#threadObject(t));
       return reply(200, { threads, members: [] });
+    }
+
+    // Archived public threads of one channel, most recently archived first, paged by `before`.
+    if ((match = path.match(/^\/channels\/(\d+)\/threads\/archived\/public(\?.*)?$/)) && req.method === 'GET') {
+      if (!this.#forums.has(match[1]!)) return reply(404, { code: 10003, message: 'Unknown Channel' });
+      const query = new URLSearchParams(match[2]?.slice(1));
+      const before = query.get('before');
+      const limit = Number(query.get('limit') ?? 50);
+      const archived = [...this.#threads.values()]
+        .filter((t) => t.forumId === match![1] && t.archivedAt && (!before || Date.parse(t.archivedAt) < Date.parse(before)))
+        .sort((a, b) => Date.parse(b.archivedAt!) - Date.parse(a.archivedAt!));
+      return reply(200, {
+        threads: archived.slice(0, limit).map((t) => this.#threadObject(t)),
+        members: [],
+        has_more: archived.length > limit,
+      });
     }
 
     if ((match = path.match(/^\/channels\/(\d+)\/messages(\?.*)?$/)) && req.method === 'GET') {
@@ -325,6 +359,8 @@ export class FakeDiscord {
       const problem = checkMessage(body);
       if (problem) return refuse(problem);
       const id = this.#id();
+      // A message in an archived thread that isn't locked opens it again.
+      delete thread.archivedAt;
       thread.messages.push({ id, channelId: thread.id, payload: body });
       if (this.#replyLost('message')) return void res.socket?.destroy();
       return reply(200, { id, channel_id: thread.id });

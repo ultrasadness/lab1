@@ -39,7 +39,11 @@ export interface World {
   stop(): Promise<void>;
 }
 
-export async function startWorld(options: { now: string }): Promise<World> {
+export async function startWorld(options: {
+  now: string;
+  /** How the bot starts a run, given the path of `pi/pi-run`; by default, that script alone. */
+  piCommand?: (piRun: string) => string[];
+}): Promise<World> {
   const dir = mkdtempSync(join(tmpdir(), 'assistant-test-'));
   const credentials = join(dir, 'credentials');
   const personalDatabase = join(dir, 'personal-database');
@@ -66,7 +70,7 @@ export async function startWorld(options: { now: string }): Promise<World> {
     roles: { miner: { providers: ['openrouter'] } },
     forwarder: { host: '127.0.0.1', port: 0 },
     pi: {
-      command: ['sh', join(root, 'pi/pi-run')],
+      command: options.piCommand?.(join(root, 'pi/pi-run')) ?? ['sh', join(root, 'pi/pi-run')],
       env: {
         PI_BIN: join(root, 'node_modules/.bin/pi'),
         ASSISTANT_PI_EXTENSION: join(root, 'pi/extension/index.ts'),

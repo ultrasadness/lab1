@@ -29,6 +29,27 @@ test('a post or message Discord took before the bot stopped is read back, never 
   assert.equal(world.model.runs.length, 3, 'the restarts judged nothing again');
 });
 
+test('a post Discord took is found again even once the forum has archived it', async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  world.discord.loseReply('post');
+
+  await world.advanceTo('2026-10-12T08:00:00Z');
+  const [taken] = world.discord.forumPosts(MINER_DAYS_FORUM);
+  // The bot is down for two hours, past the forum's one-hour auto-archive.
+  world.discord.archive(taken!.id, '2026-10-12T09:00:00Z');
+  world.clock.advanceTo('2026-10-12T10:00:00Z');
+  await world.restart();
+
+  const posts = world.discord.forumPosts(MINER_DAYS_FORUM);
+  assert.equal(posts.length, 1, 'one post for the day');
+  assert.deepEqual(
+    posts[0]!.messages.map((m) => m.headings[0]?.split('\n')[0]),
+    ['## Miner · Mon Oct 12', '### Dossiers', '### Near misses · fit 6', '### Further off · fit 3–5', '### Far off · fit 0–2'],
+  );
+});
+
 test('an empty answer from Product Hunt posts nothing, and the date is read again next time', async (t) => {
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());

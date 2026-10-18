@@ -39,7 +39,8 @@ export class PiRunner {
   #store: Store;
   #clock: Clock;
   #log: Log;
-  #running = new Set<ChildProcess>();
+  /** Each run's process, and when it has closed. */
+  #running = new Map<ChildProcess, Promise<void>>();
   #stopped = false;
 
   constructor(options: {
@@ -94,17 +95,20 @@ export class PiRunner {
     return result;
   }
 
-  /** Stops every run in flight and refuses new ones. */
+  /** Stops every run in flight and refuses new ones. A run still up after the grace time is killed. */
   async stop(): Promise<void> {
     this.#stopped = true;
     await Promise.all(
-      [...this.#running].map(
-        (child) =>
-          new Promise<void>((resolve) => {
-            child.once('exit', () => resolve());
-            child.kill('SIGTERM');
-          }),
-      ),
+      [...this.#running].map(async ([child, closed]) => {
+        signal(child, 'SIGTERM');
+        const kill = setTimeout(() => {
+          signal(child, 'SIGKILL');
+          // Anything outside the group still holding the pipes no longer keeps the run open.
+          for (const stream of [child.stdin, child.stdout, child.stderr]) stream?.destroy();
+        }, KILL_GRACE_MS);
+        await closed;
+        clearTimeout(kill);
+      }),
     );
   }
 
@@ -113,6 +117,8 @@ export class PiRunner {
     const child = spawn(command!, args, {
       cwd: this.#cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
+      // The run leads its own process group, so a signal reaches Pi even through a command that wraps it.
+      detached: true,
       env: {
         PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
         ...this.#env,
@@ -122,7 +128,7 @@ export class PiRunner {
         ASSISTANT_BOT_URL: this.#botUrl,
       },
     });
-    this.#running.add(child);
+    this.#running.set(child, new Promise((resolve) => child.once('close', () => resolve())));
 
     return new Promise<RunResult>((resolve) => {
       let error: string | undefined;
@@ -134,7 +140,7 @@ export class PiRunner {
       const timer = setTimeout(() => {
         timedOut = true;
         send({ type: 'abort' });
-        setTimeout(() => child.kill('SIGKILL'), KILL_GRACE_MS).unref();
+        setTimeout(() => signal(child, 'SIGKILL'), KILL_GRACE_MS).unref();
       }, request.wallClockMs);
 
       const send = (command: Record<string, unknown>) => {
@@ -192,5 +198,15 @@ export class PiRunner {
 
       send({ id: 'prompt', type: 'prompt', message: request.prompt });
     });
+  }
+}
+
+/** Signals the run's whole process group: the command and Pi under it. */
+function signal(child: ChildProcess, name: NodeJS.Signals): void {
+  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return;
+  try {
+    process.kill(-child.pid, name);
+  } catch {
+    child.kill(name);
   }
 }

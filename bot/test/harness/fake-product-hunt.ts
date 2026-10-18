@@ -35,6 +35,8 @@ interface Served {
   featured: boolean;
   /** When the Launch was posted; for a Featured Launch this is also when it was featured. */
   at: string;
+  /** The order Product Hunt created the Launches in, which breaks ties between equal posting times. */
+  created: number;
 }
 
 export interface ProductHuntRequest {
@@ -47,7 +49,11 @@ const PAGE = 20;
 
 export class FakeProductHunt {
   readonly requests: ProductHuntRequest[] = [];
+  /** Called after each page of `posts` is served, with how many pages have been, as when votes move Launches mid-read. */
+  onPostsPage: (pagesServed: number) => void = () => {};
+  /** Every Launch served, in Product Hunt's current ranking. */
   #served: Served[] = [];
+  #postsPages = 0;
   #server: http.Server;
   #token: string;
 
@@ -73,12 +79,21 @@ export class FakeProductHunt {
 
   /** Serves `posts` as Featured Launches, featured at `featuredAt`, in this order of rank. */
   addFeatured(posts: FixturePost[], featuredAt: string): void {
-    for (const post of posts) this.#served.push({ post, featured: true, at: featuredAt });
+    for (const post of posts) this.#served.push({ post, featured: true, at: featuredAt, created: this.#served.length });
   }
 
   /** Serves `posts` as Launches Product Hunt did not feature. */
   addUnfeatured(posts: FixturePost[], postedAt: string): void {
-    for (const post of posts) this.#served.push({ post, featured: false, at: postedAt });
+    for (const post of posts) this.#served.push({ post, featured: false, at: postedAt, created: this.#served.length });
+  }
+
+  /** Swaps two Launches' places in the ranking, and their daily ranks, as votes do during the day. */
+  swapRanks(a: string, b: string): void {
+    const i = this.#served.findIndex((s) => s.post.id === a);
+    const j = this.#served.findIndex((s) => s.post.id === b);
+    const [first, second] = [this.#served[i]!, this.#served[j]!];
+    [this.#served[i], this.#served[j]] = [second, first];
+    [first.post.dailyRank, second.post.dailyRank] = [second.post.dailyRank, first.post.dailyRank];
   }
 
   async #handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
@@ -115,9 +130,15 @@ export class FakeProductHunt {
         const at = Date.parse(s.at);
         return at >= after && at < before && (s.featured || !featuredOnly);
       });
+      // The real API pages by offset into the order asked for, so a Launch that moves between pages can be read twice
+      // or not at all. RANKING moves with votes; NEWEST follows posting time, which votes never change.
+      const order = query.match(/\border:\s*(\w+)/)?.[1] ?? 'RANKING';
+      if (order === 'NEWEST') matching.sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || a.created - b.created);
+      else if (order !== 'RANKING') return reply(200, { errors: [{ message: `The fake doesn't serve order ${order}` }] });
       const start = variables.after ? Number(Buffer.from(String(variables.after), 'base64').toString()) : 0;
       const page = matching.slice(start, start + PAGE);
       const end = start + page.length;
+      this.onPostsPage(++this.#postsPages);
       return reply(200, {
         data: {
           posts: {

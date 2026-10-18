@@ -8,6 +8,7 @@ import type { Config } from '../config.ts';
 import type { DiscordRest } from '../discord/rest.ts';
 import type { RecordResult } from '../forwarder.ts';
 import type { Log } from '../log.ts';
+import { pacificDay } from '../pacific.ts';
 import type { PiRunner } from '../pi-runs.ts';
 import type { ProductHunt } from '../product-hunt.ts';
 import type { Launch, Store } from '../store.ts';
@@ -161,7 +162,8 @@ export class Miner {
 
     let post = this.#store.dayPost(date);
     if (!post.threadId && post.postIntended) {
-      const found = await this.#discord.findForumPost(forumId, rendered.title);
+      // The date's post can't have been archived before the date began.
+      const found = await this.#discord.findForumPost(forumId, rendered.title, pacificDay(date).start);
       if (found) {
         this.#log('miner.post-read-back', { date, threadId: found });
         this.#store.saveDayPostThread(date, found);

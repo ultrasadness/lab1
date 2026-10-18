@@ -1,5 +1,6 @@
 // Starts the bot as a service: `node bot/src/main.ts`, with the config at $ASSISTANT_CONFIG (default
 // config/assistant.json) and the tokens in $CREDENTIALS_DIRECTORY, as systemd's LoadCredential= hands them over.
+import { fileURLToPath } from 'node:url';
 import { startAssistant } from './assistant.ts';
 import { systemClock } from './clock.ts';
 import { loadConfig } from './config.ts';
@@ -10,7 +11,7 @@ if (!credentialsDir) {
   process.exit(1);
 }
 
-const config = loadConfig(process.env.ASSISTANT_CONFIG ?? new URL('../../config/assistant.json', import.meta.url).pathname);
+const config = loadConfig(process.env.ASSISTANT_CONFIG ?? fileURLToPath(new URL('../../config/assistant.json', import.meta.url)));
 const assistant = await startAssistant({ config, credentialsDir, clock: systemClock });
 
 let stopping = false;

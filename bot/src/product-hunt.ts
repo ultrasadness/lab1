@@ -5,7 +5,7 @@ import type { Log } from './log.ts';
 import { pacificDay } from './pacific.ts';
 
 const DAY_QUERY = `query FeaturedLaunches($postedAfter: DateTime!, $postedBefore: DateTime!, $after: String) {
-  posts(featured: true, postedAfter: $postedAfter, postedBefore: $postedBefore, order: RANKING, first: 20, after: $after) {
+  posts(featured: true, postedAfter: $postedAfter, postedBefore: $postedBefore, order: NEWEST, first: 20, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes {
       id name tagline description slug dailyRank
@@ -68,11 +68,13 @@ export class ProductHunt {
     this.#log = options.log;
   }
 
-  /** Every Launch Product Hunt featured on a Pacific date, in its order, with each one's Maker comment. */
+  /** Every Launch Product Hunt featured on a Pacific date, in its ranking, with each one's Maker comment. */
   async featuredLaunches(date: string): Promise<Launch[]> {
     // Every Featured Launch is posted at the moment it is featured, so the day's bounds select exactly its set.
+    // Pages are offsets into the order asked for, and votes move the ranking while the day is read, so the pages
+    // follow posting time instead and the ranking is sorted here.
     const day = pacificDay(date);
-    const posts: Post[] = [];
+    const posts = new Map<string, Post>();
     let after: string | null = null;
     do {
       const data = (await this.#query(date, DAY_QUERY, {
@@ -80,12 +82,13 @@ export class ProductHunt {
         postedBefore: day.end.toISOString(),
         after,
       })) as { posts: Connection<Post> };
-      posts.push(...data.posts.nodes);
+      for (const post of data.posts.nodes) if (!posts.has(post.id)) posts.set(post.id, post);
       after = data.posts.pageInfo.hasNextPage ? data.posts.pageInfo.endCursor : null;
     } while (after);
+    const ranked = [...posts.values()].sort((a, b) => (a.dailyRank ?? Infinity) - (b.dailyRank ?? Infinity));
 
     const launches: Launch[] = [];
-    for (const [index, post] of posts.entries()) {
+    for (const [index, post] of ranked.entries()) {
       const comments = [...post.comments.nodes];
       let cursor = post.comments.pageInfo.hasNextPage ? post.comments.pageInfo.endCursor : null;
       while (cursor) {
@@ -98,7 +101,8 @@ export class ProductHunt {
       }
       launches.push({
         postId: post.id,
-        rank: post.dailyRank ?? index + 1,
+        // A daily rank read before votes moved can match one read after; the place in the sorted ranking can't.
+        rank: index + 1,
         name: post.name,
         tagline: post.tagline,
         description: post.description ?? '',
@@ -163,7 +167,8 @@ function htmlToText(html: string): string {
     .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
       if (code[0] === '#') {
         const n = code[1]?.toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
-        return Number.isFinite(n) ? String.fromCodePoint(n) : whole;
+        // As a browser does, a code that names no character reads as the replacement character.
+        return n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : '�';
       }
       return ENTITIES[code.toLowerCase()] ?? whole;
     })

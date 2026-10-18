@@ -13,7 +13,9 @@ export interface JudgmentRecord {
 
 export const REASON_MAX_CHARS = 240;
 
-const block = (value: string) => `<<<\n${value.trim()}\n>>>`;
+// Text from Product Hunt, its makers or the person reaches the model only inside a <<< >>> fence, under a label of
+// ours. A run of three angle brackets in the text is spaced out, so no value can close its fence or open another.
+const block = (value: string) => `<<<\n${value.trim().replace(/<{3,}|>{3,}/g, (run) => run.split('').join(' '))}\n>>>`;
 
 /** The run's prompt: the Interest scope, then each Launch in Product Hunt order. */
 export function judgingPrompt(interestScope: string, launches: Launch[]): string {
@@ -27,13 +29,15 @@ export function judgingPrompt(interestScope: string, launches: Launch[]): string
     parts.push(
       '',
       `Launch · Post id ${launch.postId}`,
-      `Name: ${launch.name}`,
-      `Tagline: ${launch.tagline}`,
-      `Topics: ${launch.topics.join(', ') || 'none'}`,
+      'Name:',
+      block(launch.name),
+      'Tagline:',
+      block(launch.tagline),
+      'Topics:',
+      block(launch.topics.join(', ') || 'none'),
       'Description:',
       block(launch.description || 'none'),
-      launch.makerComment ? 'Maker comment:' : 'Maker comment: none',
-      ...(launch.makerComment ? [block(launch.makerComment)] : []),
+      ...(launch.makerComment ? ['Maker comment:', block(launch.makerComment)] : ['Maker comment: none']),
     );
   }
   return parts.join('\n');

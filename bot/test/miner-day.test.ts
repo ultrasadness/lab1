@@ -212,3 +212,21 @@ test('only the date’s Featured Launches are read, through the API, a page at a
   const asked = new Set(world.model.runs.flatMap((r) => r.postIds));
   assert.deepEqual([...asked].sort(), fixtureDay('2026-10-14').map((p) => p.id).sort());
 });
+
+test('a Launch that moves in the ranking while the day is read is listed once, and none is missed', async (t) => {
+  const world = await startWorld({ now: '2026-10-14T07:30:00Z' });
+  t.after(() => world.stop());
+  const day = fixtureDay('2026-10-14');
+  world.productHunt.addFeatured(day, '2026-10-14T07:01:00Z');
+  // Votes swap the 20th and 21st Launches between the first page and the second.
+  world.productHunt.onPostsPage = (served) => {
+    if (served === 1) world.productHunt.swapRanks(day[19]!.id, day[20]!.id);
+  };
+
+  await world.advanceTo('2026-10-14T08:00:00Z');
+
+  const [post] = world.discord.forumPosts(MINER_DAYS_FORUM);
+  assert.equal(post?.title, 'Wed Oct 14 · 6 Dossiers · line 7');
+  const listed = post!.messages.flatMap((m) => m.lines).map((l) => l.button?.customId);
+  assert.deepEqual([...listed].sort(), day.map((p) => `correct:launch:${p.id}`).sort());
+});

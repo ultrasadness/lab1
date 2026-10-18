@@ -110,17 +110,22 @@ export async function startAssistant(options: {
   if (clock.now() >= pacificInstant(today, config.miner.startsAt) && !miner.posted(today)) mine(today);
 
   log('assistant.started', { forwarder: forwarder.url });
+  let stopping: Promise<void> | undefined;
   return {
     whenIdle: () => lane.whenIdle(),
-    async stop() {
-      cancelDaily();
-      lane.close();
-      await pi.stop();
-      await lane.whenIdle();
-      gateway.stop();
-      await forwarder.close();
-      store.close();
-      log('assistant.stopped', {});
+    stop() {
+      // A second stop, such as a second signal, waits for the first.
+      stopping ??= (async () => {
+        cancelDaily();
+        lane.close();
+        await pi.stop();
+        await lane.whenIdle();
+        gateway.stop();
+        await forwarder.close();
+        store.close();
+        log('assistant.stopped', {});
+      })();
+      return stopping;
     },
   };
 }

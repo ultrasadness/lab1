@@ -7,7 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { randomBytes } from 'node:crypto';
 import type { Clock } from './clock.ts';
 import type { Role } from './config.ts';
-import type { Log } from './log.ts';
+import { errorText, type Log } from './log.ts';
 import type { Store, Tokens } from './store.ts';
 
 export type RecordResult = { ok: true; message: string } | { ok: false; error: string };
@@ -46,7 +46,7 @@ export async function startForwarder(options: {
 
   const server = http.createServer((req, res) => {
     handle(req, res).catch((error: unknown) => {
-      options.log('forwarder.failed', { error: error instanceof Error ? error.message : String(error) });
+      options.log('forwarder.failed', { error: errorText(error) });
       // A reply already under way can only be cut off.
       if (res.headersSent) return res.destroy();
       json(res, 502, { error: { message: 'The forwarder could not complete the request' } });
@@ -98,20 +98,30 @@ export async function startForwarder(options: {
     }
 
     res.writeHead(upstream.status, { 'content-type': upstream.headers.get('content-type') ?? 'application/json' });
-    const usage = new UsageReader();
+    const usage = new UsageReader(Boolean(upstream.headers.get('content-type')?.startsWith('text/event-stream')));
+    let recorded = false;
+    // Recorded before Pi has the reply's last event, so the tool calls in it are made under this request. A reply
+    // cut off part way is recorded too, with whatever usage it reached.
+    const recordOnce = () => {
+      if (recorded) return;
+      recorded = true;
+      record(run, provider, usage.model, upstream.status, usage.tokens);
+    };
     try {
       if (upstream.body) {
         const decoder = new TextDecoder();
         for await (const chunk of upstream.body as unknown as AsyncIterable<Uint8Array>) {
           usage.push(decoder.decode(chunk, { stream: true }));
+          if (usage.done) recordOnce();
           res.write(chunk);
         }
       }
+    } catch (error) {
+      // Pi closes its side once the last event is in, which ends the read from the provider: the reply is whole.
+      if (!usage.done) throw error;
     } finally {
       usage.end();
-      // Recorded before the reply ends, so the tool calls in it are made under this request. A reply cut off part
-      // way is recorded too, with whatever usage it reached.
-      record(run, provider, usage.model, upstream.status, usage.tokens);
+      recordOnce();
     }
     if (upstream.ok && !usage.tokens) options.log('forwarder.usage-missing', { runId: run.runId, provider });
     res.end();
@@ -169,10 +179,19 @@ async function readBody(req: http.IncomingMessage): Promise<string> {
 class UsageReader {
   tokens: Tokens | null = null;
   model: string | null = null;
+  /** Whether the stream's last event, `[DONE]`, has arrived. */
+  done = false;
+  #streamed: boolean;
   #buffer = '';
+
+  /** `streamed` says whether the reply comes as server-sent events; otherwise it is one JSON body. */
+  constructor(streamed: boolean) {
+    this.#streamed = streamed;
+  }
 
   push(text: string): void {
     this.#buffer += text;
+    if (!this.#streamed) return;
     let newline: number;
     while ((newline = this.#buffer.indexOf('\n')) >= 0) {
       this.#line(this.#buffer.slice(0, newline).trim());
@@ -183,8 +202,8 @@ class UsageReader {
   end(): void {
     const rest = this.#buffer.trim();
     this.#buffer = '';
-    if (rest.startsWith('{')) this.#read(rest);
-    else this.#line(rest);
+    if (this.#streamed) this.#line(rest);
+    else this.#read(rest);
   }
 
   #line(line: string): void {
@@ -192,6 +211,7 @@ class UsageReader {
   }
 
   #read(data: string): void {
+    if (data === '[DONE]') this.done = true;
     if (!data || data === '[DONE]') return;
     let parsed: {
       model?: string;

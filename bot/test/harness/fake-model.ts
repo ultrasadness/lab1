@@ -54,6 +54,10 @@ export class FakeModelProvider {
   usage: ScriptedUsage = { prompt_tokens: 2400, completion_tokens: 380, cached_tokens: 0 };
   /** The model id the upstream reports in its responses. */
   upstreamModel = 'judge-model-1';
+  /** How long a reply stays open after its last event, as when a proxy is slow to end the response. */
+  endDelayMs = 0;
+  /** While true, the provider takes requests and never answers them. */
+  hold = false;
 
   #server: http.Server;
   #keys: Set<string>;
@@ -98,6 +102,7 @@ export class FakeModelProvider {
     };
     const tools = (body.tools ?? []).map((t) => t.function.name);
     this.requests.push({ authorization: req.headers.authorization, model: body.model, messages: body.messages, tools, raw });
+    if (this.hold) return;
 
     const n = this.requests.length;
     res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -151,11 +156,26 @@ export class FakeModelProvider {
         prompt_tokens_details: { cached_tokens: u.cached_tokens },
       },
     });
-    res.end('data: [DONE]\n\n');
+    res.write('data: [DONE]\n\n');
+    if (this.endDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, this.endDelayMs));
+    res.end();
   }
 }
 
 function text(message: ChatMessage): string {
   if (typeof message.content === 'string') return message.content;
   return (message.content ?? []).map((part) => part.text ?? '').join('');
+}
+
+/** What the request says in the given roles, joined. */
+export function said(request: ModelRequest, ...roles: string[]): string {
+  return request.messages
+    .filter((m) => roles.includes(m.role))
+    .map(text)
+    .join('\n');
+}
+
+/** Whether the request opens its run's conversation, before any reply. */
+export function opensRun(request: ModelRequest): boolean {
+  return !request.messages.some((m) => m.role === 'assistant');
 }
