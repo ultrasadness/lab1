@@ -1,5 +1,5 @@
 // read(url): one page in a throwaway in-memory context, before any Approval (ADR 0006).
-import type { Browser, BrowserContext, Response } from 'playwright-core';
+import type { Browser, BrowserContext, Page, Response } from 'playwright-core';
 import type { ReadFailureKind, ReadOutcome } from './api.ts';
 import { rejectCookies } from './cookie-banners.ts';
 import { redactAll } from './redact.ts';
@@ -30,19 +30,13 @@ export function createReader(browser: Browser) {
       if (!target) return failure('bad-url', 'read takes an http or https URL with no username or password');
 
       const context = await browser.newContext({ acceptDownloads: false, viewport: VIEWPORT, serviceWorkers: 'block' });
-      // Closing the context rejects whatever the read is still waiting on.
-      let timedOut = false;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        context.close().catch(() => {});
-      }, READ_LIMIT_MS);
-      const tooLong = () => failure('timeout', `the read took longer than ${READ_LIMIT_MS / 1000} s`);
+      // The answer comes at the limit whatever the read is waiting on; closing the context then ends the rest of it.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const tooLong = new Promise<ReadOutcome>((resolve) => {
+        timer = setTimeout(() => resolve(failure('timeout', `the read took longer than ${READ_LIMIT_MS / 1000} s`)), READ_LIMIT_MS);
+      });
       try {
-        const outcome = await readIn(context, target);
-        return timedOut ? tooLong() : outcome;
-      } catch (e) {
-        if (timedOut) return tooLong();
-        throw e;
+        return await Promise.race([readIn(context, target), tooLong]);
       } finally {
         clearTimeout(timer);
         await context.close();
@@ -73,7 +67,7 @@ async function readIn(context: BrowserContext, target: URL): Promise<ReadOutcome
   await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
   const cookieBanner = await rejectCookies(page);
 
-  const snapshot = redactAll(await page.evaluate(takeSnapshot));
+  const snapshot = redactAll(await inLatestDocument(page, () => page.evaluate(takeSnapshot)));
   const finalUrl = page.url();
   return {
     ok: true,
@@ -87,4 +81,16 @@ async function readIn(context: BrowserContext, target: URL): Promise<ReadOutcome
       cookieBanner,
     },
   };
+}
+
+/** Runs fn again on the page's next document when a navigation, such as a late script redirect, replaces it meanwhile. */
+async function inLatestDocument<T>(page: Page, fn: () => Promise<T>): Promise<T> {
+  for (let tries = 1; ; tries++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (tries === 3 || !String(e).includes('Execution context was destroyed')) throw e;
+      await page.waitForLoadState('load', { timeout: 10_000 }).catch(() => {});
+    }
+  }
 }

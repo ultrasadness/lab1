@@ -104,6 +104,10 @@ test("card fields are detected inside a payment provider's frame", async () => {
   assert.equal((await read('http://acme.test/checkout')).paymentFields, true);
 });
 
+test("a payment provider's own page with no card fields has no payment fields", async () => {
+  assert.equal((await read('http://checkoutshopper-live.adyen.com/newsletter')).paymentFields, false);
+});
+
 test('random-looking strings are removed from the snapshot, and ordinary text stays', async () => {
   const page = await read('http://acme.test/your-key?ref=Zk3mQ8xL2pV9rT4nW7yB');
 
@@ -119,11 +123,20 @@ test('random-looking strings are removed from the snapshot, and ordinary text st
     'XgL0n3I9PlFUP0THsR8U',
     'Qm3xZ8pL2vR9tN4kW7yB',
     'Zk3mQ8xL2pV9rT4nW7yB',
+    'wJalrXUtnFEMI',
+    'K7MDENG',
+    'bPxRfiCYEXAMPLEKEY',
+    'Xk9',
+    'Fg5Hj0',
+    'aB3dE9fG2hJ1',
   ]) {
     assert.ok(!everything.includes(token), `${token} is still in the snapshot`);
   }
   assertIncludes(page.snapshot.text, 'Your API key: sk_live_[random]');
   assertIncludes(page.snapshot.text, 'Invite token [random] expires soon.');
+  assertIncludes(page.snapshot.text, 'Secret access key: [random]');
+  assertIncludes(page.snapshot.text, 'Signing secret [random] for webhooks.');
+  assertIncludes(page.snapshot.text, 'Temp password: [random]');
   assert.ok(page.snapshot.links.some((l) => l.text === 'Accept your invite' && l.href === 'http://acme.test/invite?token=[random]'));
   assert.equal(page.snapshot.url, 'http://acme.test/your-key?ref=[random]');
   // Plain code gets the URL exact, to open it again.
@@ -131,7 +144,7 @@ test('random-looking strings are removed from the snapshot, and ordinary text st
 
   assertIncludes(
     page.snapshot.text,
-    'Acme Notes is the 2026 note-taking app for internationalization teams. Write to signup+acme@gmail.com, read http://acme.test/blog/how-we-built-acme-notes-2026 or call +1 415 555 0100. Plans start at $12.99/month. Version v1.64.0, released 2026-10-17, order 20261017000123. Supercalifragilisticexpialidocious, state-of-the-art, GPT-4o-mini and iPhone15ProMax.',
+    'Acme Notes is the 2026 note-taking app for internationalization teams. Write to signup+acme@gmail.com, read http://acme.test/blog/how-we-built-acme-notes-2026 or call +1 415 555 0100. Plans start at $12.99/month. Version v1.64.0, released 2026-10-17, order 20261017000123. Supercalifragilisticexpialidocious, state-of-the-art, GPT-4o-mini and iPhone15ProMax. Support is open 24/7 for Sales/Marketing/Engineering teams and/or Input/Output/Storage admins on a MacBookPro16 or Windows11Pro.',
   );
 });
 
@@ -141,6 +154,25 @@ test('a cookie banner autoconsent knows is rejected before the snapshot', async 
   assert.deepEqual(page.cookieBanner, { manager: 'Complianz banner', rejected: true });
   assertIncludes(page.snapshot.text, 'Cookie choice: denied');
   assert.ok(!page.snapshot.text.includes('We use cookies to improve your experience.'));
+});
+
+test('a banner that reloads the page once the choice is saved reads as the page it reloads to', async () => {
+  const page = await read('http://acme.test/consent-reload');
+
+  assert.deepEqual(page.cookieBanner, { manager: 'Complianz banner', rejected: true });
+  assertIncludes(page.snapshot.text, 'Cookie choice: denied');
+  assert.ok(!page.snapshot.text.includes('We use cookies to improve your experience.'));
+});
+
+test('a banner on a page the cookie step is redirected to is rejected too', async () => {
+  const start = Date.now();
+  const page = await read('http://acme.test/consent-redirect');
+
+  // Not held up by the script on the page it left.
+  assert.ok(Date.now() - start < 10_000, `answered after ${Date.now() - start} ms`);
+  assert.equal(page.finalUrl, 'http://acme.test/consent-known-slow');
+  assert.deepEqual(page.cookieBanner, { manager: 'Complianz banner', rejected: true });
+  assertIncludes(page.snapshot.text, 'Cookie choice: denied');
 });
 
 test('a banner autoconsent does not know stays in place, and the read still returns', async () => {
@@ -189,8 +221,11 @@ test('only http and https URLs with no username or password are read', async () 
   }
 });
 
-test('a page that never lets go times out, and reads go on', async () => {
+test('a page that never lets go times out at the read limit, and reads go on', async () => {
+  const start = Date.now();
   assert.equal(await readFailure('http://acme.test/hang'), 'timeout');
+  // compose.test.yaml sets the limit to 20 s.
+  assert.ok(Date.now() - start < 25_000, `answered after ${Date.now() - start} ms`);
 
   assert.equal((await browser().read('http://acme.test/signup')).ok, true);
 });

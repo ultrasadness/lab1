@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Delta Sheets</title>
+</head>
+<body>
+<h1>Taking you to Delta Sheets…</h1>
+<script>
+  // Redirects soon after autoconsent's messaging appears: once its script here has reported, before it has finished.
+  const watch = setInterval(() => {
+    if (!window.autoconsentSendMessage) return;
+    clearInterval(watch);
+    setTimeout(() => (location.href = '/consent-known-slow'), 200);
+  }, 10);
+</script>
+</body>
+</html>

@@ -4,8 +4,11 @@
 const RANDOM = '[random]';
 
 const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
-// Separators such as `_`, `-` and `.` split a token into pieces; each long piece is judged on its own.
-const PIECE = /[A-Za-z0-9]{16,}/g;
+// A run of base64's alphabet and its padding. Separators such as `_`, `-` and `.` end a run; `+` and `/` join its parts.
+const RUN = /[A-Za-z0-9+/]+={0,2}/g;
+const PART = /[A-Za-z0-9]+/g;
+// A word, a capitalised word, an acronym or a number: `Sales/Marketing` and `24/7` are text.
+const WORD = /^(?:[a-z]+|[A-Z][a-z]*|[A-Z]+|[0-9]+)$/;
 
 const classOf = (c: string) => (c >= '0' && c <= '9' ? 'digit' : c === c.toLowerCase() ? 'lower' : 'upper');
 
@@ -17,19 +20,30 @@ function entropy(s: string): number {
   return bits;
 }
 
-function looksRandom(piece: string): boolean {
-  if (/^[0-9]+$/.test(piece)) return false; // dates, phone and order numbers
-  if (/^[0-9a-f]+$/.test(piece) || /^[0-9A-F]+$/.test(piece)) return /[0-9]/.test(piece) && /[a-f]/i.test(piece);
-  const classes = new Set(Array.from(piece, classOf));
-  if (classes.size < 2) return false; // a word in one case
+function looksRandom(token: string): boolean {
+  if (token.length < 12 || /^[0-9]+$/.test(token)) return false; // dates, phone and order numbers
+  const classes = new Set(Array.from(token, classOf));
   let changes = 0;
-  for (let i = 1; i < piece.length; i++) if (classOf(piece[i]!) !== classOf(piece[i - 1]!)) changes++;
+  for (let i = 1; i < token.length; i++) if (classOf(token[i]!) !== classOf(token[i - 1]!)) changes++;
+  // A short secret mixes digits and both cases almost every character; a name like iPhone15ProMax changes less.
+  if (token.length < 16) return classes.size === 3 && changes > token.length / 2;
+  if (/^[0-9a-f]+$/.test(token) || /^[0-9A-F]+$/.test(token)) return /[0-9]/.test(token) && /[a-f]/i.test(token);
+  if (classes.size < 2) return false; // a word in one case
   // A capitalised word changes class once; a random token changes about every other character.
-  return changes >= piece.length / 4 && entropy(piece) >= 3;
+  return changes >= token.length / 4 && entropy(token) >= 3;
+}
+
+function redactRun(run: string, offset: number, text: string): string {
+  // A token such as base64 goes whole, judged by its parts that aren't words. A URL's path, after its host, goes
+  // part by part.
+  const inUrl = /[.:]/.test(text[offset - 1] ?? '');
+  const token = (run.match(PART) ?? []).filter((part) => !WORD.test(part)).join('');
+  if (!inUrl && looksRandom(token)) return RANDOM;
+  return run.replace(PART, (part) => (looksRandom(part) ? RANDOM : part));
 }
 
 function redactRandom(text: string): string {
-  return text.replace(UUID, RANDOM).replace(PIECE, (piece) => (looksRandom(piece) ? RANDOM : piece));
+  return text.replace(UUID, RANDOM).replace(RUN, redactRun);
 }
 
 /** Redacts every string inside a JSON-like value. */

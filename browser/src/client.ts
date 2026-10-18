@@ -19,8 +19,9 @@ export class BrowserClient {
   async read(url: string): Promise<ReadOutcome> {
     const { status, body } = await this.request('POST', '/read', { url });
     if (status === 200) return { ok: true, page: body as PageRead };
-    const error = (body as { error?: ReadFailure }).error;
-    if (!error) throw new Error(`browser service read: HTTP ${status}`);
+    const error = (body as { error?: ReadFailure } | null)?.error;
+    // 400 and 502 are a page that can't be read; any other answer is the service failing.
+    if ((status !== 400 && status !== 502) || !error) throw new Error(`browser service read: HTTP ${status}${error ? `: ${error.message}` : ''}`);
     return { ok: false, error };
   }
 

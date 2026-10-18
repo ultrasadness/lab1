@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Delta Sheets</title>
+<style>
+  .cmplz-cookiebanner { position: fixed; inset: auto 0 0 0; padding: 16px; background: #fff; border-top: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<h1>Spreadsheets that explain themselves</h1>
+<p id="choice">No cookie choice yet</p>
+<!-- A Complianz banner that reloads the page once the choice is saved, as some consent managers do. -->
+<div id="cmplz-cookiebanner-container">
+  <div class="cmplz-cookiebanner" role="dialog" aria-label="Manage consent">
+    <p>We use cookies to improve your experience.</p>
+    <button type="button" class="cmplz-btn cmplz-accept">Accept</button>
+    <button type="button" class="cmplz-btn cmplz-deny">Deny</button>
+  </div>
+</div>
+<script>
+  const saved = document.cookie.match(/choice=(\w+)/);
+  if (saved) {
+    document.getElementById('choice').textContent = `Cookie choice: ${saved[1]}`;
+    document.getElementById('cmplz-cookiebanner-container').remove();
+  } else {
+    const choose = (choice) => {
+      document.cookie = 'cmplz_banner-status=dismissed';
+      document.cookie = `choice=${choice}`;
+      location.reload();
+    };
+    document.querySelector('.cmplz-accept').addEventListener('click', () => choose('accepted'));
+    document.querySelector('.cmplz-deny').addEventListener('click', () => choose('denied'));
+  }
+</script>
+</body>
+</html>

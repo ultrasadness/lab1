@@ -60,7 +60,8 @@ async function frameShown(frame: Frame): Promise<boolean> {
 
 export async function hasPaymentFields(page: Page): Promise<boolean> {
   for (const frame of page.frames()) {
-    const fromProvider = onHost(hostOf(frame.url()), PAYMENT_HOSTS);
+    // A provider's own page, such as its sign-up, needs card fields like any other.
+    const fromProvider = frame !== page.mainFrame() && onHost(hostOf(frame.url()), PAYMENT_HOSTS);
     const found = await frame
       .evaluate((anyField) => {
         const shown = (el: Element) => {

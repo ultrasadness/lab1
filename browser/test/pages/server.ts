@@ -16,6 +16,7 @@ const redirect = (location: string): Route => (res) => {
   res.writeHead(302, { location });
   res.end();
 };
+const slow = (route: Route, ms: number): Route => (res) => setTimeout(() => route(res), ms);
 
 const routes: Record<string, Route> = {
   'acme.test/signup': page('signup.html'),
@@ -25,6 +26,10 @@ const routes: Record<string, Route> = {
   'acme.test/your-key': page('your-key.html'),
   'acme.test/consent-known': page('consent-known.html'),
   'acme.test/consent-unknown': page('consent-unknown.html'),
+  // Slow to answer, so the reload or redirect is still on its way while the cookie step runs.
+  'acme.test/consent-reload': slow(page('consent-reload.html'), 1_500),
+  'acme.test/consent-redirect': page('consent-redirect.html'),
+  'acme.test/consent-known-slow': slow(page('consent-known.html'), 1_500),
   'acme.test/protected': page('interstitial.html', 403, { server: 'cloudflare', 'cf-mitigated': 'challenge' }),
   'acme.test/signup-turnstile': page('turnstile.html'),
   'acme.test/permissions': page('permissions.html'),
@@ -33,6 +38,7 @@ const routes: Record<string, Route> = {
   'acme.test/trial': page('trial.html'),
   'acme.test/checkout': page('checkout.html'),
   'checkoutshopper-live.adyen.com/checkoutshopper/securedfields/card.html': page('card-frame.html'),
+  'checkoutshopper-live.adyen.com/newsletter': page('provider-newsletter.html'),
 };
 
 http
