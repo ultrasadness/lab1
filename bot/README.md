@@ -17,6 +17,10 @@ The spec is #41; this first slice (#42) brings up the Miner's path from Product 
 | `pi/pi-run`, `pi/Dockerfile` | How a run starts, and the Pi container image |
 | `config/assistant.json` | Settings, changed only through `ops/upgrade` |
 
+Pi's own docs ship in its package, at `node_modules/@earendil-works/pi-coding-agent/docs/` once `npm ci` has run:
+`rpc.md` for the RPC mode each run uses, `json.md` for the event stream, `message-types.md` for the messages in it,
+and `settings.md` for Pi's `settings.json`, its retry backoff included.
+
 ## Test
 
 ```sh
@@ -26,8 +30,18 @@ npm test                               # every test
 node --test bot/test/miner-day.test.ts # one file
 ```
 
+`npm test` gives each test 60 seconds. A test that runs out fails, and the run still ends even when it leaves a
+server or timer open (`--test-force-exit`).
+
+In a fresh clone, turn on the pre-commit hook once with `git config core.hooksPath .githooks`. It refuses a commit
+whose staged files fail the typecheck, and in the main checkout a commit on any branch but `main`. GitHub Actions runs the
+typecheck and the tests on every push and pull request (`.github/workflows/bot.yml`).
+
 Tests go through seam 1 only (`bot/test/harness/`): the real bot in-process, with real Pi and our extension as
 local processes, against fake Discord, Product Hunt and model provider servers and a clock the test moves.
+
+A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
+a repeating timer, step through each firing with `stepThrough`.
 
 ## Run
 

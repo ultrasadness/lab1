@@ -10,6 +10,10 @@ How the engineering skills should consume this repo's domain documentation when 
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
+## Research notes
+
+Research notes live on `research/<name>` branches, not on `main`; `git branch -a --list '*research/*'` lists them. Read one without checking it out: `git show research/<name>:docs/research/<name>.md` (or `origin/research/<name>` in a clone that has only fetched the branch).
+
 ## File structure
 
 Single-context repo (most repos):

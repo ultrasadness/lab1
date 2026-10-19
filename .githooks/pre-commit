@@ -1,0 +1,38 @@
+#!/bin/sh
+# Runs before each commit once `git config core.hooksPath .githooks` turns it on (bot/README.md, Test). It keeps the
+# main checkout on main, as CLAUDE.md asks, and refuses a commit whose staged files fail the bot's typecheck.
+set -eu
+
+# Git runs a hook at the top of the working tree. A linked worktree has a git dir of its own; the main checkout
+# shares the common one. A detached HEAD, as in the middle of a rebase, is let through.
+branch=$(git symbolic-ref --short -q HEAD || true)
+if [ "$(git rev-parse --path-format=absolute --git-dir)" = "$(git rev-parse --path-format=absolute --git-common-dir)" ] &&
+  [ -n "$branch" ] && [ "$branch" != main ]; then
+  cat >&2 <<EOF
+pre-commit: this is the main checkout, which stays on main because other sessions share it, and it is on $branch.
+Commit from a worktree of the branch's own. To carry what you staged over, first set it aside in a commit this
+hook lets through (the stash is shared with other sessions): git commit --no-verify -m wip. Then:
+
+  git switch main
+  git worktree add .claude/worktrees/$branch $branch
+  cd .claude/worktrees/$branch
+
+and if you made the wip commit, undo it there with git reset --soft HEAD~1, which leaves its changes staged.
+A new branch gets its worktree straight from main: git worktree add .claude/worktrees/<branch> -b <branch> main
+EOF
+  exit 1
+fi
+
+if [ ! -x node_modules/.bin/tsc ]; then
+  echo "pre-commit: this checkout has no dependencies installed, so the typecheck can't run. Run npm ci here, then commit again." >&2
+  exit 1
+fi
+# The typecheck reads a copy of what is staged, so unstaged work neither refuses a commit nor hides a broken one.
+staged=$(mktemp -d)
+trap 'rm -rf "$staged"' EXIT
+git checkout-index -a --prefix="$staged/"
+ln -s "$PWD/node_modules" "$staged/node_modules"
+if ! (cd "$staged" && npm run --silent typecheck) >&2; then
+  echo "pre-commit: the typecheck failed, so the commit is refused. Fix what it names above, then commit again." >&2
+  exit 1
+fi

@@ -75,7 +75,15 @@ test('after a 4-day outage the oldest missed date is dropped, named in one silen
   assert.equal(world.discord.textMessages(STATUS).length, 1, 'the drop is named once');
 });
 
-const judgingRuns = (world: World) => world.logs.filter((l) => l.event === 'run.started').length;
+const runsStarted = (world: World) => world.logs.filter((l) => l.event === 'run.started');
+const judgingRuns = (world: World) => runsStarted(world).length;
+
+/** How many judging runs each try started, by when it started. */
+function runsPerTry(world: World): Record<string, number> {
+  const tries: Record<string, number> = {};
+  for (const run of runsStarted(world)) tries[run.at] = (tries[run.at] ?? 0) + 1;
+  return tries;
+}
 
 test('a date that can’t finish is tried every 30 minutes, and one silent #status line at 06:00 PT says it’s late and why', async (t) => {
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
@@ -88,11 +96,20 @@ test('a date that can’t finish is tried every 30 minutes, and one silent #stat
   assert.equal(perTry, 3);
   await world.advanceTo('2026-10-12T08:29:00Z');
   assert.equal(judgingRuns(world), perTry, 'nothing before 30 minutes');
-  // Every 30 minutes from 01:30 to 05:30 PDT another try, and no line yet.
-  for (let tries = 2; tries <= 10; tries++) {
-    await world.advanceTo(new Date(Date.parse('2026-10-12T08:00:00Z') + (tries - 1) * 30 * 60_000).toISOString());
-    assert.equal(judgingRuns(world), tries * perTry, `try ${tries}`);
-  }
+  // A whole try every 30 minutes from 01:00 to 05:30 PDT, and no line yet.
+  await world.stepThrough('2026-10-12T12:30:00Z', 1);
+  assert.deepEqual(runsPerTry(world), {
+    '2026-10-12T08:00:00.000Z': perTry,
+    '2026-10-12T08:30:00.000Z': perTry,
+    '2026-10-12T09:00:00.000Z': perTry,
+    '2026-10-12T09:30:00.000Z': perTry,
+    '2026-10-12T10:00:00.000Z': perTry,
+    '2026-10-12T10:30:00.000Z': perTry,
+    '2026-10-12T11:00:00.000Z': perTry,
+    '2026-10-12T11:30:00.000Z': perTry,
+    '2026-10-12T12:00:00.000Z': perTry,
+    '2026-10-12T12:30:00.000Z': perTry,
+  });
   assert.deepEqual(world.discord.textMessages(STATUS), []);
 
   await world.advanceTo('2026-10-12T13:00:00Z'); // 06:00 PDT

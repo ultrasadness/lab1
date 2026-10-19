@@ -35,6 +35,11 @@ export interface World {
   assistant: Assistant;
   /** Moves the clock, then waits for the background work that starts. */
   advanceTo(when: string): Promise<void>;
+  /**
+   * Moves the clock to `until` in steps of `everyMinutes`, waiting for the background work after each step, so a
+   * repeating timer fires at each of its own times. One `advanceTo` fires an overdue timer only once.
+   */
+  stepThrough(until: string, everyMinutes: number): Promise<void>;
   /** Stops the bot and starts it again on the same store, as after a restart. */
   restart(): Promise<void>;
   /** Stops the bot, moves the clock to `until` while it is down, and starts it again on the same store. */
@@ -109,6 +114,15 @@ export async function startWorld(options: {
     async advanceTo(when) {
       clock.advanceTo(when);
       await world.assistant.whenIdle();
+    },
+    async stepThrough(until, everyMinutes) {
+      if (!(everyMinutes > 0)) throw new Error(`Can't step through time every ${everyMinutes} minutes`);
+      const end = Date.parse(until);
+      const step = everyMinutes * 60_000;
+      for (let at = clock.now().getTime() + step; at < end; at += step) {
+        await world.advanceTo(new Date(at).toISOString());
+      }
+      await world.advanceTo(until);
     },
     async restart() {
       await world.assistant.stop();

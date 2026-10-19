@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node bot/src/main.ts",
     "typecheck": "tsc -p .",
-    "test": "node --test --test-timeout=300000 \"bot/test/**/*.test.ts\""
+    "test": "node --test --test-timeout=60000 --test-force-exit \"bot/test/**/*.test.ts\""
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "1.3.0"
