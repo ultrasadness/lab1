@@ -16,3 +16,9 @@ Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/age
 
 A ticket's branch gets a worktree of its own: `git worktree add .claude/worktrees/<branch> -b <branch> main`, and the
 session works there. The main checkout stays on `main`, because other sessions share it.
+
+## Language
+
+Reply to me in Simplified Chinese, in chat and in the questions you ask me. Inside Chinese sentences, keep glossary
+terms (`CONTEXT.md`) and skill names in English. Write everything that lands in the repo or the tracker in English:
+code, comments, commits, issues, docs, and the Assistant's own Discord text.
