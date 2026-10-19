@@ -21,4 +21,6 @@ session works there. The main checkout stays on `main`, because other sessions s
 
 Reply to me in Simplified Chinese, in chat and in the questions you ask me. Inside Chinese sentences, keep glossary
 terms (`CONTEXT.md`) and skill names in English. Write everything that lands in the repo or the tracker in English:
-code, comments, commits, issues, docs, and the Assistant's own Discord text.
+code, comments, commits, issues, docs, and the Assistant's own Discord text. The one exception is a doc pair's Chinese
+side, `foo.zh.md` beside `foo.md`: a commit that edits either side updates the other side too, as
+`docs/agents/doc-pairs.md` says.

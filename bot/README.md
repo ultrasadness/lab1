@@ -1,5 +1,7 @@
 # The bot
 
+English | [中文](README.zh.md)
+
 The Assistant's one long-running process: TypeScript on Node 24, run as-is through Node's type stripping, with no
 npm dependencies of its own. It holds every token, alone writes the live store, and makes every outside call.
 The spec is #41; this first slice (#42) brings up the Miner's path from Product Hunt to the Miner days forum.
@@ -26,6 +28,7 @@ and `settings.md` for Pi's `settings.json`, its retry backoff included.
 ```sh
 npm ci
 npm run typecheck
+npm run check:docs                     # the doc pairs
 npm test                               # every test
 node --test bot/test/miner-day.test.ts # one file
 ```
@@ -34,11 +37,13 @@ node --test bot/test/miner-day.test.ts # one file
 server or timer open (`--test-force-exit`).
 
 In a fresh clone, turn on the pre-commit hook once with `git config core.hooksPath .githooks`. It refuses a commit
-whose staged files fail the typecheck, and in the main checkout a commit on any branch but `main`. GitHub Actions runs the
-typecheck and the tests on every push and pull request (`.github/workflows/bot.yml`).
+whose staged files fail the typecheck or leave a doc pair out of step (`docs/agents/doc-pairs.md`), and in the main
+checkout a commit on any branch but `main`. GitHub Actions runs the typecheck, the doc-pair check and the tests on
+every push and pull request (`.github/workflows/bot.yml`).
 
-Tests go through seam 1 only (`bot/test/harness/`): the real bot in-process, with real Pi and our extension as
-local processes, against fake Discord, Product Hunt and model provider servers and a clock the test moves.
+The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in-process, with real Pi and our extension
+as local processes, against fake Discord, Product Hunt and model provider servers and a clock the test moves. The
+doc-pair check's tests (`scripts/doc-pairs.test.ts`) run the check itself on throwaway pairs.
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.

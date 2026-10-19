@@ -1,5 +1,7 @@
 # Growing Personal Assistant
 
+English | [中文](CONTEXT.zh.md)
+
 A personal assistant that keeps working for one person: it watches Product Hunt for new products that match their interests, prepares an account registration for each worthwhile one, handles the email that registering produces, and asks before anything consequential. It grows by turning the person's corrections into rules it applies next time.
 
 ## Language

@@ -1,4 +1,5 @@
-# The bot's typecheck and tests on every push and pull request. The tests reach only fakes, so no secret is needed.
+# The bot's typecheck, the doc-pair check and the tests on every push and pull request. The tests reach only fakes,
+# so no secret is needed.
 name: Bot
 
 on:
@@ -20,4 +21,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run check:docs
       - run: npm test

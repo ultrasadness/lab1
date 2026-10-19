@@ -1,6 +1,7 @@
 #!/bin/sh
 # Runs before each commit once `git config core.hooksPath .githooks` turns it on (bot/README.md, Test). It keeps the
-# main checkout on main, as CLAUDE.md asks, and refuses a commit whose staged files fail the bot's typecheck.
+# main checkout on main, as CLAUDE.md asks, and refuses a commit whose staged files fail the bot's typecheck or
+# leave a doc pair out of step (docs/agents/doc-pairs.md).
 set -eu
 
 # Git runs a hook at the top of the working tree. A linked worktree has a git dir of its own; the main checkout
@@ -27,12 +28,16 @@ if [ ! -x node_modules/.bin/tsc ]; then
   echo "pre-commit: this checkout has no dependencies installed, so the typecheck can't run. Run npm ci here, then commit again." >&2
   exit 1
 fi
-# The typecheck reads a copy of what is staged, so unstaged work neither refuses a commit nor hides a broken one.
+# The checks read a copy of what is staged, so unstaged work neither refuses a commit nor hides a broken one.
 staged=$(mktemp -d)
 trap 'rm -rf "$staged"' EXIT
 git checkout-index -a --prefix="$staged/"
 ln -s "$PWD/node_modules" "$staged/node_modules"
 if ! (cd "$staged" && npm run --silent typecheck) >&2; then
   echo "pre-commit: the typecheck failed, so the commit is refused. Fix what it names above, then commit again." >&2
+  exit 1
+fi
+if ! (cd "$staged" && npm run --silent check:docs) >&2; then
+  echo "pre-commit: a doc pair is out of step, so the commit is refused. Bring it in line as named above, then commit again." >&2
   exit 1
 fi

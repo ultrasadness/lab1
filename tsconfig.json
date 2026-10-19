@@ -16,5 +16,5 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["bot/src", "bot/test", "pi/extension"]
+  "include": ["bot/src", "bot/test", "pi/extension", "scripts"]
 }

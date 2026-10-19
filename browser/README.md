@@ -1,5 +1,7 @@
 # The browser service
 
+English | [中文](README.zh.md)
+
 Playwright in its own hardened container (ADR 0006), run as-is through Node's type stripping. Its only
 client is the bot, through a Unix socket: it listens on no port, and its network is its own, so the Pi
 container can't reach it. This slice (#43) brings up the container and the read-only `read(url)` that
