@@ -31,9 +31,9 @@ node --test bot/test/miner-day.test.ts # one file
 
 `npm test` 给每个测试 60 秒。超时的测试会失败；即使它留下了没关闭的服务器或定时器，整个运行也照样结束（`--test-force-exit`）。
 
-在新的克隆里，用 `git config core.hooksPath .githooks` 打开一次 pre-commit hook。暂存的文件没通过类型检查、或让某对文档不同步（`docs/agents/doc-pairs.md`）时，它拒绝提交；在主 checkout 里，它还拒绝 `main` 以外任何分支上的提交。GitHub Actions 在每次 push 和 pull request 时运行类型检查、文档配对检查和测试（`.github/workflows/bot.yml`）。
+在新的克隆里，用 `git config core.hooksPath .githooks` 打开一次 `.githooks/` 里的 hook。暂存的文件没通过类型检查、或让某对文档不同步（`docs/agents/doc-pairs.md`）时，pre-commit hook 拒绝提交；在主 checkout 里，它还拒绝 `main` 以外任何分支上的提交。GitHub Actions 在每次 push 和 pull request 时运行类型检查、文档配对检查和测试（`.github/workflows/bot.yml`）。pre-push hook 拒绝把 `main` 移到某个提交的 push，除非 GitHub Actions 已经在这个提交上运行过，并且每次运行都通过：GitHub Free 不给私有仓库提供分支保护，所以服务器那边没有什么会拒绝它。这个 hook 通过 `gh` 向 GitHub 查询，所以 `gh` 必须已经登录。
 
-机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在进程内运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt 和模型 provider 服务器，以及一个由测试拨动的时钟。文档配对检查的测试（`scripts/doc-pairs.test.ts`）在用完即弃的文档对上运行检查本身。
+机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在进程内运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt 和模型 provider 服务器，以及一个由测试拨动的时钟。文档配对检查的测试（`scripts/doc-pairs.test.ts`）在用完即弃的文档对上运行检查本身。pre-push hook 的测试（`scripts/pre-push.test.ts`）从一个用完即弃的仓库 push，用的是一个需要 `jq` 的假 `gh`。
 
 时钟的一次跳跃（`advanceTo`）只在新的时间点把过期的定时器触发一次，和真实时钟一样。要测试重复的定时器，用 `stepThrough` 逐一走过它的每次触发。
 

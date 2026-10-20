@@ -1,0 +1,61 @@
+#!/bin/sh
+# Runs before each push once `git config core.hooksPath .githooks` turns it on (bot/README.md, Test). It refuses a
+# push that moves main to a commit GitHub Actions hasn't passed: GitHub Free has no branch protection for a private
+# repo, so nothing on the server would (#88). A ticket lands by fast-forwarding main to its branch
+# (docs/agents/issue-tracker.md, Land a ticket), so the runs that count are the branch's, on that same commit.
+set -eu
+
+remote_url=$2
+while read -r local_ref sha remote_ref remote_sha; do
+  [ "$remote_ref" = refs/heads/main ] || continue
+  # A delete sends an all-zero object name, and has no commit to check.
+  case $sha in
+    *[!0]*) ;;
+    *)
+      echo "pre-push: this push deletes main, so it is refused." >&2
+      exit 1
+      ;;
+  esac
+  # gh's own error, if any, reaches the terminal above the refusal. </dev/null keeps gh off the refs git sends on stdin.
+  if ! runs=$(timeout 60 gh run list -R "$remote_url" --commit "$sha" --limit 100 \
+    --json databaseId,workflowName,status,conclusion \
+    --jq '.[] | "\(.databaseId) \(.status)/\(.conclusion) \(.workflowName)"' </dev/null); then
+    cat >&2 <<EOF
+pre-push: gh couldn't say whether GitHub Actions passed $sha, so the push to main is refused.
+It failed as above: no network, not signed in, or no answer within 60 seconds. Push again once gh run list answers.
+EOF
+    exit 1
+  fi
+  if [ -z "$runs" ]; then
+    cat >&2 <<EOF
+pre-push: GitHub Actions has no run for $sha, so the push to main is refused: its branch wasn't pushed first,
+or was pushed so recently that its run hasn't started. Push the branch if it isn't, wait for its run to pass, then push
+main again.
+EOF
+    exit 1
+  fi
+  refused=
+  while read -r id result workflow; do
+    case $result in
+      completed/success) ;;
+      completed/*)
+        cat >&2 <<EOF
+pre-push: run $id ($workflow) on $sha didn't succeed: it ended in ${result#completed/}.
+See why with gh run view $id. Then fix the branch and push it, or, if the run only flaked or was cancelled, rerun it
+with gh run rerun $id.
+EOF
+        refused=1
+        ;;
+      *)
+        echo "pre-push: run $id ($workflow) on $sha is still going. Wait for it with gh run watch $id." >&2
+        refused=1
+        ;;
+    esac
+  done <<EOF
+$runs
+EOF
+  if [ -n "$refused" ]; then
+    echo "pre-push: the push to main is refused until every run on its commit has passed. Push it again then." >&2
+    exit 1
+  fi
+done
