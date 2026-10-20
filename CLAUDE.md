@@ -12,6 +12,11 @@ Default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-huma
 
 Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+### Code review
+
+A review's standards sources include each ADR in `docs/adr/` whose decision covers what the diff changes. Name those
+ADRs in the Standards prompt, and the Standards report names each ADR it checked, or says that none covers the diff.
+
 ## Branches
 
 A ticket's branch gets a worktree of its own: `git worktree add .claude/worktrees/<branch> -b <branch> main`, and the
