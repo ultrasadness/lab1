@@ -1,5 +1,6 @@
 // The doc-pair check (#82): each paired doc's English and Chinese sides stay in step through the pair's record,
-// and mirror each other's headings, code blocks and language links.
+// and mirror each other's headings, code blocks and language links, and a Chinese side links to other pairs'
+// Chinese sides.
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -230,6 +231,37 @@ test('a directory in scope pairs each English doc in it, so a new doc there fail
   assert.equal(check.ok, false);
   assert.match(check.output, /^docs\/adr\/0002-next\.md is out of step with docs\/adr\/0002-next\.zh\.md:\n {2}docs\/adr\/0002-next\.zh\.md and docs\/adr\/0002-next\.i18n\.yaml are missing\n/);
   assert.equal(checkDocs(['--list'], root, pairs).output, 'docs/adr/0001-guide.md  in step\ndocs/adr/0002-next.md   missing docs/adr/0002-next.zh.md and docs/adr/0002-next.i18n.yaml\n');
+});
+
+test('a link on a Chinese side to the English side of a pair fails the check, naming the Chinese side to link instead', (t) => {
+  const code = '\n```md\n[code](notes/other.md)\n```\n';
+  const en = `${EN}\nSee the other guide.\n${code}`;
+  const zh = (target: string) => `${ZH}\n见[另一份](${target})、[说明](agents.md)、[外链](https://example.com/notes/other.md)和 \`[代码](notes/other.md)\`。\n${code}`;
+  const other = (target: string) => `${ZH.replaceAll('guide', 'other')}\n见[指南](${target})。\n`;
+  const root = repo(t, {
+    'guide.md': en,
+    'guide.zh.md': zh('notes/other.zh.md#运行'),
+    'notes/other.md': EN.replaceAll('guide', 'other'),
+    'notes/other.zh.md': other('../guide.zh.md'),
+    'agents.md': '# Agents\n',
+  });
+  const pairs = ['guide.md', 'notes/other.md'];
+  assert.equal(checkDocs(['--write', 'guide.md', 'notes/other.md'], root, pairs).ok, true);
+  const check = checkDocs([], root, pairs);
+  assert.equal(check.ok, true, check.output);
+
+  write(root, 'guide.zh.md', zh('notes/other.md#run'));
+  write(root, 'notes/other.zh.md', other('../guide.md'));
+  const linked = checkDocs([], root, pairs);
+  assert.equal(linked.ok, false);
+  assert.match(linked.output, /\n {2}guide\.zh\.md: the link to notes\/other\.md#run must point at its Chinese side, notes\/other\.zh\.md#run\n/);
+  assert.match(linked.output, /\n {2}notes\/other\.zh\.md: the link to \.\.\/guide\.md must point at its Chinese side, \.\.\/guide\.zh\.md\n/);
+  assert.equal(checkDocs(['--list'], root, pairs).output, 'guide.md        out of step\nnotes/other.md  out of step\n');
+
+  write(root, 'notes/other.zh.md', `${ZH.replaceAll('guide', 'other')}\n见[指南][g]和[根](/guide.md)。\n\n[g]: ../guide.md\n`);
+  const output = checkDocs([], root, pairs).output;
+  assert.match(output, /notes\/other\.zh\.md: the link to \/guide\.md must point at its Chinese side, \/guide\.zh\.md\n/);
+  assert.match(output, /notes\/other\.zh\.md: the link to \.\.\/guide\.md must point at its Chinese side, \.\.\/guide\.zh\.md\n/);
 });
 
 test('--list prints each pair state and never fails, and a check that passes says how many pairs are in step', (t) => {

@@ -1,9 +1,10 @@
 // The doc-pair check (#82). A pair is a doc's English side `foo.md`, its Chinese side `foo.zh.md` and their
 // record `foo.i18n.yaml`. The record holds a short hash of each heading section's text on each side, code blocks
-// left out; the check recomputes them and names each section that changed since the pair was last recorded.
+// left out; the check recomputes them and names each section that changed since the pair was last recorded. A link
+// on a Chinese side to another pair's English side fails the check too (#83).
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, join, normalize } from 'node:path';
+import { basename, dirname, join, normalize } from 'node:path';
 
 /** A pair's three sibling files, as paths from the root. */
 interface Pair {
@@ -68,7 +69,7 @@ function pairOf(en: string): Pair {
 
 function checkAll(root: string, pairs: Pair[]): Result {
   const failed = pairs.flatMap((pair) => {
-    const problems = check(root, pair);
+    const problems = check(root, pair, pairs);
     if (problems.length === 0) return [];
     return [
       lines([
@@ -87,7 +88,7 @@ function list(root: string, pairs: Pair[]): string {
   return lines(
     pairs.map((pair) => {
       const gone = absent(root, [pair.en, pair.zh, pair.record]);
-      const state = gone.length > 0 ? `missing ${and(gone)}` : check(root, pair).length > 0 ? 'out of step' : 'in step';
+      const state = gone.length > 0 ? `missing ${and(gone)}` : check(root, pair, pairs).length > 0 ? 'out of step' : 'in step';
       return pair.en.padEnd(width) + state;
     }),
   );
@@ -117,12 +118,12 @@ function unrecordable(root: string, pair: Pair): string[] {
   return gone.length > 0 ? [areMissing(gone)] : unmirrored(sides(root, pair));
 }
 
-/** One line per problem, naming its section; none when the pair is in step. */
-function check(root: string, pair: Pair): string[] {
+/** One line per problem, naming its section or link; none when the pair is in step with the other `pairs`. */
+function check(root: string, pair: Pair, pairs: Pair[]): string[] {
   const gone = absent(root, [pair.en, pair.zh, pair.record]);
   if (gone.includes(pair.en) || gone.includes(pair.zh)) return [areMissing(gone)];
   const doc = sides(root, pair);
-  const problems = unmirrored(doc);
+  const problems = [...unmirrored(doc), ...englishLinks(doc, pairs)];
   return misaligned(doc).length > 0 ? problems : [...problems, ...unrecorded(root, doc)];
 }
 
@@ -135,13 +136,42 @@ function unmirrored(doc: Sides): string[] {
 /** Each side whose H1 isn't followed by its link to the other side. */
 function missingLinks({ pair, en, zh }: Sides): string[] {
   const links: [string, Block[][], string][] = [
-    [pair.en, en, `English | [中文](${basename(pair.zh)})`],
-    [pair.zh, zh, `[English](${basename(pair.en)}) | 中文`],
+    [pair.en, en, languageLinks(pair).en],
+    [pair.zh, zh, languageLinks(pair).zh],
   ];
   return links.flatMap(([file, side, link]) => {
     const h1 = side.find(([first]) => first?.kind === 'heading' && first.depth === 1);
     return h1?.[1]?.text === link ? [] : [`${file}: the line after its H1 must be "${link}", with a blank line after it`];
   });
+}
+
+/** The line right after each side's H1, linking to the other side. */
+function languageLinks(pair: Pair): { en: string; zh: string } {
+  return { en: `English | [中文](${basename(pair.zh)})`, zh: `[English](${basename(pair.en)}) | 中文` };
+}
+
+/** Each link on the Chinese side to the English side of one of the `pairs`, which belongs on its Chinese side. */
+function englishLinks({ pair, zh }: Sides, pairs: Pair[]): string[] {
+  const english = new Set(pairs.map((p) => p.en));
+  return zh
+    .flat()
+    .filter((block) => block.kind !== 'code' && block.text !== languageLinks(pair).zh)
+    .flatMap((block) => targets(block.text))
+    .filter((target) => english.has(linked(pair.zh, target) ?? ''))
+    .map((target) => `${pair.zh}: the link to ${target} must point at its Chinese side, ${target.replace(/\.md(?=[#?]|$)/, '.zh.md')}`);
+}
+
+/** The targets of a text's inline links and link reference definitions, inline code left out. */
+function targets(text: string): string[] {
+  const prose = text.replace(/`[^`]*`/g, '');
+  return [...prose.matchAll(/\]\(\s*<?([^\s)>]+)|(?:^|\s)\[[^\]]+\]:\s*<?([^\s>]+)/g)].map((m) => (m[1] ?? m[2])!);
+}
+
+/** The path from the root that a link to `target` in `file` leads to; none for a URL or an anchor alone. */
+function linked(file: string, target: string): string | undefined {
+  const path = target.split(/[#?]/)[0]!;
+  if (path === '' || /^[a-z][a-z\d+.-]*:/i.test(path)) return undefined;
+  return normalize(path.startsWith('/') ? path.slice(1) : join(dirname(file), path));
 }
 
 /** The first place the two sides' headings stop matching in depth and order. Past it, no section lines up. */
