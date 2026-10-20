@@ -1,6 +1,7 @@
 // The doc-pair check (#82): each paired doc's English and Chinese sides stay in step through the pair's record,
 // and mirror each other's headings, code blocks, list items, inline code and language links. A Chinese side links
 // to other pairs' Chinese sides and to headings that exist, and keeps each paragraph's Chinese text on one line.
+// Every other doc is listed as unpaired.
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -320,6 +321,30 @@ test('a section has as many list items on both sides, and the same inline code a
   const refused = run(root, '--write', 'guide.md');
   assert.equal(refused.ok, false);
   assert.equal(read(root, 'guide.i18n.yaml'), record, 'not re-recorded');
+});
+
+test('given the unpaired docs, the check fails every other doc that is not a pair, and leaves the choice to the person', (t) => {
+  const root = recorded(t);
+  write(root, 'AGENTS.md', '# Agents\n');
+  write(root, 'notes/kept.md', '# Kept\n');
+  write(root, 'deps/lib/README.md', '# Lib\n');
+  write(root, '.git/info/notes.md', '# Git\n');
+  write(root, 'tools/node_modules/pkg/README.md', '# Pkg\n');
+  assert.equal(run(root).ok, true, 'without the unpaired docs, only the pairs are checked');
+
+  const check = checkDocs([], root, ['guide.md'], ['AGENTS.md', 'deps/']);
+  assert.equal(check.ok, false);
+  assert.equal(
+    check.output,
+    "notes/kept.md is neither a doc pair nor an unpaired doc. Whether it gets a Chinese side is the person's call: ask them, then add it to PAIRS in scripts/check-docs.ts and write its Chinese side, or add it to UNPAIRED there.\n",
+  );
+
+  write(root, 'guide.md', EN.replace('Start it like this.', 'Start it like that.'));
+  const both = checkDocs([], root, ['guide.md'], ['AGENTS.md', 'deps/']).output;
+  assert.match(both, /^guide\.md is out of step with guide\.zh\.md:\n(?: {2}.*\n|[^\n]*--write.*\n)+\nnotes\/kept\.md is neither/);
+
+  write(root, 'guide.md', EN);
+  assert.equal(checkDocs([], root, ['guide.md'], ['AGENTS.md', 'deps/', 'notes/']).output, '1 doc pair in step.\n');
 });
 
 test('--list prints each pair state and never fails, and a check that passes says how many pairs are in step', (t) => {

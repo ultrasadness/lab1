@@ -2,7 +2,8 @@
 // record `foo.i18n.yaml`. The record holds a short hash of each heading section's text on each side, code blocks
 // left out; the check recomputes them and names each section that changed since the pair was last recorded. It also
 // fails a Chinese side that links to another pair's English side or to an anchor no heading has, or that breaks a line
-// between two Chinese characters (#83).
+// between two Chinese characters (#83). Given the docs that stay unpaired, it fails every doc on neither list, so
+// whether a new doc gets a Chinese side goes to the person.
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, normalize } from 'node:path';
@@ -50,12 +51,13 @@ const USAGE = `Usage: npm run check:docs [-- --list | -- --write <pair>...]
 
 /**
  * What `npm run check:docs` does with `args`, for the `pairs` under `root`. Each is named by its English side, or is
- * a directory ending in `/` whose every English doc is a pair.
+ * a directory ending in `/` whose every English doc is a pair. Given the `unpaired` docs, each a file or a directory
+ * ending in `/` that covers everything under it, the check also fails every other doc under `root`.
  */
-export function checkDocs(args: string[], root: string, pairs: string[]): Result {
+export function checkDocs(args: string[], root: string, pairs: string[], unpaired?: string[]): Result {
   const [flag, ...names] = args;
   const all = pairs.flatMap((entry) => englishDocs(root, entry)).map(pairOf);
-  if (flag === undefined) return checkAll(root, all);
+  if (flag === undefined) return checkAll(root, all, unpaired);
   if (flag === '--list' && names.length === 0) return { ok: true, output: list(root, all) };
   if (flag === '--write' && names.length > 0) return write(root, all, names);
   return { ok: false, output: USAGE };
@@ -74,7 +76,12 @@ function pairOf(en: string): Pair {
   return { en, zh: en.replace(/\.md$/, '.zh.md'), record: en.replace(/\.md$/, '.i18n.yaml') };
 }
 
-function checkAll(root: string, pairs: Pair[]): Result {
+function checkAll(root: string, pairs: Pair[], unpaired: string[] | undefined): Result {
+  const strays = (unpaired ? unlisted(root, pairs, unpaired) : []).map(
+    (doc) =>
+      `${doc} is neither a doc pair nor an unpaired doc. Whether it gets a Chinese side is the person's call: ask them, ` +
+      'then add it to PAIRS in scripts/check-docs.ts and write its Chinese side, or add it to UNPAIRED there.',
+  );
   const failed = pairs.flatMap((pair) => {
     const problems = check(root, pair, pairs);
     if (problems.length === 0) return [];
@@ -86,8 +93,28 @@ function checkAll(root: string, pairs: Pair[]): Result {
       ]),
     ];
   });
+  if (strays.length > 0) failed.push(lines(strays));
   if (failed.length > 0) return { ok: false, output: failed.join('\n') };
   return { ok: true, output: `${count(pairs.length, 'doc pair')} in step.\n` };
+}
+
+/** Each doc under `root` that is neither a side of one of the `pairs` nor covered by the `unpaired` docs. */
+function unlisted(root: string, pairs: Pair[], unpaired: string[]): string[] {
+  const listed = new Set([...pairs.flatMap((pair) => [pair.en, pair.zh]), ...unpaired]);
+  return docsUnder(root, '', listed).filter((doc) => !listed.has(doc));
+}
+
+/** Directories that are never ours to pair, at any depth: git's own and installed dependencies. */
+const NOT_OURS = new Set(['.git', 'node_modules']);
+
+/** Each Markdown doc in `dir` and below, as a path from `root`, past `NOT_OURS` and any directory in `listed`. */
+function docsUnder(root: string, dir: string, listed: Set<string>): string[] {
+  const entries = readdirSync(join(root, dir), { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+  return entries.flatMap((entry) => {
+    const path = dir + entry.name;
+    if (entry.isDirectory()) return NOT_OURS.has(entry.name) || listed.has(`${path}/`) ? [] : docsUnder(root, `${path}/`, listed);
+    return entry.isFile() && entry.name.endsWith('.md') ? [path] : [];
+  });
 }
 
 function list(root: string, pairs: Pair[]): string {
