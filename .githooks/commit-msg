@@ -1,0 +1,40 @@
+#!/bin/sh
+# Runs on each commit's message once `git config core.hooksPath .githooks` turns it on (bot/README.md, Test). It
+# refuses a message holding a GitHub closing keyword followed by an issue reference: GitHub would close that issue the
+# moment the commit reaches main, before the comment a ticket closes with (docs/agents/issue-tracker.md, Close) (#90).
+set -eu
+
+# awk prints nothing for a message that closes nothing. Otherwise its first line is the first reference after a
+# closing keyword, and each line after it quotes a line of the message holding one. Lines starting with # are read
+# too: a message given with -m keeps them.
+found=$(awk '
+  BEGIN {
+    closing = "[^a-z0-9_](close[sd]?|fix(e[sd])?|resolve[sd]?)(:[ \t]*|[ \t]+)"
+    reference = "(#[0-9]+|[a-z0-9_.-]+/[a-z0-9_.-]+#[0-9]+|https?://github\\.com/[^/ \t]+/[^/ \t]+/issues/[0-9]+)"
+  }
+  # git commit --verbose shows the staged diff below this line, and git cuts it off before committing.
+  $0 == "# ------------------------ >8 ------------------------" { exit }
+  match(tolower(" " $0), closing reference) {
+    if (first_reference == "") {
+      phrase = substr(" " $0, RSTART, RLENGTH)
+      match(tolower(phrase), reference)
+      first_reference = substr(phrase, RSTART, RLENGTH)
+    }
+    quoted = quoted "\n  " $0
+  }
+  END { if (first_reference != "") print first_reference quoted }
+' "$1")
+[ -n "$found" ] || exit 0
+reference=$(printf '%s\n' "$found" | sed -n 1p)
+quoted=$(printf '%s\n' "$found" | sed 1d)
+cat >&2 <<EOF
+commit-msg: GitHub closes an issue named right after a closing keyword once the commit reaches main, and this
+message does that, so the commit is refused:
+
+$quoted
+
+Tickets close by hand once they have landed, with a comment saying what they delivered and what they left for other
+tickets (Close in docs/agents/issue-tracker.md). Write the reference as ($reference) instead, with no closing keyword
+before it, then commit again.
+EOF
+exit 1
