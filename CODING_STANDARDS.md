@@ -53,6 +53,25 @@ it on (`ff338bd`).
   call back, such as a write in a `finally` after a loop that already relayed the last chunk;
 - a handler that looks up a record another path writes, with nothing ordering the write first.
 
+## Queued work lives in the store
+
+The lane lives only in memory, so what a queued job must still do is kept in the store, and marked done only once
+the job has done it. The job checks its preconditions when it runs, not only when it's queued.
+
+**Why it matters:** a restart drops the whole lane, and a job queued earlier can run first and change what a later
+one finds. In #45, a draft of the Miner's Retry marked itself done when the person tapped it, before its job ran. A
+catch-up pass already in the lane then judged those Launches as ordinary ones, batched and retried automatically,
+where a Retry gets a run of its own and no automatic retry. Now the tap stores only when it was tapped, and the Retry
+is marked as run once its run is over (`83d2677`).
+
+**In a diff, look for:**
+
+- work added to the lane or a timer whose only record of what's left to do is the job's closure or arguments;
+- a store write that marks work done, run or sent in the code that queues it, rather than in the job once the work
+  is done;
+- a job that acts on what its caller checked at queue time (a window, a state, a tap) without reading it again when it
+  starts.
+
 ## Pages don't move
 
 A paged read uses an order the read itself can't change, such as posting time or id, and drops duplicates by id. Any
