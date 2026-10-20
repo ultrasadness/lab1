@@ -37,5 +37,5 @@ A commit that edits either side of a pair updates the other side in the same com
 A new ADR is a pair from its first commit, since `docs/adr/` is in `PAIRS`: give it the language link, write its
 Chinese side and record the pair with `--write`. For any other doc, first add its English side to `PAIRS` in
 `scripts/check-docs.ts`. Agent instructions stay English only: `CLAUDE.md` (which `AGENTS.md` links to),
-`.claude/skills/` and `docs/agents/`. So do test fixtures. `docs/lab1.md`, the course's brief, is already Chinese and
-stays as received.
+`.claude/skills/`, `docs/agents/` and `CODING_STANDARDS.md` (which reviews check diffs against). So do test fixtures.
+`docs/lab1.md`, the course's brief, is already Chinese and stays as received.
