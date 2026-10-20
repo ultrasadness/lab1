@@ -1,5 +1,7 @@
 # The forwarder picks each request's provider and holds the spending budgets
 
+English | [中文](0011-the-forwarder-picks-each-requests-provider-and-holds-the-spending-budgets.zh.md)
+
 The bot's forwarder ([ADR 0009](./0009-the-bot-runs-as-its-own-user-and-holds-every-token-outside-the-containers.md)) chooses which provider serves each model request, and admits each run against a spending budget. new-api still holds the channels, keys and model names, but it no longer decides anything when a provider fails. With new-api's default `RetryTimes` of 0, a Plus 429 simply failed the run, so [ADR 0001](./0001-pi-in-a-container-behind-the-gateway.md)'s two providers per role did nothing until someone changed the mapping. CPA's ChatGPT login is the person's own account, so the Assistant shares their Plus allowance. Its usage headers never reach the bot (CPA's `passthrough-headers` is off by default, and new-api's streaming path forwards only `X-Reasoning-Included` and `X-Codex-Turn-State`), so nothing can see how much of that allowance is left. The forwarder already knows each run's role and counts its tokens exactly, so it is the one place that can fail over on purpose and bound what the Assistant spends. Budgets are a guard against runaways, such as a mail flood, a loop of runs or a fallback onto a pricier model, sized so that an ordinary day never touches them. Decided in [What may each kind of run spend, and what happens when a budget runs out?](https://github.com/ultrasadness/lab1/issues/39).
 
 ## Considered Options

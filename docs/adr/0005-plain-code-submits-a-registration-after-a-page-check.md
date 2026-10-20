@@ -1,5 +1,7 @@
 # Plain code submits a Registration after a page check, and no Claude model prepares one
 
+English | [中文](0005-plain-code-submits-a-registration-after-a-page-check.zh.md)
+
 After the person approves a Walkthrough, the Assistant fills the form and submits it itself. But the submit is never a model's action. The fill run ends by naming the button to press. Plain code then checks the filled page and presses that button only if the page matches what was approved. If it doesn't match, the person gets a screenshot of the filled form and one Submit tap on Discord. Earlier, every Registration ended with the person pressing submit in a Takeover. That rested on Anthropic's Usage Policy ("Utilize automation in account creation"), which no other provider's policy matches. With Pi as the harness and no Claude model preparing a Registration, the clause no longer applies, and the person wanted as little friction as the design safely allows. Decided in [Does Claude's Usage Policy allow the Assistant to submit a Registration?](https://github.com/ultrasadness/lab1/issues/15).
 
 ## Considered Options

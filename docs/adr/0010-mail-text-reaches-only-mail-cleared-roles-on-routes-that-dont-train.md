@@ -1,5 +1,7 @@
 # Mail text reaches only mail-cleared roles, on routes whose terms bar training
 
+English | [中文](0010-mail-text-reaches-only-mail-cleared-roles-on-routes-that-dont-train.zh.md)
+
 Google's Limited Use rules bind the Gmail OAuth app even though it is never verified. Gmail data "may not be used to train or improve foundational or frontier models", and the app's public privacy page has to say how it is used, truthfully. So text from Signup mailbox mail, and anything a model writes from it, reaches only runs of the **mail-cleared** mail role. That role uses only routes that qualify: written terms for that exact route saying inputs aren't used to train or improve models, by default or through an opt-out that is set. Retention for abuse monitoring is allowed. This narrows the "any data may go to any provider except Secrets" of [Which agent harness and model does the Assistant run on?](https://github.com/ultrasadness/lab1/issues/8). Decided in [Which model routes may read Signup mailbox mail under Google's Limited Use rules?](https://github.com/ultrasadness/lab1/issues/30). The conversation role was mail-cleared too, until [How does the person ask the Personal database a question from Discord?](https://github.com/ultrasadness/lab1/issues/37) limited it to the Personal database and renamed it the question role.
 
 ## Which runs read mail

@@ -1,9 +1,9 @@
 # Doc pairs
 
 A doc the person reads has a Simplified Chinese side. A pair is three sibling files: `foo.md` (English), `foo.zh.md`
-(Chinese) and `foo.i18n.yaml`, the pair's record. The pairs are the list in `scripts/check-docs.ts`, and
-`npm run check:docs`, which the pre-commit hook and CI run, keeps each pair in step. The design follows DeepSeek
-Harness's `docs/i18n/README.md` (#82).
+(Chinese) and `foo.i18n.yaml`, the pair's record. The pairs are the list in `scripts/check-docs.ts`, where
+`docs/adr/` stands for every ADR in that directory, and `npm run check:docs`, which the pre-commit hook and CI run, keeps each pair
+in step. The design follows DeepSeek Harness's `docs/i18n/README.md` (#82).
 
 ## Changing a paired doc
 
@@ -24,12 +24,14 @@ A commit that edits either side of a pair updates the other side in the same com
   `English | [中文](foo.zh.md)` in the English side.
 - Glossary terms from `CONTEXT.md` stay in English, in their singular form (`三个 Dossier`), the way the person and
   agents talk. `CONTEXT.zh.md` explains each term in Chinese beside the English term.
+- A link to another paired doc, such as from one ADR to another or to `CONTEXT.md`, points at that doc's `.zh.md`.
 - Break a line inside a paragraph only where a space reads fine, as between a glossary term, its definition and its
   `_避免使用_` line: a line break inside Chinese text renders as a space.
 
 ## Adding a pair
 
-Add the English side to `PAIRS` in `scripts/check-docs.ts`, give it the language link, write the Chinese side, and
-record the pair with `--write`. Agent instructions stay English only: `CLAUDE.md` (which `AGENTS.md` links to),
+A new ADR is a pair from its first commit, since `docs/adr/` is in `PAIRS`: give it the language link, write its
+Chinese side and record the pair with `--write`. For any other doc, first add its English side to `PAIRS` in
+`scripts/check-docs.ts`. Agent instructions stay English only: `CLAUDE.md` (which `AGENTS.md` links to),
 `.claude/skills/` and `docs/agents/`. So do test fixtures. `docs/lab1.md`, the course's brief, is already Chinese and
 stays as received.

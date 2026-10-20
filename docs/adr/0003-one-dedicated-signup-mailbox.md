@@ -1,5 +1,7 @@
 # Registrations use one dedicated Gmail as the Signup mailbox, and no second mailbox
 
+English | [中文](0003-one-dedicated-signup-mailbox.zh.md)
+
 Every Registration uses an address that delivers to one new Gmail account kept only for Registrations, the Signup mailbox. Each Product gets a plus-address (`you+<product>@gmail.com`), and the plain address is the fallback where `+` is rejected. Because the account holds nothing but signup mail, "the Assistant only touches signup-related mail" is enforced by the account boundary, not by filtering code, and using the plain address exposes nothing personal. Every Registration ties this address to an account at a Product, so changing it later means changing the email at every Product. Decided in [Do we need an Outlook Signup identity besides Gmail?](https://github.com/ultrasadness/lab1/issues/13).
 
 ## Considered Options

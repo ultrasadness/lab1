@@ -1,5 +1,7 @@
 # Live state is a SQLite store the bot alone writes, and an uncertain step counts as done
 
+English | [中文](0007-live-state-in-sqlite-and-an-uncertain-step-counts-as-done.zh.md)
+
 Everything that changes as work moves is kept in one SQLite file on the VM, beside the git-tracked Personal database: the mail ledger and Gmail `historyId`, each Launch's verdict, each Registration's and Reply draft's current state, Approvals, and the marks that make a step happen once. The bot is its only writer and it is the single source of truth for that state. The Personal database in git gets each Registration's history as readable lines, which the bot writes at milestones (approved, submitted, outcome). The brief asks for a Markdown Personal database, so a reader would expect the ledger there. But a state that changes every few seconds while a Registration waits for verification would mean a commit each time. And by [ADR 0002](./0002-rules-are-files-proven-by-their-own-case.md)'s commit lock, the bot stops committing when histories diverge, so one stray git edit would freeze the ledger and stall the Assistant. Decided in [How do Registration and Reply draft states move, and how is double-handling prevented?](https://github.com/ultrasadness/lab1/issues/11).
 
 ## Considered Options

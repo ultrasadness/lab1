@@ -1,5 +1,7 @@
 # The bot runs as its own user and holds every token outside the containers
 
+English | [中文](0009-the-bot-runs-as-its-own-user-and-holds-every-token-outside-the-containers.zh.md)
+
 Every key and token the Assistant uses is a Secret, and none sits in a container. Each fixed token is a root-owned file in `/etc/assistant/credentials/` (mode 600), which systemd hands to the service that needs it through `LoadCredential=`. The bot runs as a dedicated `assistant` system user with no sudo, no `docker` group and no view of `/home/ubuntu`. Today everything runs as `ubuntu`, which has passwordless sudo and the `docker` group, and coding sessions run as `ubuntu` too: a coding agent that read a token file would put a Secret into a model's input. The Pi container reaches new-api only through a forwarder in the bot, which adds the run's key. Decided in [Where do the Assistant's Secrets and tokens live, and how is each one obtained and replaced?](https://github.com/ultrasadness/lab1/issues/25).
 
 ## Considered Options

@@ -3,8 +3,8 @@
 import { join } from 'node:path';
 import { checkDocs } from './doc-pairs.ts';
 
-/** The paired docs, each named by its English side. */
-const PAIRS = ['CONTEXT.md', 'bot/README.md', 'browser/README.md'];
+/** The paired docs, each named by its English side, and `docs/adr/`, where every ADR is a pair. */
+const PAIRS = ['CONTEXT.md', 'bot/README.md', 'browser/README.md', 'docs/adr/'];
 
 const { ok, output } = checkDocs(process.argv.slice(2), join(import.meta.dirname, '..'), PAIRS);
 (ok ? process.stdout : process.stderr).write(output);

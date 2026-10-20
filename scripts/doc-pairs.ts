@@ -2,7 +2,7 @@
 // record `foo.i18n.yaml`. The record holds a short hash of each heading section's text on each side, code blocks
 // left out; the check recomputes them and names each section that changed since the pair was last recorded.
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, normalize } from 'node:path';
 
 /** A pair's three sibling files, as paths from the root. */
@@ -40,14 +40,26 @@ const USAGE = `Usage: npm run check:docs [-- --list | -- --write <pair>...]
   --write    re-record each pair named by any of its files, once its two sides say the same thing
 `;
 
-/** What `npm run check:docs` does with `args`, for the `pairs` (each named by its English side) under `root`. */
+/**
+ * What `npm run check:docs` does with `args`, for the `pairs` under `root`. Each is named by its English side, or is
+ * a directory ending in `/` whose every English doc is a pair.
+ */
 export function checkDocs(args: string[], root: string, pairs: string[]): Result {
   const [flag, ...names] = args;
-  const all = pairs.map(pairOf);
+  const all = pairs.flatMap((entry) => englishDocs(root, entry)).map(pairOf);
   if (flag === undefined) return checkAll(root, all);
   if (flag === '--list' && names.length === 0) return { ok: true, output: list(root, all) };
   if (flag === '--write' && names.length > 0) return write(root, all, names);
   return { ok: false, output: USAGE };
+}
+
+/** `entry` itself, or each English doc right inside it when it is a directory. */
+function englishDocs(root: string, entry: string): string[] {
+  if (!entry.endsWith('/')) return [entry];
+  return readdirSync(join(root, entry), { withFileTypes: true })
+    .filter((file) => file.isFile() && file.name.endsWith('.md') && !file.name.endsWith('.zh.md'))
+    .map((file) => entry + file.name)
+    .sort();
 }
 
 function pairOf(en: string): Pair {

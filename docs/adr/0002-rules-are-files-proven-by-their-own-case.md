@@ -1,5 +1,7 @@
 # Rules are files our own extension loads, each proven by its own carry-over case
 
+English | [中文](0002-rules-are-files-proven-by-their-own-case.zh.md)
+
 Each Rule is one Markdown file under `rules/<scope>/` in the Personal database, and our own Pi extension puts every Rule in scope into the prompt at the start of each run. A Rule is committed only after the person keeps it. Each Rule carries a carry-over case: the item it was taught on, a different real item where it should change the outcome, and that outcome stated as something a script can check. The brief asks for Corrections that apply to a different item in a new session, and Pi forgets everything between runs, so carrying a Rule over has to be something we build and can prove. Decided in [How does a Correction become a Rule, and how do we prove it carries over?](https://github.com/ultrasadness/lab1/issues/14).
 
 ## Considered Options

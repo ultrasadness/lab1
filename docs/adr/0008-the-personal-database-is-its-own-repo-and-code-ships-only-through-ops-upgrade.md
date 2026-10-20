@@ -1,5 +1,7 @@
 # The Personal database is its own repo, and code reaches the running Assistant only through `ops/upgrade`
 
+English | [中文](0008-the-personal-database-is-its-own-repo-and-code-ships-only-through-ops-upgrade.zh.md)
+
 The Personal database (the Profile, Dossiers and Registration history, Miner days, and Rules with their cases) lives in a private git repo of its own. `lab1` holds the code, `ops/` and the docs. The running Assistant runs from its own checkout of `lab1`, at the commit `ops/upgrade` last deployed, never from the checkout where coding sessions work. The bot fast-forwards the Personal database before each run and pushes after each commit, as [How does a Correction become a Rule, and how do we prove it carries over?](https://github.com/ultrasadness/lab1/issues/14) settled. If that repo also held the code, every fast-forward would deploy untested code past the upgrade gate. Development pushes would also keep diverging from the bot's, and a diverged history stops the bot committing. The brief asks for the implementation and the Rules to be managed in git, and two repos still meet that. Decided in [How are the bot, the container and the gateway kept running and upgraded, and what happens while one is down?](https://github.com/ultrasadness/lab1/issues/26).
 
 ## Considered Options

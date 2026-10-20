@@ -1,5 +1,7 @@
 # Pi in a container behind the person's gateway runs the Assistant
 
+English | [中文](0001-pi-in-a-container-behind-the-gateway.zh.md)
+
 The Assistant's agent loop is the open-source Pi harness. It runs inside one long-lived Docker container, and the Discord bot starts one Pi process per run (`docker exec … pi --mode rpc`). Models come from the person's own plans, served through new-api, which the container reaches only through the bot's key-adding forwarder ([ADR 0009](./0009-the-bot-runs-as-its-own-user-and-holds-every-token-outside-the-containers.md)), with CLIProxyAPI (CPA) behind it holding its own ChatGPT Plus login. The person wanted a harness they can extend feature by feature, on models they already pay for, with at least two providers so that losing one plan is a configuration change. Pi is extended with TypeScript modules, embeds or runs over RPC, is stable enough to pin (1.x), and speaks every wire API the plans use. Decided in [Which agent harness and model does the Assistant run on?](https://github.com/ultrasadness/lab1/issues/8).
 
 ## Considered Options

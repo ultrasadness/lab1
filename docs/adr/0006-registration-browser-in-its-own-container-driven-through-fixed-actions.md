@@ -1,5 +1,7 @@
 # The Registration browser runs in its own container, and the model drives it only through fixed actions
 
+English | [中文](0006-registration-browser-in-its-own-container-driven-through-fixed-actions.zh.md)
+
 The browser that fills Registrations runs in its own long-lived container, owned by a small browser service of ours (TypeScript and Playwright). The bot is that service's only client, through a Unix socket, so Pi reaches the browser only through the bot's narrow interface. The model never clicks or types freely. It gets a fixed set of actions: take a snapshot, fill a field with an approved Walkthrough value named by its key, fill a Secret by reference, choose an approved option, follow a link on the Walkthrough's domain, and finish. Signup pages and Product sites are untrusted text, and any click can run the page's JavaScript, so "no click that sends data" can't be enforced element by element. The defence is that a run reading a page can do almost nothing, and that plain code makes every press. Decided in [Where does the Registration browser run, and how is page text kept from steering the Assistant?](https://github.com/ultrasadness/lab1/issues/18).
 
 ## Considered Options

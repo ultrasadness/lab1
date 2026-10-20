@@ -213,6 +213,25 @@ test('a section added, renamed or removed since the pair was recorded is named, 
   assert.match(run(root).output, /\n {2}guide\.i18n\.yaml can't be read at line 6: "  zh: <<<<<<< HEAD"\n/);
 });
 
+test('a directory in scope pairs each English doc in it, so a new doc there fails the check until it is paired', (t) => {
+  const root = repo(t, {
+    'docs/adr/0001-guide.md': EN.replaceAll('guide', '0001-guide'),
+    'docs/adr/0001-guide.zh.md': ZH.replaceAll('guide', '0001-guide'),
+    'docs/adr/notes/0002-nested.md': '# Nested\n',
+    'docs/adr/diagram.svg': '<svg/>',
+  });
+  const pairs = ['docs/adr/'];
+  const recording = checkDocs(['--write', 'docs/adr/0001-guide.md'], root, pairs);
+  assert.equal(recording.ok, true, recording.output);
+  assert.equal(checkDocs([], root, pairs).output, '1 doc pair in step.\n', 'only the docs right in the directory');
+
+  write(root, 'docs/adr/0002-next.md', '# Next\n');
+  const check = checkDocs([], root, pairs);
+  assert.equal(check.ok, false);
+  assert.match(check.output, /^docs\/adr\/0002-next\.md is out of step with docs\/adr\/0002-next\.zh\.md:\n {2}docs\/adr\/0002-next\.zh\.md and docs\/adr\/0002-next\.i18n\.yaml are missing\n/);
+  assert.equal(checkDocs(['--list'], root, pairs).output, 'docs/adr/0001-guide.md  in step\ndocs/adr/0002-next.md   missing docs/adr/0002-next.zh.md and docs/adr/0002-next.i18n.yaml\n');
+});
+
 test('--list prints each pair state and never fails, and a check that passes says how many pairs are in step', (t) => {
   const root = recorded(t);
   write(root, 'other.md', '# Other\n');
