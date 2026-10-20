@@ -103,3 +103,23 @@ remaining quota before the key is reported dead" became "check, then report it d
 
 - each changed `.zh.md` section, read against the same section of its English side;
 - each recurring word, compared with its rendering for the same sense in the other Chinese sides.
+
+## A new check is tried on everything it judges
+
+A diff that adds or widens a check, a hook or a rule that refuses input shows what it says about each case the repo
+already holds: every commit message in the history for a commit-msg hook, every doc for a doc check, every file for a
+code check. Each refusal there is either a real fault the diff fixes too, or a false positive the check is narrowed
+to let through.
+
+**Why it matters:** a check's tests hold the cases its author thought of, and the repo holds the ones nobody did. In
+#90, the first commit-msg hook read a closing keyword that ends one line with an issue reference that opens the next,
+even across a blank line. Its tests passed, but it refused 7310714, whose subject ends in "closes" and whose body
+opens with `#76's`. A spec reviewer found it only by running the hook over all 50 commit messages. The hook now reads
+one line at a time, and 7310714's message is one of its tests (`4b2a9b3`).
+
+**In a diff, look for:**
+
+- a new or widened hook, check script or enforced rule: run it over the history, docs or code it applies to, and
+  read each refusal;
+- a pattern wider than the spec asked for (spanning lines, an optional part, a looser boundary), since the cases the
+  repo already holds are where it misfires.

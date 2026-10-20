@@ -15,6 +15,9 @@ Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/age
 
 ### Code review
 
+A review reads committed work: commit, review `git diff main...HEAD`, and amend the review's fixes into the commit.
+A diff of the working tree leaves out each new file until `git add -N` names it, which can be most of a change.
+
 A review's standards sources include each ADR in `docs/adr/` whose decision covers what the diff changes. Name those
 ADRs in the Standards prompt, and the Standards report names each ADR it checked, or says that none covers the diff.
 
