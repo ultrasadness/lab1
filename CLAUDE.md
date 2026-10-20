@@ -2,7 +2,8 @@
 
 ### Issue tracker
 
-Issues are tracked in GitHub Issues, using the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues are tracked in GitHub Issues, using the `gh` CLI. Read `docs/agents/issue-tracker.md` before the first `gh`
+call on an issue, and again before landing or closing a ticket.
 
 ### Triage labels
 
