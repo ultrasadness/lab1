@@ -1,6 +1,6 @@
 // The doc-pair check (#82): each paired doc's English and Chinese sides stay in step through the pair's record,
-// and mirror each other's headings, code blocks and language links, and a Chinese side links to other pairs'
-// Chinese sides.
+// and mirror each other's headings, code blocks, list items, inline code and language links. A Chinese side links
+// to other pairs' Chinese sides and to headings that exist, and keeps each paragraph's Chinese text on one line.
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -235,8 +235,8 @@ test('a directory in scope pairs each English doc in it, so a new doc there fail
 
 test('a link on a Chinese side to the English side of a pair fails the check, naming the Chinese side to link instead', (t) => {
   const code = '\n```md\n[code](notes/other.md)\n```\n';
-  const en = `${EN}\nSee the other guide.\n${code}`;
-  const zh = (target: string) => `${ZH}\n见[另一份](${target})、[说明](agents.md)、[外链](https://example.com/notes/other.md)和 \`[代码](notes/other.md)\`。\n${code}`;
+  const en = `${EN}\nSee the other guide, [a site](https://example.com/notes/other.md) and \`[code](notes/other.md)\`.\n${code}`;
+  const zh = (target: string) => `${ZH}\n见[另一份](${target})、[说明](agents.md)、[外链](https://example.com/notes/other.md)和 \`[code](notes/other.md)\`。\n${code}`;
   const other = (target: string) => `${ZH.replaceAll('guide', 'other')}\n见[指南](${target})。\n`;
   const root = repo(t, {
     'guide.md': en,
@@ -262,6 +262,64 @@ test('a link on a Chinese side to the English side of a pair fails the check, na
   const output = checkDocs([], root, pairs).output;
   assert.match(output, /notes\/other\.zh\.md: the link to \/guide\.md must point at its Chinese side, \/guide\.zh\.md\n/);
   assert.match(output, /notes\/other\.zh\.md: the link to \.\.\/guide\.md must point at its Chinese side, \.\.\/guide\.zh\.md\n/);
+});
+
+test('a line break inside a Chinese paragraph between two Chinese characters fails the check, naming its line', (t) => {
+  const root = recorded(t, EN, ZH.replace('这份指南的用途。', '**Guide**：\n这份指南讲 Pi\n怎么用。硬换行  \n照常\\\n可以。\n_避免使用_：Manual'));
+  const check = run(root);
+  assert.equal(check.ok, true, check.output);
+
+  write(root, 'guide.zh.md', ZH.replace('这份指南的用途。', '这份指南的\n用途。还有\n“更多”。'));
+  const broken = run(root);
+  assert.equal(broken.ok, false);
+  assert.match(broken.output, /\n {2}guide\.zh\.md:5: a line break between "的" and "用" renders as a space inside Chinese text; join the two lines\n/);
+  assert.match(broken.output, /\n {2}guide\.zh\.md:6: a line break between "有" and "“" renders as a space inside Chinese text; join the two lines\n/);
+});
+
+test('a link on a Chinese side to an anchor that names no heading in its doc fails the check', (t) => {
+  const en = `${EN}\nSee [Run](#run), [the other](notes/other.md#run-1), [agents](agents.md#agents) and [a site](https://example.com/#top).\n`;
+  const zh = (links: string) => `${ZH}\n见${links}和[网站](https://example.com/#top)。\n`;
+  const root = repo(t, {
+    'guide.md': en,
+    'guide.zh.md': zh('[运行](#运行)、[编码的](#%E8%BF%90%E8%A1%8C)、[另一份](notes/other.zh.md#运行-1)、[说明](agents.md#agents)'),
+    'notes/other.md': `${EN.replaceAll('guide', 'other')}\n## Run\n\nAgain.\n`,
+    'notes/other.zh.md': `${ZH.replaceAll('guide', 'other')}\n## 运行\n\n再来。\n`,
+    'agents.md': '# Agents\n',
+  });
+  const pairs = ['guide.md', 'notes/other.md'];
+  assert.equal(checkDocs(['--write', 'guide.md', 'notes/other.md'], root, pairs).ok, true);
+  const check = checkDocs([], root, pairs);
+  assert.equal(check.ok, true, check.output);
+
+  write(root, 'guide.zh.md', zh('[运行](#run)、[另一份](notes/other.zh.md#运行-2)、[说明](agents.md#nope)'));
+  const output = checkDocs([], root, pairs).output;
+  assert.match(output, /\n {2}guide\.zh\.md: the link to #run names no heading in guide\.zh\.md\n/);
+  assert.match(output, /\n {2}guide\.zh\.md: the link to notes\/other\.zh\.md#运行-2 names no heading in notes\/other\.zh\.md\n/);
+  assert.match(output, /\n {2}guide\.zh\.md: the link to agents\.md#nope names no heading in agents\.md\n/);
+});
+
+test('a section has as many list items on both sides, and the same inline code and URLs its links point at', (t) => {
+  const en = EN.replace('Start it like this.', 'Start it like this:\n\n- run `npm start`;\n- read [the docs](https://example.com/docs).');
+  const zh = ZH.replace('这样启动。', '这样启动：\n\n- 运行 `npm start`；\n- 读[文档](https://example.com/docs)。');
+  const root = recorded(t, en, zh);
+  const record = read(root, 'guide.i18n.yaml');
+  const check = run(root);
+  assert.equal(check.ok, true, check.output);
+
+  write(root, 'guide.zh.md', zh.replace('\n- 读', ' 读'));
+  assert.match(run(root).output, /\n {2}\/guide\/run: 2 list items in guide\.md, but 1 in guide\.zh\.md\n/);
+
+  write(root, 'guide.zh.md', zh.replace('`npm start`', '`npm run start`'));
+  const code = run(root).output;
+  assert.match(code, /\n {2}\/guide\/run: inline code `npm start` appears 1 time in guide\.md, but 0 times in guide\.zh\.md\n/);
+  assert.match(code, /\n {2}\/guide\/run: inline code `npm run start` appears 0 times in guide\.md, but 1 time in guide\.zh\.md\n/);
+
+  write(root, 'guide.zh.md', zh.replace('https://example.com/docs', 'https://example.com/zh/docs'));
+  assert.match(run(root).output, /\n {2}\/guide\/run: a link to https:\/\/example\.com\/docs appears 1 time in guide\.md, but 0 times in guide\.zh\.md\n/);
+
+  const refused = run(root, '--write', 'guide.md');
+  assert.equal(refused.ok, false);
+  assert.equal(read(root, 'guide.i18n.yaml'), record, 'not re-recorded');
 });
 
 test('--list prints each pair state and never fails, and a check that passes says how many pairs are in step', (t) => {

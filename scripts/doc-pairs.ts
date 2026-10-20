@@ -1,7 +1,8 @@
 // The doc-pair check (#82). A pair is a doc's English side `foo.md`, its Chinese side `foo.zh.md` and their
 // record `foo.i18n.yaml`. The record holds a short hash of each heading section's text on each side, code blocks
-// left out; the check recomputes them and names each section that changed since the pair was last recorded. A link
-// on a Chinese side to another pair's English side fails the check too (#83).
+// left out; the check recomputes them and names each section that changed since the pair was last recorded. It also
+// fails a Chinese side that links to another pair's English side or to an anchor no heading has, or that breaks a line
+// between two Chinese characters (#83).
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, normalize } from 'node:path';
@@ -21,8 +22,14 @@ interface Sides {
   keys: string[];
 }
 
-/** A top-level Markdown block. Its text has whitespace runs collapsed, unless it is code. */
-type Block = { kind: 'heading'; depth: number; title: string; text: string } | { kind: 'code' | 'text'; text: string };
+/**
+ * A top-level Markdown block. Its text has whitespace runs collapsed, unless it is code; a paragraph also keeps its
+ * lines as written, the first of them at line `line`.
+ */
+type Block =
+  | { kind: 'heading'; depth: number; title: string; text: string }
+  | { kind: 'code'; text: string }
+  | { kind: 'text'; text: string; line: number; lines: string[] };
 
 type Heading = Extract<Block, { kind: 'heading' }>;
 
@@ -80,7 +87,7 @@ function checkAll(root: string, pairs: Pair[]): Result {
     ];
   });
   if (failed.length > 0) return { ok: false, output: failed.join('\n') };
-  return { ok: true, output: `${pairs.length} doc ${pairs.length === 1 ? 'pair' : 'pairs'} in step.\n` };
+  return { ok: true, output: `${count(pairs.length, 'doc pair')} in step.\n` };
 }
 
 function list(root: string, pairs: Pair[]): string {
@@ -123,14 +130,14 @@ function check(root: string, pair: Pair, pairs: Pair[]): string[] {
   const gone = absent(root, [pair.en, pair.zh, pair.record]);
   if (gone.includes(pair.en) || gone.includes(pair.zh)) return [areMissing(gone)];
   const doc = sides(root, pair);
-  const problems = [...unmirrored(doc), ...englishLinks(doc, pairs)];
+  const problems = [...unmirrored(doc), ...englishLinks(doc, pairs), ...brokenAnchors(root, doc), ...brokenLines(doc)];
   return misaligned(doc).length > 0 ? problems : [...problems, ...unrecorded(root, doc)];
 }
 
 /** Where the two sides don't mirror each other's structure. */
 function unmirrored(doc: Sides): string[] {
   const headings = misaligned(doc);
-  return [...missingLinks(doc), ...(headings.length > 0 ? headings : unequalCode(doc))];
+  return [...missingLinks(doc), ...(headings.length > 0 ? headings : [...unequalCode(doc), ...unequalParts(doc)])];
 }
 
 /** Each side whose H1 isn't followed by its link to the other side. */
@@ -151,14 +158,32 @@ function languageLinks(pair: Pair): { en: string; zh: string } {
 }
 
 /** Each link on the Chinese side to the English side of one of the `pairs`, which belongs on its Chinese side. */
-function englishLinks({ pair, zh }: Sides, pairs: Pair[]): string[] {
+function englishLinks(doc: Sides, pairs: Pair[]): string[] {
+  const { pair } = doc;
   const english = new Set(pairs.map((p) => p.en));
+  return chineseTargets(doc)
+    .filter((target) => english.has(linked(pair.zh, target) ?? ''))
+    .map((target) => `${pair.zh}: the link to ${target} must point at its Chinese side, ${target.replace(/\.md(?=[#?]|$)/, '.zh.md')}`);
+}
+
+/** Each link on the Chinese side whose anchor names no heading in the doc it leads to. */
+function brokenAnchors(root: string, doc: Sides): string[] {
+  const { pair } = doc;
+  return chineseTargets(doc).flatMap((target) => {
+    const hash = target.indexOf('#');
+    const file = hash === 0 ? pair.zh : linked(pair.zh, target);
+    if (hash < 0 || file === undefined || !file.endsWith('.md') || !existsSync(join(root, file))) return [];
+    if (anchors(readFileSync(join(root, file), 'utf8')).has(decoded(target.slice(hash + 1)))) return [];
+    return [`${pair.zh}: the link to ${target} names no heading in ${file}`];
+  });
+}
+
+/** The targets of the Chinese side's links, its language link left out. */
+function chineseTargets({ pair, zh }: Sides): string[] {
   return zh
     .flat()
     .filter((block) => block.kind !== 'code' && block.text !== languageLinks(pair).zh)
-    .flatMap((block) => targets(block.text))
-    .filter((target) => english.has(linked(pair.zh, target) ?? ''))
-    .map((target) => `${pair.zh}: the link to ${target} must point at its Chinese side, ${target.replace(/\.md(?=[#?]|$)/, '.zh.md')}`);
+    .flatMap((block) => targets(block.text));
 }
 
 /** The targets of a text's inline links and link reference definitions, inline code left out. */
@@ -170,8 +195,31 @@ function targets(text: string): string[] {
 /** The path from the root that a link to `target` in `file` leads to; none for a URL or an anchor alone. */
 function linked(file: string, target: string): string | undefined {
   const path = target.split(/[#?]/)[0]!;
-  if (path === '' || /^[a-z][a-z\d+.-]*:/i.test(path)) return undefined;
+  if (path === '' || isUrl(path)) return undefined;
   return normalize(path.startsWith('/') ? path.slice(1) : join(dirname(file), path));
+}
+
+function isUrl(target: string): boolean {
+  return /^[a-z][a-z\d+.-]*:/i.test(target);
+}
+
+/** A character of Chinese text: a Han character, or CJK or full-width punctuation, quotes, dashes and ellipses. */
+const CHINESE = /^[\p{Script=Han}\u3000-\u303f\uff00-\uffef\u2014\u2018-\u201d\u2026]$/u;
+
+/**
+ * Each line of a Chinese paragraph that breaks between two Chinese characters, where the break renders as a space.
+ * A line may end in a full-width colon, as a glossary term's does before its definition, or in a hard line break.
+ */
+function brokenLines({ pair, zh }: Sides): string[] {
+  return zh.flat().flatMap((block) => {
+    if (block.kind !== 'text') return [];
+    return block.lines.slice(1).flatMap((next, i) => {
+      if (/( {2}|\\)$/.test(block.lines[i]!)) return [];
+      const [before, after] = [[...block.lines[i]!.trimEnd()].at(-1) ?? '', [...next.trimStart()][0] ?? ''];
+      if (before === '：' || !CHINESE.test(before) || !CHINESE.test(after)) return [];
+      return [`${pair.zh}:${block.line + i}: a line break between "${before}" and "${after}" renders as a space inside Chinese text; join the two lines`];
+    });
+  });
 }
 
 /** The first place the two sides' headings stop matching in depth and order. Past it, no section lines up. */
@@ -194,6 +242,39 @@ function unequalCode(doc: Sides): string[] {
     const n = Array.from({ length: Math.max(en.length, zh.length) }, (_, j) => j).find((j) => en[j] !== zh[j]);
     return n === undefined ? [] : [`${doc.keys[i]}: code block ${n + 1} differs between the two sides`];
   });
+}
+
+/** Where a section's list items, inline code or link URLs differ in number between the two sides. */
+function unequalParts({ pair, en, zh, keys }: Sides): string[] {
+  return en.flatMap((section, i) => {
+    const other = zh[i] ?? [];
+    const [ours, theirs] = [listItems(section), listItems(other)];
+    const items = ours === theirs ? [] : [`${keys[i]}: ${count(ours, 'list item')} in ${pair.en}, but ${theirs} in ${pair.zh}`];
+    const [a, b] = [parts(section), parts(other)];
+    return [
+      ...items,
+      ...[...new Set([...a.keys(), ...b.keys()])].flatMap((part) => {
+        const [x, y] = [a.get(part) ?? 0, b.get(part) ?? 0];
+        return x === y ? [] : [`${keys[i]}: ${part} appears ${count(x, 'time')} in ${pair.en}, but ${count(y, 'time')} in ${pair.zh}`];
+      }),
+    ];
+  });
+}
+
+function listItems(section: Block[]): number {
+  const lines = section.flatMap((b) => (b.kind === 'text' ? b.lines : []));
+  return lines.filter((line) => /^\s*(?:[-*+]|\d+[.)])\s/.test(line)).length;
+}
+
+/** How many times each piece of inline code, and each URL a link points at, appears in a section. */
+function parts(section: Block[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const block of section.filter((b) => b.kind !== 'code')) {
+    const code = (block.text.match(/`[^`]+`/g) ?? []).map((c) => `inline code ${c}`);
+    const urls = targets(block.text).filter(isUrl).map((url) => `a link to ${url}`);
+    for (const part of [...code, ...urls]) out.set(part, (out.get(part) ?? 0) + 1);
+  }
+  return out;
 }
 
 /** Each section whose text on either side changed since the pair was recorded. */
@@ -222,6 +303,11 @@ function absent(root: string, files: string[]): string[] {
 
 function areMissing(files: string[]): string {
   return `${and(files)} ${files.length === 1 ? 'is' : 'are'} missing`;
+}
+
+/** `1 doc pair`, `2 doc pairs`. */
+function count(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? '' : 's'}`;
 }
 
 /** `a`, `a and b`, `a, b and c`. */
@@ -273,12 +359,13 @@ function sections(markdown: string): Block[][] {
 function blocks(markdown: string): Block[] {
   const out: Block[] = [];
   let paragraph: string[] = [];
+  let start = 0;
   let fence: { marker: string; lines: string[] } | undefined;
   const flush = () => {
-    if (paragraph.length > 0) out.push({ kind: 'text', text: collapse(paragraph.join(' ')) });
+    if (paragraph.length > 0) out.push({ kind: 'text', text: collapse(paragraph.join(' ')), line: start, lines: paragraph });
     paragraph = [];
   };
-  for (const line of markdown.split(/\r?\n/)) {
+  for (const [i, line] of markdown.split(/\r?\n/).entries()) {
     if (fence) {
       fence.lines.push(line);
       const close = /^\s*(`{3,}|~{3,})\s*$/.exec(line)?.[1];
@@ -299,6 +386,7 @@ function blocks(markdown: string): Block[] {
     } else if (line.trim() === '') {
       flush();
     } else {
+      if (paragraph.length === 0) start = i + 1;
       paragraph.push(line);
     }
   }
@@ -335,6 +423,29 @@ function headingPaths(headings: Heading[]): string[] {
     out.push(n === 1 ? path : `${path}~${n}`);
   }
   return out;
+}
+
+/** GitHub's anchor for each heading of `markdown`; a repeated one gets `-1`, `-2`. */
+function anchors(markdown: string): Set<string> {
+  const seen = new Map<string, number>();
+  return new Set(
+    blocks(markdown).flatMap((block) => {
+      if (block.kind !== 'heading') return [];
+      const base = slug(block.title);
+      const n = seen.get(base) ?? 0;
+      seen.set(base, n + 1);
+      return [n === 0 ? base : `${base}-${n}`];
+    }),
+  );
+}
+
+/** A link's anchor as GitHub reads it, percent-escapes decoded. */
+function decoded(anchor: string): string {
+  try {
+    return decodeURIComponent(anchor);
+  } catch {
+    return anchor;
+  }
 }
 
 /** GitHub's anchor for a heading: lowercased, punctuation dropped, spaces as hyphens. */
