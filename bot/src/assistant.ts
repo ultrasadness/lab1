@@ -66,7 +66,7 @@ export async function startAssistant(options: {
     host: config.forwarder.host,
     port: config.forwarder.port,
     gatewayBaseUrl: config.gateway.baseUrl,
-    providers: (role) => config.roles[role].providers,
+    providers: (role) => config.roles[role].providers.map(({ name, model }) => ({ name, price: config.prices[model]! })),
     roleKey: (role) => roleKeys.get(role)!,
     store,
     clock,

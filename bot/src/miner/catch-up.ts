@@ -35,24 +35,44 @@ export function droppedLine(dates: string[], catchUpDates: number): string {
   return `Miner: dropped ${named}, outside the ${catchUpDates}-day catch-up. ${labels.length === 1 ? 'Its list' : 'Their lists'} won't go out.`;
 }
 
+/** A date whose Miner budget is spent while Launches wait to be judged: what it spent, and how many Launches wait. */
+export interface BudgetHold {
+  spent: number;
+  budget: number;
+  waiting: number;
+  featured: number;
+}
+
 /** The line saying a date's list isn't out by its deadline, and why. */
 export function lateLine(input: {
   date: string;
+  /** Its spent Miner budget, if that holds it up. */
+  heldByBudget?: BudgetHold;
   /** The Retry it waits on, if it waits on one, and the post its notice is in. */
   waiting?: { retry: MinerRetry; threadId: string | null };
   problem: string | null;
   retryMinutes: number;
   catchUp: CatchUp;
 }): string {
-  const { date, waiting, problem, retryMinutes, catchUp } = input;
+  const { date, heldByBudget: held, waiting, problem, retryMinutes, catchUp } = input;
   const leaves = leavesWindow(date, catchUp);
   const until = shortTime(leaves);
   const late = `Miner: ${dayLabel(date)}'s list is late`;
   const window = `the ${catchUp.catchUpDates}-day catch-up`;
+  const where = waiting?.threadId ? ` in <#${waiting.threadId}>` : '';
+  // A spent Miner budget holds a tapped Retry too, so it comes first. Raising it doesn't tap a Retry still waiting.
+  if (held) {
+    const spent = `its Miner budget is spent (${dollars(held.spent)} of ${dollars(held.budget)})`;
+    const share = held.waiting === held.featured ? `all ${held.featured} of its` : `${held.waiting} of its ${held.featured}`;
+    const launches = `${share} Featured Launches wait to be judged`;
+    const retry = waiting ? ` It waits on Retry${where} too.` : '';
+    return `${late}: ${spent}, so ${launches} until the Miner budget is raised.${retry} The date leaves ${window} at ${until}.`;
+  }
   if (waiting) {
-    const where = waiting.threadId ? ` in <#${waiting.threadId}>` : '';
     return `${late}: it waits on Retry${where}, because ${cappedText(waiting.retry)}. The date leaves ${window} at ${until}.`;
   }
   const why = problem ?? 'it is still being judged';
   return `${late}: ${why}. The Miner tries again every ${retryMinutes} minutes until the date leaves ${window} at ${until}.`;
 }
+
+const dollars = (amount: number) => `$${amount.toFixed(2)}`;

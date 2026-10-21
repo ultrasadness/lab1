@@ -19,7 +19,13 @@
     "baseUrl": "http://127.0.0.1:3000/v1"
   },
   "roles": {
-    "miner": { "providers": ["openrouter"] }
+    "miner": { "providers": [{ "name": "openrouter", "model": "set at go-live" }] }
+  },
+  "prices": {
+    "openai/gpt-6.1-sol": { "input": 2.0, "cached": 0.1, "output": 10.0 }
+  },
+  "budgets": {
+    "miner": 6
   },
   "forwarder": {
     "host": "172.17.0.1",

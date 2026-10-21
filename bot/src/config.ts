@@ -18,6 +18,19 @@ export interface RunCaps {
   tokens: number;
 }
 
+/** One of a role's providers: its name in the role's `role@provider` model name, and the model its channel serves. */
+export interface Provider {
+  name: string;
+  model: string;
+}
+
+/** A model's list price, in dollars per 1M tokens: uncached input, cached input, and output. */
+export interface ListPrice {
+  input: number;
+  cached: number;
+  output: number;
+}
+
 export interface Config {
   /** The live store and the raw inputs kept for 90 days, outside git. */
   dataDir: string;
@@ -43,7 +56,11 @@ export interface Config {
   /** new-api's OpenAI-compatible base URL, reached only by the forwarder. */
   gateway: { baseUrl: string };
   /** Each role's providers, in priority order. For now the first one serves every request. */
-  roles: Record<Role, { providers: string[] }>;
+  roles: Record<Role, { providers: Provider[] }>;
+  /** The list price of each model a role's provider serves, by model, which notional dollars are counted at. */
+  prices: Record<string, ListPrice>;
+  /** What each role may spend, in notional dollars: the Miner per Miner date (ADR 0011). */
+  budgets: Record<Role, number>;
   /** Where the forwarder listens for the Pi container, and the URL Pi uses to reach it. */
   forwarder: { host: string; port: number; urlForPi?: string };
   /** How one Pi run starts: a command the bot spawns, with the run's settings in its environment. */
@@ -83,7 +100,17 @@ export function checkConfig(config: Config): string[] {
   if (!snowflake.test(config.discord?.statusChannelId ?? '')) problems.push('discord.statusChannelId must be the #status channel id');
   if (!snowflake.test(config.discord?.needsYouChannelId ?? '')) problems.push('discord.needsYouChannelId must be the #needs-you channel id');
   for (const role of ROLES) {
-    if (!config.roles?.[role]?.providers?.length) problems.push(`roles.${role}.providers needs at least one provider`);
+    const providers = config.roles?.[role]?.providers ?? [];
+    if (providers.length === 0) problems.push(`roles.${role}.providers needs at least one provider`);
+    for (const { name, model } of providers) {
+      if (!config.prices?.[model]) problems.push(`roles.${role}: ${name} serves ${model}, which has no price in prices`);
+    }
+    if (!(config.budgets?.[role] > 0)) problems.push(`budgets.${role} must be above 0`);
+  }
+  for (const [model, price] of Object.entries(config.prices ?? {})) {
+    for (const part of ['input', 'cached', 'output'] as const) {
+      if (!(Number(price?.[part]) >= 0)) problems.push(`prices.${model}.${part} must be 0 or above, in dollars per 1M tokens`);
+    }
   }
   if (!/^\d{2}:\d{2}$/.test(config.miner?.startsAt ?? '')) problems.push('miner.startsAt must look like 01:00');
   if (!(config.miner?.launchesPerRun > 0)) problems.push('miner.launchesPerRun must be above 0');

@@ -1,13 +1,15 @@
 // The live store (ADR 0007): one SQLite file the bot alone writes, the single source of truth for live state.
 // It holds the Miner dates the bot has taken on, each date's Launches, judgments by Post id, Day's lines by date, the
-// day posts on Discord, the Retries a capped date waits on, run and model-request records, the index of raw inputs
-// kept outside git, the files waiting to be written to the Personal database, and the times its history diverged.
+// day posts on Discord, the Retries a capped date waits on, run and model-request records with each request's notional
+// dollars, the index of raw inputs kept outside git, the files waiting to be written to the Personal database, and the
+// times its history diverged.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
 import type { DayLine } from './miner/day-line.ts';
 import type { JudgmentRecord } from './miner/judging.ts';
 import type { RunCap } from './pi-runs.ts';
 
+/** A reply's exact tokens. `input` counts every input token, the `cached` ones among them. */
 export interface Tokens {
   input: number;
   cached: number;
@@ -106,6 +108,8 @@ export interface ModelRequest {
   model: string | null;
   status: number;
   tokens: Tokens | null;
+  /** The tokens in notional dollars, at the list price of the model the provider serves; 0 with no tokens. */
+  dollars: number;
   at: string;
 }
 
@@ -236,6 +240,7 @@ CREATE TABLE IF NOT EXISTS runs (
   ended_at TEXT,
   outcome TEXT
 );
+CREATE INDEX IF NOT EXISTS runs_by_item ON runs(role, item);
 CREATE TABLE IF NOT EXISTS model_requests (
   id INTEGER PRIMARY KEY,
   run_id TEXT NOT NULL REFERENCES runs(id),
@@ -246,6 +251,7 @@ CREATE TABLE IF NOT EXISTS model_requests (
   input_tokens INTEGER,
   cached_tokens INTEGER,
   output_tokens INTEGER,
+  dollars REAL NOT NULL,
   at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS model_requests_by_run ON model_requests(run_id);
@@ -584,8 +590,8 @@ export class Store {
   recordModelRequest(request: Omit<ModelRequest, 'id'>): number {
     const result = this.#db
       .prepare(
-        `INSERT INTO model_requests (run_id, role, provider, model, status, input_tokens, cached_tokens, output_tokens, at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO model_requests (run_id, role, provider, model, status, input_tokens, cached_tokens, output_tokens, dollars, at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         request.runId,
@@ -596,6 +602,7 @@ export class Store {
         request.tokens?.input ?? null,
         request.tokens?.cached ?? null,
         request.tokens?.output ?? null,
+        request.dollars,
         request.at,
       );
     return Number(result.lastInsertRowid);
@@ -613,21 +620,35 @@ export class Store {
       model: row.model === null ? null : String(row.model),
       status: Number(row.status),
       tokens: tokensOf(row),
+      dollars: Number(row.dollars),
       at: String(row.at),
     };
   }
 
-  /** A run's exact tokens over all its requests, and the providers and models that served them. */
-  runTotals(runId: string): { requests: number; tokens: Tokens; providers: string[]; models: string[] } {
+  /** A run's exact tokens and notional dollars over all its requests, and the providers and models that served them. */
+  runTotals(runId: string): { requests: number; tokens: Tokens; dollars: number; providers: string[]; models: string[] } {
     const rows = this.#db.prepare('SELECT * FROM model_requests WHERE run_id = ? ORDER BY id').all(runId);
     const tokens = { input: 0, cached: 0, output: 0 };
+    let dollars = 0;
     for (const row of rows) {
       tokens.input += Number(row.input_tokens ?? 0);
       tokens.cached += Number(row.cached_tokens ?? 0);
       tokens.output += Number(row.output_tokens ?? 0);
+      dollars += Number(row.dollars);
     }
     const distinct = (key: string) => [...new Set(rows.map((r) => r[key]).filter((v) => v !== null).map(String))];
-    return { requests: rows.length, tokens, providers: distinct('provider'), models: distinct('model') };
+    return { requests: rows.length, tokens, dollars, providers: distinct('provider'), models: distinct('model') };
+  }
+
+  /** What the role's runs on an item, such as the Miner's on a date, have spent over all their requests. */
+  spentOn(role: Role, item: string): number {
+    const row = this.#db
+      .prepare(
+        `SELECT coalesce(sum(m.dollars), 0) AS dollars FROM model_requests m JOIN runs r ON r.id = m.run_id
+         WHERE r.role = ? AND r.item = ?`,
+      )
+      .get(role, item);
+    return Number(row?.dollars ?? 0);
   }
 
   // ---------- Raw inputs ----------

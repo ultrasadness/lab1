@@ -104,6 +104,7 @@ export class PiRunner {
       models: totals.models,
       requests: totals.requests,
       tokens: totals.tokens,
+      dollars: totals.dollars,
     });
     return result;
   }

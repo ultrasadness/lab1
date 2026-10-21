@@ -11,7 +11,7 @@ Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，�
 | `bot/src/personal-database.ts` | Personal database 的写入者：一把锁管住快进、写入、提交和推送，以及历史分叉时的卡片（ADR 0012） |
 | `bot/src/status.ts` | `#status` 文字频道里的静默消息 |
 | `bot/src/needs-you.ts` | `#needs-you` 文字频道里的卡片，每张都提及这个人 |
-| `bot/src/forwarder.ts` | Pi 容器唯一的端点：带角色密钥的模型请求，以及运行记录 |
+| `bot/src/forwarder.ts` | Pi 容器唯一的端点：带角色密钥的模型请求（每个都按名义美元计价），以及运行记录 |
 | `bot/src/pi-runs.ts` | 每次运行一个 `pi --mode rpc` 进程，按墙钟时间、轮数和 token 数设上限 |
 | `bot/src/store.ts` | 实时存储（SQLite） |
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 和 Discord |
@@ -60,4 +60,6 @@ npm start
 
 `config/assistant.json` 里的运行上限是初始值。墙钟时间上限在 #26 中确定；轮数和 token 上限是初步估计，要根据 `run.finished` 日志行再调。
 
-机器人每个事件向 stdout 输出一行 JSON。`run.finished` 行带有这次运行的角色、provider、模型和精确的 token 数；运行触到上限时，还写明触到的是哪个上限。`miner.judged` 行写明哪个模型请求的回复里有这次评判，以及该请求的精确 token 数；通常一个回复就评判了它那次运行里的每个 Launch。
+`roles` 里的每个 provider 都写明它在 new-api 上的 `role@provider` 渠道服务哪个模型，`prices` 记录每个这样的模型的标价，以每 1M 未缓存输入、缓存输入和输出 token 的美元计。只要某个 provider 的模型没有价格，机器人就不会启动。ADR 0011 把价格放在 `ops/pins` 里；在它出现之前，价格放在这里。每个模型请求都按它的 provider 的价格计为名义美元。`budgets.miner` 是一个 Miner 日期的运行可以花的钱，Retry 也算在内，初始为 6 美元。只有在这个日期的花费低于 Miner 预算时，运行才会开始；已开始的运行即使超出预算也会完成。Miner 预算一旦用完，这个日期剩下的运行就等待，它在太平洋时间 06:00 的迟到消息会点出 Miner 预算；调高 `budgets.miner` 并重启机器人，这些运行就会继续。Miner provider 的模型连同它的价格在上线时设置（#85）；`prices` 里已经有 GPT-6.1 Sol 的价格，各项预算就是按这个价格定的（#39）。
+
+机器人每个事件向 stdout 输出一行 JSON。`run.finished` 行带有这次运行的角色、provider、模型、精确的 token 数和名义美元；运行触到上限时，还写明触到的是哪个上限。`miner.run-held` 行写明一次在等 Miner 预算的运行，以及这个日期的花费；`miner.posted` 行带有这个日期总共花了多少。`miner.judged` 行写明哪个模型请求的回复里有这次评判，以及该请求的精确 token 数；通常一个回复就评判了它那次运行里的每个 Launch。

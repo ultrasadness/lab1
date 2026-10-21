@@ -6,6 +6,8 @@
 // It catches up on the latest 3 dates, oldest first, and drops older ones with a #status line. A date that can't
 // finish is tried again by the caller's 30-minute retry, and gets one #status line if its list isn't out by 06:00 PT.
 // Launches tapped for Retry are judged at the date's next pass, in a run of their own, with no automatic retry.
+// A run starts only while the date's spend is under its Miner budget (ADR 0011). A run that starts under it finishes,
+// and once the Miner budget is spent the date's remaining runs wait, until it is raised and the bot restarts.
 // Each run fast-forwards the Personal database first and reads the Interest scope there. Once the date is judged, its
 // `days/` file is queued in the store before the post goes out, and committed after.
 import type { Clock } from '../clock.ts';
@@ -20,7 +22,7 @@ import type { PiRunner, RunResult } from '../pi-runs.ts';
 import type { ProductHunt } from '../product-hunt.ts';
 import type { Status } from '../status.ts';
 import type { CappedRun, Launch, Store } from '../store.ts';
-import { catchUpWindow, droppedLine, lateLine } from './catch-up.ts';
+import { catchUpWindow, droppedLine, lateLine, type BudgetHold } from './catch-up.ts';
 import { renderDayFile, type DayFile, type DayFileLaunch } from './day-file.ts';
 import { drawDayLine } from './day-line.ts';
 import { renderDayPost, renderDroppedPost, renderRetryNotice, renderWaitingPost, type DayPostLaunch } from './day-post.ts';
@@ -101,7 +103,8 @@ export class Miner {
       if (!this.#troubled.has(date)) this.#store.saveMinerDayProblem(date, null);
     }
     await this.noteLate();
-    return this.#unfinished(window).length > 0;
+    // A date held by its Miner budget can go on only once it is raised, which takes a restart.
+    return this.#unfinished(window).some((date) => !this.#heldByBudget(date));
   }
 
   /** Dates in the window, taken on and not yet posted. */
@@ -149,6 +152,7 @@ export class Miner {
       const retry = this.#store.minerRetries(date).filter((r) => !r.tappedAt).at(-1);
       const line = lateLine({
         date,
+        heldByBudget: this.#heldByBudget(date),
         waiting: retry && { retry, threadId: this.#store.dayPost(date).threadId },
         problem: day.problem,
         retryMinutes,
@@ -162,6 +166,21 @@ export class Miner {
         this.#log('miner.status-failed', { date, error: errorText(error) });
       }
     }
+  }
+
+  /** What the date has spent, and its Miner budget, once the spend has reached it. */
+  #budgetSpent(date: string): { spent: number; budget: number } | undefined {
+    const spent = this.#store.spentOn('miner', date);
+    const budget = this.#config.budgets.miner;
+    return spent >= budget ? { spent, budget } : undefined;
+  }
+
+  /** How the date's Miner budget holds it up, if it does: it is spent, and Launches still wait to be judged. */
+  #heldByBudget(date: string): BudgetHold | undefined {
+    const spent = this.#budgetSpent(date);
+    const launches = this.#store.launchesFor(date) ?? [];
+    const waiting = launches.filter((l) => !this.#store.hasJudgment(l.postId)).length;
+    return spent && waiting > 0 ? { ...spent, waiting, featured: launches.length } : undefined;
   }
 
   #problem(date: string, problem: string): void {
@@ -270,16 +289,21 @@ export class Miner {
 
   /**
    * Judges the Launches without a judgment, in Product Hunt order, a few per run. Launches the person tapped Retry
-   * for go first, each Retry in one run; Launches still waiting on a Retry wait. Returns false if the Assistant
-   * stopped the work.
+   * for go first, each Retry in one run; Launches still waiting on a Retry wait. Once the date's Miner budget is
+   * spent, the runs left wait. Returns false if the Assistant stopped the work.
    */
   async #judge(date: string, launches: Launch[]): Promise<boolean> {
     const unjudged = (ls: Launch[]) => ls.filter((l) => !this.#store.hasJudgment(l.postId));
     const retries = this.#store.minerRetries(date);
     for (const retry of retries.filter((r) => r.tappedAt && !r.ranAt)) {
       const left = unjudged(launches.filter((l) => retry.postIds.includes(l.postId)));
-      // A run the person started has no automatic retry: if it is capped too, they are asked again.
-      if (left.length > 0 && (await this.#lastTry(date, left, [], true)) === 'stopped') return false;
+      if (left.length > 0) {
+        // A run the person started has no automatic retry: if it is capped too, they are asked again.
+        const outcome = await this.#lastTry(date, left, [], true);
+        if (outcome === 'stopped') return false;
+        // The tap still waits on its run.
+        if (outcome === 'held') return true;
+      }
       this.#store.saveMinerRetryRan(retry.id, this.#clock.now().toISOString());
     }
 
@@ -289,19 +313,23 @@ export class Miner {
     for (let i = 0; i < missing.length; i += perRun) {
       const batch = missing.slice(i, i + perRun);
       const first = await this.#run(date, batch);
+      if (first === 'held') return true;
       if (first.outcome === 'stopped') return false;
       // The Day's line needs every Fit, so a capped run gets one fresh run of its own, under the same caps.
       const left = unjudged(batch);
       if (first.outcome !== 'capped' || left.length === 0) continue;
       const earlier = [{ launches: batch.length, cap: first.cap! }];
-      if ((await this.#lastTry(date, left, earlier, false)) === 'stopped') return false;
+      const last = await this.#lastTry(date, left, earlier, false);
+      if (last === 'stopped') return false;
+      if (last === 'held') return true;
     }
     return true;
   }
 
   /** Runs these Launches once more. If that run is capped too, the ones still unjudged wait for the person's Retry. */
-  async #lastTry(date: string, launches: Launch[], earlier: CappedRun[], afterRetry: boolean): Promise<RunResult['outcome']> {
+  async #lastTry(date: string, launches: Launch[], earlier: CappedRun[], afterRetry: boolean): Promise<RunResult['outcome'] | 'held'> {
     const result = await this.#run(date, launches);
+    if (result === 'held') return result;
     const still = launches.filter((l) => !this.#store.hasJudgment(l.postId)).map((l) => l.postId);
     if (result.outcome === 'capped' && still.length > 0) {
       const cappedRuns = [...earlier, { launches: launches.length, cap: result.cap! }];
@@ -311,7 +339,13 @@ export class Miner {
     return result.outcome;
   }
 
-  async #run(date: string, batch: Launch[]): Promise<RunResult> {
+  /** Runs these Launches, unless the date's spend has reached its Miner budget: then the run waits. */
+  async #run(date: string, batch: Launch[]): Promise<RunResult | 'held'> {
+    const spent = this.#budgetSpent(date);
+    if (spent) {
+      this.#log('miner.run-held', { date, postIds: batch.map((l) => l.postId), ...spent });
+      return 'held';
+    }
     const expected = new Set(batch.map((l) => l.postId));
     // Each run reads the Interest scope as GitHub has it, so an edit the person made there counts from the next run.
     await this.#personalDatabase.sync();
@@ -409,7 +443,13 @@ export class Miner {
     }
     await this.#sendInOrder(date, threadId, [...this.#notices(date), ...bands]);
     this.#store.saveDayPosted(date, this.#clock.now().toISOString());
-    this.#log('miner.posted', { date, threadId, title: rendered.title, messages: rendered.messages.length });
+    this.#log('miner.posted', {
+      date,
+      threadId,
+      title: rendered.title,
+      messages: rendered.messages.length,
+      spent: this.#store.spentOn('miner', date),
+    });
   }
 
   /** The date's post, created under this title and first message unless it exists already. */

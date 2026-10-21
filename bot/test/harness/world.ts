@@ -62,6 +62,8 @@ export async function startWorld(options: {
   now: string;
   /** How the bot starts a run, given the path of `pi/pi-run`; by default, that script alone. */
   piCommand?: (piRun: string) => string[];
+  /** Changes the config the bot first starts with. */
+  configure?: (config: Config) => void;
 }): Promise<World> {
   const dir = mkdtempSync(join(tmpdir(), 'assistant-test-'));
   const credentials = join(dir, 'credentials');
@@ -100,7 +102,9 @@ export async function startWorld(options: {
     },
     productHunt: { apiUrl: productHunt.apiUrl },
     gateway: { baseUrl: model.baseUrl },
-    roles: { miner: { providers: ['openrouter'] } },
+    roles: { miner: { providers: [{ name: 'openrouter', model: 'judge-model-1' }] } },
+    prices: { 'judge-model-1': { input: 2, cached: 0.2, output: 10 } },
+    budgets: { miner: 6 },
     forwarder: { host: '127.0.0.1', port: 0 },
     pi: {
       command: options.piCommand?.(join(root, 'pi/pi-run')) ?? ['sh', join(root, 'pi/pi-run')],
@@ -123,8 +127,21 @@ export async function startWorld(options: {
     rawInputs: { keepDays: 90 },
   };
 
+  options.configure?.(config);
+
   const logs: LogEntry[] = [];
   const start = () => startAssistant({ config, credentialsDir: credentials, clock, log: (entry) => logs.push(entry) });
+  const close = async () => {
+    await Promise.all([discord.close(), productHunt.close(), model.close()]);
+    rmSync(dir, { recursive: true, force: true });
+  };
+  let assistant: Assistant;
+  try {
+    assistant = await start();
+  } catch (error) {
+    await close();
+    throw error;
+  }
 
   const world: World = {
     clock,
@@ -134,7 +151,7 @@ export async function startWorld(options: {
     git,
     dataDir,
     logs,
-    assistant: await start(),
+    assistant,
     async advanceTo(when) {
       clock.advanceTo(when);
       await world.assistant.whenIdle();
@@ -162,8 +179,7 @@ export async function startWorld(options: {
     },
     async stop() {
       await world.assistant.stop();
-      await Promise.all([discord.close(), productHunt.close(), model.close()]);
-      rmSync(dir, { recursive: true, force: true });
+      await close();
     },
   };
   return world;

@@ -13,7 +13,7 @@ The spec is #41; this first slice (#42) brings up the Miner's path from Product 
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
 | `bot/src/needs-you.ts` | Cards in the `#needs-you` text channel, each mentioning the person |
-| `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, and run records |
+| `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, each priced in notional dollars, and run records |
 | `bot/src/pi-runs.ts` | One `pi --mode rpc` process per run, capped on wall clock, turns and tokens |
 | `bot/src/store.ts` | The live store (SQLite) |
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 and Discord |
@@ -94,6 +94,18 @@ alone and is never a key.
 The run caps in `config/assistant.json` are starting values. The wall clocks were decided in #26; the turn and token
 caps are first guesses, to tune from the `run.finished` lines.
 
-The bot logs one JSON line per event to stdout. A `run.finished` line carries the run's role, providers, models and
-exact tokens, and for a capped run the cap it hit. A `miner.judged` line names the model request whose reply held
-the judgment, with that request's exact tokens; one reply usually judges every Launch in its run.
+Each provider in `roles` names the model its `role@provider` channel on new-api serves, and `prices` holds each such
+model's list price in dollars per 1M uncached input, cached input and output tokens. The bot won't start while a
+provider's model has no price. ADR 0011 puts the prices in `ops/pins`; until it exists, they live here. Every model
+request is counted at its provider's price, in notional dollars. `budgets.miner` is what a Miner date's runs may
+spend, Retries included, starting at $6. A run starts only while its date's spend is under the Miner budget, and
+finishes even when it goes over. Once the Miner budget is spent, the date's remaining runs wait and its 06:00 PT late
+line names the Miner budget; raising `budgets.miner` and restarting the bot lets them go on. The Miner provider's
+model is set at go-live (#85), with its price; `prices` already holds GPT-6.1 Sol's, the price the budgets were sized
+at (#39).
+
+The bot logs one JSON line per event to stdout. A `run.finished` line carries the run's role, providers, models,
+exact tokens and notional dollars, and for a capped run the cap it hit. A `miner.run-held` line names a run that waits
+on the Miner budget, with the date's spend, and a `miner.posted` line carries what the date spent in all. A
+`miner.judged` line names the model request whose reply held the judgment, with that request's exact tokens; one reply
+usually judges every Launch in its run.

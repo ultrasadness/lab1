@@ -1,12 +1,13 @@
 // The forwarder (ADR 0009, ADR 0011): the Pi container's only endpoint. Each Pi run reaches it with a run token
 // of its own, never a real key. For a model request the forwarder puts in the run's role key, sends it to the
-// role's `role@provider` name on new-api, and counts the exact tokens of the reply. The run's record tool also
-// writes through here, so a record reaches the bot while the run goes on.
+// role's `role@provider` name on new-api, and counts the exact tokens of the reply, in notional dollars at the list
+// price of the model that provider serves. The run's record tool also writes through here, so a record reaches the
+// bot while the run goes on.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { randomBytes } from 'node:crypto';
 import type { Clock } from './clock.ts';
-import type { Role } from './config.ts';
+import type { ListPrice, Role } from './config.ts';
 import { errorText, type Log } from './log.ts';
 import type { Store, Tokens } from './store.ts';
 
@@ -17,6 +18,12 @@ export interface RunRegistration {
   role: Role;
   /** Takes one record the run's tool wrote, and says whether it was kept. */
   onRecord(record: unknown): RecordResult;
+}
+
+/** One of a role's providers, with the list price of the model it serves. */
+export interface PricedProvider {
+  name: string;
+  price: ListPrice;
 }
 
 export interface Forwarder {
@@ -35,7 +42,7 @@ export async function startForwarder(options: {
   port: number;
   gatewayBaseUrl: string;
   /** The role's providers, in priority order. */
-  providers(role: Role): string[];
+  providers(role: Role): PricedProvider[];
   roleKey(role: Role): string;
   store: Store;
   clock: Clock;
@@ -78,7 +85,7 @@ export async function startForwarder(options: {
   async function forward(run: RunRegistration, raw: string, res: http.ServerResponse): Promise<void> {
     const provider = options.providers(run.role)[0]!;
     const request = JSON.parse(raw) as Record<string, unknown>;
-    request.model = `${run.role}@${provider}`;
+    request.model = `${run.role}@${provider.name}`;
     // Exact counting needs the usage chunk at the end of every stream.
     if (request.stream) request.stream_options = { ...(request.stream_options as object), include_usage: true };
 
@@ -124,18 +131,19 @@ export async function startForwarder(options: {
       usage.end();
       recordOnce();
     }
-    if (upstream.ok && !usage.tokens) options.log('forwarder.usage-missing', { runId: run.runId, provider });
+    if (upstream.ok && !usage.tokens) options.log('forwarder.usage-missing', { runId: run.runId, provider: provider.name });
     res.end();
   }
 
-  function record(run: RunRegistration, provider: string, model: string | null, status: number, tokens: Tokens | null): void {
+  function record(run: RunRegistration, provider: PricedProvider, model: string | null, status: number, tokens: Tokens | null): void {
     options.store.recordModelRequest({
       runId: run.runId,
       role: run.role,
-      provider,
+      provider: provider.name,
       model,
       status,
       tokens,
+      dollars: tokens ? notionalDollars(tokens, provider.price) : 0,
       at: options.clock.now().toISOString(),
     });
   }
@@ -174,6 +182,15 @@ async function readBody(req: http.IncomingMessage): Promise<string> {
     chunks.push(chunk);
   }
   return Buffer.concat(chunks).toString('utf8');
+}
+
+/** A count from a reply's usage; anything that isn't a count counts as none. */
+const tokenCount = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0);
+
+/** A reply's exact tokens at a list price per 1M. The cached tokens are part of the input, priced at their own rate. */
+function notionalDollars(tokens: Tokens, price: ListPrice): number {
+  const cached = Math.min(tokens.cached, tokens.input);
+  return ((tokens.input - cached) * price.input + cached * price.cached + tokens.output * price.output) / 1_000_000;
 }
 
 /** Reads the usage and model out of an OpenAI-style reply, streamed as server-sent events or sent whole. */
@@ -226,9 +243,9 @@ class UsageReader {
     if (parsed.model) this.model = parsed.model;
     if (parsed.usage) {
       this.tokens = {
-        input: parsed.usage.prompt_tokens ?? 0,
-        cached: parsed.usage.prompt_tokens_details?.cached_tokens ?? 0,
-        output: parsed.usage.completion_tokens ?? 0,
+        input: tokenCount(parsed.usage.prompt_tokens),
+        cached: tokenCount(parsed.usage.prompt_tokens_details?.cached_tokens),
+        output: tokenCount(parsed.usage.completion_tokens),
       };
     }
   }
