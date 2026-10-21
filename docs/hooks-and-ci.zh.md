@@ -26,3 +26,4 @@ GitHub Actions 在每次 push 和 pull request 时运行两个 workflow，所以
 - `scripts/doc-pairs.test.ts` 在用完即弃的文档对上运行文档配对检查。
 - `scripts/bounded-waits.test.ts`：某个 `spawnSync`、`execSync` 或 `execFileSync` 调用自己的参数里没有 `timeout` 时，它就失败：同步的子进程会阻塞事件循环，所以别的定时器都结束不了它（`CODING_STANDARDS.md` 里的 **Every wait has a bound**）。
 - `scripts/bot-imports.test.ts`：`bot/src` 导入的某个模块既不是 Node 自己的（`node:`），也不是机器人自己的文件时，它就失败：机器人自己没有任何 npm 依赖（`bot/README.md`），`graphql` 只给测试和 schema 抓取用。
+- `scripts/bot-test-imports.test.ts`：`bot/test/` 下、`bot/test/harness/` 以外的某个文件导入 `bot/src` 下的文件时，它就失败：测试只经由 harness 接触机器人（`bot/README.md`），而从 `bot/src` 导入的测试断言的是机器人怎样构造某样东西。

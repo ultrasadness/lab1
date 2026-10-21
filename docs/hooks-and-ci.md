@@ -48,3 +48,6 @@ The root's `npm test` runs the tests of the hooks and checks:
 - `scripts/bot-imports.test.ts` fails on a module `bot/src` imports that is neither Node's own (`node:`) nor one of
   the bot's files: the bot has no npm dependencies of its own (`bot/README.md`), and `graphql` is for the tests and
   the schema capture alone.
+- `scripts/bot-test-imports.test.ts` fails on a file under `bot/test/`, outside `bot/test/harness/`, that imports a
+  file under `bot/src`: a test reaches the bot only through the harness (`bot/README.md`), and one that imports from
+  `bot/src` asserts on how the bot builds something.

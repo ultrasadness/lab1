@@ -40,7 +40,9 @@ The hooks and CI that check each commit and push, and how to turn the hooks on i
 `docs/hooks-and-ci.md`.
 
 The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in-process, with real Pi and our extension
-as local processes, against fake Discord, Product Hunt and model provider servers and a clock the test moves.
+as local processes, against fake Discord, Product Hunt and model provider servers and a clock the test moves. Only
+the harness imports from `bot/src`: `npm test` fails any other file under `bot/test/` whose import names a file
+there (`scripts/bot-test-imports.test.ts`).
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.
