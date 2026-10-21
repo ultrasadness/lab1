@@ -1,8 +1,10 @@
 // A fake Product Hunt API v2. It serves fixture Launches through the one GraphQL endpoint, paged as the real API
-// pages them, and records every request so tests can check what was asked for.
+// pages them, and records every request it answers so tests can check what was asked for. Like the real API, it
+// refuses a query that Product Hunt's live schema (#79) doesn't accept, or variables that don't fit it.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { readFileSync } from 'node:fs';
+import { buildSchema, GraphQLError, parse, validate, validateExecutionArgs, type DocumentNode } from 'graphql';
 
 /** A Launch as the real API returned it on Oct 11–14 (the fixtures). */
 export interface FixturePost {
@@ -46,6 +48,9 @@ export interface ProductHuntRequest {
 }
 
 const PAGE = 20;
+
+/** Product Hunt's live schema, as the person captured it by introspection. */
+const SCHEMA = buildSchema(readFileSync(new URL('../fixtures/producthunt/schema.graphql', import.meta.url), 'utf8'));
 
 export class FakeProductHunt {
   readonly requests: ProductHuntRequest[] = [];
@@ -113,6 +118,10 @@ export class FakeProductHunt {
       return reply(401, { error: 'invalid_oauth_token', error_description: 'The access token is invalid' });
     }
     const { query, variables = {} } = JSON.parse(raw) as { query: string; variables?: Record<string, unknown> };
+    // The real API checks a query and its variables against its schema before it reads anything, and answers one that
+    // fails with the reasons alone. Which HTTP status it gives them hasn't been tried; the bot's read fails on either.
+    const refusals = schemaRefusals(query, variables);
+    if (refusals.length > 0) return reply(200, { errors: refusals });
 
     if (/\bpost\s*\(\s*id:/.test(query)) {
       this.requests.push({ kind: 'comments', query, variables });
@@ -156,6 +165,25 @@ export class FakeProductHunt {
 
     reply(200, { errors: [{ message: 'The fake only answers posts and post comments queries' }] });
   }
+}
+
+/**
+ * Why the live schema doesn't accept `query` with `variables`: no query at all, a syntax error, every rule the query
+ * breaks, or each variable that is missing or doesn't fit its type. None when it is accepted.
+ */
+function schemaRefusals(query: unknown, variables: Record<string, unknown>): readonly GraphQLError[] {
+  if (typeof query !== 'string') return [new GraphQLError('The request has no query')];
+  let document: DocumentNode;
+  try {
+    document = parse(query);
+  } catch (error) {
+    // Given a string, parse throws only a syntax error.
+    return [error as GraphQLError];
+  }
+  const broken = validate(SCHEMA, document);
+  if (broken.length > 0) return broken;
+  const execution = validateExecutionArgs({ schema: SCHEMA, document, variableValues: variables });
+  return 'operation' in execution ? [] : execution;
 }
 
 function commentsPage(post: FixturePost, cursor: unknown) {

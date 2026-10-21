@@ -45,13 +45,15 @@ as local processes, against fake Discord, Product Hunt and model provider server
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.
 
-The fake Product Hunt doesn't check the fields a query names. What the real API accepts is its live schema, which
-`npm run capture:producthunt-schema` captures by introspection and writes as SDL to
-`bot/test/fixtures/producthunt/schema.graphql`. On an HTTP error, GraphQL errors or a reply that doesn't build a
-schema, it writes nothing and says why. The person runs it, since agents never read the token: it reads
-`producthunt-token` in `$CREDENTIALS_DIRECTORY` itself, as the bot does, and asks the API the bot's config names.
-In a Claude Code session, typing `!` before the command keeps the token out of the agent's context. Run it again,
-and commit what it writes, whenever a query in `bot/src/product-hunt.ts` changes or the live API might have.
+The fake Product Hunt answers only a query that the real API's live schema accepts, with variables that fit it, and
+refuses any other with GraphQL errors and no data, so a wrong field, argument or enum value fails a test instead of
+the bot's read at go-live. `npm run capture:producthunt-schema` captures that schema by introspection and writes it as
+SDL to `bot/test/fixtures/producthunt/schema.graphql`, where the fake reads it. On an HTTP error, GraphQL errors or a
+reply that doesn't build a schema, the script writes nothing and says why. The person runs it, since agents never read
+the token: it reads `producthunt-token` in `$CREDENTIALS_DIRECTORY` itself, as the bot does, and asks the API the
+bot's config names. In a Claude Code session, typing `!` before the command keeps the token out of the agent's
+context. Run it again, and commit what it writes, whenever a query in `bot/src/product-hunt.ts` changes or the live
+API might have.
 
 ```sh
 CREDENTIALS_DIRECTORY=/path/to/credentials npm run capture:producthunt-schema
