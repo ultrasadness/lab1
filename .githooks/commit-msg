@@ -1,5 +1,5 @@
 #!/bin/sh
-# Runs on each commit's message once `git config core.hooksPath .githooks` turns it on (bot/README.md, Test). It
+# Runs on each commit's message once `git config core.hooksPath .githooks` turns it on (docs/hooks-and-ci.md). It
 # refuses a message holding a GitHub closing keyword followed by an issue reference: GitHub would close that issue the
 # moment the commit reaches main, before the comment a ticket closes with (docs/agents/issue-tracker.md, Close) (#90).
 set -eu

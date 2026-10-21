@@ -157,11 +157,10 @@ test('a checkout without browser/\'s dependencies refuses the commit, naming bro
   assert.doesNotMatch(said, /ln -s/);
 });
 
-test('a commit in a new worktree is refused, saying how to link each package\'s dependencies', (t) => {
+test('a commit in a worktree with no dependencies is refused, naming each package to run npm ci in', (t) => {
   const r = repo(t);
   const wt = r.worktree();
   const said = refused(wt);
   assert.ok(said.includes(`none are installed in:\n  ${wt.dir}\n  ${wt.dir}/browser\nRun npm ci in each`), said);
-  assert.ok(said.includes(`\n  ln -s ${r.dir}/node_modules ${wt.dir}/node_modules\n`), said);
-  assert.ok(said.includes(`\n  ln -s ${r.dir}/browser/node_modules ${wt.dir}/browser/node_modules\n`), said);
+  assert.doesNotMatch(said, /ln -s/);
 });

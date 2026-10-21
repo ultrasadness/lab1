@@ -36,7 +36,7 @@ KEEP_BROWSER=1 npm test          # leaves the containers up afterwards
 
 这些测试就是浏览器 seam（seam 2）：它们通过套接字驱动真实镜像里的真实 Chromium，容器由 `compose.yaml` 启动，带着它全部的加固设置。`test/compose.test.yaml` 把它放进一个没有互联网的网络，旁边是一个本地测试页面服务器（`test/pages/`），测试里出现的每个主机都由它应答。
 
-打开 hook 之后（`git config core.hooksPath .githooks`，见 `bot/README.md`），pre-commit hook 也运行这里的类型检查：检查的是暂存的文件，用的是这里安装的依赖，没通过就拒绝提交。这里没装依赖时，它拒绝每一次提交，并说明怎么安装。它不运行测试，因为测试要构建镜像。GitHub Actions 在每次 push 和 pull request 时运行 `npm ci`、类型检查和测试，放在一个单独的 workflow 里（`.github/workflows/browser.yml`），所以浏览器那边的运行慢了或失败了，也不会遮住机器人的结果。
+pre-commit hook 用这里安装的依赖，对暂存的文件运行这里的类型检查；CI 在一个单独的 workflow 里运行 `npm ci`、类型检查和测试（`docs/hooks-and-ci.md`）。
 
 ## 运行
 

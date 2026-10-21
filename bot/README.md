@@ -36,24 +36,11 @@ node --test bot/test/miner-day.test.ts # one file
 `npm test` gives each test 60 seconds. A test that runs out fails, and the run still ends even when it leaves a
 server or timer open (`--test-force-exit`).
 
-In a fresh clone, turn on the hooks in `.githooks/` once with `git config core.hooksPath .githooks`. The pre-commit
-hook refuses a commit whose staged files fail the typecheck or the browser service's (`browser/README.md`), or leave a
-doc pair out of step (`docs/agents/doc-pairs.md`), and in the main checkout a commit on any branch but `main`. The
-commit-msg hook refuses a message with a GitHub closing keyword before an issue reference, such as `Closes #88`:
-GitHub would close the issue as soon as the commit reaches `main`, but a ticket closes by hand once it has landed
-(**Close** in `docs/agents/issue-tracker.md`). Write the reference as `(#88)` instead. GitHub Actions runs the
-typecheck, the doc-pair check and the tests on every push and pull request (`.github/workflows/bot.yml`), and the
-browser service's typecheck and tests in a workflow of their own (`.github/workflows/browser.yml`). The pre-push hook
-refuses a push that moves `main` to a commit unless GitHub Actions has run on it and every run has passed: GitHub Free
-has no branch protection for a private repo, so nothing on the server would refuse it. The hook asks GitHub through
-`gh`, so `gh` must be signed in.
+The hooks and CI that check each commit and push, and how to turn the hooks on in a fresh clone, are in
+`docs/hooks-and-ci.md`.
 
 The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in-process, with real Pi and our extension
-as local processes, against fake Discord, Product Hunt and model provider servers and a clock the test moves. The
-doc-pair check's tests (`scripts/doc-pairs.test.ts`) run the check itself on throwaway pairs. The pre-push hook's
-tests (`scripts/pre-push.test.ts`) push from a throwaway repo, with a fake `gh` that needs `jq`. The commit-msg hook's
-tests (`scripts/commit-msg.test.ts`) commit in one, and so do the pre-commit hook's tests of the browser service's
-typecheck (`scripts/pre-commit.test.ts`).
+as local processes, against fake Discord, Product Hunt and model provider servers and a clock the test moves.
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.

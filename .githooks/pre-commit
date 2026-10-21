@@ -1,5 +1,5 @@
 #!/bin/sh
-# Runs before each commit once `git config core.hooksPath .githooks` turns it on (bot/README.md, Test). It keeps the
+# Runs before each commit once `git config core.hooksPath .githooks` turns it on (docs/hooks-and-ci.md). It keeps the
 # main checkout on main, as CLAUDE.md asks, and refuses a commit whose staged files fail the bot's typecheck or the
 # browser service's, or leave a doc pair out of step (docs/agents/doc-pairs.md). The browser service's tests build an
 # image, so they are left to CI (.github/workflows/browser.yml).
@@ -25,28 +25,20 @@ EOF
   exit 1
 fi
 
-# The packages, as paths from the top: the root, for the bot and the scripts, and browser/, for the browser service
-# (browser/README.md, Test). Each one's typecheck runs with that package's own dependencies.
+# The packages, as paths from the top: the root, for the bot and the scripts, and browser/, for the browser service.
+# Each one's typecheck runs with that package's own dependencies.
 set -- '' /browser
-common=$(git rev-parse --path-format=absolute --git-common-dir)
 missing=
-links=
 for package in "$@"; do
   [ ! -x "$PWD$package/node_modules/.bin/tsc" ] || continue
   missing="$missing
   $PWD$package"
-  links="$links
-  ln -s $(dirname "$common")$package/node_modules $PWD$package/node_modules"
 done
-# One refusal names every package missing them, as in a new worktree.
+# One refusal names every package missing them. The post-checkout hook installs them in a worktree as it is made.
 if [ -n "$missing" ]; then
   echo "pre-commit: the typecheck can't run in a package without its dependencies, and none are installed" \
     "in:$missing" >&2
   echo "Run npm ci in each, then commit again." >&2
-  if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$common" ]; then
-    echo "In a worktree, a package whose package-lock.json matches the main checkout's can link that checkout's" \
-      "instead:$links" >&2
-  fi
   exit 1
 fi
 # The checks read a copy of what is staged, so unstaged work neither refuses a commit nor hides a broken one. Each

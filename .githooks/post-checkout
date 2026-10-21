@@ -1,0 +1,23 @@
+#!/bin/sh
+# Runs after each checkout once `git config core.hooksPath .githooks` turns it on (docs/hooks-and-ci.md). When
+# `git worktree add` makes a new worktree, it installs each package's dependencies there with npm ci, from npm's cache
+# where it can, so the pre-commit hook's typechecks can run. It installs rather than linking the main checkout's
+# node_modules: npm ci or npm uninstall through such a link changes the main checkout's own.
+set -eu
+
+# git worktree add runs this at the top of the new worktree, with an all-zero previous HEAD. So does a clone's first
+# checkout, but a clone's git dir is its common one.
+case $1 in
+  *[!0]*) exit 0 ;;
+esac
+[ "$(git rev-parse --path-format=absolute --git-dir)" != "$(git rev-parse --path-format=absolute --git-common-dir)" ] ||
+  exit 0
+# The packages are the pre-commit hook's, as paths from the top.
+for package in '' /browser; do
+  # A commit from before the package existed has nothing of it to install.
+  [ -f "$PWD$package/package-lock.json" ] || continue
+  # npm's error, if any, is printed above; the worktree is made either way.
+  if ! (cd "$PWD$package" && timeout 300 npm ci --prefer-offline --no-audit --no-fund --loglevel=error) >&2; then
+    echo "post-checkout: npm ci failed in $PWD$package, as above. Run it there again once that is fixed." >&2
+  fi
+done

@@ -1,0 +1,46 @@
+# Hooks and CI
+
+English | [中文](hooks-and-ci.zh.md)
+
+What checks each commit and push, for both packages: the root's (the bot, our Pi extension and the scripts) and
+`browser/`'s (the browser service). In a fresh clone, turn on the hooks in `.githooks/` once with
+`git config core.hooksPath .githooks`.
+
+## Hooks
+
+- **pre-commit** refuses a commit on any branch but `main` in the main checkout. Then it checks a copy of what is
+  staged: each package's typecheck, run with that package's own dependencies, then the doc-pair check
+  (`docs/agents/doc-pairs.md`). It refuses the commit when one fails. Without a package's dependencies, it refuses
+  every commit and says how to install them. It runs no tests: the root's take about a minute, and the browser
+  service's build an image.
+- **post-checkout** runs `npm ci` for each package in a worktree that `git worktree add` has just made, from npm's
+  cache where it can, so the typechecks have their dependencies. It installs them rather than linking the main
+  checkout's `node_modules`: `npm ci` or `npm uninstall` through such a link would change the main checkout's own.
+  When an install fails, it says so, and the worktree is made anyway.
+- **commit-msg** refuses a message with a GitHub closing keyword before an issue reference, such as `Closes #88`:
+  GitHub would close the issue as soon as the commit reaches `main`, but a ticket closes by hand once it has landed
+  (**Close** in `docs/agents/issue-tracker.md`). Write the reference as `(#88)` instead.
+- **pre-push** refuses a push that moves `main` to a commit unless GitHub Actions has run on it and every run has
+  passed: GitHub Free has no branch protection for a private repo, so nothing on the server would refuse it. The hook
+  asks GitHub through `gh`, so `gh` must be signed in.
+
+## CI
+
+GitHub Actions runs two workflows on every push and pull request, so a slow or failing browser run doesn't hide the
+bot's result:
+
+- **Bot** (`.github/workflows/bot.yml`): the root's typecheck, the doc-pair check and the root's tests.
+- **Browser** (`.github/workflows/browser.yml`): `npm ci`, the typecheck and the tests in `browser/`. The tests build
+  the image and start it through Docker Compose. The runner is amd64, so they test the pinned digest's amd64 image,
+  where the VM runs its arm64 one.
+
+## Tests
+
+The root's `npm test` runs the tests of the hooks and checks:
+
+- `scripts/pre-commit.test.ts`, `scripts/post-checkout.test.ts` and `scripts/commit-msg.test.ts` commit, or add a
+  worktree, in a throwaway repo. `scripts/pre-push.test.ts` pushes from one, with a fake `gh` that needs `jq`.
+- `scripts/doc-pairs.test.ts` runs the doc-pair check on throwaway pairs.
+- `scripts/bounded-waits.test.ts` fails on a `spawnSync`, `execSync` or `execFileSync` call whose own arguments
+  name no `timeout`: a synchronous child process blocks the event loop, so no other timer can end it (**Every wait
+  has a bound** in `CODING_STANDARDS.md`).
