@@ -1,10 +1,11 @@
 // The live store (ADR 0007): one SQLite file the bot alone writes, the single source of truth for live state.
 // It holds the Miner dates the bot has taken on, each date's Launches, judgments by Post id, Day's lines by date, the
-// day posts on Discord, the Retries a capped date waits on, run and model-request records with each request's notional
-// dollars, the index of raw inputs kept outside git, the files waiting to be written to the Personal database, and the
-// times its history diverged.
+// day posts on Discord, the Retries a capped date waits on, Products by root domain with their Launches, Dossiers
+// and posts, run and model-request records with each request's notional dollars, the index of raw inputs kept
+// outside git, the files waiting to be written to the Personal database, and the times its history diverged.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
+import type { Dossier } from './dossier/dossier.ts';
 import type { DayLine } from './miner/day-line.ts';
 import type { JudgmentRecord } from './miner/judging.ts';
 import type { RunCap } from './pi-runs.ts';
@@ -38,8 +39,12 @@ export interface Launch {
   description: string;
   slug: string;
   topics: string[];
+  /** Product Hunt's redirect to the Product's website. */
+  website: string;
   /** The earliest comment by one of the Launch's makers, matched by user id; none if no maker commented. */
   makerComment: string | null;
+  /** Every comment by one of its makers, that one first, with its Product Hunt id. */
+  makerComments: { id: string; text: string }[];
 }
 
 export interface Judgment extends JudgmentRecord {
@@ -100,6 +105,29 @@ export interface MinerRetry {
   ranAt: string | null;
 }
 
+/** A Product, keyed by the root domain of its site, with its one post in the Products forum. */
+export interface Product {
+  id: number;
+  rootDomain: string;
+  /** The post's title, from the Product's first Dossier Launch. */
+  title: string;
+  createdAt: string;
+  /** The post was about to be created; marked before it is sent. */
+  postIntended: boolean;
+  threadId: string | null;
+}
+
+/** One version of a Product's Dossier, with the run that wrote it. */
+export interface StoredDossier {
+  productId: number;
+  version: number;
+  dossier: Dossier;
+  runId: string;
+  provider: string;
+  model: string | null;
+  writtenAt: string;
+}
+
 export interface ModelRequest {
   id: number;
   runId: string;
@@ -137,6 +165,8 @@ export interface PersonalDatabaseWrite {
   content: string;
   /** The commit's message. */
   message: string;
+  /** Written only if the file isn't in the repo yet, and never over one that is. */
+  createOnly?: boolean;
   queuedAt: string;
 }
 
@@ -231,6 +261,29 @@ CREATE TABLE IF NOT EXISTS miner_retries (
   ran_at TEXT
 );
 CREATE INDEX IF NOT EXISTS miner_retries_by_date ON miner_retries(date, id);
+CREATE TABLE IF NOT EXISTS products (
+  id INTEGER PRIMARY KEY,
+  root_domain TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  post_intended INTEGER NOT NULL DEFAULT 0,
+  thread_id TEXT
+);
+CREATE TABLE IF NOT EXISTS product_launches (
+  post_id TEXT PRIMARY KEY REFERENCES launches(post_id),
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  added_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS dossiers (
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  version INTEGER NOT NULL,
+  dossier TEXT NOT NULL,
+  run_id TEXT NOT NULL REFERENCES runs(id),
+  provider TEXT NOT NULL,
+  model TEXT,
+  written_at TEXT NOT NULL,
+  PRIMARY KEY (product_id, version)
+);
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL,
@@ -268,6 +321,7 @@ CREATE TABLE IF NOT EXISTS personal_database_writes (
   path TEXT PRIMARY KEY,
   content TEXT NOT NULL,
   message TEXT NOT NULL,
+  create_only INTEGER NOT NULL DEFAULT 0,
   queued_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS personal_database_divergences (
@@ -297,6 +351,15 @@ const minerDayOf = (row: Row): MinerDay => ({
   lateNotedAt: textOrNull(row.late_noted_at),
   droppedAt: textOrNull(row.dropped_at),
   dropNotedAt: textOrNull(row.drop_noted_at),
+});
+
+const productOf = (row: Row): Product => ({
+  id: Number(row.id),
+  rootDomain: String(row.root_domain),
+  title: String(row.title),
+  createdAt: String(row.created_at),
+  postIntended: Boolean(row.post_intended),
+  threadId: textOrNull(row.thread_id),
 });
 
 const minerRetryOf = (row: Row): MinerRetry => ({
@@ -575,6 +638,82 @@ export class Store {
     this.#db.prepare('UPDATE miner_retries SET ran_at = ? WHERE id = ?').run(at, id);
   }
 
+  // ---------- Products, their Launches and Dossiers ----------
+
+  productByDomain(rootDomain: string): Product | undefined {
+    const row = this.#db.prepare('SELECT * FROM products WHERE root_domain = ?').get(rootDomain);
+    return row ? productOf(row) : undefined;
+  }
+
+  /** The Product a Launch belongs to, once the Launch's site was read for a Dossier. */
+  productOfLaunch(postId: string): Product | undefined {
+    const row = this.#db
+      .prepare('SELECT products.* FROM products JOIN product_launches ON product_launches.product_id = products.id WHERE post_id = ?')
+      .get(postId);
+    return row ? productOf(row) : undefined;
+  }
+
+  product(id: number): Product | undefined {
+    const row = this.#db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+    return row ? productOf(row) : undefined;
+  }
+
+  /**
+   * Keeps a new Product with its first Dossier, the Launch it was written for, and the files it brings to the
+   * Personal database, all at once. Returns the Product's id.
+   */
+  saveNewProduct(p: {
+    postId: string;
+    title: string;
+    dossier: Omit<StoredDossier, 'productId' | 'version'>;
+    files: Omit<PersonalDatabaseWrite, 'queuedAt'>[];
+  }): number {
+    const at = p.dossier.writtenAt;
+    return this.#transaction(() => {
+      const created = this.#db
+        .prepare('INSERT INTO products (root_domain, title, created_at) VALUES (?, ?, ?)')
+        .run(p.dossier.dossier.rootDomain, p.title, at);
+      const id = Number(created.lastInsertRowid);
+      this.#db.prepare('INSERT INTO product_launches (post_id, product_id, added_at) VALUES (?, ?, ?)').run(p.postId, id, at);
+      const d = p.dossier;
+      this.#db
+        .prepare('INSERT INTO dossiers (product_id, version, dossier, run_id, provider, model, written_at) VALUES (?, 1, ?, ?, ?, ?, ?)')
+        .run(id, JSON.stringify(d.dossier), d.runId, d.provider, d.model, at);
+      for (const file of p.files) this.queuePersonalDatabaseWrite({ ...file, queuedAt: at });
+      return id;
+    });
+  }
+
+  /** Files a Launch under a Product that already has a Dossier, as a re-Launch. */
+  saveProductLaunch(postId: string, productId: number, at: string): void {
+    this.#db.prepare('INSERT INTO product_launches (post_id, product_id, added_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING').run(postId, productId, at);
+  }
+
+  /** The Product's latest Dossier. */
+  latestDossier(productId: number): StoredDossier | undefined {
+    const row = this.#db.prepare('SELECT * FROM dossiers WHERE product_id = ? ORDER BY version DESC LIMIT 1').get(productId);
+    if (!row) return undefined;
+    return {
+      productId,
+      version: Number(row.version),
+      dossier: JSON.parse(String(row.dossier)) as Dossier,
+      runId: String(row.run_id),
+      provider: String(row.provider),
+      model: textOrNull(row.model),
+      writtenAt: String(row.written_at),
+    };
+  }
+
+  /** Marks the Product's post as about to be created. */
+  saveProductPostIntended(id: number): void {
+    this.#db.prepare('UPDATE products SET post_intended = 1 WHERE id = ?').run(id);
+  }
+
+  /** Keeps the post's id, which is also the id of its first message, the Dossier. */
+  saveProductPost(id: number, threadId: string): void {
+    this.#db.prepare('UPDATE products SET thread_id = ? WHERE id = ?').run(threadId, id);
+  }
+
   // ---------- Runs and model requests ----------
 
   startRun(run: RunRecord): void {
@@ -683,10 +822,11 @@ export class Store {
   queuePersonalDatabaseWrite(write: PersonalDatabaseWrite): void {
     this.#db
       .prepare(
-        `INSERT INTO personal_database_writes (path, content, message, queued_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT (path) DO UPDATE SET content = excluded.content, message = excluded.message, queued_at = excluded.queued_at`,
+        `INSERT INTO personal_database_writes (path, content, message, create_only, queued_at) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (path) DO UPDATE SET content = excluded.content, message = excluded.message,
+           create_only = excluded.create_only, queued_at = excluded.queued_at`,
       )
-      .run(write.path, write.content, write.message, write.queuedAt);
+      .run(write.path, write.content, write.message, write.createOnly ? 1 : 0, write.queuedAt);
   }
 
   /** The files waiting, oldest first. */
@@ -694,7 +834,13 @@ export class Store {
     return this.#db
       .prepare('SELECT * FROM personal_database_writes ORDER BY queued_at, path')
       .all()
-      .map((row) => ({ path: String(row.path), content: String(row.content), message: String(row.message), queuedAt: String(row.queued_at) }));
+      .map((row) => ({
+        path: String(row.path),
+        content: String(row.content),
+        message: String(row.message),
+        createOnly: Boolean(row.create_only),
+        queuedAt: String(row.queued_at),
+      }));
   }
 
   /** Marks a file written, unless a newer version of it was queued meanwhile. */

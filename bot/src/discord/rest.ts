@@ -55,10 +55,17 @@ export class DiscordRest {
     return body.url;
   }
 
-  /** Opens a post in a forum channel; its first message has the post's own id. */
-  async createForumPost(forumId: string, title: string, message: MessagePayload): Promise<{ threadId: string }> {
-    const body = (await this.#request('POST', `/channels/${forumId}/threads`, { name: title, message })) as { id: string };
+  /** Opens a post in a forum channel, with the forum tags given by id; its first message has the post's own id. */
+  async createForumPost(forumId: string, title: string, message: MessagePayload, tagIds: string[] = []): Promise<{ threadId: string }> {
+    const post = { name: title, message, ...(tagIds.length > 0 ? { applied_tags: tagIds } : {}) };
+    const body = (await this.#request('POST', `/channels/${forumId}/threads`, post)) as { id: string };
     return { threadId: body.id };
+  }
+
+  /** The tags a forum offers, as the person set them up. */
+  async forumTags(forumId: string): Promise<{ id: string; name: string }[]> {
+    const forum = (await this.#request('GET', `/channels/${forumId}`)) as { available_tags?: { id: string; name: string }[] };
+    return (forum.available_tags ?? []).map(({ id, name }) => ({ id, name }));
   }
 
   async sendMessage(channelId: string, message: MessagePayload | PlainMessage): Promise<{ messageId: string }> {

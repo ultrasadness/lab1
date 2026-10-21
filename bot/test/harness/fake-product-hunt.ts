@@ -28,6 +28,9 @@ export interface FixtureComment {
   userId: string;
 }
 
+/** The website redirect Product Hunt gives a Launch, which the fixtures leave out. */
+export const websiteOf = (postId: string) => `https://www.producthunt.com/r/p/${postId}`;
+
 export function fixtureDay(date: string): FixturePost[] {
   return JSON.parse(readFileSync(new URL(`../fixtures/producthunt/${date}.json`, import.meta.url), 'utf8')) as FixturePost[];
 }
@@ -153,6 +156,7 @@ export class FakeProductHunt {
           posts: {
             pageInfo: { hasNextPage: end < matching.length, endCursor: Buffer.from(String(end)).toString('base64') },
             nodes: page.map((s) => ({
+              website: websiteOf(s.post.id),
               ...s.post,
               featuredAt: s.featured ? s.at : null,
               createdAt: s.at,

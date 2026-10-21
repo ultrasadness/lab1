@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { MINER_DAYS_FORUM, TOKENS, startWorld } from './harness/world.ts';
 import { fixtureDay, type FixturePost } from './harness/fake-product-hunt.ts';
-import { opensRun, said } from './harness/fake-model.ts';
+import { opensJudgingRun, said } from './harness/fake-model.ts';
 
 const ids = (posts: FixturePost[]) => posts.map((p) => p.id);
 
@@ -55,7 +55,7 @@ test('runs judge at most 8 Launches each, in Product Hunt order', async (t) => {
   await world.advanceTo('2026-10-12T08:00:00Z');
 
   assert.deepEqual(
-    world.model.runs.map((r) => r.postIds),
+    world.model.judgingRuns.map((r) => r.postIds),
     [ids(day.slice(0, 8)), ids(day.slice(8, 16)), ids(day.slice(16))],
   );
 });
@@ -77,12 +77,12 @@ test('nothing is posted until every Launch is judged, and a re-run judges only t
 
   // The model judges them this time. The bot restarts, as after an outage, and picks the date up.
   world.model.judgment = standIn;
-  const runsBefore = world.model.runs.length;
+  const runsBefore = world.model.judgingRuns.length;
   world.clock.advanceTo('2026-10-12T08:30:00Z');
   await world.restart();
 
   assert.deepEqual(
-    world.model.runs.slice(runsBefore).map((r) => r.postIds),
+    world.model.judgingRuns.slice(runsBefore).map((r) => r.postIds),
     [[...unjudged]],
     'only the three Launches without a judgment were judged again',
   );
@@ -134,7 +134,7 @@ test('a comment with a character code that names no character is still read, and
   await world.advanceTo('2026-10-12T08:00:00Z');
 
   assert.equal(world.discord.forumPosts(MINER_DAYS_FORUM)[0]?.title, 'Mon Oct 12 · 4 Dossiers · line 7');
-  const sent = world.model.requests.filter(opensRun).map((r) => said(r, 'user')).join('\n');
+  const sent = world.model.requests.filter(opensJudgingRun).map((r) => said(r, 'user')).join('\n');
   assert.match(sent, /3rd maker here!/);
   assert.match(sent, /Beyond Unicode: � �/, 'as a browser shows it: the replacement character');
 });
@@ -152,7 +152,7 @@ test('Product Hunt text reaches the model only inside data fences, and no Launch
 
   await world.advanceTo('2026-10-12T08:00:00Z');
 
-  const asked = world.model.requests.filter(opensRun);
+  const asked = world.model.requests.filter(opensJudgingRun);
   assert.equal(asked.length, 3);
   for (const request of asked) {
     const { outside, inside } = fenced(said(request, 'user'));
@@ -172,7 +172,7 @@ test('a Launch is judged from its name, tagline, topics, description and Maker c
 
   await world.advanceTo('2026-10-12T08:00:00Z');
 
-  const asked = world.model.requests.filter(opensRun);
+  const asked = world.model.requests.filter(opensJudgingRun);
   assert.equal(asked.length, 3);
   const launches = new Map(asked.flatMap((r) => [...launchesAsked(said(r, 'user'))]));
   assert.deepEqual([...launches.keys()].sort(), ids(day).sort(), 'every Launch is asked about');
@@ -224,7 +224,7 @@ test('each judgment and each run records its role, provider, model and exact tok
     // One reply judges a whole run's Launches, so a judgment names that request and its exact tokens.
     assert.deepEqual(j.requestTokens, { input: 1234, cached: 200, output: 56 });
   }
-  const runs = world.logs.filter((l) => l.event === 'run.finished');
+  const runs = world.logs.filter((l) => l.event === 'run.finished' && l.kind === 'miner-judging');
   assert.equal(runs.length, 3);
   for (const run of runs) {
     const ofRun = judged.filter((j) => j.runId === run.runId);
@@ -237,7 +237,9 @@ test('each judgment and each run records its role, provider, model and exact tok
     assert.equal(run.requests, 2);
     assert.deepEqual(run.tokens, { input: 2468, cached: 400, output: 112 });
   }
-  for (const request of world.model.requests) {
+  const judging = world.model.requests.filter((r) => r.tools.includes('record_judgment'));
+  assert.equal(judging.length, 6);
+  for (const request of judging) {
     assert.equal(request.model, 'miner@openrouter');
     assert.equal(request.authorization, `Bearer ${TOKENS.minerKey}`);
     assert.deepEqual(request.tools, ['record_judgment'], 'a Miner run is offered its record tool and nothing else');
@@ -280,7 +282,7 @@ test('a judgment is kept under the reply that held it, even when the provider en
   );
   const judged = world.logs.filter((l) => l.event === 'miner.judged');
   assert.equal(judged.length, 19);
-  for (const run of world.logs.filter((l) => l.event === 'run.finished')) {
+  for (const run of world.logs.filter((l) => l.event === 'run.finished' && l.kind === 'miner-judging')) {
     const ofRun = judged.filter((j) => j.runId === run.runId);
     assert.equal(new Set(ofRun.map((j) => j.requestId)).size, 1);
     assert.deepEqual(ofRun[0]?.requestTokens, { input: 1234, cached: 200, output: 56 });

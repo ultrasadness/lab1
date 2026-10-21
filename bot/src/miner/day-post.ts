@@ -1,9 +1,10 @@
-// The day post (#29): one silent post per Miner day in the Miner days forum. A summary comes first, then one
-// message per band, each Launch on one line with its own Correct button. Every message stays within Discord's
-// limits; a band longer than 12 lines splits into parts. A date whose judging run hit a cap even after its automatic
-// retry opens its post early (#45): a waiting summary, then a notice with Retry for each capped run. Once the date is
-// judged, the summary and title are rewritten in place and the bands follow the notices. If the date is dropped
-// instead, the post says so and its Retry buttons are turned off.
+// The day post (#29): one silent post per Miner day in the Miner days forum. A summary comes first, linking each
+// Dossier's Product post, then one message per band, each Launch on one line with its own Correct button, a Dossier's
+// ending in its Product post. Every message stays within Discord's limits; a band longer than 12 lines splits into
+// parts. A date whose judging run hit a cap even after its automatic retry opens its post early (#45): a waiting
+// summary, then a notice with Retry for each capped run. Once the date is judged, the summary and title are rewritten
+// in place and the bands follow the notices. If the date is dropped instead, the post says so and its Retry buttons
+// are turned off.
 import {
   Accent,
   button,
@@ -56,9 +57,23 @@ const ordinal = (n: number) => {
   return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 };
 
-export function renderDayPost(input: { date: string; line: DayLine; launches: DayPostLaunch[] }): RenderedDayPost {
-  const { date, line, launches } = input;
+export function renderDayPost(input: {
+  date: string;
+  line: DayLine;
+  launches: DayPostLaunch[];
+  /** The Product post holding each Dossier Launch's Dossier, by Post id. */
+  productPosts: ReadonlyMap<string, string>;
+}): RenderedDayPost {
+  const { date, line, launches, productPosts } = input;
   const dossiers = launches.filter((l) => outcomeOf(l, line.line) === 'dossier').length;
+  const dossierPosts = [
+    ...new Set(
+      launches
+        .filter((l) => outcomeOf(l, line.line) === 'dossier')
+        .sort((a, b) => b.fit - a.fit || a.rank - b.rank)
+        .flatMap((l) => productPosts.get(l.postId) ?? []),
+    ),
+  ];
 
   const title = `${dayLabel(date)} · ${count(dossiers, 'Dossier')} · line ${line.line}`;
   const summary = silentMessage([
@@ -67,6 +82,7 @@ export function renderDayPost(input: { date: string; line: DayLine; launches: Da
         [
           `## Miner · ${dayLabel(date)}`,
           `**${count(dossiers, 'Dossier')}** · ${count(launches.length - dossiers, 'Skip')} · ${count(line.featuredCount, 'Featured Launch', 'Featured Launches')} · Day's line **${line.line}**`,
+          ...(dossierPosts.length > 0 ? [`**Dossiers:** ${dossierPosts.map((id) => `<#${id}>`).join(' · ')}`] : []),
           `-# Line: ${whyTheLine(line)}`,
           `-# [Data sourced from Product Hunt](${leaderboardUrl(date)})`,
         ].join('\n'),
@@ -84,7 +100,7 @@ export function renderDayPost(input: { date: string; line: DayLine; launches: Da
   for (const band of BANDS) {
     const members = (byBand.get(band) ?? []).sort((a, b) => b.fit - a.fit || a.rank - b.rank);
     if (members.length === 0) continue;
-    const lines = members.map((l) => section(lineText(l, line.line), button(correctId(l.postId), 'Correct')));
+    const lines = members.map((l) => section(lineText(l, line.line, productPosts.get(l.postId)), button(correctId(l.postId), 'Correct')));
     messages.push(...bandMessages(heading(band, line.line), band === 'dossiers' ? Accent.dossiers : Accent.progress, lines));
   }
   return { title, messages };
@@ -187,12 +203,12 @@ function heading(band: Band, line: number): string {
   }
 }
 
-function lineText(l: DayPostLaunch, line: number): string {
+function lineText(l: DayPostLaunch, line: number, productPost: string | undefined): string {
   const name = `**[${escapeMarkdown(l.name)}](${launchUrl(l.slug)})**`;
   const reason = escapeMarkdown(l.reason);
   switch (outcomeOf(l, line)) {
     case 'dossier':
-      return `${name} · Dossier · fit ${l.fit} · ${reason}`;
+      return `${name} · Dossier · fit ${l.fit} · ${reason}${productPost ? ` → <#${productPost}>` : ''}`;
     case 'skip':
       return `${name} · Skip · fit ${l.fit} · ${reason}`;
     case 'not-a-product':

@@ -3,12 +3,12 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-/** The model roles this slice brings up. Each maps to `role@provider` names in new-api. */
-export type Role = 'miner';
-export const ROLES: readonly Role[] = ['miner'];
+/** The model roles brought up so far. Each maps to `role@provider` names in new-api. */
+export const ROLES = ['miner', 'registration'] as const;
+export type Role = (typeof ROLES)[number];
 
 /** Every kind of Pi run the Assistant makes. Each one is capped. */
-export const RUN_KINDS = ['miner-judging', 'walkthrough-preparation', 'fill', 'mail', 'question'] as const;
+export const RUN_KINDS = ['miner-judging', 'dossier', 'walkthrough-preparation', 'fill', 'mail', 'question'] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
 
 /** What one run may use before it is aborted: wall-clock time, turns, and tokens as Pi reports them. */
@@ -47,19 +47,26 @@ export interface Config {
     /** The only Discord user the bot acts for. */
     personUserId: string;
     minerDaysForumId: string;
+    /** The forum holding one post per Product, its Dossier first; the person makes its tags (#12). */
+    productsForumId: string;
     /** The plain text channel for operational lines, every one silent. */
     statusChannelId: string;
     /** The text channel holding everything that waits on the person, each card mentioning them. */
     needsYouChannelId: string;
   };
   productHunt: { apiUrl: string };
+  /** The browser service's Unix socket, which only the bot's user can reach (ADR 0006). */
+  browser: { socketPath: string };
   /** new-api's OpenAI-compatible base URL, reached only by the forwarder. */
   gateway: { baseUrl: string };
   /** Each role's providers, in priority order. For now the first one serves every request. */
   roles: Record<Role, { providers: Provider[] }>;
   /** The list price of each model a role's provider serves, by model, which notional dollars are counted at. */
   prices: Record<string, ListPrice>;
-  /** What each role may spend, in notional dollars: the Miner per Miner date (ADR 0011). */
+  /**
+   * What each role may spend, in notional dollars (ADR 0011): the Miner per Miner date, and registration per Pacific
+   * day. Only the Miner's holds runs yet; the registration budget does from #69.
+   */
   budgets: Record<Role, number>;
   /** Where the forwarder listens for the Pi container, and the URL Pi uses to reach it. */
   forwarder: { host: string; port: number; urlForPi?: string };
@@ -97,6 +104,7 @@ export function checkConfig(config: Config): string[] {
   const snowflake = /^\d{17,20}$/;
   if (!snowflake.test(config.discord?.personUserId ?? '')) problems.push("discord.personUserId must be the person's Discord user id");
   if (!snowflake.test(config.discord?.minerDaysForumId ?? '')) problems.push('discord.minerDaysForumId must be the Miner days forum id');
+  if (!snowflake.test(config.discord?.productsForumId ?? '')) problems.push('discord.productsForumId must be the Products forum id');
   if (!snowflake.test(config.discord?.statusChannelId ?? '')) problems.push('discord.statusChannelId must be the #status channel id');
   if (!snowflake.test(config.discord?.needsYouChannelId ?? '')) problems.push('discord.needsYouChannelId must be the #needs-you channel id');
   for (const role of ROLES) {
@@ -117,6 +125,7 @@ export function checkConfig(config: Config): string[] {
   if (!(Number.isInteger(config.miner?.catchUpDates) && config.miner.catchUpDates > 0)) problems.push('miner.catchUpDates must be a whole number above 0');
   if (!(config.miner?.retryMinutes > 0)) problems.push('miner.retryMinutes must be above 0');
   if (!/^\d{2}:\d{2}$/.test(config.miner?.lateAt ?? '')) problems.push('miner.lateAt must look like 06:00');
+  if (!config.browser?.socketPath?.startsWith('/')) problems.push("browser.socketPath must be the browser service's socket, as an absolute path");
   if (!(config.personalDatabase?.ssh?.length > 0)) problems.push('personalDatabase.ssh must name the ssh command');
   if (!(config.personalDatabase?.retryMinutes > 0)) problems.push('personalDatabase.retryMinutes must be above 0');
   if (!(config.pi?.command?.length > 0)) problems.push('pi.command must name the command that starts a run');

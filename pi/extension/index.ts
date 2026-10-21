@@ -3,9 +3,10 @@
 // - it offers the model only the record tool of its run kind, and blocks any other tool call;
 // - its record tool is schema-checked and writes each record to the bot as it is made.
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { dossierRun } from './dossier.ts';
 import { minerJudging, type RunKind } from './miner.ts';
 
-const RUN_KINDS: Record<string, RunKind> = { 'miner-judging': minerJudging };
+const RUN_KINDS: Record<string, RunKind> = { 'miner-judging': minerJudging, dossier: dossierRun };
 
 function required(name: string): string {
   const value = process.env[name];

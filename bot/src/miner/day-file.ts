@@ -2,8 +2,8 @@
 // day is judged, and rewritten when a Correction changes the day. It holds the Day's line, then one line per Featured
 // Launch in Product Hunt order, so a line keeps its place when a Correction rewrites it. Like every date the bot writes
 // there, the day's carries its year and zone.
-import { escapeMarkdown } from '../discord/components.ts';
 import { fullDate, fullTime, leaderboardUrl } from '../pacific.ts';
+import { plain } from '../personal-database.ts';
 import type { StoredDayLine } from '../store.ts';
 import { count, launchUrl, whyTheLine, type DayPostLaunch } from './day-post.ts';
 import { outcomeOf } from './day-line.ts';
@@ -18,9 +18,6 @@ export interface DayFile {
   content: string;
   message: string;
 }
-
-// Outside text shown as one plain line, as on Discord. GitHub also reads $…$ as math.
-const plain = (value: string) => escapeMarkdown(value).replace(/\$/g, '\\$');
 
 /** The day's file, from its stored line and its Launches in Product Hunt order. */
 export function renderDayFile(input: { date: string; line: StoredDayLine; launches: DayFileLaunch[] }): DayFile {

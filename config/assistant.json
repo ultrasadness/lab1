@@ -9,23 +9,29 @@
     "apiBaseUrl": "https://discord.com/api/v10",
     "personUserId": "set at go-live",
     "minerDaysForumId": "set at go-live",
+    "productsForumId": "set at go-live",
     "statusChannelId": "set at go-live",
     "needsYouChannelId": "set at go-live"
   },
   "productHunt": {
     "apiUrl": "https://api.producthunt.com/v2/api/graphql"
   },
+  "browser": {
+    "socketPath": "set at go-live"
+  },
   "gateway": {
     "baseUrl": "http://127.0.0.1:3000/v1"
   },
   "roles": {
-    "miner": { "providers": [{ "name": "openrouter", "model": "set at go-live" }] }
+    "miner": { "providers": [{ "name": "openrouter", "model": "set at go-live" }] },
+    "registration": { "providers": [{ "name": "openrouter", "model": "set at go-live" }] }
   },
   "prices": {
     "openai/gpt-6.1-sol": { "input": 2.0, "cached": 0.1, "output": 10.0 }
   },
   "budgets": {
-    "miner": 6
+    "miner": 6,
+    "registration": 20
   },
   "forwarder": {
     "host": "172.17.0.1",
@@ -49,6 +55,7 @@
   },
   "runCaps": {
     "miner-judging": { "wallClockMinutes": 10, "turns": 20, "tokens": 200000 },
+    "dossier": { "wallClockMinutes": 10, "turns": 10, "tokens": 300000 },
     "walkthrough-preparation": { "wallClockMinutes": 20, "turns": 40, "tokens": 1000000 },
     "fill": { "wallClockMinutes": 3, "turns": 30, "tokens": 300000 },
     "mail": { "wallClockMinutes": 5, "turns": 10, "tokens": 100000 },

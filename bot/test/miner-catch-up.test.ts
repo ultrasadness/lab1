@@ -9,14 +9,29 @@ import { fixtureDay } from './harness/fake-product-hunt.ts';
 const DATES = ['2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14'];
 const TITLES: Record<string, string> = {
   '2026-10-11': 'Sun Oct 11 · 1 Dossier · line 7',
-  '2026-10-12': 'Mon Oct 12 · 4 Dossiers · line 7',
-  '2026-10-13': 'Tue Oct 13 · 3 Dossiers · line 7',
-  '2026-10-14': 'Wed Oct 14 · 6 Dossiers · line 7',
+  '2026-10-12': 'Mon Oct 12 · 1 Dossier · line 7',
+  '2026-10-13': 'Tue Oct 13 · 1 Dossier · line 7',
+  '2026-10-14': 'Wed Oct 14 · 1 Dossier · line 7',
 };
 
-/** Product Hunt features each fixture day on its own date. */
+/** Each day's best Launch, the only one these tests let reach the line. */
+const KEPT = new Set(['1273545', '1277000', '1278232', '1265035']);
+
+/**
+ * Product Hunt features each fixture day on its own date. Every Launch but the day's best is judged at most 6, so the
+ * dates these tests time each wait on one Dossier run, not one per Launch at or above the line.
+ */
 function featureEveryDay(world: World): void {
   for (const date of DATES) world.productHunt.addFeatured(fixtureDay(date), `${date}T07:01:00Z`);
+  oneDossierADay(world);
+}
+
+function oneDossierADay(world: World): void {
+  const standIn = world.model.judgment;
+  world.model.judgment = (postId) => {
+    const j = standIn(postId);
+    return j === 'omit' || KEPT.has(postId) ? j : { ...j, fit: Math.min(j.fit, 6) };
+  };
 }
 
 const titles = (world: World) => world.discord.forumPosts(MINER_DAYS_FORUM).map((p) => p.title);
@@ -24,7 +39,7 @@ const titles = (world: World) => world.discord.forumPosts(MINER_DAYS_FORUM).map(
 /** The order the bot judged and posted dates in, from its log. */
 function workOrder(world: World): string[] {
   return world.logs.flatMap((l) => {
-    if (l.event === 'run.started') return [`judge ${String(l.item)}`];
+    if (l.event === 'run.started' && l.kind === 'miner-judging') return [`judge ${String(l.item)}`];
     if (l.event === 'miner.posted') return [`post ${String(l.date)}`];
     return [];
   }).filter((step, i, all) => step !== all[i - 1]);
@@ -75,7 +90,7 @@ test('after a 4-day outage the oldest missed date is dropped, named in one silen
   assert.equal(world.discord.textMessages(STATUS).length, 1, 'the drop is named once');
 });
 
-const runsStarted = (world: World) => world.logs.filter((l) => l.event === 'run.started');
+const runsStarted = (world: World) => world.logs.filter((l) => l.event === 'run.started' && l.kind === 'miner-judging');
 const judgingRuns = (world: World) => runsStarted(world).length;
 
 /** How many judging runs each try started, by when it started. */
@@ -88,12 +103,13 @@ function runsPerTry(world: World): Record<string, number> {
 test('a date that can’t finish is tried every 30 minutes, and one silent #status line at 06:00 PT says it’s late and why', async (t) => {
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());
-  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  // Eight Launches, one judging run a try: eleven tries of failing runs are the slowest part of the suite.
+  world.productHunt.addFeatured(fixtureDay('2026-10-12').slice(0, 8), '2026-10-12T07:01:00Z');
   world.model.failing = true; // every Miner provider refuses
 
   await world.advanceTo('2026-10-12T08:00:00Z'); // 01:00 PDT
   const perTry = judgingRuns(world);
-  assert.equal(perTry, 3);
+  assert.equal(perTry, 1);
   await world.advanceTo('2026-10-12T08:29:00Z');
   assert.equal(judgingRuns(world), perTry, 'nothing before 30 minutes');
   // A whole try every 30 minutes from 01:00 to 05:30 PDT, and no line yet.
@@ -128,7 +144,7 @@ test('a date that can’t finish is tried every 30 minutes, and one silent #stat
   await world.advanceTo('2026-10-12T13:29:00Z');
   assert.deepEqual(titles(world), []);
   await world.advanceTo('2026-10-12T13:30:00Z');
-  assert.deepEqual(titles(world), [TITLES['2026-10-12']]);
+  assert.deepEqual(titles(world), ['Mon Oct 12 · 1 Dossier · line 7']);
   await world.advanceTo('2026-10-13T07:00:00Z');
   assert.equal(world.discord.textMessages(STATUS).length, 1, 'the late line is said once');
 });

@@ -36,7 +36,12 @@ export interface Container {
   accent_color?: number;
   components: (TextDisplay | Section)[];
 }
-export type Component = TextDisplay | Button | Section | Container;
+/** A row of up to 5 buttons. */
+export interface ActionRow {
+  type: 1;
+  components: Button[];
+}
+export type Component = TextDisplay | Button | Section | Container | ActionRow;
 
 export interface MessagePayload {
   flags: number;
@@ -69,6 +74,8 @@ export const button = (customId: string, label: string, style: number = ButtonSt
 export const linkButton = (label: string, url: string): Button => ({ type: 2, style: ButtonStyle.Link, url, label });
 
 export const section = (content: string, accessory: Button): Section => ({ type: 9, components: [text(content)], accessory });
+
+export const actionRow = (buttons: Button[]): ActionRow => ({ type: 1, components: buttons });
 
 export const container = (accent: number, components: (TextDisplay | Section)[]): Container => ({
   type: 17,
@@ -106,7 +113,7 @@ export function measure(components: Component[]): { text: number; components: nu
         walk(c.components);
         walk([c.accessory]);
       }
-      if (c.type === 17) walk(c.components);
+      if (c.type === 17 || c.type === 1) walk(c.components);
     }
   };
   walk(components);

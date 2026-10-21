@@ -2,10 +2,13 @@
 // Pi runs, draws the Day's line and posts the day's list as one silent post in the Miner days forum.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MINER_DAYS_FORUM, startWorld } from './harness/world.ts';
+import { MINER_DAYS_FORUM, PRODUCTS_FORUM, startWorld, type World } from './harness/world.ts';
 import { fixtureDay } from './harness/fake-product-hunt.ts';
 
 const ph = (slug: string) => `https://www.producthunt.com/posts/${slug}`;
+
+/** The Product post a Launch's Dossier went into, by the Launch's name. */
+const productPost = (world: World, name: string) => world.discord.forumPosts(PRODUCTS_FORUM).find((p) => p.title.startsWith(`${name} · `))!.id;
 
 test('a 19-Launch day is judged at 01:00 PT and posted as one silent post, by band', async (t) => {
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' }); // 00:30 PDT
@@ -20,6 +23,11 @@ test('a 19-Launch day is judged at 01:00 PT and posted as one silent post, by ba
   assert.equal(posts[0]!.title, 'Mon Oct 12 · 4 Dossiers · line 7');
 
   assert.match(summary!.text, /\*\*4 Dossiers\*\* · 15 Skips · 19 Featured Launches/);
+  const post = (name: string) => productPost(world, name);
+  assert.ok(
+    summary!.text.includes(`**Dossiers:** <#${post('Dropstone CLI')}> · <#${post('guilds.run')}> · <#${post('Codemind')}> · <#${post('Cube Forms')}>`),
+    'the summary links each Dossier’s Product post',
+  );
   assert.match(summary!.text, /the 5th best Fit \(⌈√19⌉ = 5\) is 6, so the floor of 7 sets it/);
   assert.match(summary!.text, /\[Data sourced from Product Hunt\]\(https:\/\/www\.producthunt\.com\/leaderboard\/daily\/2026\/10\/12\)/);
 
@@ -30,10 +38,10 @@ test('a 19-Launch day is judged at 01:00 PT and posted as one silent post, by ba
   assert.deepEqual(
     bands[0]!.lines.map((l) => l.text),
     [
-      `**[Dropstone CLI](${ph('dropstone-cli')})** · Dossier · fit 9 · terminal coding agent that keeps your corrections across sessions; free plan`,
-      `**[guilds.run](${ph('guilds-run')})** · Dossier · fit 8 · open-source agent teams you can inspect; self-host free`,
-      `**[Codemind](${ph('codemind-2')})** · Dossier · fit 8 · your coding agent hands off tasks over MCP; free allowance to start`,
-      `**[Cube Forms](${ph('cube-forms')})** · Dossier · fit 7 · forms agents fill over MCP or HTTP; free`,
+      `**[Dropstone CLI](${ph('dropstone-cli')})** · Dossier · fit 9 · terminal coding agent that keeps your corrections across sessions; free plan → <#${post('Dropstone CLI')}>`,
+      `**[guilds.run](${ph('guilds-run')})** · Dossier · fit 8 · open-source agent teams you can inspect; self-host free → <#${post('guilds.run')}>`,
+      `**[Codemind](${ph('codemind-2')})** · Dossier · fit 8 · your coding agent hands off tasks over MCP; free allowance to start → <#${post('Codemind')}>`,
+      `**[Cube Forms](${ph('cube-forms')})** · Dossier · fit 7 · forms agents fill over MCP or HTTP; free → <#${post('Cube Forms')}>`,
     ],
   );
   assert.deepEqual(
@@ -209,7 +217,7 @@ test('only the date’s Featured Launches are read, through the API, a page at a
     assert.equal(read.variables.postedAfter, '2026-10-14T07:00:00.000Z');
     assert.equal(read.variables.postedBefore, '2026-10-15T07:00:00.000Z');
   }
-  const asked = new Set(world.model.runs.flatMap((r) => r.postIds));
+  const asked = new Set(world.model.judgingRuns.flatMap((r) => r.postIds));
   assert.deepEqual([...asked].sort(), fixtureDay('2026-10-14').map((p) => p.id).sort());
 });
 

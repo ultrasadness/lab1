@@ -2,11 +2,13 @@
 // of tokens and the only writer of the live store, and every outside call goes through it.
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { BrowserService } from './browser.ts';
 import { inMinutes, type Clock } from './clock.ts';
 import { checkConfig, ROLES, type Config, type Role } from './config.ts';
 import { Flags, type MessagePayload } from './discord/components.ts';
 import { DiscordGateway, type Interaction } from './discord/gateway.ts';
 import { DiscordRest } from './discord/rest.ts';
+import { Dossiers } from './dossier/dossiers.ts';
 import { startForwarder } from './forwarder.ts';
 import { createLog, errorText, stdoutSink, type Log, type LogEntry, type LogSink } from './log.ts';
 import { Miner } from './miner/miner.ts';
@@ -109,7 +111,9 @@ export async function startAssistant(options: {
     clock,
     log,
   });
-  const miner = new Miner({ config, store, productHunt, pi, discord, status, personalDatabase, clock, log });
+  const browser = new BrowserService({ socketPath: config.browser.socketPath });
+  const dossiers = new Dossiers({ config, store, browser, pi, discord, personalDatabase, rawInputs, clock, log });
+  const miner = new Miner({ config, store, productHunt, pi, discord, status, personalDatabase, dossiers, clock, log });
 
   // The background lane runs one job at a time (#11).
   const lane = new Lane(log);
@@ -261,8 +265,12 @@ async function answer(
       log('discord.refused-user', { userId, customId: interaction.data?.custom_id });
       return await reply('This Assistant acts only for its person.');
     }
-    if (interaction.data?.custom_id?.startsWith('correct:')) {
+    const customId = interaction.data?.custom_id ?? '';
+    if (customId.startsWith('correct:launch:')) {
       return await reply("Correct isn't wired up yet. It arrives with Corrections to Miner judgments.");
+    }
+    if (customId.startsWith('correct:dossier:') || customId.startsWith('add-offer:dossier:')) {
+      return await reply("Correct and Add Offer aren't wired up yet. They arrive with Corrections to Dossiers.");
     }
     const retry = interaction.data?.custom_id?.match(/^retry:miner:(\d+)$/);
     if (retry) {

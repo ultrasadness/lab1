@@ -17,16 +17,16 @@ test('a Miner run past its turn cap is aborted and retried once on its own, and 
   world.productHunt.addFeatured(day, '2026-10-12T07:01:00Z');
   const first = ids(day.slice(0, 8));
   // The model runs away in the date's first run: it records nothing and calls its tool turn after turn.
-  world.model.runaway = (run) => world.model.runs.length === 1 && run.postIds[0] === first[0];
+  world.model.runaway = (run) => world.model.judgingRuns.length === 1 && run.postIds[0] === first[0];
 
   await world.advanceTo('2026-10-12T08:00:00Z');
 
   assert.deepEqual(
-    world.model.runs.map((r) => r.postIds),
+    world.model.judgingRuns.map((r) => r.postIds),
     [first, first, ids(day.slice(8, 16)), ids(day.slice(16))],
     'the capped run’s Launches were judged again, once, in a fresh run',
   );
-  const runaway = world.model.runs[0]!;
+  const runaway = world.model.judgingRuns[0]!;
   assert.ok(runaway.requests >= 20 && runaway.requests <= 21, `the run stopped at its 20-turn cap, after ${runaway.requests} requests`);
   const capped = world.logs.filter((l) => l.event === 'run.finished' && l.outcome === 'capped');
   assert.deepEqual(
@@ -55,7 +55,7 @@ test('when the automatic retry is capped too, the day’s post opens with a noti
   await world.advanceTo('2026-10-12T08:00:00Z');
 
   assert.deepEqual(
-    world.model.runs.map((r) => r.postIds),
+    world.model.judgingRuns.map((r) => r.postIds),
     [first, first, ids(day.slice(8, 16)), ids(day.slice(16))],
     'one automatic retry, then the other Launches are judged',
   );
@@ -75,7 +75,7 @@ test('when the automatic retry is capped too, the day’s post opens with a noti
   // Until the person taps Retry, the 30-minute retries leave the capped Launches alone, and at 06:00 PT the late
   // line says the list waits on Retry.
   await world.advanceTo('2026-10-12T13:00:00Z');
-  assert.equal(world.model.runs.length, 4, 'the capped Launches were not run again');
+  assert.equal(world.model.judgingRuns.length, 4, 'the capped Launches were not run again');
   assert.deepEqual(
     world.discord.textMessages(STATUS).map((l) => l.content),
     [
@@ -91,7 +91,7 @@ test('when the automatic retry is capped too, the day’s post opens with a noti
   assert.equal(tapped.type, 7, 'the tap rewrites the notice in place');
   await world.assistant.whenIdle();
 
-  assert.deepEqual(world.model.runs.slice(4).map((r) => r.postIds), [first], 'Retry started one fresh run of the capped Launches');
+  assert.deepEqual(world.model.judgingRuns.slice(4).map((r) => r.postIds), [first], 'Retry started one fresh run of the capped Launches');
   [post] = world.discord.forumPosts(MINER_DAYS_FORUM);
   assert.equal(world.discord.forumPosts(MINER_DAYS_FORUM).length, 1, 'still one post for the day');
   assert.equal(post!.title, 'Mon Oct 12 · 4 Dossiers · line 7');
@@ -110,7 +110,7 @@ test('when the automatic retry is capped too, the day’s post opens with a noti
   assert.ok((again.data?.flags ?? 0) & EPHEMERAL);
   assert.equal(again.data?.content, 'Already retried at 07:12 PT.');
   await world.assistant.whenIdle();
-  assert.equal(world.model.runs.length, 5, 'a second tap starts nothing');
+  assert.equal(world.model.judgingRuns.length, 5, 'a second tap starts nothing');
 });
 
 test('time and token caps stop runs too, and a run Retry started is never retried on its own', async (t) => {
@@ -140,8 +140,8 @@ test('time and token caps stop runs too, and a run Retry started is never retrie
   await world.discord.tap({ userId: PERSON, customId: first.lines[0]!.button!.customId, channelId: post!.id, messageId: first.id });
   await world.assistant.whenIdle();
 
-  assert.equal(world.model.runs.length, 3, 'no automatic retry after a run the person started');
-  assert.equal(world.model.runs[2]!.requests, 2, 'the run stopped at its token cap, after its second reply');
+  assert.equal(world.model.judgingRuns.length, 3, 'no automatic retry after a run the person started');
+  assert.equal(world.model.judgingRuns[2]!.requests, 2, 'the run stopped at its token cap, after its second reply');
   [post] = world.discord.forumPosts(MINER_DAYS_FORUM);
   assert.equal(post!.messages.length, 3);
   assert.match(post!.messages[1]!.text, /Retried at 01:20 PT/);
@@ -154,7 +154,7 @@ test('time and token caps stop runs too, and a run Retry started is never retrie
   await world.discord.tap({ userId: PERSON, customId: second.lines[0]!.button!.customId, channelId: post!.id, messageId: second.id });
   await world.assistant.whenIdle();
 
-  assert.equal(world.model.runs.length, 4);
+  assert.equal(world.model.judgingRuns.length, 4);
   [post] = world.discord.forumPosts(MINER_DAYS_FORUM);
   assert.match(post!.title, /^Mon Oct 12 · \d+ Dossiers? · line \d+$/);
   assert.match(post!.messages[0]!.text, /^## Miner · Mon Oct 12\n.* · 8 Featured Launches · Day's line/);
@@ -196,11 +196,11 @@ test('a Retry the bot stopped in the middle of runs again after the restart, sti
   world.model.hold = true;
   await world.discord.connected();
   await world.discord.tap({ userId: PERSON, customId: notice.lines[0]!.button!.customId, channelId: post!.id, messageId: notice.id });
-  await until(() => world.model.runs.length === 3);
+  await until(() => world.model.judgingRuns.length === 3);
   world.model.hold = false;
   await world.restart();
 
-  assert.equal(world.model.runs.length, 4, 'the Retry ran once more, and nothing ran on its own after it');
+  assert.equal(world.model.judgingRuns.length, 4, 'the Retry ran once more, and nothing ran on its own after it');
   [post] = world.discord.forumPosts(MINER_DAYS_FORUM);
   assert.equal(post!.messages.length, 3);
   assert.match(post!.messages[2]!.text, /The run your Retry started for 8 Launches hit its turn cap \(20 turns\)/);
@@ -223,7 +223,7 @@ test('a Retry on a date the window has moved past is refused', async (t) => {
 
   assert.ok((tapped.data?.flags ?? 0) & EPHEMERAL);
   assert.equal(tapped.data?.content, "Mon Oct 12 left the 3-day catch-up and was dropped, so there's nothing to retry.");
-  assert.equal(world.model.runs.length, 2, 'nothing ran');
+  assert.equal(world.model.judgingRuns.length, 2, 'nothing ran');
   assert.ok(world.discord.textMessages(STATUS).some((l) => l.content.startsWith('Miner: dropped Mon Oct 12,')));
 
   // The post that opened early says the date was dropped, and its Retry is off.

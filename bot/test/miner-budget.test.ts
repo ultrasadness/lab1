@@ -40,7 +40,7 @@ test('once a date’s spend reaches its Miner budget part way, its remaining run
 
   await world.advanceTo('2026-10-12T08:00:00Z'); // 01:00 PDT
   assert.deepEqual(
-    world.model.runs.map((r) => r.postIds),
+    world.model.judgingRuns.map((r) => r.postIds),
     [ids(day.slice(0, 8)), ids(day.slice(8, 16))],
     'after two runs the date has spent $0.80 of $0.70, so its third run waits',
   );
@@ -48,7 +48,7 @@ test('once a date’s spend reaches its Miner budget part way, its remaining run
 
   // The retries start nothing, and at 06:00 PT the late line names the Miner budget.
   await world.stepThrough('2026-10-12T13:00:00Z', 30);
-  assert.equal(world.model.runs.length, 2);
+  assert.equal(world.model.judgingRuns.length, 2);
   const lines = world.discord.textMessages(STATUS);
   assert.deepEqual(
     lines.map((l) => l.content),
@@ -61,10 +61,10 @@ test('once a date’s spend reaches its Miner budget part way, its remaining run
 
   // Only the 3-day window drops the date.
   await world.advanceTo('2026-10-15T07:59:00Z'); // 00:59 PDT Thu Oct 15
-  assert.equal(world.model.runs.length, 2);
+  assert.equal(world.model.judgingRuns.length, 2);
   assert.equal(statusAbout(world, 'Mon Oct 12').length, 1, 'still waiting, and not dropped');
   await world.advanceTo('2026-10-15T08:00:00Z');
-  assert.equal(world.model.runs.length, 2);
+  assert.equal(world.model.judgingRuns.length, 2);
   assert.deepEqual(statusAbout(world, 'Mon Oct 12').slice(1), ["Miner: dropped Mon Oct 12, outside the 3-day catch-up. Its list won't go out."]);
 });
 
@@ -77,8 +77,8 @@ test('a run that starts under the Miner budget and finishes over it completes, a
 
   // The run starts at $0 and spends $0.40, four times the budget.
   await world.advanceTo('2026-10-12T08:00:00Z');
-  assert.deepEqual(world.model.runs.map((r) => r.postIds), [ids(day)]);
-  assert.equal(world.model.runs[0]!.requests, 2, 'the run made its closing request too');
+  assert.deepEqual(world.model.judgingRuns.map((r) => r.postIds), [ids(day)]);
+  assert.equal(world.model.judgingRuns[0]!.requests, 2, 'the run made its closing request too');
   const posts = world.discord.forumPosts(MINER_DAYS_FORUM);
   assert.equal(posts.length, 1);
   assert.match(posts[0]!.title, /^Mon Oct 12 · \d+ Dossiers? · line \d+$/);
@@ -93,15 +93,15 @@ test('after the Miner budget is raised in config and the bot restarts, the waiti
   world.productHunt.addFeatured(day, '2026-10-12T07:01:00Z');
   world.model.usage = FORTY_CENTS_A_RUN;
   await world.advanceTo('2026-10-12T08:00:00Z');
-  assert.equal(world.model.runs.length, 2, 'the third run waits on the budget');
+  assert.equal(world.model.judgingRuns.length, 2, 'the third run waits on the budget');
 
   await world.restart();
-  assert.equal(world.model.runs.length, 2, 'a restart alone lets nothing go on');
+  assert.equal(world.model.judgingRuns.length, 2, 'a restart alone lets nothing go on');
 
   // ops/upgrade raises the budget to $1.20 and restarts the bot at 01:30 PDT.
   await world.outage('2026-10-12T08:30:00Z', (config) => (config.budgets.miner = 1.2));
   assert.deepEqual(
-    world.model.runs.map((r) => r.postIds),
+    world.model.judgingRuns.map((r) => r.postIds),
     [ids(day.slice(0, 8)), ids(day.slice(8, 16)), ids(day.slice(16))],
   );
   assert.deepEqual(
@@ -124,7 +124,7 @@ test('a date’s spend counts its automatic retries and Retry taps, and a Retry 
 
   // The run and its automatic retry are capped, spending $1.24.
   await world.advanceTo('2026-10-12T08:00:00Z');
-  assert.equal(world.model.runs.length, 2);
+  assert.equal(world.model.judgingRuns.length, 2);
   await world.discord.connected();
   const tap = async (index: number) => {
     const [post] = world.discord.forumPosts(MINER_DAYS_FORUM);
@@ -135,11 +135,11 @@ test('a date’s spend counts its automatic retries and Retry taps, and a Retry 
 
   // Under budget, the person's Retry starts a run, which is capped too: $1.86.
   await tap(1);
-  assert.equal(world.model.runs.length, 3);
+  assert.equal(world.model.judgingRuns.length, 3);
   // Over budget, their next Retry waits.
   await tap(2);
-  assert.equal(world.model.runs.length, 3, 'the Retry tapped over budget starts no run');
-  assert.ok(world.model.runs.every((r) => r.requests === 2));
+  assert.equal(world.model.judgingRuns.length, 3, 'the Retry tapped over budget starts no run');
+  assert.ok(world.model.judgingRuns.every((r) => r.requests === 2));
 
   await world.advanceTo('2026-10-12T13:00:00Z'); // 06:00 PDT
   assert.deepEqual(
@@ -153,7 +153,7 @@ test('a date’s spend counts its automatic retries and Retry taps, and a Retry 
   world.model.runaway = () => false;
   world.model.usage = FORTY_CENTS_A_RUN;
   await world.outage('2026-10-12T14:00:00Z', (config) => (config.budgets.miner = 3));
-  assert.deepEqual(world.model.runs.slice(3).map((r) => r.postIds), [ids(day)]);
+  assert.deepEqual(world.model.judgingRuns.slice(3).map((r) => r.postIds), [ids(day)]);
   const [post] = world.discord.forumPosts(MINER_DAYS_FORUM);
   assert.match(post!.title, /^Mon Oct 12 · \d+ Dossiers? · line \d+$/);
 });
@@ -169,7 +169,7 @@ test('when the Launches left wait on an untapped Retry as well as the Miner budg
   world.model.usage = { prompt_tokens: 150_000, completion_tokens: 1_000, cached_tokens: 0 };
 
   await world.advanceTo('2026-10-12T13:00:00Z'); // 06:00 PDT
-  assert.equal(world.model.runs.length, 2);
+  assert.equal(world.model.judgingRuns.length, 2);
   const [post] = world.discord.forumPosts(MINER_DAYS_FORUM);
   assert.deepEqual(
     world.discord.textMessages(STATUS).map((l) => l.content),
@@ -182,5 +182,5 @@ test('when the Launches left wait on an untapped Retry as well as the Miner budg
   world.model.runaway = () => false;
   world.model.usage = FORTY_CENTS_A_RUN;
   await world.outage('2026-10-12T14:00:00Z', (config) => (config.budgets.miner = 3));
-  assert.equal(world.model.runs.length, 2);
+  assert.equal(world.model.judgingRuns.length, 2);
 });

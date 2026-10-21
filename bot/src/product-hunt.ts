@@ -8,7 +8,7 @@ const DAY_QUERY = `query FeaturedLaunches($postedAfter: DateTime!, $postedBefore
   posts(featured: true, postedAfter: $postedAfter, postedBefore: $postedBefore, order: NEWEST, first: 20, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes {
-      id name tagline description slug dailyRank
+      id name tagline description slug dailyRank website
       topics(first: 10) { nodes { name } }
       makers { id }
       comments(first: 20) { pageInfo { hasNextPage endCursor } nodes { id body createdAt parentId userId } }
@@ -47,6 +47,8 @@ interface Post {
   description: string | null;
   slug: string;
   dailyRank: number | null;
+  /** Product Hunt's redirect to the Product's website: the only way the Assistant reaches the site from a Launch. */
+  website: string;
   topics: { nodes: { name: string }[] };
   makers: { id: string }[];
   comments: Connection<Comment>;
@@ -54,6 +56,8 @@ interface Post {
 
 const MAX_RATE_LIMIT_WAITS = 2;
 const MAKER_COMMENT_CHARS = 2000;
+/** How many of a Launch's Maker comments are kept, in their order, for its Dossier. */
+const MAKER_COMMENTS_KEPT = 10;
 
 export class ProductHunt {
   #apiUrl: string;
@@ -108,7 +112,8 @@ export class ProductHunt {
         description: post.description ?? '',
         slug: post.slug,
         topics: post.topics.nodes.map((t) => t.name),
-        makerComment: makerComment(post.makers, comments),
+        website: post.website,
+        ...makerComments(post.makers, comments),
       });
     }
     return launches;
@@ -142,18 +147,21 @@ export class ProductHunt {
 }
 
 /**
- * The Launch's Maker comment: the earliest comment whose author is one of its makers, preferring one that starts a
- * thread. Product Hunt shows a redacted maker as id "0", which never matches. Nothing is guessed from wording.
+ * The Launch's Maker comments (#19): every comment whose author is one of its makers, those that start a thread first,
+ * each set earliest first. The first is the Maker comment the Miner judges by. Product Hunt shows a redacted maker as
+ * id "0", which never matches. Nothing is guessed from wording.
  */
-function makerComment(makers: { id: string }[], comments: Comment[]): string | null {
+function makerComments(makers: { id: string }[], comments: Comment[]): Pick<Launch, 'makerComment' | 'makerComments'> {
   const makerIds = new Set(makers.map((m) => m.id).filter((id) => id && id !== '0'));
-  const byMakers = comments
+  const kept = comments
     .filter((c) => makerIds.has(c.userId))
-    .sort((a, b) => Number(a.parentId !== null) - Number(b.parentId !== null) || a.createdAt.localeCompare(b.createdAt));
-  const first = byMakers[0];
-  if (!first) return null;
-  const text = htmlToText(first.body);
-  return text.length > MAKER_COMMENT_CHARS ? `${text.slice(0, MAKER_COMMENT_CHARS)}…` : text;
+    .sort((a, b) => Number(a.parentId !== null) - Number(b.parentId !== null) || a.createdAt.localeCompare(b.createdAt))
+    .slice(0, MAKER_COMMENTS_KEPT)
+    .map((c) => {
+      const text = htmlToText(c.body);
+      return { id: c.id, text: text.length > MAKER_COMMENT_CHARS ? `${text.slice(0, MAKER_COMMENT_CHARS)}…` : text };
+    });
+  return { makerComment: kept[0]?.text ?? null, makerComments: kept };
 }
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };

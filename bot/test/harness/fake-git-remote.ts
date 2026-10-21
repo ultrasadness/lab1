@@ -77,9 +77,21 @@ export class FakeGitRemote {
     }
   }
 
-  /** The subjects of a branch's own line of commits, oldest first: a branch merged into it shows as its merge. */
-  subjects(branch = 'main'): string[] {
-    return git(this.#bare, 'log', '--first-parent', '--reverse', '--format=%s', branch).split('\n').filter(Boolean);
+  /**
+   * The subjects of a branch's own line of commits, oldest first: a branch merged into it shows as its merge. With
+   * `leavingOut`, a commit that changed nothing outside that folder is left out.
+   */
+  subjects(branch = 'main', options: { leavingOut?: string } = {}): string[] {
+    const commits = git(this.#bare, 'log', '--first-parent', '--reverse', '--format=%H %s', branch).split('\n').filter(Boolean);
+    const folder = options.leavingOut;
+    return commits
+      .map((line) => [line.slice(0, line.indexOf(' ')), line.slice(line.indexOf(' ') + 1)] as const)
+      .filter(([sha]) => {
+        if (!folder) return true;
+        const changed = git(this.#bare, 'diff-tree', '--no-commit-id', '--name-only', '-r', '-m', '--first-parent', '--root', sha).split('\n').filter(Boolean);
+        return changed.length === 0 || changed.some((path) => !path.startsWith(`${folder}/`));
+      })
+      .map(([, subject]) => subject);
   }
 
   /** The branches on GitHub. */

@@ -7,10 +7,10 @@
 // its own commits to a branch of their own. One #needs-you card asks the person to merge that branch with a merge
 // commit, and the bot commits again once `main` holds its commits (ADR 0012). Work that doesn't commit carries on.
 import { spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { inMinutes, type Clock } from './clock.ts';
-import { linkButton, section, text } from './discord/components.ts';
+import { escapeMarkdown, linkButton, section, text } from './discord/components.ts';
 import { refused } from './discord/rest.ts';
 import { errorText, type Log } from './log.ts';
 import type { NeedsYou } from './needs-you.ts';
@@ -21,6 +21,9 @@ import type { Divergence, PersonalDatabaseWrite, Store } from './store.ts';
 /** How long one git command may take, a fetch or push to GitHub included, before it is killed. */
 const GIT_TIMEOUT_MS = 120_000;
 const OUTPUT_KEPT = 4000;
+
+/** Outside text written into a file as one plain line, as on Discord. GitHub also reads $…$ as math. */
+export const plain = (value: string) => escapeMarkdown(value).replace(/\$/g, '\\$');
 
 /** GitHub's branch the checkout follows, and where the bot pushes. */
 const MAIN = 'refs/heads/main';
@@ -45,6 +48,8 @@ export class PersonalDatabase {
   #lock: Promise<void> = Promise.resolve();
   #cancelRetry = () => {};
   #stopped = false;
+  /** The repo's page on GitHub, once read from the checkout's remote. */
+  #page: Promise<string | undefined> | undefined;
 
   constructor(options: {
     /** The bot's checkout of the repo, cloned from GitHub. */
@@ -73,6 +78,16 @@ export class PersonalDatabase {
   /** A file the person keeps in the repo, such as the Interest scope, as the checkout last fast-forwarded it. */
   read(path: string): string {
     return readFileSync(join(this.#dir, path), 'utf8');
+  }
+
+  /** A file's page on GitHub, on `main`, or undefined when the checkout's remote isn't on GitHub. */
+  async fileUrl(path: string): Promise<string | undefined> {
+    this.#page ??= this.#git('remote', 'get-url', 'origin').then(
+      (remote) => gitHubPage(remote.trim()),
+      () => undefined,
+    );
+    const page = await this.#page;
+    return page && `${page}/blob/main/${path.split('/').map(encodeURIComponent).join('/')}`;
   }
 
   /** Queues a file to write in a commit of its own. It is written at the next sync. */
@@ -212,6 +227,11 @@ export class PersonalDatabase {
 
   async #commit(write: PersonalDatabaseWrite): Promise<void> {
     const file = join(this.#dir, write.path);
+    // The checkout holds GitHub's `main` here, so a file the person has there, even an empty one, stays theirs.
+    if (write.createOnly && existsSync(file)) {
+      this.#log('personal-database.kept', { path: write.path });
+      return this.#store.removePersonalDatabaseWrite(write.path, write.content);
+    }
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, write.content);
     await this.#git('add', '--', write.path);

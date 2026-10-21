@@ -44,6 +44,7 @@ interface Thread {
   id: string;
   forumId: string;
   name: string;
+  tagIds: string[];
   messages: StoredMessage[];
   /** When the thread was archived, while it is. */
   archivedAt?: string;
@@ -56,6 +57,12 @@ export interface SeenLine {
   button?: { label: string; customId: string; disabled: boolean; url?: string };
 }
 
+export interface SeenButton {
+  label: string;
+  customId: string;
+  disabled: boolean;
+}
+
 export interface SeenMessage {
   id: string;
   /** All text in the message, in reading order. */
@@ -63,6 +70,8 @@ export interface SeenMessage {
   /** Text displays outside sections, such as a band's heading. */
   headings: string[];
   lines: SeenLine[];
+  /** The buttons in action rows, such as a Dossier's Add Offer and Correct. */
+  buttons: SeenButton[];
   silent: boolean;
   mentionsNobody: boolean;
   /** The users the message notifies by mentioning them. */
@@ -82,6 +91,8 @@ export interface SeenTextMessage {
 export interface SeenPost {
   id: string;
   title: string;
+  /** The names of the forum tags on the post. */
+  tags: string[];
   messages: SeenMessage[];
 }
 
@@ -103,7 +114,8 @@ export class FakeDiscord {
   #server: http.Server;
   #wss: WebSocketServer;
   #sockets = new Set<WebSocket>();
-  #forums = new Set<string>();
+  /** Each forum's tags, by id. */
+  #forums = new Map<string, Map<string, string>>();
   #threads = new Map<string, Thread>();
   /** Each plain text channel's messages, oldest first. */
   #textChannels = new Map<string, StoredMessage[]>();
@@ -112,7 +124,7 @@ export class FakeDiscord {
   #seq = 0;
   #nextId = 500000000000000000n;
   #pending = new Map<string, { messageId?: string; resolve: (reply: InteractionReply) => void }>();
-  #lost: { kind: 'post' | 'message'; remaining: number }[] = [];
+  #lost: { kind: 'post' | 'message'; remaining: number; forumId: string | undefined }[] = [];
 
   private constructor(token: string) {
     this.token = token;
@@ -121,9 +133,17 @@ export class FakeDiscord {
     this.#wss.on('connection', (socket) => this.#gateway(socket));
   }
 
-  static async start(options: { token: string; forums: string[]; textChannels?: string[]; cardChannels?: string[] }): Promise<FakeDiscord> {
+  static async start(options: {
+    token: string;
+    /** Each forum, with the names of the tags the person set up in it. */
+    forums: Record<string, string[]>;
+    textChannels?: string[];
+    cardChannels?: string[];
+  }): Promise<FakeDiscord> {
     const discord = new FakeDiscord(options.token);
-    for (const forum of options.forums) discord.#forums.add(forum);
+    for (const [forum, tags] of Object.entries(options.forums)) {
+      discord.#forums.set(forum, new Map(tags.map((name) => [discord.#id(), name])));
+    }
     for (const channel of options.textChannels ?? []) discord.#textChannels.set(channel, []);
     for (const channel of options.cardChannels ?? []) {
       discord.#textChannels.set(channel, []);
@@ -152,7 +172,7 @@ export class FakeDiscord {
   forumPosts(forumId: string): SeenPost[] {
     return [...this.#threads.values()]
       .filter((t) => t.forumId === forumId)
-      .map((t) => ({ id: t.id, title: t.name, messages: t.messages.map(seen) }));
+      .map((t) => ({ id: t.id, title: t.name, tags: t.tagIds.map((id) => this.#forums.get(forumId)!.get(id)!), messages: t.messages.map(seen) }));
   }
 
   /** The messages in a plain text channel, oldest first. */
@@ -171,11 +191,11 @@ export class FakeDiscord {
   }
 
   /**
-   * Discord takes the `nth` forum post or message created from now on, but its reply never reaches the bot, as when
-   * the bot stops in the middle of the request.
+   * Discord takes the `nth` forum post or message created from now on, in one forum if one is named, but its reply
+   * never reaches the bot, as when the bot stops in the middle of the request.
    */
-  loseReply(kind: 'post' | 'message', nth = 1): void {
-    this.#lost.push({ kind, remaining: nth });
+  loseReply(kind: 'post' | 'message', nth = 1, forumId?: string): void {
+    this.#lost.push({ kind, remaining: nth, forumId });
   }
 
   /** Archives a post, as a forum does once it has been inactive for its auto-archive time. */
@@ -183,9 +203,9 @@ export class FakeDiscord {
     this.#threads.get(threadId)!.archivedAt = at;
   }
 
-  #replyLost(kind: 'post' | 'message'): boolean {
+  #replyLost(kind: 'post' | 'message', forumId: string): boolean {
     let lost = false;
-    for (const l of this.#lost.filter((x) => x.kind === kind)) {
+    for (const l of this.#lost.filter((x) => x.kind === kind && (x.forumId ?? forumId) === forumId)) {
       l.remaining -= 1;
       if (l.remaining === 0) lost = true;
     }
@@ -360,21 +380,28 @@ export class FakeDiscord {
     if ((match = path.match(/^\/channels\/(\d+)\/threads$/)) && req.method === 'POST') {
       const forumId = match[1]!;
       if (!this.#forums.has(forumId)) return reply(404, { code: 10003, message: 'Unknown Channel' });
-      const body = JSON.parse(raw) as { name?: string; message?: MessagePayload };
+      const body = JSON.parse(raw) as { name?: string; message?: MessagePayload; applied_tags?: string[] };
       if (!body.name || body.name.length > 100) return refuse('name must be 1 to 100 characters');
       const problem = body.message ? checkMessage(body.message) : 'message is required';
       if (problem) return refuse(problem);
+      const tagIds = body.applied_tags ?? [];
+      if (tagIds.some((tag) => !this.#forums.get(forumId)!.has(tag))) return refuse('applied_tags names a tag the forum lacks');
+      if (tagIds.length > 5) return refuse('a post takes at most 5 tags');
       const id = this.#id();
       // A forum post's first message has the post's own id.
-      this.#threads.set(id, { id, forumId, name: body.name, messages: [{ id, channelId: id, payload: body.message! }] });
-      if (this.#replyLost('post')) return void res.socket?.destroy();
+      this.#threads.set(id, { id, forumId, name: body.name, tagIds, messages: [{ id, channelId: id, payload: body.message! }] });
+      if (this.#replyLost('post', forumId)) return void res.socket?.destroy();
       return reply(201, { id, type: 11, parent_id: forumId, name: body.name, message: { id, channel_id: id } });
     }
 
     if (path === '/users/@me' && req.method === 'GET') return reply(200, { id: this.botUserId, username: 'Assistant', bot: true });
 
     if ((match = path.match(/^\/channels\/(\d+)$/)) && req.method === 'GET') {
-      if (this.#forums.has(match[1]!)) return reply(200, { id: match[1], type: 15, guild_id: this.guildId });
+      const tags = this.#forums.get(match[1]!);
+      if (tags) {
+        const available_tags = [...tags].map(([id, name]) => ({ id, name, moderated: false, emoji_id: null, emoji_name: null }));
+        return reply(200, { id: match[1], type: 15, guild_id: this.guildId, available_tags });
+      }
       if (this.#textChannels.has(match[1]!)) return reply(200, { id: match[1], type: 0, guild_id: this.guildId });
       const thread = this.#threads.get(match[1]!);
       if (!thread) return reply(404, { code: 10003, message: 'Unknown Channel' });
@@ -456,7 +483,7 @@ export class FakeDiscord {
       // A message in an archived thread that isn't locked opens it again.
       delete thread.archivedAt;
       thread.messages.push({ id, channelId: thread.id, payload: body });
-      if (this.#replyLost('message')) return void res.socket?.destroy();
+      if (this.#replyLost('message', thread.forumId)) return void res.socket?.destroy();
       return reply(200, { id, channel_id: thread.id });
     }
 
@@ -490,6 +517,9 @@ function checkMessage(message: MessagePayload): string | undefined {
     }
     if (c.type === 2 && c.style !== 5 && (!c.custom_id || c.custom_id.length > 100)) problem = 'a button needs a custom_id of 1 to 100 characters';
     if (c.type === 2 && (c.label ?? '').length > 80) problem = 'a button label is over 80 characters';
+    if (c.type === 1 && (!c.components?.length || c.components.length > 5 || c.components.some((b) => b.type !== 2))) {
+      problem = 'an action row needs 1 to 5 buttons';
+    }
   });
   if (count > MAX_COMPONENTS) return `${count} components, over ${MAX_COMPONENTS}`;
   if (text > MAX_TEXT) return `COMPONENT_DISPLAYABLE_TEXT_SIZE_EXCEEDED: ${text} characters, over ${MAX_TEXT}`;
@@ -524,6 +554,7 @@ function seen(message: StoredMessage): SeenMessage {
   const texts: string[] = [];
   const headings: string[] = [];
   const lines: SeenLine[] = [];
+  const buttons: SeenButton[] = [];
   let count = 0;
   let length = 0;
   const visit = (cs: Component[], inSection: boolean) => {
@@ -547,6 +578,7 @@ function seen(message: StoredMessage): SeenMessage {
         if (a) count += 1;
         continue;
       }
+      if (c.type === 2) buttons.push({ label: c.label ?? '', customId: c.custom_id ?? '', disabled: c.disabled === true });
       if (c.components) visit(c.components, inSection);
     }
   };
@@ -556,6 +588,7 @@ function seen(message: StoredMessage): SeenMessage {
     text: texts.join('\n'),
     headings,
     lines,
+    buttons,
     silent: Boolean((payload.flags ?? 0) & SUPPRESS_NOTIFICATIONS),
     mentionsNobody: mentionsNobody(payload),
     // Discord notifies a user mentioned in the text only if the message allows it.

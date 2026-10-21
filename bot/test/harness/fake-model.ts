@@ -1,6 +1,7 @@
 // A fake model provider behind the forwarder, speaking OpenAI Chat Completions with streaming, as new-api does.
 // It replays scripted tool calls per run kind and item: for a Miner judging run, one record_judgment call for
-// each Launch the run asks about, then a short closing reply. Usage is scripted too.
+// each Launch the run asks about, then a short closing reply; for a Dossier run, one record_dossier call, and one
+// more if the bot says the Dossier is too long. Usage is scripted too.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { readFileSync } from 'node:fs';
@@ -36,10 +37,40 @@ export interface ModelRequest {
   raw: string;
 }
 
-/** One conversation the provider saw: a run, with the Launches it was asked to judge. */
+/** A Dossier as the model records it through record_dossier. */
+export interface ScriptedDossier {
+  state: 'open' | 'waitlisted' | 'no-account';
+  register: DossierPart;
+  whatItIs: DossierPart;
+  forYou: DossierPart;
+  offers: ScriptedOffer[];
+  note: DossierPart | null;
+  rulesApplied: string[];
+}
+
+export interface DossierPart {
+  text: string;
+  sources: string[];
+}
+
+export interface ScriptedOffer {
+  what: string;
+  code: string | null;
+  card: 'needed' | 'not needed' | 'not stated';
+  deadline: string | null;
+  cap: string | null;
+  condition: string | null;
+  sources: string[];
+}
+
+/** One conversation the provider saw: a run, with the Launches it was asked to judge or write a Dossier of. */
 export interface SeenRun {
-  kind: 'miner-judging' | 'other';
+  kind: 'miner-judging' | 'dossier' | 'other';
   postIds: string[];
+  /** What the run's first request said as the user. */
+  prompt: string;
+  /** What each record_dossier call got back, in order. */
+  dossierReplies: string[];
   /** Whether the model ran away in this run: it recorded nothing and called its tool turn after turn. */
   ranAway: boolean;
   /** The model requests the run made, its first included. */
@@ -49,6 +80,16 @@ export interface SeenRun {
 export class FakeModelProvider {
   readonly requests: ModelRequest[] = [];
   readonly runs: SeenRun[] = [];
+
+  /** The Miner judging runs seen, oldest first. */
+  get judgingRuns(): SeenRun[] {
+    return this.runs.filter((r) => r.kind === 'miner-judging');
+  }
+
+  /** The Dossier runs seen, oldest first. */
+  get dossierRuns(): SeenRun[] {
+    return this.runs.filter((r) => r.kind === 'dossier');
+  }
   /** What the model records for a Launch; `'omit'` leaves it unjudged. */
   judgment: (postId: string) => ScriptedJudgment | 'omit' = (postId) => {
     const scripted = fixtureJudgments[postId];
@@ -57,6 +98,12 @@ export class FakeModelProvider {
   };
   /** Whether the model runs away in a Miner run that starts now, asked once per run. */
   runaway: (run: SeenRun) => boolean = () => false;
+  /** What the model records in a Dossier run; `'none'` records nothing. By default, a plain Dossier. */
+  dossier: (run: SeenRun) => ScriptedDossier | 'none' = (run) => plainDossier(run.prompt);
+  /** What the model records after the bot refused its Dossier for any other reason; `'none'` records nothing more. */
+  again: (run: SeenRun, refusal: string) => ScriptedDossier | 'none' = () => 'none';
+  /** What the model records once told its Dossier runs `over` characters too long; `'none'` records nothing more. */
+  rewrite: (run: SeenRun, over: number, first: ScriptedDossier) => ScriptedDossier | 'none' = (_run, over, first) => shortened(first, over);
   usage: ScriptedUsage = { prompt_tokens: 2400, completion_tokens: 380, cached_tokens: 0 };
   /** The model id the upstream reports in its responses. */
   upstreamModel = 'judge-model-1';
@@ -73,6 +120,8 @@ export class FakeModelProvider {
   #keys: Set<string>;
   /** The run now going on; the bot runs one at a time. */
   #current: SeenRun | undefined;
+  /** The Dossier the current run recorded first. */
+  #firstDossier: ScriptedDossier | undefined;
 
   private constructor(keys: string[]) {
     this.#keys = new Set(keys);
@@ -117,10 +166,13 @@ export class FakeModelProvider {
     const startsRun = !body.messages.some((m) => m.role === 'assistant');
     if (startsRun) {
       const judging = tools.includes('record_judgment');
+      const dossier = tools.includes('record_dossier');
       const user = body.messages.filter((m) => m.role === 'user').map(text).join('\n');
       const run: SeenRun = {
-        kind: judging ? 'miner-judging' : 'other',
-        postIds: judging ? [...new Set([...user.matchAll(/Post id (\d+)/g)].map((m) => m[1]!))] : [],
+        kind: judging ? 'miner-judging' : dossier ? 'dossier' : 'other',
+        postIds: judging || dossier ? [...new Set([...user.matchAll(/Post id (\d+)/g)].map((m) => m[1]!))] : [],
+        prompt: user,
+        dossierReplies: [],
         ranAway: false,
         requests: 0,
       };
@@ -143,7 +195,7 @@ export class FakeModelProvider {
       res.write(
         `data: ${JSON.stringify({ id: `chatcmpl-${n}`, object: 'chat.completion.chunk', created: 1, model: this.upstreamModel, choices, ...extra })}\n\n`,
       );
-    const callTools = (calls: Record<string, unknown>[]) => {
+    const callTools = (calls: Record<string, unknown>[], name = 'record_judgment') => {
       send([
         {
           index: 0,
@@ -153,7 +205,7 @@ export class FakeModelProvider {
               index,
               id: `call_${n}_${index}`,
               type: 'function',
-              function: { name: 'record_judgment', arguments: JSON.stringify(args) },
+              function: { name, arguments: JSON.stringify(args) },
             })),
           },
           finish_reason: null,
@@ -177,6 +229,21 @@ export class FakeModelProvider {
       });
       if (calls.length > 0) callTools(calls);
       else reply('Nothing to record.');
+    } else if (run?.kind === 'dossier') {
+      const replied = body.messages.at(-1)?.role === 'tool' ? text(body.messages.at(-1)!) : undefined;
+      if (replied !== undefined) run.dossierReplies.push(replied);
+      const over = replied?.match(/runs ([\d,]+) characters over/)?.[1];
+      const refused = replied !== undefined && !/^Recorded/.test(replied);
+      const next = startsRun
+        ? this.dossier(run)
+        : over
+          ? this.rewrite(run, Number(over.replace(/,/g, '')), this.#firstDossier!)
+          : refused
+            ? this.again(run, replied)
+            : 'none';
+      if (startsRun && next !== 'none') this.#firstDossier = next;
+      if (next === 'none') reply(startsRun ? 'Nothing to record.' : 'Recorded.');
+      else callTools([next as unknown as Record<string, unknown>], 'record_dossier');
     } else {
       reply('Recorded.');
     }
@@ -195,6 +262,31 @@ export class FakeModelProvider {
   }
 }
 
+/** The keys a Dossier run's prompt says it may cite. */
+export function citable(prompt: string): string[] {
+  return prompt.match(/^Cite these sources by key: (.+)\.$/m)?.[1]!.split(', ') ?? [];
+}
+
+/** A Dossier that says little, citing only sources the run has. */
+function plainDossier(prompt: string): ScriptedDossier {
+  const keys = citable(prompt);
+  return {
+    state: 'open',
+    register: { text: 'Sign up with an email address.', sources: [keys.includes('signup-page') ? 'signup-page' : 'landing-page'] },
+    whatItIs: { text: 'What its Launch says it is.', sources: ['launch'] },
+    forYou: { text: 'Near something you want.', sources: ['interest-scope'] },
+    offers: [],
+    note: null,
+    rulesApplied: [],
+  };
+}
+
+/** The Dossier with What it is, For you and Note each a third of `over` shorter, as a model asked to shorten might. */
+function shortened(d: ScriptedDossier, over: number): ScriptedDossier {
+  const cut = (part: DossierPart) => ({ ...part, text: part.text.slice(0, Math.max(1, part.text.length - Math.ceil(over / 3) - 1)) });
+  return { ...d, whatItIs: cut(d.whatItIs), forYou: cut(d.forYou), note: d.note && cut(d.note) };
+}
+
 function text(message: ChatMessage): string {
   if (typeof message.content === 'string') return message.content;
   return (message.content ?? []).map((part) => part.text ?? '').join('');
@@ -211,4 +303,9 @@ export function said(request: ModelRequest, ...roles: string[]): string {
 /** Whether the request opens its run's conversation, before any reply. */
 export function opensRun(request: ModelRequest): boolean {
   return !request.messages.some((m) => m.role === 'assistant');
+}
+
+/** Whether the request opens a Miner judging run. */
+export function opensJudgingRun(request: ModelRequest): boolean {
+  return opensRun(request) && request.tools.includes('record_judgment');
 }

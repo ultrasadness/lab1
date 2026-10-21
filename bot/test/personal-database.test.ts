@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { INTEREST_SCOPE, MINER_DAYS_FORUM, NEEDS_YOU, PERSON, startWorld } from './harness/world.ts';
 import { fixtureDay } from './harness/fake-product-hunt.ts';
-import { opensRun, said } from './harness/fake-model.ts';
+import { opensJudgingRun, said } from './harness/fake-model.ts';
 
 const ph = (slug: string) => `https://www.producthunt.com/posts/${slug}`;
 
@@ -46,7 +46,7 @@ test('once the day is judged, its days/ file is committed and pushed to GitHub w
   await world.advanceTo('2026-10-12T08:00:00Z'); // 01:00 PDT
 
   assert.equal(world.git.file('days/2026-10-12.md'), OCT_12);
-  assert.deepEqual(world.git.subjects(), ['Start the Personal database', 'Miner day Mon 2026-10-12 PT: 4 Dossiers, line 7']);
+  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }), ['Start the Personal database', 'Miner day Mon 2026-10-12 PT: 4 Dossiers, line 7']);
   const connections = world.git.connections();
   assert.ok(connections.some((c) => c.service === 'git-receive-pack'), 'the bot pushed');
   assert.ok(connections.every((c) => c.deployKey), 'every fetch and push came with the deploy key');
@@ -88,13 +88,13 @@ test('the bot fast-forwards before each run, so an Interest scope the person cha
 
   await world.advanceTo('2026-10-12T08:00:00Z');
 
-  const runs = world.model.requests.filter(opensRun).map((r) => said(r, 'user'));
+  const runs = world.model.requests.filter(opensJudgingRun).map((r) => said(r, 'user'));
   assert.equal(runs.length, 3);
   assert.deepEqual(
     runs.map((prompt) => prompt.includes(added)),
     [false, true, true],
   );
-  assert.deepEqual(world.git.subjects(), [
+  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }), [
     'Start the Personal database',
     'Widen the Interest scope',
     'Miner day Mon 2026-10-12 PT: 4 Dossiers, line 7',
@@ -106,7 +106,7 @@ test('the days/ file written again from the store is the same file, and gets no 
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
   // Discord takes the day's post, but the bot never hears back, so the date's pass ends without its list.
-  world.discord.loseReply('post');
+  world.discord.loseReply('post', 1, MINER_DAYS_FORUM);
   await world.advanceTo('2026-10-12T08:00:00Z');
   assert.equal(world.git.file('days/2026-10-12.md'), OCT_12);
 
@@ -118,7 +118,7 @@ test('the days/ file written again from the store is the same file, and gets no 
 
   assert.equal(world.discord.forumPosts(MINER_DAYS_FORUM)[0]?.title, 'Mon Oct 12 · 4 Dossiers · line 7');
   assert.equal(world.git.file('days/2026-10-12.md'), OCT_12);
-  assert.deepEqual(world.git.subjects(), ['Start the Personal database', 'Miner day Mon 2026-10-12 PT: 4 Dossiers, line 7']);
+  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }), ['Start the Personal database', 'Miner day Mon 2026-10-12 PT: 4 Dossiers, line 7']);
 });
 
 test('a push GitHub refuses leaves the commit in the checkout, and the bot pushes it once GitHub takes pushes again', async (t) => {
@@ -135,14 +135,14 @@ test('a push GitHub refuses leaves the commit in the checkout, and the bot pushe
   // A restart while GitHub still refuses loses nothing: the commit waits in the checkout.
   world.clock.advanceTo('2026-10-12T08:10:00Z');
   await world.restart();
-  assert.deepEqual(world.git.subjects(), ['Start the Personal database']);
+  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }), ['Start the Personal database']);
 
   world.git.refusePushes = false;
   await world.advanceTo('2026-10-12T08:39:00Z');
   assert.equal(world.git.file('days/2026-10-12.md'), undefined, 'the next try is 30 minutes after the last');
   await world.advanceTo('2026-10-12T08:40:00Z');
   assert.equal(world.git.file('days/2026-10-12.md'), OCT_12);
-  assert.deepEqual(world.git.subjects(), ['Start the Personal database', 'Miner day Mon 2026-10-12 PT: 4 Dossiers, line 7']);
+  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }), ['Start the Personal database', 'Miner day Mon 2026-10-12 PT: 4 Dossiers, line 7']);
 });
 
 test('once the histories diverge, the bot stops committing and tells the person once, and commits again after their merge', async (t) => {
@@ -168,7 +168,7 @@ test('once the histories diverge, the bot stops committing and tells the person 
   assert.match(branch!, /^assistant\//);
   assert.equal(world.git.file('days/2026-10-12.md', branch), OCT_12, "the Assistant's commit waits on its own branch");
   assert.equal(world.git.file('days/2026-10-12.md'), undefined);
-  assert.deepEqual(world.git.subjects(), ['Start the Personal database', 'Note an idea']);
+  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }), ['Start the Personal database', 'Note an idea']);
   let cards = world.discord.cards(NEEDS_YOU);
   assert.equal(cards.length, 1);
   const card = cards[0]!;
@@ -193,7 +193,7 @@ test('once the histories diverge, the bot stops committing and tells the person 
 
   assert.equal(world.git.file('days/2026-10-12.md'), OCT_12);
   assert.match(world.git.file('days/2026-10-13.md')!, /^# Miner day · Tue 2026-10-13 PT\n/);
-  assert.deepEqual(world.git.subjects(), [
+  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }), [
     'Start the Personal database',
     'Note an idea',
     `Merge branch '${branch}'`,

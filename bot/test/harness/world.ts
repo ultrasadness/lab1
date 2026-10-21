@@ -1,11 +1,12 @@
 // Seam 1: the Assistant's outside world. Starts the real bot, with real Pi and our extension as local processes,
-// against fakes for Discord, Product Hunt and the model provider, on a clock the test moves.
+// against fakes for Discord, Product Hunt, the browser service and the model provider, on a clock the test moves.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startAssistant, type Assistant, type LogEntry } from '../../src/assistant.ts';
 import type { Config } from '../../src/config.ts';
+import { FakeBrowser } from './fake-browser.ts';
 import { FakeClock } from './fake-clock.ts';
 import { FakeDiscord } from './fake-discord.ts';
 import { FakeGitRemote } from './fake-git-remote.ts';
@@ -17,10 +18,14 @@ export const STRANGER = '100000000000000009';
 export const MINER_DAYS_FORUM = '200000000000000001';
 export const STATUS = '200000000000000002';
 export const NEEDS_YOU = '200000000000000003';
+export const PRODUCTS_FORUM = '200000000000000004';
+/** The tags the person set up in the Products forum (#12, #33, #40). */
+export const PRODUCT_TAGS = ['Walkthrough', 'Registering', 'Needs you', 'registered', 'waitlisted', 'handed off', 'abandoned', 'no account', 'Skipped'];
 export const TOKENS = {
   discord: 'discord-test-token',
   productHunt: 'product-hunt-test-token',
   minerKey: 'new-api-key-miner-test',
+  registrationKey: 'new-api-key-registration-test',
   deployKey: '-----BEGIN OPENSSH PRIVATE KEY-----\nthe Personal database deploy key\n-----END OPENSSH PRIVATE KEY-----\n',
 };
 
@@ -33,6 +38,7 @@ export interface World {
   clock: FakeClock;
   discord: FakeDiscord;
   productHunt: FakeProductHunt;
+  browser: FakeBrowser;
   model: FakeModelProvider;
   /** GitHub, holding the person's Personal database repo. */
   git: FakeGitRemote;
@@ -75,6 +81,7 @@ export async function startWorld(options: {
   writeFileSync(join(credentials, 'discord-bot-token'), `${TOKENS.discord}\n`);
   writeFileSync(join(credentials, 'producthunt-token'), `${TOKENS.productHunt}\n`);
   writeFileSync(join(credentials, 'newapi-key-miner'), `${TOKENS.minerKey}\n`);
+  writeFileSync(join(credentials, 'newapi-key-registration'), `${TOKENS.registrationKey}\n`);
   writeFileSync(join(credentials, 'personal-database-deploy-key'), TOKENS.deployKey, { mode: 0o600 });
   const git = FakeGitRemote.create({
     dir: join(dir, 'github'),
@@ -86,9 +93,15 @@ export async function startWorld(options: {
   writeFileSync(join(dir, 'pi-agent', 'settings.json'), JSON.stringify({ retry: { baseDelayMs: 5 } }));
 
   const clock = new FakeClock(options.now);
-  const discord = await FakeDiscord.start({ token: TOKENS.discord, forums: [MINER_DAYS_FORUM], textChannels: [STATUS], cardChannels: [NEEDS_YOU] });
+  const discord = await FakeDiscord.start({
+    token: TOKENS.discord,
+    forums: { [MINER_DAYS_FORUM]: [], [PRODUCTS_FORUM]: PRODUCT_TAGS },
+    textChannels: [STATUS],
+    cardChannels: [NEEDS_YOU],
+  });
   const productHunt = await FakeProductHunt.start({ token: TOKENS.productHunt });
-  const model = await FakeModelProvider.start({ apiKeys: [TOKENS.minerKey] });
+  const browser = await FakeBrowser.start(join(dir, 'browser.sock'));
+  const model = await FakeModelProvider.start({ apiKeys: [TOKENS.minerKey, TOKENS.registrationKey] });
 
   const config: Config = {
     dataDir,
@@ -97,14 +110,19 @@ export async function startWorld(options: {
       apiBaseUrl: discord.apiBaseUrl,
       personUserId: PERSON,
       minerDaysForumId: MINER_DAYS_FORUM,
+      productsForumId: PRODUCTS_FORUM,
       statusChannelId: STATUS,
       needsYouChannelId: NEEDS_YOU,
     },
     productHunt: { apiUrl: productHunt.apiUrl },
+    browser: { socketPath: browser.socketPath },
     gateway: { baseUrl: model.baseUrl },
-    roles: { miner: { providers: [{ name: 'openrouter', model: 'judge-model-1' }] } },
+    roles: {
+      miner: { providers: [{ name: 'openrouter', model: 'judge-model-1' }] },
+      registration: { providers: [{ name: 'openrouter', model: 'judge-model-1' }] },
+    },
     prices: { 'judge-model-1': { input: 2, cached: 0.2, output: 10 } },
-    budgets: { miner: 6 },
+    budgets: { miner: 6, registration: 20 },
     forwarder: { host: '127.0.0.1', port: 0 },
     pi: {
       command: options.piCommand?.(join(root, 'pi/pi-run')) ?? ['sh', join(root, 'pi/pi-run')],
@@ -119,6 +137,7 @@ export async function startWorld(options: {
     miner: { startsAt: '01:00', launchesPerRun: 8, lineFloor: 7, catchUpDates: 3, retryMinutes: 30, lateAt: '06:00' },
     runCaps: {
       'miner-judging': { wallClockMinutes: 10, turns: 20, tokens: 200_000 },
+      dossier: { wallClockMinutes: 10, turns: 10, tokens: 300_000 },
       'walkthrough-preparation': { wallClockMinutes: 20, turns: 40, tokens: 1_000_000 },
       fill: { wallClockMinutes: 3, turns: 30, tokens: 300_000 },
       mail: { wallClockMinutes: 5, turns: 10, tokens: 100_000 },
@@ -132,7 +151,7 @@ export async function startWorld(options: {
   const logs: LogEntry[] = [];
   const start = () => startAssistant({ config, credentialsDir: credentials, clock, log: (entry) => logs.push(entry) });
   const close = async () => {
-    await Promise.all([discord.close(), productHunt.close(), model.close()]);
+    await Promise.all([discord.close(), productHunt.close(), browser.close(), model.close()]);
     rmSync(dir, { recursive: true, force: true });
   };
   let assistant: Assistant;
@@ -147,6 +166,7 @@ export async function startWorld(options: {
     clock,
     discord,
     productHunt,
+    browser,
     model,
     git,
     dataDir,

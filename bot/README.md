@@ -4,12 +4,15 @@ English | [中文](README.zh.md)
 
 The Assistant's one long-running process: TypeScript on Node 24, run as-is through Node's type stripping, with no
 npm dependencies of its own. It holds every token, alone writes the live store, and makes every outside call.
-The spec is #41; this first slice (#42) brings up the Miner's path from Product Hunt to the Miner days forum.
+The spec is #41. Its first slice (#42) brought up the Miner's path from Product Hunt to the Miner days forum, and
+#47 adds a Dossier for each Launch at or above the Day's line.
 
 | Path | What it is |
 |---|---|
 | `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane; who may tap |
 | `bot/src/miner/` | Judging runs, the Day's line, the day post and `days/` file, the 3-date catch-up and Retry |
+| `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, and the Product's folder in the Personal database |
+| `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)` over its Unix socket, and the root domain a Product is keyed by |
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
 | `bot/src/needs-you.ts` | Cards in the `#needs-you` text channel, each mentioning the person |
@@ -42,14 +45,18 @@ The hooks and CI that check each commit and push, and how to turn the hooks on i
 `docs/hooks-and-ci.md`.
 
 The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in-process, with real Pi and our extension
-as local processes, against fake Discord, Product Hunt and model provider servers, a fake GitHub holding the Personal
-database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
+as local processes, against fake Discord, Product Hunt, browser service and model provider servers, a fake GitHub
+holding the Personal database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
 `bot/test/harness/fake-ssh.ts` in place of ssh. It lets in only the deploy key, can refuse pushes, and takes the
 person's own commits and merges. Only the harness imports from `bot/src`: `npm test` fails any other file under
 `bot/test/` whose import names a file there (`scripts/bot-test-imports.test.ts`).
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.
+
+The fake browser service answers `read(url)` on a Unix socket. Each Launch's website redirect leads to a plain site of
+its own on `.example`, with a pricing page and a signup page, unless a test serves a real Product's pages from
+`bot/test/harness/dossier-fixtures.ts`.
 
 The fake Product Hunt answers only a query that the real API's live schema accepts, with variables that fit it, and
 refuses any other with GraphQL errors and no data, so a wrong field, argument or enum value fails a test instead of
@@ -79,20 +86,26 @@ and reaches GitHub through `personalDatabase.ssh` with the deploy key, so GitHub
 store and committed on its own, and every commit is pushed. A push GitHub refuses, or a history that has diverged, is
 tried again every `personalDatabase.retryMinutes`.
 
+Dossiers go to the Products forum, `discord.productsForumId`, whose tags the person makes: *Walkthrough*,
+*Registering*, *Needs you*, *registered*, *waitlisted*, *handed off*, *abandoned*, *no account* and *Skipped*. The bot
+finds a tag by its name, so only the names matter, and for now applies *no account* alone. A Dossier reads its
+Product's pages through the browser service's socket at `browser.socketPath` (`browser/README.md`), and each read is
+kept for 90 days under `pages/`, beside the other raw inputs.
+
 ```sh
 docker build -f pi/Dockerfile -t assistant-pi .
 npm start
 ```
 
 The install on the VM (its own user, the Docker helper, systemd units) is #71. It also sets what
-`config/assistant.json` leaves open: the Discord ids, how new-api is reached on loopback, and the helper in
-place of `docker exec`. Until then the config's `pi.command` runs `docker exec` directly, which ADR 0009 rules out
+`config/assistant.json` leaves open: the Discord ids, the browser service's socket, how new-api is reached on
+loopback, and the helper in place of `docker exec`. Until then the config's `pi.command` runs `docker exec` directly, which ADR 0009 rules out
 for the installed bot: the `assistant` user has no `docker` group and reaches Docker only through the helper. The
 only value it passes into the container is each run's own token, which lets Pi reach the forwarder for that run
 alone and is never a key.
 
-The run caps in `config/assistant.json` are starting values. The wall clocks were decided in #26; the turn and token
-caps are first guesses, to tune from the `run.finished` lines.
+The run caps in `config/assistant.json` are starting values. The wall clocks were decided in #26, except the Dossier
+run's; it and the turn and token caps are first guesses, to tune from the `run.finished` lines.
 
 Each provider in `roles` names the model its `role@provider` channel on new-api serves, and `prices` holds each such
 model's list price in dollars per 1M uncached input, cached input and output tokens. The bot won't start while a
@@ -102,10 +115,12 @@ spend, Retries included, starting at $6. A run starts only while its date's spen
 finishes even when it goes over. Once the Miner budget is spent, the date's remaining runs wait and its 06:00 PT late
 line names the Miner budget; raising `budgets.miner` and restarting the bot lets them go on. The Miner provider's
 model is set at go-live (#85), with its price; `prices` already holds GPT-6.1 Sol's, the price the budgets were sized
-at (#39).
+at (#39). `budgets.registration`, $20 to start, is what the registration role's runs may spend in a Pacific day,
+Dossier runs among them; their spend is counted, but nothing holds a run to it until #69.
 
 The bot logs one JSON line per event to stdout. A `run.finished` line carries the run's role, providers, models,
 exact tokens and notional dollars, and for a capped run the cap it hit. A `miner.run-held` line names a run that waits
 on the Miner budget, with the date's spend, and a `miner.posted` line carries what the date spent in all. A
 `miner.judged` line names the model request whose reply held the judgment, with that request's exact tokens; one reply
-usually judges every Launch in its run.
+usually judges every Launch in its run. A `dossier.written` line names a Dossier's Product by its root domain, with
+the run, provider and model that wrote it.

@@ -1,6 +1,7 @@
 // A Miner judging run's input and output. The input is Product Hunt data only (name, tagline, description, topics
 // and the Maker comment), never votes or rank. The output is one judgment per Launch, written through our Pi
 // extension's schema-checked record tool, and checked again here before it is kept.
+import { fence as block } from '../fence.ts';
 import type { Launch } from '../store.ts';
 
 export interface JudgmentRecord {
@@ -12,10 +13,6 @@ export interface JudgmentRecord {
 }
 
 export const REASON_MAX_CHARS = 240;
-
-// Text from Product Hunt, its makers or the person reaches the model only inside a <<< >>> fence, under a label of
-// ours. A run of three angle brackets in the text is spaced out, so no value can close its fence or open another.
-const block = (value: string) => `<<<\n${value.trim().replace(/<{3,}|>{3,}/g, (run) => run.split('').join(' '))}\n>>>`;
 
 /** The run's prompt: the Interest scope, then each Launch in Product Hunt order. */
 export function judgingPrompt(interestScope: string, launches: Launch[]): string {

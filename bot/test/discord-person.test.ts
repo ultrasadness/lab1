@@ -16,6 +16,7 @@ test('the bot uses no privileged intent and acts only for the person', async (t)
   for (const identify of world.discord.identifies) assert.equal(identify.intents & PRIVILEGED_INTENTS, 0);
 
   const [post] = world.discord.forumPosts(MINER_DAYS_FORUM);
+  const runs = world.model.runs.length;
   const band = post!.messages[1]!;
   const correct = band.lines[0]!.button!;
 
@@ -28,6 +29,6 @@ test('the bot uses no privileged intent and acts only for the person', async (t)
   const person = await world.discord.tap({ userId: PERSON, customId: correct.customId, channelId: post!.id, messageId: band.id });
   assert.ok((person.data?.flags ?? 0) & EPHEMERAL);
   assert.match(person.data?.content ?? '', /Correct isn't wired up yet/);
-  assert.equal(world.model.runs.length, 3, 'no tap started a run');
+  assert.equal(world.model.runs.length, runs, 'no tap started a run');
   assert.deepEqual(world.discord.forumPosts(MINER_DAYS_FORUM), [post]);
 });

@@ -9,9 +9,11 @@
 // A run starts only while the date's spend is under its Miner budget (ADR 0011). A run that starts under it finishes,
 // and once the Miner budget is spent the date's remaining runs wait, until it is raised and the bot restarts.
 // Each run fast-forwards the Personal database first and reads the Interest scope there. Once the date is judged, its
-// `days/` file is queued in the store before the post goes out, and committed after.
+// `days/` file is queued in the store, then every Launch at or above the line gets its Dossier, and the day's post,
+// which links each Dossier's Product post, goes out once they all have one; the files are committed after.
 import type { Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
+import type { Dossiers, DossierLaunchInput } from '../dossier/dossiers.ts';
 import { asEdit, type MessagePayload } from '../discord/components.ts';
 import { refused, type DiscordRest } from '../discord/rest.ts';
 import type { RecordResult } from '../forwarder.ts';
@@ -24,7 +26,7 @@ import type { Status } from '../status.ts';
 import type { CappedRun, Launch, Store } from '../store.ts';
 import { catchUpWindow, droppedLine, lateLine, type BudgetHold } from './catch-up.ts';
 import { renderDayFile, type DayFile, type DayFileLaunch } from './day-file.ts';
-import { drawDayLine } from './day-line.ts';
+import { drawDayLine, outcomeOf } from './day-line.ts';
 import { renderDayPost, renderDroppedPost, renderRetryNotice, renderWaitingPost, type DayPostLaunch } from './day-post.ts';
 import { judgingPrompt, readJudgment } from './judging.ts';
 
@@ -39,6 +41,7 @@ export class Miner {
   #discord: DiscordRest;
   #status: Status;
   #personalDatabase: PersonalDatabase;
+  #dossiers: Dossiers;
   #clock: Clock;
   #log: Log;
   /** Dates whose latest pass ran into a problem. */
@@ -52,6 +55,7 @@ export class Miner {
     discord: DiscordRest;
     status: Status;
     personalDatabase: PersonalDatabase;
+    dossiers: Dossiers;
     clock: Clock;
     log: Log;
   }) {
@@ -62,6 +66,7 @@ export class Miner {
     this.#discord = options.discord;
     this.#status = options.status;
     this.#personalDatabase = options.personalDatabase;
+    this.#dossiers = options.dossiers;
     this.#clock = options.clock;
     this.#log = options.log;
   }
@@ -216,10 +221,24 @@ export class Miner {
     // Queued before the post goes out and written after it, so the post never waits on git and nothing is lost.
     this.#personalDatabase.queue(this.#dayFile(date, launches));
     try {
+      // The day's post links each Dossier's Product post, so it waits until every one is posted.
+      const written = await this.#dossiers.writeFor(this.#dossierLaunches(date, launches));
+      if (written === 'stopped') return;
+      if (written !== 'done') return this.#problem(date, written.problem);
       await this.#post(date, launches);
     } finally {
       await this.#personalDatabase.sync();
     }
+  }
+
+  /** The date's Launches at or above its line, as the Dossiers band lists them: by Fit, then Product Hunt rank. */
+  #dossierLaunches(date: string, launches: Launch[]): DossierLaunchInput[] {
+    const line = this.#store.dayLine(date)!.line;
+    const judged = new Map(this.#judged(date, launches).map((l) => [l.postId, l]));
+    return launches
+      .filter((l) => outcomeOf(judged.get(l.postId)!, line) === 'dossier')
+      .sort((a, b) => judged.get(b.postId)!.fit - judged.get(a.postId)!.fit || a.rank - b.rank)
+      .map((launch) => ({ launch, date, fit: judged.get(launch.postId)!.fit, featuredCount: launches.length }));
   }
 
   /** The date's `days/` file, written from the store. */
@@ -430,7 +449,13 @@ export class Miner {
    */
   async #post(date: string, launches: Launch[]): Promise<void> {
     if (this.posted(date)) return;
-    const rendered = renderDayPost({ date, line: this.#store.dayLine(date)!, launches: this.#judged(date, launches) });
+    const judged = this.#judged(date, launches);
+    const productPosts = new Map<string, string>();
+    for (const l of judged) {
+      const post = this.#dossiers.postOf(l.postId);
+      if (post) productPosts.set(l.postId, post);
+    }
+    const rendered = renderDayPost({ date, line: this.#store.dayLine(date)!, launches: judged, productPosts });
     const [summary, ...bands] = rendered.messages;
 
     const { threadId } = await this.#ensurePost(date, rendered.title, summary!);
