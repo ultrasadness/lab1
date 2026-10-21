@@ -47,6 +47,13 @@ The tests are the browser seam (seam 2): they drive the socket against real Chro
 from `compose.yaml` with all its hardening. `test/compose.test.yaml` puts it on a network with no internet,
 beside a server of local test pages (`test/pages/`) that answers for every host the tests name.
 
+Once the hooks are on (`git config core.hooksPath .githooks`, as `bot/README.md` says), the pre-commit hook runs
+this typecheck too, on the staged files and with the dependencies installed here, and refuses a commit that fails
+it. Without them installed here, it refuses every commit and says how to install them. It leaves the tests out,
+since they build the image. GitHub Actions runs `npm ci`, the typecheck and the tests on every push and pull
+request, in a workflow of their own (`.github/workflows/browser.yml`), so a slow or failing browser run doesn't
+hide the bot's result.
+
 ## Run
 
 `compose.yaml` needs two settings, which the install on the VM (#71) provides:

@@ -1,0 +1,30 @@
+# The browser service's typecheck and tests on every push and pull request, in a workflow apart from the bot's
+# (bot.yml), so a slow or failing browser run doesn't hide the bot's result. The tests build the image from the real
+# Dockerfile and start it through Docker Compose (browser/README.md, Test), which the runner has. The runner is amd64,
+# so they test the pinned digest's amd64 image, where the VM runs its arm64 one.
+name: Browser
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: browser
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: browser/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test

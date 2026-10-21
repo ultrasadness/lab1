@@ -1,7 +1,8 @@
 #!/bin/sh
 # Runs before each commit once `git config core.hooksPath .githooks` turns it on (bot/README.md, Test). It keeps the
-# main checkout on main, as CLAUDE.md asks, and refuses a commit whose staged files fail the bot's typecheck or
-# leave a doc pair out of step (docs/agents/doc-pairs.md).
+# main checkout on main, as CLAUDE.md asks, and refuses a commit whose staged files fail the bot's typecheck or the
+# browser service's, or leave a doc pair out of step (docs/agents/doc-pairs.md). The browser service's tests build an
+# image, so they are left to CI (.github/workflows/browser.yml).
 set -eu
 
 # Git runs a hook at the top of the working tree. A linked worktree has a git dir of its own; the main checkout
@@ -24,23 +25,43 @@ EOF
   exit 1
 fi
 
-if [ ! -x node_modules/.bin/tsc ]; then
-  echo "pre-commit: this checkout has no dependencies installed, so the typecheck can't run. Run npm ci here, then commit again." >&2
-  common=$(git rev-parse --path-format=absolute --git-common-dir)
+# The packages, as paths from the top: the root, for the bot and the scripts, and browser/, for the browser service
+# (browser/README.md, Test). Each one's typecheck runs with that package's own dependencies.
+set -- '' /browser
+common=$(git rev-parse --path-format=absolute --git-common-dir)
+missing=
+links=
+for package in "$@"; do
+  [ ! -x "$PWD$package/node_modules/.bin/tsc" ] || continue
+  missing="$missing
+  $PWD$package"
+  links="$links
+  ln -s $(dirname "$common")$package/node_modules $PWD$package/node_modules"
+done
+# One refusal names every package missing them, as in a new worktree.
+if [ -n "$missing" ]; then
+  echo "pre-commit: the typecheck can't run in a package without its dependencies, and none are installed" \
+    "in:$missing" >&2
+  echo "Run npm ci in each, then commit again." >&2
   if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$common" ]; then
-    echo "In a worktree whose package-lock.json matches the main checkout's, you can link that checkout's instead: ln -s $(dirname "$common")/node_modules node_modules" >&2
+    echo "In a worktree, a package whose package-lock.json matches the main checkout's can link that checkout's" \
+      "instead:$links" >&2
   fi
   exit 1
 fi
-# The checks read a copy of what is staged, so unstaged work neither refuses a commit nor hides a broken one.
+# The checks read a copy of what is staged, so unstaged work neither refuses a commit nor hides a broken one. Each
+# typecheck runs in its package's directory of that copy, so the paths it names start there.
 staged=$(mktemp -d)
 trap 'rm -rf "$staged"' EXIT
 git checkout-index -a --prefix="$staged/"
-ln -s "$PWD/node_modules" "$staged/node_modules"
-if ! (cd "$staged" && npm run --silent typecheck) >&2; then
-  echo "pre-commit: the typecheck failed, so the commit is refused. Fix what it names above, then commit again." >&2
-  exit 1
-fi
+for package in "$@"; do
+  ln -s "$PWD$package/node_modules" "$staged$package/node_modules"
+  if ! (cd "$staged$package" && npm run --silent typecheck) >&2; then
+    echo "pre-commit: the typecheck in $PWD$package failed, so the commit is refused." \
+      "Fix what it names above, then commit again." >&2
+    exit 1
+  fi
+done
 if ! (cd "$staged" && npm run --silent check:docs) >&2; then
   echo "pre-commit: a doc pair is out of step, so the commit is refused. Bring it in line as named above, then commit again." >&2
   exit 1
