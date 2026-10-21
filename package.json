@@ -11,7 +11,8 @@
     "typecheck": "tsc -p .",
     "test": "node --test --test-timeout=60000 --test-force-exit \"bot/test/**/*.test.ts\" \"scripts/**/*.test.ts\"",
     "check:docs": "node scripts/check-docs.ts",
-    "capture:producthunt-schema": "node scripts/capture-producthunt-schema.ts"
+    "capture:producthunt-schema": "node scripts/capture-producthunt-schema.ts",
+    "ticket": "node scripts/ticket.ts"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "1.3.0"

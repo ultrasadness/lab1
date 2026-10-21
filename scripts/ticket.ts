@@ -1,0 +1,137 @@
+// `npm run ticket -- <number>`: prints a ticket whole (#87): its number, state, title, labels, body and comments, then
+// its parent's, then each issue that mentions it with the lines that do. It asks GitHub through `gh api`, whose JSON is
+// the same with or without a terminal, and prints nothing until every answer is in, so a failure prints only why.
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const run = promisify(execFile);
+/** How long each `gh` call has to answer, every page included. */
+const TIME_LIMIT_SECONDS = 60;
+/** The most a `gh` call may print: a timeline holds a whole issue for each cross-reference. */
+const MAX_ANSWER_BYTES = 256 * 1024 * 1024;
+const USAGE = 'give one issue number, as in npm run ticket -- 87';
+
+/** The fields of a REST issue this reads. */
+interface Issue {
+  /** Its API URL, which names its repo too. */
+  url: string;
+  number: number;
+  title: string;
+  state: string;
+  labels: { name: string }[];
+  body: string | null;
+  comments_url: string;
+  repository_url: string;
+  /** Set only on a pull request, which GitHub serves as an issue too. */
+  pull_request?: unknown;
+}
+
+/** The fields of a REST issue comment this reads. */
+interface Comment {
+  user: { login: string } | null;
+  created_at: string;
+  body: string | null;
+}
+
+/** The fields of a REST timeline event this reads: a cross-reference's source is the issue that mentions this one. */
+interface TimelineEvent {
+  event: string;
+  source?: { issue?: Issue };
+}
+
+/** What `gh api` answers on `args`, parsed, or `undefined` when GitHub answers 404. Throws with gh's error otherwise. */
+async function api(args: string[]): Promise<unknown> {
+  const call = `gh api ${args.at(-1)}`;
+  let stdout: string;
+  try {
+    ({ stdout } = await run('gh', ['api', ...args], { timeout: TIME_LIMIT_SECONDS * 1000, maxBuffer: MAX_ANSWER_BYTES }));
+  } catch (error) {
+    const { stderr, killed, code } = error as { stderr?: string; killed?: boolean; code?: unknown };
+    // gh prints GitHub's own message with the status, as in "gh: No parent issue found (HTTP 404)".
+    if (stderr?.includes('(HTTP 404)')) return undefined;
+    if (code === 'ENOENT') throw new Error("gh isn't on PATH: install GitHub CLI and sign in with gh auth login");
+    if (killed) throw new Error(`${call} didn't answer within ${TIME_LIMIT_SECONDS} seconds`);
+    throw new Error(`${call} failed: ${stderr?.trim() || (error as Error).message}`);
+  }
+  return JSON.parse(stdout);
+}
+
+/** Every item of a paged list, across all its pages. */
+async function apiList<T>(endpoint: string): Promise<T[]> {
+  const pages = (await api(['--paginate', '--slurp', endpoint])) as T[][] | undefined;
+  if (!pages) throw new Error(`gh api ${endpoint} found nothing there (HTTP 404)`);
+  return pages.flat();
+}
+
+/** `text` with GitHub's CRLF line ends made LF. */
+function lf(text: string | null): string {
+  return (text ?? '').replace(/\r\n/g, '\n');
+}
+
+/** An issue's number, state and title, with its repo before the number when it isn't the ticket's repo, `home`. */
+function heading(issue: Issue, home: string): string {
+  const repo = issue.repository_url === home ? '' : issue.repository_url.replace(/^.*\/repos\//, '');
+  return `${repo}#${issue.number} ${issue.state.toUpperCase()} ${issue.title}`;
+}
+
+/** An issue's heading and labels, body and comments, as one block of text. */
+function issueText(issue: Issue, comments: Comment[], home: string): string {
+  const labels = issue.labels.map((label) => label.name).join(', ');
+  let text = `${heading(issue, home)} [${labels}]\n\n${lf(issue.body)}\n`;
+  for (const comment of comments) {
+    text += `\n--- ${comment.user?.login ?? 'ghost'}, ${comment.created_at}:\n${lf(comment.body)}\n`;
+  }
+  return text;
+}
+
+/** The issue `mentioner` as a heading, then each line of its body and `comments` that names `#n`, indented. */
+function mention(n: number, mentioner: Issue, comments: Comment[], home: string): string {
+  const names = new RegExp(`#${n}\\b`);
+  const lines = [mentioner.body, ...comments.map((comment) => comment.body)]
+    .flatMap((text) => lf(text).split('\n'))
+    .filter((line) => names.test(line));
+  return `${heading(mentioner, home)}\n${lines.map((line) => `  ${line}\n`).join('')}`;
+}
+
+/** Ticket `n` whole, then its parent, then each issue that mentions it. */
+async function ticket(n: number): Promise<string> {
+  const issue = (await api([`repos/{owner}/{repo}/issues/${n}`])) as Issue | undefined;
+  if (!issue) throw new Error(`#${n} names no issue in this repo (gh api answered 404)`);
+  if (issue.pull_request) throw new Error(`#${n} is a pull request, not an issue: see it with gh pr view ${n}`);
+  const [comments, parent, timeline] = await Promise.all([
+    apiList<Comment>(issue.comments_url),
+    api([`repos/{owner}/{repo}/issues/${n}/parent`]) as Promise<Issue | undefined>,
+    apiList<TimelineEvent>(`repos/{owner}/{repo}/issues/${n}/timeline`),
+  ]);
+  // An issue that names this one more than once cross-references it once for each. One in another repo can have the
+  // number of one in this repo, so each is kept by its URL.
+  const mentioners = new Map<string, Issue>();
+  for (const event of timeline) {
+    const source = event.event === 'cross-referenced' ? event.source?.issue : undefined;
+    if (source) mentioners.set(source.url, source);
+  }
+  const home = issue.repository_url;
+  const [parentComments, mentions] = await Promise.all([
+    parent ? apiList<Comment>(parent.comments_url) : [],
+    Promise.all(
+      [...mentioners.values()]
+        .sort((a, b) => a.number - b.number)
+        .map(async (mentioner) => mention(n, mentioner, await apiList<Comment>(mentioner.comments_url), home)),
+    ),
+  ]);
+  return [
+    issueText(issue, comments, home),
+    `=== Parent\n\n${parent ? issueText(parent, parentComments, home) : `#${n} has no parent.\n`}`,
+    `=== Mentioned by\n\n${mentions.join('') || `No other issue mentions #${n}.\n`}`,
+  ].join('\n');
+}
+
+try {
+  const args = process.argv.slice(2);
+  const n = args.length === 1 ? /^#?([1-9]\d*)$/.exec(args[0] ?? '')?.[1] : undefined;
+  if (!n) throw new Error(USAGE);
+  process.stdout.write(await ticket(Number(n)));
+} catch (error) {
+  process.stderr.write(`ticket: ${(error as Error).message}\n`);
+  process.exitCode = 1;
+}
