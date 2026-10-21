@@ -3,6 +3,10 @@
 The judgement calls a review checks a diff against. Each one is a bug a review caught that no check could have:
 whatever a check can catch belongs in the typecheck, the tests or `npm run check:docs` instead, not here.
 
+Each **Why it matters** tells what happened, in the past tense, and names the commit that settled it, as in
+"`ff338bd` made stopping signal the run's whole process group": a later change to that code adds a story of its own
+rather than making this one false.
+
 ## Every wait has a bound
 
 A wait on a process, socket or event ends by itself: when the awaited thing happens, or after a time limit, whichever
@@ -10,8 +14,8 @@ comes first.
 
 **Why it matters:** a wait that only the other side can end hangs the bot when that side never answers. In #42,
 stopping sent each Pi run SIGTERM and waited for it to exit. A command that wraps Pi and ignores SIGTERM kept that
-wait open, so the bot couldn't shut down. Stopping now signals the run's whole process group and kills it after a
-grace time (`ff338bd`).
+wait open, so the bot couldn't shut down. `ff338bd` made stopping signal the run's whole process group and kill it
+after a grace time.
 
 **In a diff, look for:**
 
@@ -27,8 +31,8 @@ batch.
 
 **Why it matters:** outside data holds values nobody planned for, and one of them shouldn't cost every other one. In
 #42, turning a Launch's HTML into text called `String.fromCodePoint` on each `&#…;` character code. It throws on a
-code past U+10FFFF, so one such code aborted the day's fetch. Any code that names no character now reads as U+FFFD,
-as a browser does (`ff338bd`).
+code past U+10FFFF, so one such code aborted the day's fetch. `ff338bd` made any code that names no character read
+as U+FFFD, as a browser does.
 
 **In a diff, look for:**
 
@@ -44,8 +48,8 @@ Anything a later request depends on is stored before the reply that triggers tha
 **Why it matters:** the other side can act on a reply the moment it arrives, before the code that sent it runs its
 next line. In #42, the forwarder stored each model request only after passing on the reply's last event. Pi acts on
 that event at once, and its `record_judgment` call files the judgment under the run's latest stored request, which
-was then an earlier one or none. The forwarder now stores the request when it reads the last event, before passing
-it on (`ff338bd`).
+was then an earlier one or none. `ff338bd` made the forwarder store the request on reading the last event, before
+passing it on.
 
 **In a diff, look for:**
 
@@ -61,8 +65,8 @@ the job has done it. The job checks its preconditions when it runs, not only whe
 **Why it matters:** a restart drops the whole lane, and a job queued earlier can run first and change what a later
 one finds. In #45, a draft of the Miner's Retry marked itself done when the person tapped it, before its job ran. A
 catch-up pass already in the lane then judged those Launches as ordinary ones, batched and retried automatically,
-where a Retry gets a run of its own and no automatic retry. Now the tap stores only when it was tapped, and the Retry
-is marked as run once its run is over (`83d2677`).
+where a Retry gets a run of its own and no automatic retry. `83d2677` made the tap store only when it was tapped, and
+the Retry count as run once its run was over.
 
 **In a diff, look for:**
 
@@ -79,8 +83,8 @@ other order the caller needs is sorted after the last page.
 
 **Why it matters:** a page is an offset into an order. When the order moves between pages, an item that rose is read
 twice and one that fell is never read. In #42, a day's Featured Launches were paged by ranking, and votes moved
-Launches between pages while the day was read. The day is now paged by posting time, each Launch is kept once by its
-Product Hunt Post id, and the ranking is sorted at the end (`ff338bd`).
+Launches between pages while the day was read. `ff338bd` paged the day by posting time instead, kept each Launch once
+by its Product Hunt Post id, and sorted the ranking at the end.
 
 **In a diff, look for:**
 
@@ -97,7 +101,8 @@ for an `ops/upgrade` gate, `填表运行` for fill run, `台账` for ledger).
 **Why it matters:** `npm run check:docs` checks a pair's shape and that someone recorded it, not what the Chinese side
 says, and the person reads the Chinese side. In #83, a spec reviewer found six such faults in the ADRs' Chinese
 sides, but only because its prompt asked it to read three of them in full. One: ADR 0009's "checked against the key's
-remaining quota before the key is reported dead" became "check, then report it dead".
+remaining quota before the key is reported dead" became "check, then report it dead". `1bfe5c3` landed the ADRs'
+Chinese sides with all six fixed.
 
 **In a diff, look for:**
 
@@ -116,9 +121,10 @@ GitHub close an issue, the diff tries that system before it narrows the check.
 #90, the first commit-msg hook read a closing keyword that ends one line with an issue reference that opens the next,
 even across a blank line. Its tests passed, but it refused 7310714, whose subject ends in "closes" and whose body
 opens with `#76's`. A spec reviewer found it only by running the hook over all 50 commit messages. #90 took it for a
-false positive without trying GitHub, and read one line at a time, until #91 tried it: GitHub closes across a line
-break and a blank line alike, so 7310714 would have closed #76 had #76 still been open. The hook reads across lines
-again, and refuses 7310714's message in its tests (#91).
+false positive without trying GitHub, and `4b2a9b3` landed the hook reading one line at a time. #91 then tried GitHub,
+which closed an issue across a line break and across a blank line alike, so 7310714 would have closed #76 had #76
+still been open. `938e307` made the hook read across lines again, with 7310714's message among those its tests
+refuse.
 
 **In a diff, look for:**
 
