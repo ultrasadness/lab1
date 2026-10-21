@@ -1,6 +1,7 @@
 // `npm run ticket -- <number>`: prints a ticket whole (#87): its number, state, title, labels, body and comments, then
-// its parent's, then each issue that mentions it with the lines that do. It asks GitHub through `gh api`, whose JSON is
-// the same with or without a terminal, and prints nothing until every answer is in, so a failure prints only why.
+// its parent's, then each issue that mentions it with the lines that do. A `Spec:` parent prints its headings in place
+// of its body (#95). It asks GitHub through `gh api`, whose JSON is the same with or without a terminal, and prints
+// nothing until every answer is in, so a failure prints only why.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -84,6 +85,34 @@ function issueText(issue: Issue, comments: Comment[], home: string): string {
   return text;
 }
 
+/** The Markdown heading lines of `text`, in order, leaving out the lines GitHub shows inside a fenced code block. */
+function markdownHeadings(text: string): string[] {
+  const found: string[] = [];
+  let fence: string | undefined;
+  for (const line of text.split('\n')) {
+    // A backtick fence's info string holds no backtick. A fence closes on a bare marker of its own character, at least
+    // as long as the one that opened it.
+    const opening = /^ {0,3}(`{3,}(?=[^`]*$)|~{3,})/.exec(line)?.[1];
+    const closing = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(line)?.[1];
+    if (!fence && opening) fence = opening;
+    else if (fence && closing && closing[0] === fence[0] && closing.length >= fence.length) fence = undefined;
+    else if (!fence && /^ {0,3}#{1,6}(\s|$)/.test(line)) found.push(line);
+  }
+  return found;
+}
+
+/** Whether `issue` is a spec, which its tickets have as their parent: its title starts with `Spec:`. */
+const isSpec = (issue: Issue) => issue.title.startsWith('Spec:');
+
+/**
+ * A spec parent: its heading and labels, the headings of its body, its comments, and how to print it whole. A spec is
+ * the plan its tickets were cut from, and each ticket reaches into it only for the parts it names.
+ */
+function specText(spec: Issue, comments: Comment[], home: string): string {
+  const outline = { ...spec, body: markdownHeadings(lf(spec.body)).join('\n') };
+  return `${issueText(outline, comments, home)}\nPrint the spec whole with npm run ticket -- ${spec.number}.\n`;
+}
+
 /** The issue `mentioner` as a heading, then each line of its body and `comments` that names `#n`, indented. */
 function mention(n: number, mentioner: Issue, comments: Comment[], home: string): string {
   const names = new RegExp(`#${n}\\b`);
@@ -119,9 +148,12 @@ async function ticket(n: number): Promise<string> {
         .map(async (mentioner) => mention(n, mentioner, await apiList<Comment>(mentioner.comments_url), home)),
     ),
   ]);
+  let parentText = `#${n} has no parent.\n`;
+  if (parent && isSpec(parent)) parentText = specText(parent, parentComments, home);
+  else if (parent) parentText = issueText(parent, parentComments, home);
   return [
     issueText(issue, comments, home),
-    `=== Parent\n\n${parent ? issueText(parent, parentComments, home) : `#${n} has no parent.\n`}`,
+    `=== Parent\n\n${parentText}`,
     `=== Mentioned by\n\n${mentions.join('') || `No other issue mentions #${n}.\n`}`,
   ].join('\n');
 }

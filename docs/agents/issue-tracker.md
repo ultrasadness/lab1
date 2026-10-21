@@ -15,8 +15,9 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
   on both, and two of the criteria then asked for opposite things.
 - **Read an issue**: `npm run ticket -- <number>`. It prints the issue's number, state, title, labels, body and
   comments, then its parent with the parent's body and comments, then each issue that mentions it with the lines that
-  do. It reads through `gh api`, so it prints the same without a terminal, where `gh issue view --comments` prints only
-  the comments.
+  do. A `Spec:` parent prints its headings in place of its body: print the spec whole when one names what the ticket
+  needs. It reads through `gh api`, so it prints the same without a terminal, where `gh issue view --comments` prints
+  only the comments.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **List the ready tickets**: open, `ready-for-agent`, unassigned and with no open blocker. A `Spec:` issue is its tickets' parent, not a ticket. `gh issue list --state open --label ready-for-agent --limit 100 --json number,title,assignees,blockedBy --jq '.[] | select(.assignees == [] and ([.blockedBy.nodes[] | select(.state == "OPEN")] | length) == 0 and (.title | startswith("Spec:") | not)) | "#\(.number) \(.title)"'`
 - **Claim a ticket** as the session's first write on it: `gh issue edit <number> --add-assignee @me`. **List the ready tickets** leaves out an assigned ticket, so a claimed one stays with this session while parallel sessions pick theirs.
@@ -48,7 +49,10 @@ Create a GitHub issue.
 Run `npm run ticket -- <number>` (**Read an issue**) and read all three of its parts. An earlier ticket's closing
 comment may leave work for this one (`Left for #<number>: ...`), and that work is part of the ticket: **Mentioned by**
 prints that line. The parent may hold work beside the ticket's own that no ticket takes on yet: #77 was cut from half
-of #74's triage brief, and the other half, now #92, came to light only because the session read #74.
+of #74's triage brief, and the other half, now #92, came to light only because the session read #74. A `Spec:` parent
+prints its heading line, the headings of its body and its comments, since a spec is the plan its tickets were cut
+from: when a heading names what the ticket needs, such as Starting values for a ticket that sets one, print the spec
+whole with `npm run ticket -- <its number>`.
 
 ## Wayfinding operations
 

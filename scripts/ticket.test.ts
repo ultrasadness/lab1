@@ -192,8 +192,78 @@ test("prints the ticket's parent, with its body and comments, after the ticket's
         '--- bo, 2026-10-20T08:00:00Z:\nLanded.\n\n' +
         '=== Parent\n\n' +
         "#74 OPEN Improve the agents' environment [ready-for-human]\n\nThe retro proposed eight changes.\n\n" +
-        '--- ana, 2026-10-19T08:00:00Z:\nCut into tickets.\n',
+        '--- ana, 2026-10-19T08:00:00Z:\nCut into tickets.\n\n' +
+        '=== Mentioned by\n\n',
     ),
+    run.stdout,
+  );
+});
+
+test("prints a Spec parent's headings and comments in place of its body, and how to print it whole", async (t) => {
+  const run = await ticket(t, ['84'], {
+    issues: [
+      {
+        number: 41,
+        title: 'Spec: the Assistant that judges Launches',
+        labels: ['ready-for-agent'],
+        body:
+          'Assembled from the map.\r\n\r\n## Problem Statement\r\n\r\nThe person wants an assistant.\r\n\r\n' +
+          '### The Miner\r\n\r\n1. A story.\r\n\r\n```sh\r\n# a comment, not a heading\r\n```\r\n\r\n' +
+          '#41 is the plan.\r\n\r\n## Testing Decisions\r\n\r\n- Seam 1.',
+        comments: [{ author: 'ana', at: '2026-10-21T08:14:31Z', body: 'Amended by #77.' }],
+      },
+      { number: 84, title: "Hold the Miner's runs", body: 'A slice of #69.', parent: 41 },
+    ],
+  });
+  assert.equal(run.code, 0, run.stderr);
+  assert.ok(
+    run.stdout.includes(
+      '=== Parent\n\n' +
+        '#41 OPEN Spec: the Assistant that judges Launches [ready-for-agent]\n\n' +
+        '## Problem Statement\n### The Miner\n## Testing Decisions\n\n' +
+        '--- ana, 2026-10-21T08:14:31Z:\nAmended by #77.\n\n' +
+        'Print the spec whole with npm run ticket -- 41.\n\n' +
+        '=== Mentioned by\n\n',
+    ),
+    run.stdout,
+  );
+});
+
+test("leaves out of a Spec parent's headings only the lines GitHub shows inside a fenced code block", async (t) => {
+  const body = [
+    '## One',
+    '~~~',
+    '# inside a tilde fence',
+    '~~~',
+    '````md',
+    '```js',
+    '# inside a longer fence, past a shorter marker with an info string',
+    '```',
+    '````',
+    '```',
+    '```ts',
+    '# still inside, since a closing fence takes no info string',
+    '```',
+    '``` an inline `code` span at the start of a line, not a fence',
+    '## Two',
+  ].join('\n');
+  const run = await ticket(t, ['84'], {
+    issues: [
+      { number: 41, title: 'Spec: the Assistant', body },
+      { number: 84, title: "Hold the Miner's runs", parent: 41 },
+    ],
+  });
+  assert.equal(run.code, 0, run.stderr);
+  assert.ok(run.stdout.includes('=== Parent\n\n#41 OPEN Spec: the Assistant []\n\n## One\n## Two\n\nPrint the spec whole'), run.stdout);
+});
+
+test('prints a spec whole when it is the ticket asked for', async (t) => {
+  const run = await ticket(t, ['41'], {
+    issues: [{ number: 41, title: 'Spec: the Assistant', body: 'Assembled from the map.\n\n## Problem Statement\n\nThe person.' }],
+  });
+  assert.equal(run.code, 0, run.stderr);
+  assert.ok(
+    run.stdout.startsWith('#41 OPEN Spec: the Assistant []\n\nAssembled from the map.\n\n## Problem Statement\n\nThe person.\n'),
     run.stdout,
   );
 });
