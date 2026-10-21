@@ -45,3 +45,6 @@ The root's `npm test` runs the tests of the hooks and checks:
 - `scripts/bounded-waits.test.ts` fails on a `spawnSync`, `execSync` or `execFileSync` call whose own arguments
   name no `timeout`: a synchronous child process blocks the event loop, so no other timer can end it (**Every wait
   has a bound** in `CODING_STANDARDS.md`).
+- `scripts/bot-imports.test.ts` fails on a module `bot/src` imports that is neither Node's own (`node:`) nor one of
+  the bot's files: the bot has no npm dependencies of its own (`bot/README.md`), and `graphql` is for the tests and
+  the schema capture alone.
