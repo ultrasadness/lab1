@@ -16,7 +16,7 @@ import {
   text,
   type MessagePayload,
 } from '../discord/components.ts';
-import { dayLabel, leaderboardUrl, pacificDate, pacificTime } from '../pacific.ts';
+import { dayLabel, leaderboardUrl, pacificTime, shortTime } from '../pacific.ts';
 import { capText } from '../pi-runs.ts';
 import type { MinerRetry } from '../store.ts';
 import { BANDS, bandOf, outcomeOf, type Band, type DayLine } from './day-line.ts';
@@ -46,9 +46,9 @@ export const correctId = (postId: string) => `correct:launch:${postId}`;
 /** The Retry button's id, by the Retry's id in the store. */
 export const retryId = (retry: number) => `retry:miner:${retry}`;
 
-const launchUrl = (slug: string) => `https://www.producthunt.com/posts/${encodeURIComponent(slug)}`;
+export const launchUrl = (slug: string) => `https://www.producthunt.com/posts/${encodeURIComponent(slug)}`;
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+export const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 const ordinal = (n: number) => {
   const tens = n % 100;
@@ -56,8 +56,8 @@ const ordinal = (n: number) => {
   return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 };
 
-export function renderDayPost(input: { date: string; line: DayLine; floor: number; launches: DayPostLaunch[] }): RenderedDayPost {
-  const { date, line, floor, launches } = input;
+export function renderDayPost(input: { date: string; line: DayLine; launches: DayPostLaunch[] }): RenderedDayPost {
+  const { date, line, launches } = input;
   const dossiers = launches.filter((l) => outcomeOf(l, line.line) === 'dossier').length;
 
   const title = `${dayLabel(date)} · ${count(dossiers, 'Dossier')} · line ${line.line}`;
@@ -67,7 +67,7 @@ export function renderDayPost(input: { date: string; line: DayLine; floor: numbe
         [
           `## Miner · ${dayLabel(date)}`,
           `**${count(dossiers, 'Dossier')}** · ${count(launches.length - dossiers, 'Skip')} · ${count(line.featuredCount, 'Featured Launch', 'Featured Launches')} · Day's line **${line.line}**`,
-          `-# Line: ${whyTheLine(line, floor)}`,
+          `-# Line: ${whyTheLine(line)}`,
           `-# [Data sourced from Product Hunt](${leaderboardUrl(date)})`,
         ].join('\n'),
       ),
@@ -119,7 +119,7 @@ export function renderDroppedPost(input: { date: string; at: Date; catchUpDates:
         text(
           [
             `## Miner · ${dayLabel(date)}`,
-            `Dropped at ${pacificTime(at)} PT ${dayLabel(pacificDate(at))}, outside the ${catchUpDates}-day catch-up. Its list won't go out.`,
+            `Dropped at ${shortTime(at)}, outside the ${catchUpDates}-day catch-up. Its list won't go out.`,
             `-# [Data sourced from Product Hunt](${leaderboardUrl(date)})`,
           ].join('\n'),
         ),
@@ -160,7 +160,9 @@ export function renderRetryNotice(retry: MinerRetry, dropped = false): MessagePa
   ]);
 }
 
-function whyTheLine(line: DayLine, floor: number): string {
+/** Why the Day's line sits where it does, as one clause. */
+export function whyTheLine(line: DayLine): string {
+  const { floor } = line;
   const which = `the ${ordinal(line.k)} best Fit (⌈√${line.featuredCount}⌉ = ${line.k})`;
   if (line.kth === null) {
     return `only ${count(line.eligibleCount, 'Launch', 'Launches')} could get a Dossier, fewer than ${line.k}, so the floor of ${floor} sets it.`;

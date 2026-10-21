@@ -66,11 +66,33 @@ export function pacificDay(date: string): { start: Date; end: Date } {
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+const weekday = (date: string) => {
+  const [y, m, d] = ymd(date);
+  return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+};
+
 /** `Wed Oct 14`, as the person reads a day on Discord. */
 export function dayLabel(date: string): string {
-  const [y, m, d] = ymd(date);
-  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-  return `${WEEKDAYS[weekday]} ${MONTHS[m - 1]} ${d}`;
+  const [, m, d] = ymd(date);
+  return `${weekday(date)} ${MONTHS[m - 1]} ${d}`;
+}
+
+/** `08:12 PT Wed Oct 14`, as the person reads an instant on Discord. */
+export function shortTime(instant: Date): string {
+  return `${pacificTime(instant)} PT ${dayLabel(pacificDate(instant))}`;
+}
+
+// Every date the bot writes into the Personal database carries its year and zone, so a Question can filter by date
+// (#37). Discord keeps its short dates.
+
+/** `Wed 2026-10-14 PT`: a Pacific date as the bot writes it into the Personal database. */
+export function fullDate(date: string): string {
+  return `${weekday(date)} ${date} PT`;
+}
+
+/** `2026-10-14 08:12 PT`: an instant as the bot writes it into the Personal database. */
+export function fullTime(instant: Date): string {
+  return `${pacificDate(instant)} ${pacificTime(instant)} PT`;
 }
 
 /** Product Hunt's daily leaderboard for a Pacific date. */

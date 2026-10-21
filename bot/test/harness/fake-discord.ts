@@ -52,7 +52,8 @@ interface Thread {
 /** One line of a band message as the person sees it: its text and the button beside it. */
 export interface SeenLine {
   text: string;
-  button?: { label: string; customId: string; disabled: boolean };
+  /** A link button has a URL in place of an id. */
+  button?: { label: string; customId: string; disabled: boolean; url?: string };
 }
 
 export interface SeenMessage {
@@ -64,6 +65,8 @@ export interface SeenMessage {
   lines: SeenLine[];
   silent: boolean;
   mentionsNobody: boolean;
+  /** The users the message notifies by mentioning them. */
+  mentions: string[];
   componentCount: number;
   textLength: number;
 }
@@ -104,6 +107,8 @@ export class FakeDiscord {
   #threads = new Map<string, Thread>();
   /** Each plain text channel's messages, oldest first. */
   #textChannels = new Map<string, StoredMessage[]>();
+  /** The text channels that take cards, such as #needs-you, rather than plain lines. */
+  #cardChannels = new Set<string>();
   #seq = 0;
   #nextId = 500000000000000000n;
   #pending = new Map<string, { messageId?: string; resolve: (reply: InteractionReply) => void }>();
@@ -116,10 +121,14 @@ export class FakeDiscord {
     this.#wss.on('connection', (socket) => this.#gateway(socket));
   }
 
-  static async start(options: { token: string; forums: string[]; textChannels?: string[] }): Promise<FakeDiscord> {
+  static async start(options: { token: string; forums: string[]; textChannels?: string[]; cardChannels?: string[] }): Promise<FakeDiscord> {
     const discord = new FakeDiscord(options.token);
     for (const forum of options.forums) discord.#forums.add(forum);
     for (const channel of options.textChannels ?? []) discord.#textChannels.set(channel, []);
+    for (const channel of options.cardChannels ?? []) {
+      discord.#textChannels.set(channel, []);
+      discord.#cardChannels.add(channel);
+    }
     await new Promise<void>((resolve) => discord.#server.listen(0, '127.0.0.1', resolve));
     return discord;
   }
@@ -154,6 +163,11 @@ export class FakeDiscord {
       silent: Boolean((payload.flags ?? 0) & SUPPRESS_NOTIFICATIONS),
       mentionsNobody: mentionsNobody(payload),
     }));
+  }
+
+  /** The cards in a text channel that takes them, oldest first, as the person sees them. */
+  cards(channelId: string): SeenMessage[] {
+    return (this.#textChannels.get(channelId) ?? []).map(seen);
   }
 
   /**
@@ -249,8 +263,8 @@ export class FakeDiscord {
   }
 
   #message(messageId: string): StoredMessage | undefined {
-    for (const thread of this.#threads.values()) {
-      const found = thread.messages.find((m) => m.id === messageId);
+    for (const messages of [...[...this.#threads.values()].map((t) => t.messages), ...this.#textChannels.values()]) {
+      const found = messages.find((m) => m.id === messageId);
       if (found) return found;
     }
     return undefined;
@@ -398,14 +412,15 @@ export class FakeDiscord {
 
     if ((match = path.match(/^\/channels\/(\d+)\/messages\/(\d+)$/)) && req.method === 'PATCH') {
       const thread = this.#threads.get(match[1]!);
-      const stored = thread?.messages.find((m) => m.id === match![2]);
-      if (!thread || !stored) return reply(404, { code: 10008, message: 'Unknown Message' });
-      if (thread.archivedAt) return reply(400, { code: 50083, message: 'Thread is archived' });
+      const messages = thread?.messages ?? (this.#cardChannels.has(match[1]!) ? this.#textChannels.get(match[1]!) : undefined);
+      const stored = messages?.find((m) => m.id === match![2]);
+      if (!stored) return reply(404, { code: 10008, message: 'Unknown Message' });
+      if (thread?.archivedAt) return reply(400, { code: 50083, message: 'Thread is archived' });
       const body = JSON.parse(raw) as MessagePayload;
       const problem = checkEdit(stored.payload, body);
       if (problem) return refuse(problem);
       stored.payload = edited(stored.payload, body);
-      return reply(200, { id: stored.id, channel_id: thread.id });
+      return reply(200, { id: stored.id, channel_id: match[1] });
     }
 
     // Renames a post, or archives or unarchives it.
@@ -424,7 +439,7 @@ export class FakeDiscord {
 
     if ((match = path.match(/^\/channels\/(\d+)\/messages$/)) && req.method === 'POST' && this.#textChannels.has(match[1]!)) {
       const body = JSON.parse(raw) as MessagePayload;
-      const problem = checkPlainMessage(body);
+      const problem = this.#cardChannels.has(match[1]!) ? checkMessage(body) : checkPlainMessage(body);
       if (problem) return refuse(problem);
       const id = this.#id();
       this.#textChannels.get(match[1]!)!.push({ id, channelId: match[1]!, payload: body });
@@ -524,7 +539,9 @@ function seen(message: StoredMessage): SeenMessage {
         const a = c.accessory;
         lines.push({
           text,
-          ...(a?.type === 2 ? { button: { label: a.label ?? '', customId: a.custom_id ?? '', disabled: a.disabled === true } } : {}),
+          ...(a?.type === 2
+            ? { button: { label: a.label ?? '', customId: a.custom_id ?? '', disabled: a.disabled === true, ...(a.url ? { url: a.url } : {}) } }
+            : {}),
         });
         visit(c.components ?? [], true);
         if (a) count += 1;
@@ -541,6 +558,8 @@ function seen(message: StoredMessage): SeenMessage {
     lines,
     silent: Boolean((payload.flags ?? 0) & SUPPRESS_NOTIFICATIONS),
     mentionsNobody: mentionsNobody(payload),
+    // Discord notifies a user mentioned in the text only if the message allows it.
+    mentions: (payload.allowed_mentions?.users ?? []).filter((id) => texts.some((t) => t.includes(`<@${id}>`))),
     componentCount: count,
     textLength: length,
   };

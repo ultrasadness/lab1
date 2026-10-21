@@ -6,22 +6,24 @@
 // It catches up on the latest 3 dates, oldest first, and drops older ones with a #status line. A date that can't
 // finish is tried again by the caller's 30-minute retry, and gets one #status line if its list isn't out by 06:00 PT.
 // Launches tapped for Retry are judged at the date's next pass, in a run of their own, with no automatic retry.
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+// Each run fast-forwards the Personal database first and reads the Interest scope there. Once the date is judged, its
+// `days/` file is queued in the store before the post goes out, and committed after.
 import type { Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
 import { asEdit, type MessagePayload } from '../discord/components.ts';
 import { refused, type DiscordRest } from '../discord/rest.ts';
 import type { RecordResult } from '../forwarder.ts';
 import { errorText, type Log } from '../log.ts';
+import type { PersonalDatabase } from '../personal-database.ts';
 import { addDays, dayLabel, nextDate, pacificDate, pacificDay, pacificInstant, pacificTime } from '../pacific.ts';
 import type { PiRunner, RunResult } from '../pi-runs.ts';
 import type { ProductHunt } from '../product-hunt.ts';
 import type { Status } from '../status.ts';
 import type { CappedRun, Launch, Store } from '../store.ts';
 import { catchUpWindow, droppedLine, lateLine } from './catch-up.ts';
+import { renderDayFile, type DayFile, type DayFileLaunch } from './day-file.ts';
 import { drawDayLine } from './day-line.ts';
-import { renderDayPost, renderDroppedPost, renderRetryNotice, renderWaitingPost } from './day-post.ts';
+import { renderDayPost, renderDroppedPost, renderRetryNotice, renderWaitingPost, type DayPostLaunch } from './day-post.ts';
 import { judgingPrompt, readJudgment } from './judging.ts';
 
 // No Product has a Registration yet, so no Launch is a re-Launch of a registered Product; they arrive with #66.
@@ -34,6 +36,7 @@ export class Miner {
   #pi: PiRunner;
   #discord: DiscordRest;
   #status: Status;
+  #personalDatabase: PersonalDatabase;
   #clock: Clock;
   #log: Log;
   /** Dates whose latest pass ran into a problem. */
@@ -46,6 +49,7 @@ export class Miner {
     pi: PiRunner;
     discord: DiscordRest;
     status: Status;
+    personalDatabase: PersonalDatabase;
     clock: Clock;
     log: Log;
   }) {
@@ -55,6 +59,7 @@ export class Miner {
     this.#pi = options.pi;
     this.#discord = options.discord;
     this.#status = options.status;
+    this.#personalDatabase = options.personalDatabase;
     this.#clock = options.clock;
     this.#log = options.log;
   }
@@ -189,7 +194,37 @@ export class Miner {
       this.#store.saveDayLine({ date, ...line, drawnAt: this.#clock.now().toISOString() });
       this.#log('miner.line-drawn', { date, ...line });
     }
-    await this.#post(date, launches);
+    // Queued before the post goes out and written after it, so the post never waits on git and nothing is lost.
+    this.#personalDatabase.queue(this.#dayFile(date, launches));
+    try {
+      await this.#post(date, launches);
+    } finally {
+      await this.#personalDatabase.sync();
+    }
+  }
+
+  /** The date's `days/` file, written from the store. */
+  #dayFile(date: string, launches: Launch[]): DayFile {
+    return renderDayFile({ date, line: this.#store.dayLine(date)!, launches: this.#judged(date, launches) });
+  }
+
+  /** The date's Launches with their judgments, as the day post and the day's file show them. */
+  #judged(date: string, launches: Launch[]): (DayPostLaunch & DayFileLaunch)[] {
+    const judgments = new Map(this.#store.judgmentsFor(date).map((j) => [j.postId, j]));
+    return launches.map((l) => {
+      const j = judgments.get(l.postId)!;
+      return {
+        postId: l.postId,
+        rank: l.rank,
+        name: l.name,
+        slug: l.slug,
+        fit: j.fit,
+        notAProduct: j.notAProduct,
+        reLaunchOfRegistered: reLaunchOfRegistered(l),
+        reason: j.reason,
+        rulesApplied: j.rulesApplied,
+      };
+    });
   }
 
   /** The date's fixed set of Featured Launches, or undefined while Product Hunt shows none for it. */
@@ -241,11 +276,10 @@ export class Miner {
   async #judge(date: string, launches: Launch[]): Promise<boolean> {
     const unjudged = (ls: Launch[]) => ls.filter((l) => !this.#store.hasJudgment(l.postId));
     const retries = this.#store.minerRetries(date);
-    const interestScope = this.#interestScope();
     for (const retry of retries.filter((r) => r.tappedAt && !r.ranAt)) {
       const left = unjudged(launches.filter((l) => retry.postIds.includes(l.postId)));
       // A run the person started has no automatic retry: if it is capped too, they are asked again.
-      if (left.length > 0 && (await this.#lastTry(date, interestScope, left, [], true)) === 'stopped') return false;
+      if (left.length > 0 && (await this.#lastTry(date, left, [], true)) === 'stopped') return false;
       this.#store.saveMinerRetryRan(retry.id, this.#clock.now().toISOString());
     }
 
@@ -254,20 +288,20 @@ export class Miner {
     const perRun = this.#config.miner.launchesPerRun;
     for (let i = 0; i < missing.length; i += perRun) {
       const batch = missing.slice(i, i + perRun);
-      const first = await this.#run(date, interestScope, batch);
+      const first = await this.#run(date, batch);
       if (first.outcome === 'stopped') return false;
       // The Day's line needs every Fit, so a capped run gets one fresh run of its own, under the same caps.
       const left = unjudged(batch);
       if (first.outcome !== 'capped' || left.length === 0) continue;
       const earlier = [{ launches: batch.length, cap: first.cap! }];
-      if ((await this.#lastTry(date, interestScope, left, earlier, false)) === 'stopped') return false;
+      if ((await this.#lastTry(date, left, earlier, false)) === 'stopped') return false;
     }
     return true;
   }
 
   /** Runs these Launches once more. If that run is capped too, the ones still unjudged wait for the person's Retry. */
-  async #lastTry(date: string, interestScope: string, launches: Launch[], earlier: CappedRun[], afterRetry: boolean): Promise<RunResult['outcome']> {
-    const result = await this.#run(date, interestScope, launches);
+  async #lastTry(date: string, launches: Launch[], earlier: CappedRun[], afterRetry: boolean): Promise<RunResult['outcome']> {
+    const result = await this.#run(date, launches);
     const still = launches.filter((l) => !this.#store.hasJudgment(l.postId)).map((l) => l.postId);
     if (result.outcome === 'capped' && still.length > 0) {
       const cappedRuns = [...earlier, { launches: launches.length, cap: result.cap! }];
@@ -277,12 +311,11 @@ export class Miner {
     return result.outcome;
   }
 
-  #interestScope(): string {
-    return readFileSync(join(this.#config.personalDatabaseDir, 'profile', 'interest-scope.md'), 'utf8');
-  }
-
-  async #run(date: string, interestScope: string, batch: Launch[]): Promise<RunResult> {
+  async #run(date: string, batch: Launch[]): Promise<RunResult> {
     const expected = new Set(batch.map((l) => l.postId));
+    // Each run reads the Interest scope as GitHub has it, so an edit the person made there counts from the next run.
+    await this.#personalDatabase.sync();
+    const interestScope = this.#personalDatabase.read('profile/interest-scope.md');
     const result = await this.#pi.run({
       kind: 'miner-judging',
       role: 'miner',
@@ -363,26 +396,7 @@ export class Miner {
    */
   async #post(date: string, launches: Launch[]): Promise<void> {
     if (this.posted(date)) return;
-    const line = this.#store.dayLine(date)!;
-    const judgments = new Map(this.#store.judgmentsFor(date).map((j) => [j.postId, j]));
-    const rendered = renderDayPost({
-      date,
-      line,
-      floor: this.#config.miner.lineFloor,
-      launches: launches.map((l) => {
-        const j = judgments.get(l.postId)!;
-        return {
-          postId: l.postId,
-          rank: l.rank,
-          name: l.name,
-          slug: l.slug,
-          fit: j.fit,
-          notAProduct: j.notAProduct,
-          reLaunchOfRegistered: reLaunchOfRegistered(l),
-          reason: j.reason,
-        };
-      }),
-    });
+    const rendered = renderDayPost({ date, line: this.#store.dayLine(date)!, launches: this.#judged(date, launches) });
     const [summary, ...bands] = rendered.messages;
 
     const { threadId } = await this.#ensurePost(date, rendered.title, summary!);

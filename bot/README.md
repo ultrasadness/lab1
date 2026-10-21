@@ -9,8 +9,10 @@ The spec is #41; this first slice (#42) brings up the Miner's path from Product 
 | Path | What it is |
 |---|---|
 | `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane; who may tap |
-| `bot/src/miner/` | Judging runs, the Day's line, the day post, the 3-date catch-up and Retry |
+| `bot/src/miner/` | Judging runs, the Day's line, the day post and `days/` file, the 3-date catch-up and Retry |
+| `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
+| `bot/src/needs-you.ts` | Cards in the `#needs-you` text channel, each mentioning the person |
 | `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, and run records |
 | `bot/src/pi-runs.ts` | One `pi --mode rpc` process per run, capped on wall clock, turns and tokens |
 | `bot/src/store.ts` | The live store (SQLite) |
@@ -40,9 +42,11 @@ The hooks and CI that check each commit and push, and how to turn the hooks on i
 `docs/hooks-and-ci.md`.
 
 The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in-process, with real Pi and our extension
-as local processes, against fake Discord, Product Hunt and model provider servers and a clock the test moves. Only
-the harness imports from `bot/src`: `npm test` fails any other file under `bot/test/` whose import names a file
-there (`scripts/bot-test-imports.test.ts`).
+as local processes, against fake Discord, Product Hunt and model provider servers, a fake GitHub holding the Personal
+database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
+`bot/test/harness/fake-ssh.ts` in place of ssh. It lets in only the deploy key, can refuse pushes, and takes the
+person's own commits and merges. Only the harness imports from `bot/src`: `npm test` fails any other file under
+`bot/test/` whose import names a file there (`scripts/bot-test-imports.test.ts`).
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.
@@ -64,8 +68,16 @@ CREDENTIALS_DIRECTORY=/path/to/credentials npm run capture:producthunt-schema
 ## Run
 
 The bot reads `config/assistant.json` (or `$ASSISTANT_CONFIG`), and its tokens from `$CREDENTIALS_DIRECTORY`, as
-systemd's `LoadCredential=` hands them over: `discord-bot-token`, `producthunt-token` and one `newapi-key-<role>`
-per role. The Interest scope is `profile/interest-scope.md` in its checkout of the Personal database.
+systemd's `LoadCredential=` hands them over: `discord-bot-token`, `producthunt-token`, one `newapi-key-<role>` per
+role, and `personal-database-deploy-key`, the Personal database repo's deploy key.
+
+The bot's checkout of the Personal database sits at `personalDatabase.dir`: a clone of the person's repo with `main`
+checked out and its `origin` at the repo's ssh URL. The bot runs git in it with no git config but the checkout's own,
+and reaches GitHub through `personalDatabase.ssh` with the deploy key, so GitHub's host key must be in the bot user's
+`known_hosts`. Before each run it fast-forwards the checkout, and runs read the Interest scope from
+`profile/interest-scope.md` there. Each file the bot writes, such as `days/<YYYY-MM-DD>.md`, is queued in the live
+store and committed on its own, and every commit is pushed. A push GitHub refuses, or a history that has diverged, is
+tried again every `personalDatabase.retryMinutes`.
 
 ```sh
 docker build -f pi/Dockerfile -t assistant-pi .

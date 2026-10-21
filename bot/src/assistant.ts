@@ -1,6 +1,6 @@
 // The bot: starts every part of the Assistant this slice brings up and keeps them running. It is the only holder
 // of tokens and the only writer of the live store, and every outside call goes through it.
-import { mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { inMinutes, type Clock } from './clock.ts';
 import { checkConfig, ROLES, type Config, type Role } from './config.ts';
@@ -10,7 +10,9 @@ import { DiscordRest } from './discord/rest.ts';
 import { startForwarder } from './forwarder.ts';
 import { createLog, errorText, stdoutSink, type Log, type LogEntry, type LogSink } from './log.ts';
 import { Miner } from './miner/miner.ts';
+import { NeedsYou } from './needs-you.ts';
 import { nextDate, pacificDate, pacificInstant } from './pacific.ts';
+import { PersonalDatabase } from './personal-database.ts';
 import { Status } from './status.ts';
 import { PiRunner } from './pi-runs.ts';
 import { ProductHunt } from './product-hunt.ts';
@@ -30,6 +32,7 @@ const tokenFile = {
   discord: 'discord-bot-token',
   productHunt: 'producthunt-token',
   roleKey: (role: Role) => `newapi-key-${role}`,
+  deployKey: 'personal-database-deploy-key',
 };
 
 export async function startAssistant(options: {
@@ -43,16 +46,17 @@ export async function startAssistant(options: {
   const problems = checkConfig(config);
   if (problems.length > 0) throw new Error(`The config isn't usable:\n- ${problems.join('\n- ')}`);
   const log = createLog(options.log ?? stdoutSink, clock);
-  const token = (name: string) => {
-    try {
-      return readFileSync(join(options.credentialsDir, name), 'utf8').trim();
-    } catch {
-      throw new Error(`The token ${name} is missing; place it with ops/token ${name}`);
-    }
+  const tokenPath = (name: string) => {
+    const path = join(options.credentialsDir, name);
+    if (!existsSync(path)) throw new Error(`The token ${name} is missing; place it with ops/token ${name}`);
+    return path;
   };
+  const token = (name: string) => readFileSync(tokenPath(name), 'utf8').trim();
   const roleKeys = new Map(ROLES.map((role) => [role, token(tokenFile.roleKey(role))]));
   const discordToken = token(tokenFile.discord);
   const productHuntToken = token(tokenFile.productHunt);
+  // ssh reads the deploy key from its file itself.
+  const deployKey = tokenPath(tokenFile.deployKey);
 
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
   const store = Store.open(join(config.dataDir, 'assistant.sqlite'));
@@ -95,7 +99,17 @@ export async function startAssistant(options: {
     log,
   });
   const status = new Status({ discord, channelId: config.discord.statusChannelId, log });
-  const miner = new Miner({ config, store, productHunt, pi, discord, status, clock, log });
+  const personalDatabase = new PersonalDatabase({
+    dir: config.personalDatabase.dir,
+    ssh: config.personalDatabase.ssh,
+    deployKey,
+    retryMinutes: config.personalDatabase.retryMinutes,
+    store,
+    needsYou: new NeedsYou({ discord, channelId: config.discord.needsYouChannelId, personUserId: config.discord.personUserId, log }),
+    clock,
+    log,
+  });
+  const miner = new Miner({ config, store, productHunt, pi, discord, status, personalDatabase, clock, log });
 
   // The background lane runs one job at a time (#11).
   const lane = new Lane(log);
@@ -136,6 +150,7 @@ export async function startAssistant(options: {
   const whenIdle = async () => {
     for (;;) {
       await lane.whenIdle();
+      await personalDatabase.whenIdle();
       if (lateChecks.size === 0) return;
       await Promise.all(lateChecks);
     }
@@ -143,6 +158,8 @@ export async function startAssistant(options: {
 
   lane.add('raw-inputs expiry', async () => rawInputs.expire());
   catchUp();
+  // Commits a refused push left in the checkout, and files queued before a stop, don't wait for the Miner's next run.
+  void personalDatabase.sync();
 
   log('assistant.started', { forwarder: forwarder.url });
   let stopping: Promise<void> | undefined;
@@ -155,6 +172,7 @@ export async function startAssistant(options: {
         cancelDaily();
         cancelLate();
         cancelRetry();
+        personalDatabase.stop();
         lane.close();
         await pi.stop();
         await whenIdle();

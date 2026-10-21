@@ -5,6 +5,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { inMinutes, type Clock } from './clock.ts';
+import { kill, signal } from './process-group.ts';
 import type { Role, RunCaps, RunKind } from './config.ts';
 import type { Forwarder, RecordResult } from './forwarder.ts';
 import { errorText, type Log } from './log.ts';
@@ -255,23 +256,4 @@ export function capText(cap: RunCap): string {
     case 'tokens':
       return `token cap (${cap.max.toLocaleString('en-US')} tokens)`;
   }
-}
-
-/**
- * Signals the run's whole process group: the command and everything it started, which can outlive the command
- * itself. Once the group is gone there is nothing left to signal.
- */
-function signal(child: ChildProcess, name: NodeJS.Signals): void {
-  if (child.pid === undefined) return;
-  try {
-    process.kill(-child.pid, name);
-  } catch {
-    if (child.exitCode === null && child.signalCode === null) child.kill(name);
-  }
-}
-
-/** Kills the run's process group and lets go of its pipes, so the run closes even if something else holds them. */
-function kill(child: ChildProcess): void {
-  signal(child, 'SIGKILL');
-  for (const stream of [child.stdin, child.stdout, child.stderr]) stream?.destroy();
 }

@@ -21,8 +21,14 @@ export interface RunCaps {
 export interface Config {
   /** The live store and the raw inputs kept for 90 days, outside git. */
   dataDir: string;
-  /** The bot's checkout of the person's Personal database repo. */
-  personalDatabaseDir: string;
+  personalDatabase: {
+    /** The bot's checkout of the person's Personal database repo, cloned from GitHub with its `main` checked out. */
+    dir: string;
+    /** The ssh command git reaches GitHub through; the bot adds the deploy key to it. */
+    ssh: string[];
+    /** How long a refused push, or a history that has diverged, waits before the bot tries again. */
+    retryMinutes: number;
+  };
   discord: {
     apiBaseUrl: string;
     /** The only Discord user the bot acts for. */
@@ -30,6 +36,8 @@ export interface Config {
     minerDaysForumId: string;
     /** The plain text channel for operational lines, every one silent. */
     statusChannelId: string;
+    /** The text channel holding everything that waits on the person, each card mentioning them. */
+    needsYouChannelId: string;
   };
   productHunt: { apiUrl: string };
   /** new-api's OpenAI-compatible base URL, reached only by the forwarder. */
@@ -61,7 +69,7 @@ export function loadConfig(path: string): Config {
   const config = JSON.parse(readFileSync(path, 'utf8')) as Config;
   const base = dirname(resolve(path));
   config.dataDir = resolve(base, config.dataDir);
-  config.personalDatabaseDir = resolve(base, config.personalDatabaseDir);
+  config.personalDatabase.dir = resolve(base, config.personalDatabase.dir);
   if (config.pi.cwd) config.pi.cwd = resolve(base, config.pi.cwd);
   return config;
 }
@@ -73,6 +81,7 @@ export function checkConfig(config: Config): string[] {
   if (!snowflake.test(config.discord?.personUserId ?? '')) problems.push("discord.personUserId must be the person's Discord user id");
   if (!snowflake.test(config.discord?.minerDaysForumId ?? '')) problems.push('discord.minerDaysForumId must be the Miner days forum id');
   if (!snowflake.test(config.discord?.statusChannelId ?? '')) problems.push('discord.statusChannelId must be the #status channel id');
+  if (!snowflake.test(config.discord?.needsYouChannelId ?? '')) problems.push('discord.needsYouChannelId must be the #needs-you channel id');
   for (const role of ROLES) {
     if (!config.roles?.[role]?.providers?.length) problems.push(`roles.${role}.providers needs at least one provider`);
   }
@@ -81,6 +90,8 @@ export function checkConfig(config: Config): string[] {
   if (!(Number.isInteger(config.miner?.catchUpDates) && config.miner.catchUpDates > 0)) problems.push('miner.catchUpDates must be a whole number above 0');
   if (!(config.miner?.retryMinutes > 0)) problems.push('miner.retryMinutes must be above 0');
   if (!/^\d{2}:\d{2}$/.test(config.miner?.lateAt ?? '')) problems.push('miner.lateAt must look like 06:00');
+  if (!(config.personalDatabase?.ssh?.length > 0)) problems.push('personalDatabase.ssh must name the ssh command');
+  if (!(config.personalDatabase?.retryMinutes > 0)) problems.push('personalDatabase.retryMinutes must be above 0');
   if (!(config.pi?.command?.length > 0)) problems.push('pi.command must name the command that starts a run');
   for (const kind of RUN_KINDS) {
     const caps = config.runCaps?.[kind];

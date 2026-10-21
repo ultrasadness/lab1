@@ -2,7 +2,7 @@
 // The window is the latest few dates whose start has passed. A date is dropped when the window moves past it, so a
 // date the Miner can't finish is tried until the Miner's start on the third day after it.
 import type { Config } from '../config.ts';
-import { addDays, dayLabel, pacificDate, pacificInstant, pacificTime } from '../pacific.ts';
+import { addDays, dayLabel, pacificDate, pacificInstant, shortTime } from '../pacific.ts';
 import type { MinerRetry } from '../store.ts';
 import { cappedText } from './day-post.ts';
 
@@ -46,7 +46,7 @@ export function lateLine(input: {
 }): string {
   const { date, waiting, problem, retryMinutes, catchUp } = input;
   const leaves = leavesWindow(date, catchUp);
-  const until = `${pacificTime(leaves)} PT ${dayLabel(pacificDate(leaves))}`;
+  const until = shortTime(leaves);
   const late = `Miner: ${dayLabel(date)}'s list is late`;
   const window = `the ${catchUp.catchUpDates}-day catch-up`;
   if (waiting) {

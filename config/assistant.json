@@ -1,11 +1,16 @@
 {
   "dataDir": "/var/lib/assistant",
-  "personalDatabaseDir": "/var/lib/assistant/personal-database",
+  "personalDatabase": {
+    "dir": "/var/lib/assistant/personal-database",
+    "ssh": ["ssh"],
+    "retryMinutes": 30
+  },
   "discord": {
     "apiBaseUrl": "https://discord.com/api/v10",
     "personUserId": "set at go-live",
     "minerDaysForumId": "set at go-live",
-    "statusChannelId": "set at go-live"
+    "statusChannelId": "set at go-live",
+    "needsYouChannelId": "set at go-live"
   },
   "productHunt": {
     "apiUrl": "https://api.producthunt.com/v2/api/graphql"

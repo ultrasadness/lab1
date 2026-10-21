@@ -12,6 +12,8 @@ export interface JudgedLaunch {
 export interface DayLine {
   featuredCount: number;
   line: number;
+  /** The floor the line was drawn with, which an upgrade may change later. */
+  floor: number;
   /** ⌈√N⌉: which best Fit the line follows. */
   k: number;
   /** The k-th best eligible Fit, if there were k eligible Launches. */
@@ -25,7 +27,7 @@ export function drawDayLine(judged: JudgedLaunch[], featuredCount: number, floor
   const k = Math.ceil(Math.sqrt(featuredCount));
   const fits = judged.filter(eligible).map((j) => j.fit).sort((a, b) => b - a);
   const kth = k >= 1 && fits.length >= k ? fits[k - 1]! : null;
-  return { featuredCount, line: Math.max(floor, kth ?? floor), k, kth, eligibleCount: fits.length };
+  return { featuredCount, line: Math.max(floor, kth ?? floor), floor, k, kth, eligibleCount: fits.length };
 }
 
 export type Outcome = 'dossier' | 'skip' | 'not-a-product';

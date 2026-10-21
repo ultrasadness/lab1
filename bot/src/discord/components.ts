@@ -9,9 +9,9 @@ export const Flags = {
 /** Discord refuses a Components V2 message over 4,000 characters of text, link URLs included, or 40 components. */
 export const MESSAGE_LIMITS = { text: 4000, components: 40 } as const;
 
-export const ButtonStyle = { Primary: 1, Secondary: 2, Success: 3, Danger: 4 } as const;
+export const ButtonStyle = { Primary: 1, Secondary: 2, Success: 3, Danger: 4, Link: 5 } as const;
 
-export const Accent = { dossiers: 0xe8a33d, progress: 0x4f545c } as const;
+export const Accent = { dossiers: 0xe8a33d, progress: 0x4f545c, needsYou: 0xd9534f } as const;
 
 export interface TextDisplay {
   type: 10;
@@ -20,7 +20,9 @@ export interface TextDisplay {
 export interface Button {
   type: 2;
   style: number;
-  custom_id: string;
+  /** Every button has one except a link button, which has a URL instead. */
+  custom_id?: string;
+  url?: string;
   label: string;
   disabled?: boolean;
 }
@@ -39,7 +41,8 @@ export type Component = TextDisplay | Button | Section | Container;
 export interface MessagePayload {
   flags: number;
   components: Component[];
-  allowed_mentions: { parse: string[] };
+  /** Who the message may notify: nobody, unless a user's id is listed. */
+  allowed_mentions: { parse: string[]; users?: string[] };
 }
 
 /** A plain text message, such as a #status line. */
@@ -61,6 +64,9 @@ export const button = (customId: string, label: string, style: number = ButtonSt
   label,
   ...(disabled ? { disabled } : {}),
 });
+
+/** A button that opens a page, and sends the bot nothing. */
+export const linkButton = (label: string, url: string): Button => ({ type: 2, style: ButtonStyle.Link, url, label });
 
 export const section = (content: string, accessory: Button): Section => ({ type: 9, components: [text(content)], accessory });
 

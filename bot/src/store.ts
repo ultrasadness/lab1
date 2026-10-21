@@ -1,7 +1,7 @@
 // The live store (ADR 0007): one SQLite file the bot alone writes, the single source of truth for live state.
 // It holds the Miner dates the bot has taken on, each date's Launches, judgments by Post id, Day's lines by date, the
-// day posts on Discord, the Retries a capped date waits on, run and model-request records, and the index of raw
-// inputs kept outside git.
+// day posts on Discord, the Retries a capped date waits on, run and model-request records, the index of raw inputs
+// kept outside git, the files waiting to be written to the Personal database, and the times its history diverged.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
 import type { DayLine } from './miner/day-line.ts';
@@ -126,6 +126,34 @@ export interface RawInput {
   expiresAt: string;
 }
 
+/** A file waiting to be written to the Personal database, in a commit of its own. */
+export interface PersonalDatabaseWrite {
+  /** Where the file goes in the repo, such as `days/2026-10-14.md`. */
+  path: string;
+  content: string;
+  /** The commit's message. */
+  message: string;
+  queuedAt: string;
+}
+
+/**
+ * A time the bot's checkout of the Personal database and GitHub's `main` each had commits the other didn't. The bot
+ * commits nothing until `main` holds its commits, which it pushes to a branch of their own for the person to merge.
+ */
+export interface Divergence {
+  id: number;
+  foundAt: string;
+  /** The checkout's last commit, and `main`'s, when the bot found them diverged. */
+  ours: string;
+  theirs: string;
+  /** The branch on GitHub holding the bot's commits. */
+  branch: string;
+  branchPushedAt: string | null;
+  /** The #needs-you card telling the person, marked before it is sent. */
+  cardIntended: boolean;
+  cardMessageId: string | null;
+}
+
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS miner_cursor (
   id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -169,6 +197,7 @@ CREATE TABLE IF NOT EXISTS day_lines (
   date TEXT PRIMARY KEY,
   featured_count INTEGER NOT NULL,
   line INTEGER NOT NULL,
+  floor INTEGER NOT NULL,
   k INTEGER NOT NULL,
   kth INTEGER,
   eligible_count INTEGER NOT NULL,
@@ -229,6 +258,23 @@ CREATE TABLE IF NOT EXISTS raw_inputs (
   expires_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS raw_inputs_by_expiry ON raw_inputs(expires_at);
+CREATE TABLE IF NOT EXISTS personal_database_writes (
+  path TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  message TEXT NOT NULL,
+  queued_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS personal_database_divergences (
+  id INTEGER PRIMARY KEY,
+  found_at TEXT NOT NULL,
+  ours TEXT NOT NULL,
+  theirs TEXT NOT NULL,
+  branch TEXT NOT NULL,
+  branch_pushed_at TEXT,
+  card_intended INTEGER NOT NULL DEFAULT 0,
+  card_message_id TEXT,
+  rejoined_at TEXT
+);
 `;
 
 type Row = Record<string, SQLInputValue>;
@@ -417,6 +463,7 @@ export class Store {
       date,
       featuredCount: Number(row.featured_count),
       line: Number(row.line),
+      floor: Number(row.floor),
       k: Number(row.k),
       kth: row.kth === null ? null : Number(row.kth),
       eligibleCount: Number(row.eligible_count),
@@ -428,10 +475,10 @@ export class Store {
   saveDayLine(line: StoredDayLine): void {
     this.#db
       .prepare(
-        `INSERT INTO day_lines (date, featured_count, line, k, kth, eligible_count, drawn_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (date) DO NOTHING`,
+        `INSERT INTO day_lines (date, featured_count, line, floor, k, kth, eligible_count, drawn_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (date) DO NOTHING`,
       )
-      .run(line.date, line.featuredCount, line.line, line.k, line.kth, line.eligibleCount, line.drawnAt);
+      .run(line.date, line.featuredCount, line.line, line.floor, line.k, line.kth, line.eligibleCount, line.drawnAt);
   }
 
   // ---------- Day posts on Discord ----------
@@ -607,5 +654,71 @@ export class Store {
 
   removeRawInput(id: number): void {
     this.#db.prepare('DELETE FROM raw_inputs WHERE id = ?').run(id);
+  }
+
+  // ---------- Files waiting to be written to the Personal database ----------
+
+  /** Queues a file to write. A file already waiting at the same path is replaced: only the latest is written. */
+  queuePersonalDatabaseWrite(write: PersonalDatabaseWrite): void {
+    this.#db
+      .prepare(
+        `INSERT INTO personal_database_writes (path, content, message, queued_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT (path) DO UPDATE SET content = excluded.content, message = excluded.message, queued_at = excluded.queued_at`,
+      )
+      .run(write.path, write.content, write.message, write.queuedAt);
+  }
+
+  /** The files waiting, oldest first. */
+  personalDatabaseWrites(): PersonalDatabaseWrite[] {
+    return this.#db
+      .prepare('SELECT * FROM personal_database_writes ORDER BY queued_at, path')
+      .all()
+      .map((row) => ({ path: String(row.path), content: String(row.content), message: String(row.message), queuedAt: String(row.queued_at) }));
+  }
+
+  /** Marks a file written, unless a newer version of it was queued meanwhile. */
+  removePersonalDatabaseWrite(path: string, content: string): void {
+    this.#db.prepare('DELETE FROM personal_database_writes WHERE path = ? AND content = ?').run(path, content);
+  }
+
+  // ---------- Times the Personal database's history diverged ----------
+
+  /** The divergence not yet rejoined, if there is one. */
+  openDivergence(): Divergence | undefined {
+    const row = this.#db.prepare('SELECT * FROM personal_database_divergences WHERE rejoined_at IS NULL ORDER BY id DESC LIMIT 1').get();
+    if (!row) return undefined;
+    return {
+      id: Number(row.id),
+      foundAt: String(row.found_at),
+      ours: String(row.ours),
+      theirs: String(row.theirs),
+      branch: String(row.branch),
+      branchPushedAt: textOrNull(row.branch_pushed_at),
+      cardIntended: Boolean(row.card_intended),
+      cardMessageId: textOrNull(row.card_message_id),
+    };
+  }
+
+  saveDivergence(d: Pick<Divergence, 'foundAt' | 'ours' | 'theirs' | 'branch'>): void {
+    this.#db
+      .prepare('INSERT INTO personal_database_divergences (found_at, ours, theirs, branch) VALUES (?, ?, ?, ?)')
+      .run(d.foundAt, d.ours, d.theirs, d.branch);
+  }
+
+  saveDivergenceBranchPushed(id: number, at: string): void {
+    this.#db.prepare('UPDATE personal_database_divergences SET branch_pushed_at = ? WHERE id = ?').run(at, id);
+  }
+
+  /** Marks the card as about to be sent, or as not sent after all. */
+  saveDivergenceCardIntended(id: number, intended: boolean): void {
+    this.#db.prepare('UPDATE personal_database_divergences SET card_intended = ? WHERE id = ?').run(intended ? 1 : 0, id);
+  }
+
+  saveDivergenceCard(id: number, messageId: string): void {
+    this.#db.prepare('UPDATE personal_database_divergences SET card_message_id = ? WHERE id = ?').run(messageId, id);
+  }
+
+  saveDivergenceRejoined(id: number, at: string): void {
+    this.#db.prepare('UPDATE personal_database_divergences SET rejoined_at = ? WHERE id = ?').run(at, id);
   }
 }
