@@ -17,9 +17,10 @@ What checks each commit and push, for both packages: the root's (the bot, our Pi
   cache where it can, so the typechecks have their dependencies. It installs them rather than linking the main
   checkout's `node_modules`: `npm ci` or `npm uninstall` through such a link would change the main checkout's own.
   When an install fails, it says so, and the worktree is made anyway.
-- **commit-msg** refuses a message with a GitHub closing keyword before an issue reference, such as `Closes #88`:
-  GitHub would close the issue as soon as the commit reaches `main`, but a ticket closes by hand once it has landed
-  (**Close** in `docs/agents/issue-tracker.md`). Write the reference as `(#88)` instead.
+- **commit-msg** refuses a message with a GitHub closing keyword before an issue reference, such as `Closes #88`,
+  even with a line break or a blank line between them: GitHub would close the issue as soon as the commit reaches
+  `main`, but a ticket closes by hand once it has landed (**Close** in `docs/agents/issue-tracker.md`). Write the
+  reference as `(#88)` instead.
 - **pre-push** refuses a push that moves `main` to a commit unless GitHub Actions has run on it and every run has
   passed: GitHub Free has no branch protection for a private repo, so nothing on the server would refuse it. The hook
   asks GitHub through `gh`, so `gh` must be signed in.

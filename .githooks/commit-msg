@@ -5,24 +5,38 @@
 set -eu
 
 # awk prints nothing for a message that closes nothing. Otherwise its first line is the first reference after a
-# closing keyword, and each line after it quotes a line of the message holding one. Lines starting with # are read
-# too: a message given with -m keeps them.
+# closing keyword, and the lines after it quote each line of the message from a closing keyword to the reference
+# after it. Line breaks, blank lines included, don't stop GitHub: in #91's trial, it closed an issue whose reference
+# opened the line after a "fixes", and another with a blank line between them. Lines starting with # are read too: a
+# message given with -m keeps them.
 found=$(awk '
   BEGIN {
-    closing = "[^a-z0-9_](close[sd]?|fix(e[sd])?|resolve[sd]?)(:[ \t]*|[ \t]+)"
-    reference = "(#[0-9]+|[a-z0-9_.-]+/[a-z0-9_.-]+#[0-9]+|https?://github\\.com/[^/ \t]+/[^/ \t]+/issues/[0-9]+)"
+    closing = "[^a-z0-9_](close[sd]?|fix(e[sd])?|resolve[sd]?)(:[ \t\n]*|[ \t\n]+)"
+    reference = "(#[0-9]+|[a-z0-9_.-]+/[a-z0-9_.-]+#[0-9]+|https?://github\\.com/[^/ \t\n]+/[^/ \t\n]+/issues/[0-9]+)"
   }
+  # The line of the message that holds its character at position p.
+  function line_at(p,   text) { text = substr(message, 1, p); return gsub(/\n/, "", text) }
   # git commit --verbose shows the staged diff below this line, and git cuts it off before committing.
   $0 == "# ------------------------ >8 ------------------------" { exit }
-  match(tolower(" " $0), closing reference) {
-    if (first_reference == "") {
-      phrase = substr(" " $0, RSTART, RLENGTH)
-      match(tolower(phrase), reference)
-      first_reference = substr(phrase, RSTART, RLENGTH)
+  # Each line of the message follows a line break, so the first one is read like the rest.
+  { line[++lines] = $0; message = message "\n" $0 }
+  END {
+    rest = message
+    while (match(tolower(rest), closing reference)) {
+      phrase = substr(rest, RSTART, RLENGTH)
+      rest = substr(rest, RSTART + RLENGTH)
+      start = matched_end + RSTART
+      matched_end = start + RLENGTH - 1
+      for (i = line_at(start + 1); i <= line_at(matched_end); i++) quoted[i] = 1
+      if (first_reference == "") {
+        match(tolower(phrase), reference)
+        first_reference = substr(phrase, RSTART, RLENGTH)
+      }
     }
-    quoted = quoted "\n  " $0
+    if (first_reference == "") exit
+    print first_reference
+    for (i = 1; i <= lines; i++) if (i in quoted) print "  " line[i]
   }
-  END { if (first_reference != "") print first_reference quoted }
 ' "$1")
 [ -n "$found" ] || exit 0
 reference=$(printf '%s\n' "$found" | sed -n 1p)

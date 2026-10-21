@@ -80,6 +80,23 @@ test('a refusal quotes each line that closes an issue and suggests the first one
   assert.match(said, /as\s+\(owner\/repo#12\)\s+instead/);
 });
 
+// GitHub closes an issue whose reference a line break splits from its closing keyword: in #91's trial, each of
+// these forms closed its issue once the commit reached the default branch.
+test('a closing keyword that ends a line, before the reference that opens the next, is refused, quoting both lines', (t) => {
+  const said = refused(repo(t), 'Subject\n\nThis commit fixes\n#88 for good.');
+  assert.match(said, /^ {2}This commit fixes\n {2}#88 for good\.$/m);
+  assert.match(said, /as\s+\(#88\)\s+instead/);
+});
+
+test('a closing keyword that ends the subject, before a body that opens with a reference, is refused, as 7310714 would be', (t) => {
+  const said = refused(
+    repo(t),
+    'Say how a ticket lands on main and how it closes\n\n#76\'s session pieced the landing together.',
+  );
+  assert.match(said, /^ {2}Say how a ticket lands on main and how it closes\n {2}\n {2}#76's session pieced the landing together\.$/m);
+  assert.match(said, /as\s+\(#76\)\s+instead/);
+});
+
 const KEYWORDS = ['close', 'closes', 'closed', 'fix', 'fixes', 'fixed', 'resolve', 'resolves', 'resolved'];
 
 for (const keyword of KEYWORDS) {
@@ -109,8 +126,6 @@ test('a message that mentions an issue without closing it goes through', (t) => 
     'Refuse a closing keyword in a commit message (#90)',
     'Fix the pre-push hook\n\nLeft for #72: the install on the VM.',
     'Prefixes and suffixes #12 alike\n\n#88\'s first commit message ended with a closing keyword.',
-    // 7310714's: a keyword that ends the subject names nothing on the line after it.
-    'Say how a ticket lands on main and how it closes\n\n#76\'s session pieced the landing together.',
   ]) {
     const committed = r.commit(message);
     assert.equal(committed.ok, true, committed.stderr);

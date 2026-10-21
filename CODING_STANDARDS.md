@@ -108,14 +108,16 @@ remaining quota before the key is reported dead" became "check, then report it d
 
 A diff that adds or widens a check, a hook or a rule that refuses input shows what it says about each case the repo
 already holds: every commit message in the history for a commit-msg hook, every doc for a doc check, every file for a
-code check. Each refusal there is either a real fault the diff fixes too, or a false positive the check is narrowed
-to let through.
+code check. Each refusal there is either a real fault, which the diff fixes too where it can, or a false positive the
+check is narrowed to let through.
 
 **Why it matters:** a check's tests hold the cases its author thought of, and the repo holds the ones nobody did. In
 #90, the first commit-msg hook read a closing keyword that ends one line with an issue reference that opens the next,
 even across a blank line. Its tests passed, but it refused 7310714, whose subject ends in "closes" and whose body
-opens with `#76's`. A spec reviewer found it only by running the hook over all 50 commit messages. The hook now reads
-one line at a time, and 7310714's message is one of its tests (`4b2a9b3`).
+opens with `#76's`. A spec reviewer found it only by running the hook over all 50 commit messages. #90 took it for a
+false positive and read one line at a time, until #91 tried GitHub: it closes across a line break and a blank line
+alike, so 7310714 would have closed #76 had #76 still been open. The hook reads across lines again, and refuses
+7310714's message in its tests (#91).
 
 **In a diff, look for:**
 
