@@ -5,6 +5,9 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
+- **A ticket that settles a question by trying it** says what to build for each result the trial can give, not only
+  the expected ones. #91's criteria covered GitHub closing an issue on one of two split forms, or on neither. It closed
+  on both, and two of the criteria then asked for opposite things.
 - **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments --jq '"#\(.number) \(.title) [\([.labels[].name] | join(", "))]\n\n\(.body)\(.comments | map("\n\n--- \(.author.login), \(.createdAt):\n\(.body)") | join(""))"'`. It prints the title, labels, body and comments. Without a terminal, `--comments` alone prints only the comments.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **List the ready tickets**: open, `ready-for-agent`, unassigned and with no open blocker. A `Spec:` issue is its tickets' parent, not a ticket. `gh issue list --state open --label ready-for-agent --limit 100 --json number,title,assignees,blockedBy --jq '.[] | select(.assignees == [] and ([.blockedBy.nodes[] | select(.state == "OPEN")] | length) == 0 and (.title | startswith("Spec:") | not)) | "#\(.number) \(.title)"'`
