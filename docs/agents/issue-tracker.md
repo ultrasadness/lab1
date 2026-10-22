@@ -13,6 +13,10 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **A ticket that settles a question by trying it** says what to build for each result the trial can give, not only
   the expected ones. #91's criteria covered GitHub closing an issue on one of two split forms, or on neither. It closed
   on both, and two of the criteria then asked for opposite things.
+- **A criterion that names the part doing the work** names one that can do it at that moment: check it against the
+  spec's parts and boundaries. #49's "The extension measures the Rule budget… when a Rule is kept" named our Pi
+  extension, which runs only inside a Pi run, and Keep happens in none. The bot measured it instead, and #49 closed on
+  a departure from its own criteria.
 - **A question the person settles while you work a ticket** goes on the ticket as a comment before the review: the
   question, the answer, and what it changes in the ticket's criteria. The review then reads it with the ticket, and
   later tickets find it there. In #47 the person chose to hold the day's list on a Dossier that can't be written. Only

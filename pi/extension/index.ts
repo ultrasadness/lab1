@@ -28,7 +28,8 @@ export default async function assistant(pi: ExtensionAPI): Promise<void> {
   if (!kind) throw new Error(`Unknown run kind ${kindName}`);
   const authorization = `Bearer ${required('ASSISTANT_RUN_TOKEN')}`;
 
-  // Loaded before anything is registered, so a run without its Rules has no model to call.
+  // Loaded before anything is registered, so a run without its Rules has no model to call. Never in before_agent_start:
+  // Pi logs an error thrown there and runs on with its default system prompt.
   const rules = await fetch(`${botUrl}/rules`, { headers: { authorization }, signal: AbortSignal.timeout(RULES_TIMEOUT_MS) });
   const loaded = (await rules.json().catch(() => ({}))) as { prompt?: unknown };
   if (!rules.ok || typeof loaded.prompt !== 'string') throw new Error(`The Assistant did not hand over this run's Rules (${rules.status})`);

@@ -22,7 +22,7 @@ sorts each Correction into fix only, an Interest scope change or a Rule, and loa
 | `bot/src/pi-runs.ts` | One `pi --mode rpc` process per run, capped on wall clock, turns and tokens |
 | `bot/src/store.ts` | The live store (SQLite) |
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 and Discord |
-| `pi/extension/` | Our Pi extension: the forwarder as provider, the run's Rules, and each run kind's record tool and prompt |
+| `pi/extension/` | Our Pi extension: the forwarder as provider, the run's Rules, and each run kind's record tool and prompt. It is copied alone into the Pi container, so it and `bot/src` import nothing from each other |
 | `pi/pi-run`, `pi/Dockerfile` | How a run starts, and the Pi container image |
 | `config/assistant.json` | Settings, changed only through `ops/upgrade` |
 

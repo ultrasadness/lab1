@@ -18,7 +18,7 @@ Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，�
 | `bot/src/pi-runs.ts` | 每次运行一个 `pi --mode rpc` 进程，按墙钟时间、轮数和 token 数设上限 |
 | `bot/src/store.ts` | 实时存储（SQLite） |
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 和 Discord |
-| `pi/extension/` | 我们的 Pi 扩展：把 forwarder 作为 provider、这次运行的 Rule，以及每种运行的记录工具和提示词 |
+| `pi/extension/` | 我们的 Pi 扩展：把 forwarder 作为 provider、这次运行的 Rule，以及每种运行的记录工具和提示词。它被单独复制进 Pi 容器，所以它和 `bot/src` 互不导入 |
 | `pi/pi-run`, `pi/Dockerfile` | 一次运行如何启动，以及 Pi 容器镜像 |
 | `config/assistant.json` | 设置，只通过 `ops/upgrade` 修改 |
 
