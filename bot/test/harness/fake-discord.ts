@@ -68,6 +68,8 @@ export interface SeenButton {
   label: string;
   customId: string;
   disabled: boolean;
+  /** Discord's button style: 1 is blue (Primary), 2 grey, 3 green, 4 red. */
+  style: number;
 }
 
 export interface SeenMessage {
@@ -79,6 +81,8 @@ export interface SeenMessage {
   lines: SeenLine[];
   /** The buttons in action rows, such as a Dossier's Add Offer and Correct. */
   buttons: SeenButton[];
+  /** The accent colour of the message's first container, if it has one. */
+  accent: number | undefined;
   silent: boolean;
   mentionsNobody: boolean;
   /** The users the message notifies by mentioning them. */
@@ -111,7 +115,8 @@ export interface SeenPopup {
   title: string;
   /** Text shown above the fields. */
   texts: string[];
-  fields: { customId: string; label: string; required: boolean; multiline: boolean; maxLength: number | undefined }[];
+  /** Each field, with what it holds as the pop-up opens, if anything. */
+  fields: { customId: string; label: string; required: boolean; multiline: boolean; maxLength: number | undefined; value?: string }[];
 }
 
 export interface InteractionReply {
@@ -130,6 +135,8 @@ export class FakeDiscord {
   readonly refused: { path: string; reason: string }[] = [];
   /** Forums Discord can't read for now, such as their tags: each read answers 503. */
   readonly unreadable = new Set<string>();
+  /** Channels whose messages Discord can't edit for now: each edit answers 503. */
+  readonly uneditable = new Set<string>();
 
   #server: http.Server;
   #wss: WebSocketServer;
@@ -478,6 +485,7 @@ export class FakeDiscord {
       const messages = thread?.messages ?? (this.#cardChannels.has(match[1]!) ? this.#textChannels.get(match[1]!) : undefined);
       const stored = messages?.find((m) => m.id === match![2]);
       if (!stored) return reply(404, { code: 10008, message: 'Unknown Message' });
+      if (this.uneditable.has(match[1]!)) return reply(503, { code: 0, message: 'Service Unavailable' });
       if (thread?.archivedAt) return reply(400, { code: 50083, message: 'Thread is archived' });
       const body = JSON.parse(raw) as MessagePayload;
       const problem = checkEdit(stored.payload, body);
@@ -578,6 +586,7 @@ function checkPopup(popup: { custom_id?: string; title?: string; components?: Co
     const field = c.component;
     if (field?.type !== 4 || !field.custom_id) return 'a label holds one text input with a custom_id';
     if (Number(field.max_length ?? MAX_TEXT_INPUT) > MAX_TEXT_INPUT) return `a text input takes at most ${MAX_TEXT_INPUT} characters`;
+    if (typeof field.value === 'string' && field.value.length > Number(field.max_length ?? MAX_TEXT_INPUT)) return 'a text input’s value is over its max_length';
   }
   if (!components.some((c) => c.type === 18)) return 'a pop-up needs a field';
   return undefined;
@@ -599,6 +608,7 @@ export function popupOf(reply: InteractionReply): SeenPopup | undefined {
         required: c.component?.required !== false,
         multiline: c.component?.style === 2,
         maxLength: typeof c.component?.max_length === 'number' ? c.component.max_length : undefined,
+        ...(typeof c.component?.value === 'string' ? { value: c.component.value } : {}),
       })),
   };
 }
@@ -661,7 +671,7 @@ function seen(message: StoredMessage): SeenMessage {
         if (a) count += 1;
         continue;
       }
-      if (c.type === 2) buttons.push({ label: c.label ?? '', customId: c.custom_id ?? '', disabled: c.disabled === true });
+      if (c.type === 2) buttons.push({ label: c.label ?? '', customId: c.custom_id ?? '', disabled: c.disabled === true, style: Number(c.style) });
       if (c.components) visit(c.components, inSection);
     }
   };
@@ -672,6 +682,7 @@ function seen(message: StoredMessage): SeenMessage {
     headings,
     lines,
     buttons,
+    accent: payload.components?.find((c) => c.type === 17)?.accent_color as number | undefined,
     silent: Boolean((payload.flags ?? 0) & SUPPRESS_NOTIFICATIONS),
     mentionsNobody: mentionsNobody(payload),
     // Discord notifies a user mentioned in the text only if the message allows it.

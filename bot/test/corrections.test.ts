@@ -4,68 +4,16 @@
 // Dossier that falls below it is withdrawn, and the day's file in the Personal database is rewritten.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { setTimeout as delay } from 'node:timers/promises';
-import { EPHEMERAL, popupOf, updateOf, type InteractionReply, type SeenLine, type SeenMessage, type SeenPost } from './harness/fake-discord.ts';
-import { MINER_DAYS_FORUM, PERSON, PRODUCTS_FORUM, TOKENS, startWorld, type World } from './harness/world.ts';
+import { EPHEMERAL, popupOf, updateOf } from './harness/fake-discord.ts';
+import { MINER_DAYS_FORUM, PERSON, PRODUCTS_FORUM, TOKENS, startWorld } from './harness/world.ts';
 import { fixtureDay, websiteOf } from './harness/fake-product-hunt.ts';
-import { opensJudgingRun, said, type ScriptedJudgment } from './harness/fake-model.ts';
-import { CODEMIND, serveProduct, type FixtureProduct } from './harness/dossier-fixtures.ts';
+import { opensJudgingRun, said } from './harness/fake-model.ts';
+import { CODEMIND, serveProduct } from './harness/dossier-fixtures.ts';
+import { correct, dayPost, dayPosted, lineOf, rejudges, until } from './harness/miner-day.ts';
 
 const ph = (slug: string) => `https://www.producthunt.com/posts/${slug}`;
 const ANCHER = '1266729';
 const EXCALICLAW = '1277092';
-
-/** Oct 12 posted at 01:00 PDT with no Launch at or above its line of 7, but these Products' Launches. */
-async function dayPosted(t: { after(fn: () => Promise<void>): void }, dossiers: FixtureProduct[] = []): Promise<World> {
-  const world = await startWorld({ now: '2026-10-12T07:30:00Z' }); // 00:30 PDT
-  t.after(() => world.stop());
-  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
-  world.model.onlyDossiers(dossiers.map((d) => d.postId));
-  for (const product of dossiers) serveProduct(world, product);
-  await world.advanceTo('2026-10-12T08:00:00Z'); // 01:00 PDT
-  await world.discord.connected();
-  return world;
-}
-
-const dayPost = (world: World): SeenPost => world.discord.forumPosts(MINER_DAYS_FORUM)[0]!;
-
-/** The day post's line for a Launch, by its name, with the message it is in. */
-function lineOf(world: World, name: string): { post: SeenPost; message: SeenMessage; line: SeenLine } {
-  const post = dayPost(world);
-  for (const message of post.messages) {
-    const line = message.lines.find((l) => l.text.startsWith(`**[${name}](`));
-    if (line) return { post, message, line };
-  }
-  throw new Error(`No line for ${name} in the day post`);
-}
-
-/** Waits until the condition holds, for at most 10 seconds. */
-async function until(condition: () => boolean): Promise<void> {
-  for (let waited = 0; !condition(); waited += 20) {
-    if (waited > 10_000) throw new Error('Waited 10 seconds in vain');
-    await delay(20);
-  }
-}
-
-/** Has the model judge this Launch so from now on, as a re-judging run would. */
-function rejudges(world: World, postId: string, judgment: ScriptedJudgment): void {
-  const before = world.model.judgment;
-  world.model.judgment = (id) => (id === postId ? judgment : before(id));
-}
-
-/** The person taps Correct on the Launch's line and sends what it got wrong. Resolves with the bot's reply to that. */
-async function correct(world: World, name: string, what: string): Promise<InteractionReply> {
-  const { post, message, line } = lineOf(world, name);
-  const opened = await world.discord.tap({ userId: PERSON, customId: line.button!.customId, channelId: post.id, messageId: message.id });
-  const popup = popupOf(opened)!;
-  return world.discord.submitPopup({
-    userId: PERSON,
-    customId: popup.customId,
-    channelId: post.id,
-    messageId: message.id,
-    fields: { [popup.fields[0]!.customId]: what },
-  });
-}
 
 test('Correct on a day line opens a one-field pop-up with the current judgment above "What did it get wrong?"', async (t) => {
   const world = await dayPosted(t);
@@ -117,10 +65,12 @@ test('a Correction re-judges only its Launch: the line shows "re-judging…", th
   assert.equal(post.title, 'Mon Oct 12 · 0 Dossiers · line 7', 'the line never moves, and the outcome stays a Skip');
   assert.deepEqual(world.discord.refused, []);
 
-  // One run, of the Miner role, re-judged only that Launch, given what the person wrote.
-  const [run, ...more] = world.model.runs.slice(runs);
+  // One run, of the Miner role, re-judged only that Launch, given what the person wrote, and one more sorted the
+  // Correction (#49).
+  const [run, sorting, ...more] = world.model.runs.slice(runs);
   assert.deepEqual(more, []);
   assert.deepEqual(run!.postIds, [ANCHER]);
+  assert.equal(sorting!.kind, 'correction-sorting');
   const request = world.model.requests.find((r) => opensJudgingRun(r) && said(r, 'user').includes(`Post id ${ANCHER}`) && said(r, 'user').includes('further off'))!;
   assert.equal(request.model, 'miner@openrouter');
   assert.equal(request.authorization, `Bearer ${TOKENS.minerKey}`);
@@ -134,14 +84,15 @@ test('a Correction re-judges only its Launch: the line shows "re-judging…", th
   assert.ok(
     file.includes(
       `- [Ancher 2.0](${ph('ancher-2-0')}) · Skip · fit 5 after your Correction · knowledge workspace with no export at all · Rules applied: none` +
-        ` · Corrected 2026-10-12 09:15 PT: was Skip · fit 6, you wrote "It has no export at all, so it's further off."\n`,
+        ` · Corrected 2026-10-12 09:15 PT: was Skip · fit 6, you wrote "It has no export at all, so it's further off.", fix only\n`,
     ),
     file,
   );
   assert.ok(file.includes('0 Dossiers · 19 Skips · 19 Featured Launches'));
-  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }).slice(-2), [
+  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }).slice(-3), [
     'Miner day Mon 2026-10-12 PT: 0 Dossiers, line 7',
     'Miner day Mon 2026-10-12 PT: Ancher 2.0 corrected, 0 Dossiers, line 7',
+    "Miner day Mon 2026-10-12 PT: Ancher 2.0's Correction is fix only, 0 Dossiers, line 7",
   ]);
 });
 
@@ -181,7 +132,10 @@ test('a Skip corrected to at or above the line becomes a Dossier with its Produc
   assert.ok(file.includes('1 Dossier · 18 Skips · 19 Featured Launches'));
   assert.ok(file.includes(`- [Codemind](${ph('codemind-2')}) · Dossier · fit 8 after your Correction · your coding agent hands off tasks over MCP; free allowance to start`));
   assert.ok(world.git.file('products/codemindhq.dev/dossier.md'), 'the Dossier is in the Personal database too');
-  assert.equal(world.git.subjects('main', { leavingOut: 'products' }).at(-1), 'Miner day Mon 2026-10-12 PT: Codemind corrected, 1 Dossier, line 7');
+  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }).slice(-2), [
+    'Miner day Mon 2026-10-12 PT: Codemind corrected, 1 Dossier, line 7',
+    "Miner day Mon 2026-10-12 PT: Codemind's Correction is fix only, 1 Dossier, line 7",
+  ]);
 });
 
 test('a Dossier corrected below the line is withdrawn: its post is closed as Skipped, and a later Correction puts it back', async (t) => {
@@ -279,30 +233,36 @@ test('two Corrections on one day are each re-judged in turn, and a Launch correc
   assert.match(ancher.line.text, /· Skip · fit 2 after your Correction · a workspace you would never move your notes into\n-# was Skip · fit 4 · you wrote “Even further off: it keeps my notes hostage\.”$/);
   assert.deepEqual(ancher.message.headings, ['### Near misses · fit 6'], 'still among the near misses, where the day put it');
   assert.deepEqual(
-    world.model.runs.slice(runs).map((r) => r.postIds),
+    world.model.runs
+      .slice(runs)
+      .filter((r) => r.kind === 'miner-judging')
+      .map((r) => r.postIds),
     [[ANCHER], [EXCALICLAW], [ANCHER]],
-    'one run for each Correction, in the order they were sent',
+    'one re-judging run for each Correction, in the order they were sent',
   );
 
   const file = world.git.file('days/2026-10-12.md')!;
   assert.ok(
     file.includes(
       `- [Ancher 2.0](${ph('ancher-2-0')}) · Skip · fit 2 after your Correction · a workspace you would never move your notes into · Rules applied: none` +
-        ' · Corrected 2026-10-12 09:15 PT: was Skip · fit 6, you wrote "No export, so it is no use to me."' +
-        ' · Corrected 2026-10-12 10:40 PT: was Skip · fit 4, you wrote "Even further off: it keeps my notes hostage."\n',
+        ' · Corrected 2026-10-12 09:15 PT: was Skip · fit 6, you wrote "No export, so it is no use to me.", fix only' +
+        ' · Corrected 2026-10-12 10:40 PT: was Skip · fit 4, you wrote "Even further off: it keeps my notes hostage.", fix only\n',
     ),
     file,
   );
   assert.ok(
     file.includes(
       `- [ExcaliClaw](${ph('excaliclaw')}) · Skip · fit 5 after your Correction · diagram workspace for agents; you rarely draw · Rules applied: none` +
-        ' · Corrected 2026-10-12 09:15 PT: was Skip · fit 6, you wrote "I hardly ever draw diagrams."\n',
+        ' · Corrected 2026-10-12 09:15 PT: was Skip · fit 6, you wrote "I hardly ever draw diagrams.", fix only\n',
     ),
   );
-  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }).slice(-3), [
+  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }).slice(-6), [
     'Miner day Mon 2026-10-12 PT: Ancher 2.0 corrected, 0 Dossiers, line 7',
+    "Miner day Mon 2026-10-12 PT: Ancher 2.0's Correction is fix only, 0 Dossiers, line 7",
     'Miner day Mon 2026-10-12 PT: ExcaliClaw corrected, 0 Dossiers, line 7',
+    "Miner day Mon 2026-10-12 PT: ExcaliClaw's Correction is fix only, 0 Dossiers, line 7",
     'Miner day Mon 2026-10-12 PT: Ancher 2.0 corrected, 0 Dossiers, line 7',
+    "Miner day Mon 2026-10-12 PT: Ancher 2.0's Correction is fix only, 0 Dossiers, line 7",
   ]);
   assert.deepEqual(world.discord.refused, []);
 });
@@ -319,7 +279,7 @@ test('a Correction runs even once its date’s Miner budget is spent, and its ru
   await world.assistant.whenIdle();
 
   assert.match(lineOf(world, 'Ancher 2.0').line.text, /· Skip · fit 5 after your Correction ·/);
-  assert.equal(finished().length, 4, 'the Correction’s run is a Miner run on Oct 12, beside the day’s three');
+  assert.equal(finished().length, 5, 'the Correction’s runs, re-judging and sorting, are Miner runs on Oct 12, beside the day’s three');
   assert.equal(world.logs.filter((l) => l.event === 'miner.run-held').length, 0, 'nothing was held');
 });
 
@@ -344,8 +304,15 @@ test('a Correction cut short by a stop runs again at the next start, ahead of th
   assert.match(lineOf(world, 'Ancher 2.0').line.text, /· Skip · fit 5 after your Correction ·/);
   const [stopped, ...after] = world.model.runs.slice(runs);
   assert.deepEqual(stopped!.postIds, [ANCHER]);
-  assert.deepEqual(after[0]!.postIds, [ANCHER], 'the Correction runs first');
-  assert.ok(after.length > 1 && after.slice(1).every((r) => r.kind === 'miner-judging' && !r.postIds.includes(ANCHER)), 'then the Miner judges Oct 13');
+  assert.deepEqual(
+    after.slice(0, 2).map((r) => [r.kind, r.postIds]),
+    [
+      ['miner-judging', [ANCHER]],
+      ['correction-sorting', [ANCHER]],
+    ],
+    'the Correction runs first, and is sorted',
+  );
+  assert.ok(after.length > 2 && after.slice(2).every((r) => r.kind === 'miner-judging' && !r.postIds.includes(ANCHER)), 'then the Miner judges Oct 13');
   assert.equal(world.discord.forumPosts(MINER_DAYS_FORUM).length, 2);
 });
 

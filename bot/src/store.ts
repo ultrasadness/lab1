@@ -1,15 +1,17 @@
 // The live store (ADR 0007): one SQLite file the bot alone writes, the single source of truth for live state.
 // It holds the Miner dates the bot has taken on, each date's Launches, judgments by Post id, the person's Corrections
-// of them with the judgments their runs gave, Day's lines by date, the day posts on Discord, the Retries a capped date
+// of them with the judgments their runs gave and what their sorting runs and the person made of them, Day's lines by
+// date, the day posts on Discord, the Retries a capped date
 // waits on, Products by root domain with their Launches, Dossiers and posts, run and model-request records with each
-// request's notional dollars, the index of raw inputs kept outside git, the files waiting to be written to the
-// Personal database, and the times its history diverged.
+// run's Rule-set commit and each request's notional dollars, the index of raw inputs kept outside git, the files
+// waiting to be written to the Personal database, and the times its history diverged.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
 import type { Dossier } from './dossier/dossier.ts';
 import type { DayLine } from './miner/day-line.ts';
 import type { JudgmentRecord } from './miner/judging.ts';
 import type { RunCap } from './pi-runs.ts';
+import type { Proposal, SortedItem } from './rules/sorting.ts';
 
 /** A reply's exact tokens. `input` counts every input token, the `cached` ones among them. */
 export interface Tokens {
@@ -78,6 +80,45 @@ export interface Correction {
   problem: string | null;
   /** When the day post, any Product post and the day's file show the Correction. */
   doneAt: string | null;
+}
+
+/**
+ * What a Correction's sorting run made of it, once its item was redone, and what became of that: fix only, declined
+ * for a Hard limit, unsorted when the run recorded no sort, or a proposal the person keeps, edits or discards on its
+ * card in #needs-you.
+ */
+export interface StoredSort {
+  correctionId: number;
+  /** The item the Correction was made on, as its card and a kept Rule name it. */
+  item: SortedItem;
+  outcome: 'fix-only' | 'declined' | 'unsorted' | 'proposed';
+  /** The Hard limit a declined Correction asks past. */
+  hardLimit: string | null;
+  /** What it proposes, as the person last edited it. */
+  proposal: Proposal | null;
+  /** 1 as the run proposed it, one more for each edit. */
+  version: number;
+  /** Why it is unsorted. */
+  why: string | null;
+  /** The Rules the sorting run applied, by name. */
+  rulesApplied: string[];
+  runId: string | null;
+  sortedAt: string;
+  /** When the item's history showed it, a proposal's card included. */
+  shownAt: string | null;
+  /** The card in #needs-you, marked before it is sent. */
+  cardIntended: boolean;
+  cardMessageId: string | null;
+  /** When the person tapped Keep, until it is kept or why it wasn't is known. */
+  keepTappedAt: string | null;
+  /** Why the latest Keep wasn't done, such as the Rule budget. */
+  notKept: string | null;
+  keptAt: string | null;
+  /** The file Keep wrote. */
+  keptPath: string | null;
+  discardedAt: string | null;
+  /** When the card and the item's history showed what the person decided. */
+  settledAt: string | null;
 }
 
 export interface StoredDayLine extends DayLine {
@@ -171,6 +212,8 @@ export interface RunRecord {
   role: Role;
   item: string;
   startedAt: string;
+  /** The Personal database commit the run's Rules were read at. */
+  rulesCommit: string;
 }
 
 export interface RawInput {
@@ -272,6 +315,27 @@ CREATE TABLE IF NOT EXISTS corrections (
   done_at TEXT
 );
 CREATE INDEX IF NOT EXISTS corrections_by_date ON corrections(date, id);
+CREATE TABLE IF NOT EXISTS sorts (
+  correction_id INTEGER PRIMARY KEY REFERENCES corrections(id),
+  item TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  hard_limit TEXT,
+  proposal TEXT,
+  version INTEGER NOT NULL DEFAULT 1,
+  why TEXT,
+  rules_applied TEXT NOT NULL,
+  run_id TEXT REFERENCES runs(id),
+  sorted_at TEXT NOT NULL,
+  shown_at TEXT,
+  card_intended INTEGER NOT NULL DEFAULT 0,
+  card_message_id TEXT,
+  keep_tapped_at TEXT,
+  not_kept TEXT,
+  kept_at TEXT,
+  kept_path TEXT,
+  discarded_at TEXT,
+  settled_at TEXT
+);
 CREATE TABLE IF NOT EXISTS day_lines (
   date TEXT PRIMARY KEY,
   featured_count INTEGER NOT NULL,
@@ -336,6 +400,7 @@ CREATE TABLE IF NOT EXISTS runs (
   role TEXT NOT NULL,
   item TEXT NOT NULL,
   started_at TEXT NOT NULL,
+  rules_commit TEXT NOT NULL,
   ended_at TEXT,
   outcome TEXT
 );
@@ -435,6 +500,28 @@ const correctionOf = (row: Row): Correction => ({
   unjudged: textOrNull(row.unjudged),
   problem: textOrNull(row.problem),
   doneAt: textOrNull(row.done_at),
+});
+
+const sortOf = (row: Row): StoredSort => ({
+  correctionId: Number(row.correction_id),
+  item: JSON.parse(String(row.item)) as SortedItem,
+  outcome: String(row.outcome) as StoredSort['outcome'],
+  hardLimit: textOrNull(row.hard_limit),
+  proposal: row.proposal === null ? null : (JSON.parse(String(row.proposal)) as Proposal),
+  version: Number(row.version),
+  why: textOrNull(row.why),
+  rulesApplied: JSON.parse(String(row.rules_applied)) as string[],
+  runId: textOrNull(row.run_id),
+  sortedAt: String(row.sorted_at),
+  shownAt: textOrNull(row.shown_at),
+  cardIntended: Boolean(row.card_intended),
+  cardMessageId: textOrNull(row.card_message_id),
+  keepTappedAt: textOrNull(row.keep_tapped_at),
+  notKept: textOrNull(row.not_kept),
+  keptAt: textOrNull(row.kept_at),
+  keptPath: textOrNull(row.kept_path),
+  discardedAt: textOrNull(row.discarded_at),
+  settledAt: textOrNull(row.settled_at),
 });
 
 const minerRetryOf = (row: Row): MinerRetry => ({
@@ -637,6 +724,133 @@ export class Store {
     this.#db.prepare('UPDATE corrections SET done_at = ?, problem = NULL WHERE id = ?').run(at, id);
   }
 
+  // ---------- What Corrections' sorting runs made of them ----------
+
+  /** The Corrections re-judged and done whose sort the item's history doesn't show yet, oldest first. */
+  unsortedCorrections(): Correction[] {
+    return this.#db
+      .prepare(
+        `SELECT corrections.* FROM corrections LEFT JOIN sorts ON sorts.correction_id = corrections.id
+         WHERE corrections.done_at IS NOT NULL AND corrections.judged_at IS NOT NULL AND sorts.shown_at IS NULL
+         ORDER BY corrections.id`,
+      )
+      .all()
+      .map(correctionOf);
+  }
+
+  sortOf(correctionId: number): StoredSort | undefined {
+    const row = this.#db.prepare('SELECT * FROM sorts WHERE correction_id = ?').get(correctionId);
+    return row ? sortOf(row) : undefined;
+  }
+
+  /** Keeps what a sorting run made of a Correction. Only the first counts; a later one returns false. */
+  saveSort(s: Pick<StoredSort, 'correctionId' | 'item' | 'outcome' | 'hardLimit' | 'proposal' | 'why' | 'rulesApplied' | 'runId' | 'sortedAt'>): boolean {
+    const result = this.#db
+      .prepare(
+        `INSERT INTO sorts (correction_id, item, outcome, hard_limit, proposal, why, rules_applied, run_id, sorted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (correction_id) DO NOTHING`,
+      )
+      .run(
+        s.correctionId,
+        JSON.stringify(s.item),
+        s.outcome,
+        s.hardLimit,
+        s.proposal && JSON.stringify(s.proposal),
+        s.why,
+        JSON.stringify(s.rulesApplied),
+        s.runId,
+        s.sortedAt,
+      );
+    return Number(result.changes) > 0;
+  }
+
+  saveSortShown(correctionId: number, at: string): void {
+    this.#db.prepare('UPDATE sorts SET shown_at = ? WHERE correction_id = ?').run(at, correctionId);
+  }
+
+  /** Marks the proposal's card as about to be sent, or as not sent after all. */
+  saveSortCardIntended(correctionId: number, intended: boolean): void {
+    this.#db.prepare('UPDATE sorts SET card_intended = ? WHERE correction_id = ?').run(intended ? 1 : 0, correctionId);
+  }
+
+  saveSortCard(correctionId: number, messageId: string): void {
+    this.#db.prepare('UPDATE sorts SET card_message_id = ? WHERE correction_id = ?').run(messageId, correctionId);
+  }
+
+  /**
+   * The proposals the person's taps left work for, oldest first: a Keep to do, a decision to show, or a card to show
+   * open again after a Keep that couldn't be done.
+   */
+  undoneProposals(): StoredSort[] {
+    return this.#db
+      .prepare(
+        `SELECT * FROM sorts WHERE outcome = 'proposed' AND settled_at IS NULL
+           AND (keep_tapped_at IS NOT NULL OR kept_at IS NOT NULL OR discarded_at IS NOT NULL OR not_kept IS NOT NULL)
+         ORDER BY correction_id`,
+      )
+      .all()
+      .map(sortOf);
+  }
+
+  /**
+   * Records Keep tapped on this version of a proposal. Only a tap on the latest version of one still open counts; any
+   * other returns false.
+   */
+  saveSortKeepTapped(correctionId: number, version: number, at: string): boolean {
+    const result = this.#db
+      .prepare(
+        `UPDATE sorts SET keep_tapped_at = ?, not_kept = NULL
+         WHERE correction_id = ? AND version = ? AND outcome = 'proposed' AND keep_tapped_at IS NULL AND kept_at IS NULL
+           AND discarded_at IS NULL`,
+      )
+      .run(at, correctionId, version);
+    return Number(result.changes) > 0;
+  }
+
+  /**
+   * Keeps the person's edit of this version of a proposal as its next version. Only an edit of the latest version of
+   * one still open counts; any other returns false.
+   */
+  saveSortEdited(correctionId: number, version: number, proposal: Proposal): boolean {
+    const result = this.#db
+      .prepare(
+        `UPDATE sorts SET proposal = ?, version = version + 1, not_kept = NULL
+         WHERE correction_id = ? AND version = ? AND outcome = 'proposed' AND keep_tapped_at IS NULL AND kept_at IS NULL
+           AND discarded_at IS NULL`,
+      )
+      .run(JSON.stringify(proposal), correctionId, version);
+    return Number(result.changes) > 0;
+  }
+
+  /** Records Discard tapped on this version of a proposal still open; any other tap returns false. */
+  saveSortDiscarded(correctionId: number, version: number, at: string): boolean {
+    const result = this.#db
+      .prepare(
+        `UPDATE sorts SET discarded_at = ?
+         WHERE correction_id = ? AND version = ? AND outcome = 'proposed' AND keep_tapped_at IS NULL AND kept_at IS NULL
+           AND discarded_at IS NULL`,
+      )
+      .run(at, correctionId, version);
+    return Number(result.changes) > 0;
+  }
+
+  /** Records a proposal kept, with the file Keep writes queued, both at once. */
+  saveSortKept(correctionId: number, write: PersonalDatabaseWrite): void {
+    this.#transaction(() => {
+      this.queuePersonalDatabaseWrite(write);
+      this.#db.prepare('UPDATE sorts SET kept_at = ?, kept_path = ? WHERE correction_id = ?').run(write.queuedAt, write.path, correctionId);
+    });
+  }
+
+  /** The Keep tapped couldn't be done, for this reason; the proposal is open again. */
+  saveSortNotKept(correctionId: number, why: string): void {
+    this.#db.prepare('UPDATE sorts SET keep_tapped_at = NULL, not_kept = ? WHERE correction_id = ?').run(why, correctionId);
+  }
+
+  saveSortSettled(correctionId: number, at: string): void {
+    this.#db.prepare('UPDATE sorts SET settled_at = ? WHERE correction_id = ?').run(at, correctionId);
+  }
+
   // ---------- Day's lines ----------
 
   dayLine(date: string): StoredDayLine | undefined {
@@ -837,8 +1051,8 @@ export class Store {
 
   startRun(run: RunRecord): void {
     this.#db
-      .prepare('INSERT INTO runs (id, kind, role, item, started_at) VALUES (?, ?, ?, ?, ?)')
-      .run(run.id, run.kind, run.role, run.item, run.startedAt);
+      .prepare('INSERT INTO runs (id, kind, role, item, started_at, rules_commit) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(run.id, run.kind, run.role, run.item, run.startedAt, run.rulesCommit);
   }
 
   finishRun(id: string, outcome: string, endedAt: string): void {

@@ -133,7 +133,9 @@ export function readDossier(record: unknown, given: ReadonlySet<SourceKey>): Rea
       sources: cited,
     };
   });
-  if (!Array.isArray(d.rulesApplied) || d.rulesApplied.length > 0) problems.push('rulesApplied must be empty: no Rules exist yet.');
+  // The run checked each name against its own Rules already.
+  const { rulesApplied } = d;
+  if (!Array.isArray(rulesApplied) || !rulesApplied.every((r) => typeof r === 'string')) problems.push('rulesApplied must be a list of Rule names.');
   if (problems.length > 0) return { ok: false, error: problems.join(' ') };
-  return { ok: true, record: { state: state as ProductState, register, whatItIs, forYou, offers, note, rulesApplied: [] } };
+  return { ok: true, record: { state: state as ProductState, register, whatItIs, forYou, offers, note, rulesApplied: rulesApplied as string[] } };
 }

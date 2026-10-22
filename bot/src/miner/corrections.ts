@@ -3,7 +3,9 @@
 // Miner budget but never held by it, against the date's stored line, which never moves. The line shows "re-judging…"
 // at once, then the new judgment in place. Each Correction is kept in the store as it is sent and as its work goes,
 // so a stop picks up where it left off: what its run recorded stands, and only what it changed is shown again. The
-// day's file is queued before Discord changes and written after.
+// day's file is queued before Discord changes and written after. Once all of that is done, another Miner run sorts the
+// Correction (#49): the day's file says what came of it, a Hard limit that declined it shows on its line too, and a
+// proposed Rule or Interest scope change goes to its card in #needs-you.
 import type { Clock } from '../clock.ts';
 import { asEdit, popup, type MessagePayload, type Popup } from '../discord/components.ts';
 import type { DiscordRest } from '../discord/rest.ts';
@@ -11,12 +13,15 @@ import type { Dossiers } from '../dossier/dossiers.ts';
 import type { RecordResult } from '../forwarder.ts';
 import { errorText, type Log } from '../log.ts';
 import type { PersonalDatabase } from '../personal-database.ts';
+import { dayLabel, fullDate } from '../pacific.ts';
 import { capText, type PiRunner, type RunResult } from '../pi-runs.ts';
-import type { Correction, Store } from '../store.ts';
+import { cardFits, type Proposals } from '../rules/proposals.ts';
+import { INTEREST_SCOPE_PATH, readSort, sortingPrompt, type SortedItem } from '../rules/sorting.ts';
+import type { Correction, Judgment, Store } from '../store.ts';
 import { outcomeOf } from './day-line.ts';
-import { correctId, judgmentText, renderWithdrawn } from './day-post.ts';
-import { dayFileOf, dayLaunches, dayPostOf, type DayLaunch } from './day-view.ts';
-import { correctionPrompt, readJudgment } from './judging.ts';
+import { correctId, judgmentText, plainJudgment, renderWithdrawn } from './day-post.ts';
+import { dayFileOf, dayLaunches, dayPostOf, judgmentBefore, reLaunchOfRegistered, type DayLaunch } from './day-view.ts';
+import { correctionPrompt, launchParts, readJudgment } from './judging.ts';
 
 /** The pop-up's one field. */
 export const CORRECTION_FIELD = { customId: 'what', label: 'What did it get wrong?', maxLength: 1000 };
@@ -27,6 +32,7 @@ export class Corrections {
   #discord: DiscordRest;
   #personalDatabase: PersonalDatabase;
   #dossiers: Dossiers;
+  #proposals: Proposals;
   #clock: Clock;
   #log: Log;
 
@@ -36,6 +42,7 @@ export class Corrections {
     discord: DiscordRest;
     personalDatabase: PersonalDatabase;
     dossiers: Dossiers;
+    proposals: Proposals;
     clock: Clock;
     log: Log;
   }) {
@@ -44,6 +51,7 @@ export class Corrections {
     this.#discord = options.discord;
     this.#personalDatabase = options.personalDatabase;
     this.#dossiers = options.dossiers;
+    this.#proposals = options.proposals;
     this.#clock = options.clock;
     this.#log = options.log;
   }
@@ -73,8 +81,8 @@ export class Corrections {
   }
 
   /**
-   * Works through every Correction whose work isn't done, oldest first. Returns whether one is left for later, such
-   * as a Dossier that couldn't be written.
+   * Works through every Correction whose work isn't done, oldest first, then sorts each one re-judged that isn't sorted
+   * yet. Returns whether one is left for later, such as a Dossier that couldn't be written.
    */
   async work(): Promise<boolean> {
     let left = false;
@@ -92,7 +100,115 @@ export class Corrections {
         this.#log('correction.unfinished', { id, problem: finished.problem });
       }
     }
+    for (const correction of this.#store.unsortedCorrections()) {
+      let sorted: 'done' | 'stopped';
+      try {
+        sorted = await this.#sort(correction);
+      } catch (error) {
+        left = true;
+        this.#log('correction.unsorted', { id: correction.id, error: errorText(error) });
+        continue;
+      }
+      if (sorted === 'stopped') return false;
+    }
     return left;
+  }
+
+  /**
+   * Once a Correction's Launch is re-judged and shown, a Miner-role run sorts it, counted against the date's Miner
+   * budget and never held, and the item's history shows what came of it.
+   */
+  async #sort(correction: Correction): Promise<'done' | 'stopped'> {
+    let sort = this.#store.sortOf(correction.id);
+    if (!sort) {
+      if ((await this.#runSort(correction)) === 'stopped') return 'stopped';
+      sort = this.#store.sortOf(correction.id)!;
+    }
+    if (sort.outcome === 'proposed') await this.#proposals.post(sort);
+    else await this.#showSort(correction, sort.outcome === 'declined' ? 'is declined' : 'is fix only');
+    // A declined Correction says so on its line, where the person made it.
+    if (sort.outcome === 'declined') await this.#show(correction.date);
+    this.#store.saveSortShown(correction.id, this.#clock.now().toISOString());
+    this.#log('correction.sorted', { id: correction.id, outcome: sort.outcome });
+    return 'done';
+  }
+
+  /** Shows in the day's file what the person decided on the proposal a Correction's sort made. */
+  async showDecision(correctionId: number): Promise<void> {
+    const sort = this.#store.sortOf(correctionId)!;
+    const kind = sort.proposal!.kind;
+    const kept = kind === 'rule' ? 'taught a Rule' : kind === 'amendment' ? 'amended a Rule' : 'changed the Interest scope';
+    await this.#showSort(this.#store.correction(correctionId)!, sort.keptAt ? kept : 'is fix only');
+  }
+
+  /** Writes the day's file with what came of a Correction's sort, `what` saying it in the commit's message. */
+  async #showSort(correction: Correction, what: string): Promise<void> {
+    const name = this.#store.launch(correction.postId)!.name.trim();
+    this.#personalDatabase.queue(dayFileOf(this.#store, correction.date, `${name}'s Correction ${what}`));
+    await this.#personalDatabase.sync();
+  }
+
+  /** The Correction's sorting run, given the Launch, its line before and after, and the Miner Rules kept. */
+  async #runSort(correction: Correction): Promise<'stopped' | void> {
+    const { id, date, postId, text } = correction;
+    const launch = this.#store.launch(postId)!;
+    const item: SortedItem = {
+      name: launch.name.trim(),
+      day: dayLabel(date),
+      taughtOn: `Launch ${postId} (${launch.name.trim()}) of ${fullDate(date)}`,
+      scope: 'miner',
+      correction: text,
+    };
+    const line = this.#store.dayLine(date)!.line;
+    const shown = (j: Judgment) => plainJudgment({ ...j, reLaunchOfRegistered: reLaunchOfRegistered(launch) }, line);
+    await this.#personalDatabase.sync();
+    const interestScope = this.#personalDatabase.read(INTEREST_SCOPE_PATH);
+    const prompt = sortingPrompt({
+      interestScope,
+      what: `the Miner's judgment of a Launch on ${dayLabel(date)}`,
+      scope: 'miner',
+      item: launchParts(launch),
+      before: shown(judgmentBefore(this.#store, correction)),
+      correction: text,
+      after: shown(correction.judgment!),
+    });
+    const result = await this.#pi.run({
+      kind: 'correction-sorting',
+      role: 'miner',
+      item: date,
+      ruleScope: 'miner',
+      prompt,
+      onRecord: (record, runId, rules) => {
+        const read = readSort(record, { scope: 'miner', rules, interestScope });
+        if (!read.ok) return read;
+        const { sort: s, rulesApplied } = read;
+        if (s.outcome === 'proposed' && !cardFits(s.proposal, item, rulesApplied)) {
+          return { ok: false, error: 'That proposal is too long to show on one Discord card. Sort the Correction otherwise.' };
+        }
+        const sortedAt = this.#clock.now().toISOString();
+        const kept = this.#store.saveSort({
+          correctionId: id,
+          item,
+          outcome: s.outcome,
+          hardLimit: s.outcome === 'declined' ? s.hardLimit : null,
+          proposal: s.outcome === 'proposed' ? s.proposal : null,
+          why: null,
+          rulesApplied,
+          runId,
+          sortedAt,
+        });
+        if (!kept) return { ok: false, error: 'The Correction is sorted already; the first sort stands.' };
+        this.#log('correction.sort-recorded', { id, outcome: s.outcome, runId });
+        return { ok: true, message: 'Recorded the sort.' };
+      },
+    });
+    if (result.outcome === 'stopped') return 'stopped';
+    if (this.#store.sortOf(id)) return;
+    const why = unrecorded(result, 'sort');
+    const sortedAt = this.#clock.now().toISOString();
+    const { runId } = result;
+    this.#store.saveSort({ correctionId: id, item, outcome: 'unsorted', hardLimit: null, proposal: null, why, rulesApplied: [], runId, sortedAt });
+    this.#log('correction.unsorted', { id, runId: result.runId, why });
   }
 
   async #finish(id: number): Promise<Finished> {
@@ -103,7 +219,8 @@ export class Corrections {
     }
     const { date, postId } = correction;
     // Queued before Discord changes and written after, so a stop between the two loses nothing.
-    this.#personalDatabase.queue(dayFileOf(this.#store, date, correction.judgment ? this.#store.launch(postId)!.name : undefined));
+    const corrected = correction.judgment ? `${this.#store.launch(postId)!.name.trim()} corrected` : undefined;
+    this.#personalDatabase.queue(dayFileOf(this.#store, date, corrected));
     let problem: string | null = null;
     try {
       if (correction.judgment) {
@@ -139,7 +256,7 @@ export class Corrections {
     });
     if (result.outcome === 'stopped') return 'stopped';
     if (this.#store.correction(id)!.judgment) return;
-    const why = unjudged(result);
+    const why = unrecorded(result, 'judgment');
     this.#store.saveCorrectionUnjudged(id, why);
     this.#log('correction.unjudged', { id, date, postId, runId: result.runId, why });
   }
@@ -215,9 +332,9 @@ export class Corrections {
 /** Whether a Correction's work is done, the Assistant stopped it, or why some of it isn't done yet. */
 type Finished = 'done' | 'stopped' | { problem: string };
 
-/** Why a Correction's run recorded no judgment, as its line says. */
-function unjudged(result: RunResult): string {
+/** Why a Correction's run recorded no judgment or sort, as its line or the day's file says. */
+function unrecorded(result: RunResult, what: 'judgment' | 'sort'): string {
   if (result.outcome === 'capped') return `its run hit its ${capText(result.cap!)}`;
   if (result.outcome === 'failed') return `its run failed (${result.error ?? 'no reason given'})`;
-  return 'its run recorded no judgment';
+  return `its run recorded no ${what}`;
 }

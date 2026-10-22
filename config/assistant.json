@@ -59,7 +59,11 @@
     "walkthrough-preparation": { "wallClockMinutes": 20, "turns": 40, "tokens": 1000000 },
     "fill": { "wallClockMinutes": 3, "turns": 30, "tokens": 300000 },
     "mail": { "wallClockMinutes": 5, "turns": 10, "tokens": 100000 },
-    "question": { "wallClockMinutes": 10, "turns": 40, "tokens": 500000 }
+    "question": { "wallClockMinutes": 10, "turns": 40, "tokens": 500000 },
+    "correction-sorting": { "wallClockMinutes": 5, "turns": 6, "tokens": 100000 }
+  },
+  "rules": {
+    "budgetTokens": 4000
   },
   "rawInputs": {
     "keepDays": 90

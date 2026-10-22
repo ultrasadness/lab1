@@ -1,8 +1,8 @@
 // The forwarder (ADR 0009, ADR 0011): the Pi container's only endpoint. Each Pi run reaches it with a run token
 // of its own, never a real key. For a model request the forwarder puts in the run's role key, sends it to the
 // role's `role@provider` name on new-api, and counts the exact tokens of the reply, in notional dollars at the list
-// price of the model that provider serves. The run's record tool also writes through here, so a record reaches the
-// bot while the run goes on.
+// price of the model that provider serves. Our Pi extension asks here for the run's Rules as the run starts, and the
+// run's record tool also writes through here, so a record reaches the bot while the run goes on.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { randomBytes } from 'node:crypto';
@@ -16,6 +16,8 @@ export type RecordResult = { ok: true; message: string } | { ok: false; error: s
 export interface RunRegistration {
   runId: string;
   role: Role;
+  /** The run's Rules section, as our extension asks for it at the run's start, and the commit they were read at. */
+  rules(): { commit: string; prompt: string };
   /** Takes one record the run's tool wrote, and says whether it was kept. */
   onRecord(record: unknown): RecordResult;
 }
@@ -65,6 +67,8 @@ export async function startForwarder(options: {
     const run = token ? runs.get(token) : undefined;
     if (!run) return json(res, 401, { error: { message: 'Unknown run' } });
     const body = await readBody(req);
+
+    if (req.method === 'GET' && req.url === '/rules') return json(res, 200, run.rules());
 
     if (req.method === 'POST' && req.url === '/records') {
       let record: unknown;

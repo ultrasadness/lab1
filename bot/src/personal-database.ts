@@ -80,6 +80,20 @@ export class PersonalDatabase {
     return readFileSync(join(this.#dir, path), 'utf8');
   }
 
+  /**
+   * The files under a folder that `keep` keeps, as the checkout's last commit holds them, with that commit. They are
+   * read from the commit itself, so a sync writing the checkout meanwhile can't change what is read.
+   */
+  async filesAt(folder: string, keep: (path: string) => boolean): Promise<{ commit: string; files: { path: string; content: string }[] }> {
+    const commit = await this.#rev('HEAD');
+    const listed = await this.#git('ls-tree', '-r', '-z', '--name-only', commit, '--', `${folder}/`);
+    const files: { path: string; content: string }[] = [];
+    for (const path of listed.split('\0').filter((p) => p && keep(p))) {
+      files.push({ path, content: await this.#git('cat-file', 'blob', `${commit}:${path}`) });
+    }
+    return { commit, files };
+  }
+
   /** A file's page on GitHub, on `main`, or undefined when the checkout's remote isn't on GitHub. */
   async fileUrl(path: string): Promise<string | undefined> {
     this.#page ??= this.#git('remote', 'get-url', 'origin').then(
@@ -96,14 +110,16 @@ export class PersonalDatabase {
   }
 
   /**
-   * Under the lock: fast-forwards the checkout to GitHub, writes and commits every queued file, then pushes. Work it
-   * leaves, such as commits GitHub refused, gets another sync after the retry time.
+   * Under the lock: fast-forwards the checkout to GitHub, runs `prepare` on the checkout as that leaves it, then writes
+   * and commits every queued file, and pushes. `prepare` may read the checkout and queue files, such as a Keep that
+   * must check what it replaces, so nothing the person pushes meanwhile is written over. Work a sync leaves, such as
+   * commits GitHub refused, gets another sync after the retry time.
    */
-  sync(): Promise<void> {
+  sync(prepare?: () => Promise<void>): Promise<void> {
     const run = this.#lock.then(async () => {
       let left = true;
       try {
-        left = await this.#sync();
+        left = await this.#sync(prepare);
       } catch (error) {
         this.#log('personal-database.sync-failed', { error: errorText(error) });
       }
@@ -129,12 +145,13 @@ export class PersonalDatabase {
   }
 
   /** Returns whether work is left for a later sync. */
-  async #sync(): Promise<boolean> {
+  async #sync(prepare: (() => Promise<void>) | undefined): Promise<boolean> {
     // The checkout is the bot's alone, so anything uncommitted in it is a write that stopped before its commit. That
     // file is still queued in the store, and is written again below.
     await this.#git('reset', '--quiet', '--hard');
     await this.#git('clean', '--quiet', '--force', '-d');
     const github = await this.#fastForward();
+    await prepare?.();
     const open = this.#store.openDivergence();
     if (github === 'diverged') {
       await this.#diverged(open);

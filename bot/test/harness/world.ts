@@ -142,7 +142,9 @@ export async function startWorld(options: {
       fill: { wallClockMinutes: 3, turns: 30, tokens: 300_000 },
       mail: { wallClockMinutes: 5, turns: 10, tokens: 100_000 },
       question: { wallClockMinutes: 10, turns: 40, tokens: 500_000 },
+      'correction-sorting': { wallClockMinutes: 5, turns: 6, tokens: 100_000 },
     },
+    rules: { budgetTokens: 4000 },
     rawInputs: { keepDays: 90 },
   };
 

@@ -1,9 +1,9 @@
 // A Miner day as the store holds it: each Featured Launch with the judgment its line shows, which is its first one or
 // the one the person's latest re-judged Correction gave, and its latest Correction. The day post and the day's file
 // are both drawn from it, so a Correction changes them alike.
-import type { Correction, Judgment, Launch, Store } from '../store.ts';
+import type { Correction, Judgment, Launch, Store, StoredSort } from '../store.ts';
 import { renderDayFile, type DayFile, type DayFileLaunch } from './day-file.ts';
-import { renderDayPost, renderRetryNotice, type DayPostLaunch, type RenderedDayPost } from './day-post.ts';
+import { declinedText, renderDayPost, renderRetryNotice, type DayPostLaunch, type RenderedDayPost } from './day-post.ts';
 
 // No Product has a Registration yet, so no Launch is a re-Launch of a registered Product; they arrive with #66.
 export const reLaunchOfRegistered = (_launch: Launch) => false;
@@ -25,7 +25,7 @@ export function dayLaunches(store: Store, date: string): DayLaunch[] {
     for (const c of corrections.get(l.postId) ?? []) {
       latest = { correction: c, was: shown };
       if (!c.judgment) continue;
-      rejudged.push({ at: c.judgment.judgedAt, was: judged(shown), text: c.text });
+      rejudged.push({ at: c.judgment.judgedAt, was: judged(shown), text: c.text, sort: sortNote(store.sortOf(c.id)) });
       shown = c.judgment;
     }
     const c = latest?.correction;
@@ -38,7 +38,7 @@ export function dayLaunches(store: Store, date: string): DayLaunch[] {
       ...judged(shown),
       reason: shown.reason,
       rulesApplied: shown.rulesApplied,
-      ...(shown === first ? {} : { first: { ...judged(first), reason: first.reason } }),
+      ...(shown === first ? {} : { first: { ...judged(first), reason: first.reason, rulesApplied: first.rulesApplied } }),
       ...(c && {
         correction: {
           text: c.text,
@@ -46,11 +46,52 @@ export function dayLaunches(store: Store, date: string): DayLaunch[] {
           was: judged(latest!.was),
           why: c.unjudged ?? c.problem,
           withdrawnPost: product?.withdrawnAt ? product.threadId : null,
+          declined: store.sortOf(c.id)?.hardLimit ?? null,
         },
       }),
       corrections: rejudged,
     };
   });
+}
+
+/** The judgment a Correction was made on: the Launch's first, or the one the latest Correction before it gave. */
+export function judgmentBefore(store: Store, correction: Correction): Judgment {
+  let shown = store.judgmentsFor(correction.date).find((j) => j.postId === correction.postId)!;
+  for (const c of store.correctionsFor(correction.date)) {
+    if (c.id >= correction.id) break;
+    if (c.postId === correction.postId && c.judgment) shown = c.judgment;
+  }
+  return shown;
+}
+
+/**
+ * What came of a Correction's sort, as the day's file says it once nothing more waits on it, with the Rules its run
+ * applied.
+ */
+function sortNote(sort: StoredSort | undefined): string | null {
+  const note = settledSort(sort);
+  const rules = sort?.rulesApplied.length ? ` (Rules applied: ${sort.rulesApplied.join(', ')})` : '';
+  return note && `${note}${rules}`;
+}
+
+function settledSort(sort: StoredSort | undefined): string | null {
+  switch (sort?.outcome) {
+    case 'fix-only':
+      return 'fix only';
+    case 'unsorted':
+      return `fix only, as it couldn't be sorted: ${sort.why}`;
+    case 'declined':
+      return declinedText(sort.hardLimit!);
+    case 'proposed': {
+      const p = sort.proposal!;
+      if (sort.discardedAt) return 'fix only, its proposal discarded';
+      if (!sort.keptAt) return null;
+      if (p.kind === 'interest-scope') return 'changed the Interest scope';
+      return `${p.kind === 'rule' ? 'taught' : 'amended'} the Rule "${p.name}"`;
+    }
+    default:
+      return null;
+  }
 }
 
 /** The date's post as it now reads, from its stored line: the summary, its Retry notices, then its bands. */
@@ -70,7 +111,7 @@ export function dayPostOf(store: Store, date: string): RenderedDayPost {
   };
 }
 
-/** The date's `days/` file, written from the store, for a Correction of the named Launch if one is given. */
-export function dayFileOf(store: Store, date: string, corrected?: string): DayFile {
-  return renderDayFile({ date, line: store.dayLine(date)!, launches: dayLaunches(store, date), ...(corrected ? { corrected } : {}) });
+/** The date's `days/` file, written from the store, with what changed it if that is given, such as a Correction. */
+export function dayFileOf(store: Store, date: string, change?: string): DayFile {
+  return renderDayFile({ date, line: store.dayLine(date)!, launches: dayLaunches(store, date), ...(change ? { change } : {}) });
 }

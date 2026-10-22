@@ -1,7 +1,8 @@
 // A fake model provider behind the forwarder, speaking OpenAI Chat Completions with streaming, as new-api does.
 // It replays scripted tool calls per run kind and item: for a Miner judging run, one record_judgment call for
 // each Launch the run asks about, then a short closing reply; for a Dossier run, one record_dossier call, and one
-// more if the bot says the Dossier is too long. Usage is scripted too.
+// more if the bot says the Dossier is too long; for a Correction's sorting run, one record_sort call, and another if
+// the bot refuses it and the test scripts one. Usage is scripted too.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { readFileSync } from 'node:fs';
@@ -10,6 +11,8 @@ export interface ScriptedJudgment {
   fit: number;
   notAProduct: boolean;
   reason: string;
+  /** The Rules the judgment names; none if left out. */
+  rulesApplied?: string[];
 }
 
 /** The stand-in judgments of every fixture Launch, from the #9 prototype. */
@@ -63,14 +66,35 @@ export interface ScriptedOffer {
   sources: string[];
 }
 
-/** One conversation the provider saw: a run, with the Launches it was asked to judge or write a Dossier of. */
+/** A Correction's sort as the model records it through record_sort. */
+export interface ScriptedSort {
+  sort: 'fix-only' | 'interest-scope' | 'rule' | 'declined';
+  changes: { section: string; remove: string | null; add: string | null }[];
+  rule: { name: string; statement: string; scope: string; amends: boolean } | null;
+  hardLimit: string | null;
+  rulesApplied: string[];
+}
+
+/** A sort with nothing set but its kind and what is given. */
+export const sorted = (sort: ScriptedSort['sort'], parts: Partial<Omit<ScriptedSort, 'sort'>> = {}): ScriptedSort => ({
+  sort,
+  changes: [],
+  rule: null,
+  hardLimit: null,
+  rulesApplied: [],
+  ...parts,
+});
+
+/** One conversation the provider saw: a run, with the Launches it was asked to judge, write a Dossier of, or sort a Correction of. */
 export interface SeenRun {
-  kind: 'miner-judging' | 'dossier' | 'other';
+  kind: 'miner-judging' | 'dossier' | 'correction-sorting' | 'other';
   postIds: string[];
   /** What the run's first request said as the user. */
   prompt: string;
   /** What each record_dossier call got back, in order. */
   dossierReplies: string[];
+  /** What each record_sort call got back, in order. */
+  sortReplies: string[];
   /** Whether the model ran away in this run: it recorded nothing and called its tool turn after turn. */
   ranAway: boolean;
   /** The model requests the run made, its first included. */
@@ -89,6 +113,11 @@ export class FakeModelProvider {
   /** The Dossier runs seen, oldest first. */
   get dossierRuns(): SeenRun[] {
     return this.runs.filter((r) => r.kind === 'dossier');
+  }
+
+  /** The Corrections' sorting runs seen, oldest first. */
+  get sortingRuns(): SeenRun[] {
+    return this.runs.filter((r) => r.kind === 'correction-sorting');
   }
   /** What the model records for a Launch; `'omit'` leaves it unjudged. */
   judgment: (postId: string) => ScriptedJudgment | 'omit' = (postId) => {
@@ -116,6 +145,10 @@ export class FakeModelProvider {
   again: (run: SeenRun, refusal: string) => ScriptedDossier | 'none' = () => 'none';
   /** What the model records once told its Dossier runs `over` characters too long; `'none'` records nothing more. */
   rewrite: (run: SeenRun, over: number, first: ScriptedDossier) => ScriptedDossier | 'none' = (_run, over, first) => shortened(first, over);
+  /** What the model records in a Correction's sorting run; `'none'` records nothing. By default, fix only. */
+  sort: (run: SeenRun) => ScriptedSort | 'none' = () => sorted('fix-only');
+  /** What the model records after the bot refused its sort; `'none'` records nothing more. */
+  sortAgain: (run: SeenRun, refusal: string) => ScriptedSort | 'none' = () => 'none';
   usage: ScriptedUsage = { prompt_tokens: 2400, completion_tokens: 380, cached_tokens: 0 };
   /** The model id the upstream reports in its responses. */
   upstreamModel = 'judge-model-1';
@@ -179,12 +212,14 @@ export class FakeModelProvider {
     if (startsRun) {
       const judging = tools.includes('record_judgment');
       const dossier = tools.includes('record_dossier');
+      const sorting = tools.includes('record_sort');
       const user = body.messages.filter((m) => m.role === 'user').map(text).join('\n');
       const run: SeenRun = {
-        kind: judging ? 'miner-judging' : dossier ? 'dossier' : 'other',
-        postIds: judging || dossier ? [...new Set([...user.matchAll(/Post id (\d+)/g)].map((m) => m[1]!))] : [],
+        kind: judging ? 'miner-judging' : dossier ? 'dossier' : sorting ? 'correction-sorting' : 'other',
+        postIds: judging || dossier || sorting ? [...new Set([...user.matchAll(/Post id (\d+)/g)].map((m) => m[1]!))] : [],
         prompt: user,
         dossierReplies: [],
+        sortReplies: [],
         ranAway: false,
         requests: 0,
       };
@@ -237,7 +272,7 @@ export class FakeModelProvider {
       const calls = run.postIds.flatMap((postId) => {
         const j = this.judgment(postId);
         if (j === 'omit') return [];
-        return [{ postId, ...j, rulesApplied: [] }];
+        return [{ postId, fit: j.fit, notAProduct: j.notAProduct, reason: j.reason, rulesApplied: j.rulesApplied ?? [] }];
       });
       if (calls.length > 0) callTools(calls);
       else reply('Nothing to record.');
@@ -256,6 +291,12 @@ export class FakeModelProvider {
       if (startsRun && next !== 'none') this.#firstDossier = next;
       if (next === 'none') reply(startsRun ? 'Nothing to record.' : 'Recorded.');
       else callTools([next as unknown as Record<string, unknown>], 'record_dossier');
+    } else if (run?.kind === 'correction-sorting') {
+      const replied = body.messages.at(-1)?.role === 'tool' ? text(body.messages.at(-1)!) : undefined;
+      if (replied !== undefined) run.sortReplies.push(replied);
+      const next = startsRun ? this.sort(run) : replied !== undefined && !/^Recorded/.test(replied) ? this.sortAgain(run, replied) : 'none';
+      if (next === 'none') reply(startsRun ? 'Nothing to record.' : 'Recorded.');
+      else callTools([next as unknown as Record<string, unknown>], 'record_sort');
     } else {
       reply('Recorded.');
     }

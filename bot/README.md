@@ -5,12 +5,14 @@ English | [中文](README.zh.md)
 The Assistant's one long-running process: TypeScript on Node 24, run as-is through Node's type stripping, with no
 npm dependencies of its own. It holds every token, alone writes the live store, and makes every outside call.
 The spec is #41. Its first slice (#42) brought up the Miner's path from Product Hunt to the Miner days forum,
-#47 adds a Dossier for each Launch at or above the Day's line, and #48 lets the person correct a Miner judgment.
+#47 adds a Dossier for each Launch at or above the Day's line, #48 lets the person correct a Miner judgment, and #49
+sorts each Correction into fix only, an Interest scope change or a Rule, and loads each kept Rule into later runs.
 
 | Path | What it is |
 |---|---|
-| `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane, which runs Corrections before the Miner; who may tap |
-| `bot/src/miner/` | Judging runs, the Day's line, the day post and `days/` file, the 3-date catch-up and Retry, and Corrections of a day's judgments |
+| `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane, which runs Corrections before the Miner, and the plain-code work that never waits in it, such as a Keep; who may tap |
+| `bot/src/miner/` | Judging runs, the Day's line, the day post and `days/` file, the 3-date catch-up and Retry, and Corrections of a day's judgments with their sorting runs |
+| `bot/src/rules/` | Rules: each run's Rule files, its prompt's Rules section and the Rule budget; a Correction's sorting run; and the cards of proposed Rules and Interest scope changes, with Keep, Edit and Discard |
 | `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, and the Product's folder in the Personal database |
 | `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)` over its Unix socket, and the root domain a Product is keyed by |
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
@@ -20,7 +22,7 @@ The spec is #41. Its first slice (#42) brought up the Miner's path from Product 
 | `bot/src/pi-runs.ts` | One `pi --mode rpc` process per run, capped on wall clock, turns and tokens |
 | `bot/src/store.ts` | The live store (SQLite) |
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 and Discord |
-| `pi/extension/` | Our Pi extension: the forwarder as provider, and each run kind's record tool and prompt |
+| `pi/extension/` | Our Pi extension: the forwarder as provider, the run's Rules, and each run kind's record tool and prompt |
 | `pi/pi-run`, `pi/Dockerfile` | How a run starts, and the Pi container image |
 | `config/assistant.json` | Settings, changed only through `ops/upgrade` |
 
@@ -90,6 +92,17 @@ and reaches GitHub through `personalDatabase.ssh` with the deploy key, so GitHub
 store and committed on its own, and every commit is pushed. A push GitHub refuses, or a history that has diverged, is
 tried again every `personalDatabase.retryMinutes`.
 
+Each run loads its Rules from the checkout's last commit (ADR 0002): every file in `rules/all/`, and every one in its
+own scope's folder, `miner`, `dossier`, `registration` or `mail`, as `rules/<scope>/<slug>.md`. Our extension asks the
+forwarder for them before the run starts and puts each one whole into the run's system prompt, so a run whose Rules
+don't arrive doesn't start. A record names the Rules it applied, and the bot turns back one naming a Rule its run didn't
+load. Once a Correction's Launch is re-judged, a Miner-role run sorts the Correction. The day's file says what came of
+it, and a Correction declined for a Hard limit says so on its Launch's line in the day post too. A proposed Rule, an amendment of a kept
+one or an Interest scope change goes to `#needs-you` as a purple card. Keep commits the Rule file or
+`profile/interest-scope.md` under the write lock, unless git changed what it replaces since the proposal, or a Rule
+would take its runs' Rules past the Rule budget, `rules.budgetTokens` (about 4,000 tokens, counted at four characters a
+token). The card then says why and stays open.
+
 Dossiers go to the Products forum, `discord.productsForumId`, whose tags the person makes: *Walkthrough*,
 *Registering*, *Needs you*, *registered*, *waitlisted*, *handed off*, *abandoned*, *no account* and *Skipped*. The bot
 finds a tag by its name, so only the names matter, and for now applies *no account*, and *Skipped* to the post of a
@@ -109,8 +122,9 @@ for the installed bot: the `assistant` user has no `docker` group and reaches Do
 only value it passes into the container is each run's own token, which lets Pi reach the forwarder for that run
 alone and is never a key.
 
-The run caps in `config/assistant.json` are starting values. The wall clocks were decided in #26, except the Dossier
-run's; it and the turn and token caps are first guesses, to tune from the `run.finished` lines.
+The run caps in `config/assistant.json` are starting values. The wall clocks were decided in #26, except those of the
+Dossier run and a Correction's sorting run; they and the turn and token caps are first guesses, to tune from the
+`run.finished` lines.
 
 Each provider in `roles` names the model its `role@provider` channel on new-api serves, and `prices` holds each such
 model's list price in dollars per 1M uncached input, cached input and output tokens. The bot won't start while a
@@ -128,4 +142,5 @@ exact tokens and notional dollars, and for a capped run the cap it hit. A `miner
 on the Miner budget, with the date's spend, and a `miner.posted` line carries what the date spent in all. A
 `miner.judged` line names the model request whose reply held the judgment, with that request's exact tokens; one reply
 usually judges every Launch in its run. A `dossier.written` line names a Dossier's Product by its root domain, with
-the run, provider and model that wrote it.
+the run, provider and model that wrote it. A `run.rules-loaded` line names the commit a run's Rules were read at, the
+Rules by name, and about how many tokens they take.

@@ -11,7 +11,8 @@ export const MESSAGE_LIMITS = { text: 4000, components: 40 } as const;
 
 export const ButtonStyle = { Primary: 1, Secondary: 2, Success: 3, Danger: 4, Link: 5 } as const;
 
-export const Accent = { dossiers: 0xe8a33d, progress: 0x4f545c, needsYou: 0xd9534f } as const;
+/** Card colours. A proposed Rule or Interest scope change is purple (#12), never an Approval's. */
+export const Accent = { dossiers: 0xe8a33d, progress: 0x4f545c, needsYou: 0xd9534f, rule: 0x9b59b6 } as const;
 
 export interface TextDisplay {
   type: 10;
@@ -47,10 +48,12 @@ export type Component = TextDisplay | Button | Section | Container | ActionRow;
 export interface TextInput {
   type: 4;
   custom_id: string;
-  /** 2 is a paragraph. */
+  /** 1 is one line, 2 a paragraph. */
   style: 1 | 2;
   required: boolean;
   max_length: number;
+  /** What the field holds when the pop-up opens. */
+  value?: string;
 }
 /** A pop-up field with its label. */
 export interface Label {
@@ -108,15 +111,40 @@ export const container = (accent: number, components: (TextDisplay | Section)[])
   components,
 });
 
-/** A pop-up with one paragraph field, below any text it shows first. Its title is cut to fit. */
-export const popup = (customId: string, title: string, texts: string[], field: { customId: string; label: string; maxLength: number }): Popup => ({
+/** A pop-up field: a paragraph unless it is one line, empty unless it holds a value. */
+export interface PopupField {
+  customId: string;
+  label: string;
+  maxLength: number;
+  oneLine?: boolean;
+  value?: string;
+}
+
+/** A pop-up with its fields below any text it shows first. Its title is cut to fit. */
+export const popup = (customId: string, title: string, texts: string[], ...fields: PopupField[]): Popup => ({
   custom_id: customId,
   title: title.length > POPUP_TITLE_LIMIT ? `${title.slice(0, POPUP_TITLE_LIMIT - 1)}…` : title,
   components: [
     ...texts.map(text),
-    { type: 18, label: field.label, component: { type: 4, custom_id: field.customId, style: 2, required: true, max_length: field.maxLength } },
+    ...fields.map(
+      (field): Label => ({
+        type: 18,
+        label: field.label,
+        component: {
+          type: 4,
+          custom_id: field.customId,
+          style: field.oneLine ? 1 : 2,
+          required: true,
+          max_length: field.maxLength,
+          ...(field.value === undefined ? {} : { value: field.value }),
+        },
+      }),
+    ),
   ],
 });
+
+/** Text cut to at most `max` characters, ending in an ellipsis where it was cut. */
+export const cut = (value: string, max: number) => (value.length <= max ? value : `${value.slice(0, Math.max(0, max - 1)).trimEnd()}…`);
 
 /** A message that never notifies and mentions nobody, whatever its text says. */
 export const silentMessage = (components: Component[]): MessagePayload => ({

@@ -94,6 +94,11 @@ export class FakeGitRemote {
       .map(([, subject]) => subject);
   }
 
+  /** The commit a branch on GitHub is at. */
+  head(branch = 'main'): string {
+    return git(this.#bare, 'rev-parse', `refs/heads/${branch}`).trim();
+  }
+
   /** The branches on GitHub. */
   branches(): string[] {
     return git(this.#bare, 'for-each-ref', '--format=%(refname:short)', 'refs/heads/').split('\n').filter(Boolean);

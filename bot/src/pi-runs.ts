@@ -1,6 +1,8 @@
 // Pi runs (ADR 0001): one `pi --mode rpc` process per run, started through a fixed command (in production the
-// Pi container's helper). The bot sends the run's one prompt and waits until Pi settles. The run's records come
-// in through the forwarder as the run goes; its model requests are counted there too. Every run is capped on wall
+// Pi container's helper). Before it starts, the bot reads the run's Rules from the Personal database's last commit
+// (ADR 0002): the all scope's and its own scope's, which our extension asks the forwarder for. The bot sends the run's
+// one prompt and waits until Pi settles. The run's records come in through the forwarder as the run goes, each Rule
+// they name checked against the run's own; its model requests are counted there too. Every run is capped on wall
 // clock, turns and tokens (#26), read from the events Pi streams, and aborted at the first cap it passes.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -9,6 +11,7 @@ import { kill, signal } from './process-group.ts';
 import type { Role, RunCaps, RunKind } from './config.ts';
 import type { Forwarder, RecordResult } from './forwarder.ts';
 import { errorText, type Log } from './log.ts';
+import { checkRulesApplied, loadedScopes, rulesPrompt, tokensOf, type Rule, type RuleScope, type RuleSet } from './rules/rules.ts';
 import type { Store } from './store.ts';
 
 export interface RunRequest {
@@ -16,8 +19,11 @@ export interface RunRequest {
   role: Role;
   /** What the run works on, such as a Miner date. */
   item: string;
+  /** The scope whose Rules the run loads beside the all scope's, when its kind has none of its own. */
+  ruleScope?: RuleScope;
   prompt: string;
-  onRecord(record: unknown, runId: string): RecordResult;
+  /** Takes one record the run's tool wrote, given the Rules the run loaded, and says whether it was kept. */
+  onRecord(record: unknown, runId: string, rules: readonly Rule[]): RecordResult;
 }
 
 /** The cap a run passed, and its value. */
@@ -44,6 +50,7 @@ export class PiRunner {
   #cwd: string | undefined;
   #botUrl: string;
   #caps: Record<RunKind, RunCaps>;
+  #rules: (scopes: RuleScope[]) => Promise<RuleSet>;
   #forwarder: Forwarder;
   #store: Store;
   #clock: Clock;
@@ -60,6 +67,8 @@ export class PiRunner {
     botUrl: string;
     /** Each run kind's caps. */
     caps: Record<RunKind, RunCaps>;
+    /** The Rules of these scopes, as the Personal database's checkout last committed them. */
+    rules(scopes: RuleScope[]): Promise<RuleSet>;
     forwarder: Forwarder;
     store: Store;
     clock: Clock;
@@ -70,6 +79,7 @@ export class PiRunner {
     this.#cwd = options.cwd;
     this.#botUrl = options.botUrl;
     this.#caps = options.caps;
+    this.#rules = options.rules;
     this.#forwarder = options.forwarder;
     this.#store = options.store;
     this.#clock = options.clock;
@@ -79,9 +89,23 @@ export class PiRunner {
   async run(request: RunRequest): Promise<RunResult> {
     if (this.#stopped) throw new Error('The Assistant is stopping; no new runs start');
     const runId = `${request.kind}-${randomUUID()}`;
-    this.#store.startRun({ id: runId, kind: request.kind, role: request.role, item: request.item, startedAt: this.#clock.now().toISOString() });
-    const token = this.#forwarder.register({ runId, role: request.role, onRecord: (record) => request.onRecord(record, runId) });
-    this.#log('run.started', { runId, kind: request.kind, role: request.role, item: request.item });
+    const { commit, rules } = await this.#rules(loadedScopes(request.kind, request.ruleScope));
+    const prompt = rulesPrompt(rules);
+    const { kind, role, item } = request;
+    this.#store.startRun({ id: runId, kind, role, item, startedAt: this.#clock.now().toISOString(), rulesCommit: commit });
+    const token = this.#forwarder.register({
+      runId,
+      role,
+      rules: () => {
+        this.#log('run.rules-loaded', { runId, kind, commit, rules: rules.map((r) => r.name), tokens: tokensOf(prompt) });
+        return { commit, prompt };
+      },
+      onRecord: (record) => {
+        const checked = checkRulesApplied(record, rules);
+        return checked.ok ? request.onRecord(checked.record, runId, rules) : checked;
+      },
+    });
+    this.#log('run.started', { runId, kind, role, item, rulesCommit: commit });
 
     let result: RunResult;
     try {

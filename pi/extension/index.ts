@@ -1,12 +1,15 @@
 // Our Pi extension. Each Pi run is one kind of work for one model role, set by the bot in the environment:
 // - its only model provider is the bot's forwarder, reached with the run's own token (the container holds no key);
+// - it loads the run's Rules from the bot before the run starts and puts them all into the system prompt, so no Rule
+//   waits on the model choosing to read it (ADR 0002); a run whose Rules can't be loaded doesn't start;
 // - it offers the model only the record tool of its run kind, and blocks any other tool call;
 // - its record tool is schema-checked and writes each record to the bot as it is made.
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { dossierRun } from './dossier.ts';
 import { minerJudging, type RunKind } from './miner.ts';
+import { correctionSorting } from './sorting.ts';
 
-const RUN_KINDS: Record<string, RunKind> = { 'miner-judging': minerJudging, dossier: dossierRun };
+const RUN_KINDS: Record<string, RunKind> = { 'miner-judging': minerJudging, dossier: dossierRun, 'correction-sorting': correctionSorting };
 
 function required(name: string): string {
   const value = process.env[name];
@@ -14,12 +17,22 @@ function required(name: string): string {
   return value;
 }
 
-export default function assistant(pi: ExtensionAPI): void {
+/** How long the bot may take to hand over the run's Rules. */
+const RULES_TIMEOUT_MS = 30_000;
+
+export default async function assistant(pi: ExtensionAPI): Promise<void> {
   const botUrl = required('ASSISTANT_BOT_URL');
   const role = required('ASSISTANT_ROLE');
   const kindName = required('ASSISTANT_RUN_KIND');
   const kind = RUN_KINDS[kindName];
   if (!kind) throw new Error(`Unknown run kind ${kindName}`);
+  const authorization = `Bearer ${required('ASSISTANT_RUN_TOKEN')}`;
+
+  // Loaded before anything is registered, so a run without its Rules has no model to call.
+  const rules = await fetch(`${botUrl}/rules`, { headers: { authorization }, signal: AbortSignal.timeout(RULES_TIMEOUT_MS) });
+  const loaded = (await rules.json().catch(() => ({}))) as { prompt?: unknown };
+  if (!rules.ok || typeof loaded.prompt !== 'string') throw new Error(`The Assistant did not hand over this run's Rules (${rules.status})`);
+  const systemPrompt = `${kind.systemPrompt}\n\n${loaded.prompt}`;
 
   pi.registerProvider('assistant', {
     name: 'The Assistant forwarder',
@@ -42,7 +55,7 @@ export default function assistant(pi: ExtensionAPI): void {
   const record = async (body: unknown, signal: AbortSignal | undefined): Promise<string> => {
     const response = await fetch(`${botUrl}/records`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${required('ASSISTANT_RUN_TOKEN')}` },
+      headers: { 'content-type': 'application/json', authorization },
       body: JSON.stringify(body),
       signal,
     });
@@ -59,5 +72,5 @@ export default function assistant(pi: ExtensionAPI): void {
   pi.on('tool_call', (event) =>
     allowed.has(event.toolName) ? undefined : { block: true, reason: `${event.toolName} isn't available in a ${kindName} run` },
   );
-  pi.on('before_agent_start', () => ({ systemPrompt: kind.systemPrompt }));
+  pi.on('before_agent_start', () => ({ systemPrompt }));
 }

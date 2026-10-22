@@ -8,7 +8,7 @@ export const ROLES = ['miner', 'registration'] as const;
 export type Role = (typeof ROLES)[number];
 
 /** Every kind of Pi run the Assistant makes. Each one is capped. */
-export const RUN_KINDS = ['miner-judging', 'dossier', 'walkthrough-preparation', 'fill', 'mail', 'question'] as const;
+export const RUN_KINDS = ['miner-judging', 'dossier', 'walkthrough-preparation', 'fill', 'mail', 'question', 'correction-sorting'] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
 
 /** What one run may use before it is aborted: wall-clock time, turns, and tokens as Pi reports them. */
@@ -85,6 +85,8 @@ export interface Config {
     lateAt: string;
   };
   runCaps: Record<RunKind, RunCaps>;
+  /** The Rule budget (ADR 0002): about how many tokens the Rules loaded into one run may take, checked at each Keep. */
+  rules: { budgetTokens: number };
   rawInputs: { keepDays: number };
 }
 
@@ -129,6 +131,7 @@ export function checkConfig(config: Config): string[] {
   if (!(config.personalDatabase?.ssh?.length > 0)) problems.push('personalDatabase.ssh must name the ssh command');
   if (!(config.personalDatabase?.retryMinutes > 0)) problems.push('personalDatabase.retryMinutes must be above 0');
   if (!(config.pi?.command?.length > 0)) problems.push('pi.command must name the command that starts a run');
+  if (!(config.rules?.budgetTokens > 0)) problems.push('rules.budgetTokens must be above 0');
   for (const kind of RUN_KINDS) {
     const caps = config.runCaps?.[kind];
     for (const cap of ['wallClockMinutes', 'turns', 'tokens'] as const) {

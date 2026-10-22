@@ -44,7 +44,8 @@ export function correctionPrompt(interestScope: string, launch: Launch, correcte
   ].join('\n');
 }
 
-function launchParts(launch: Launch): string[] {
+/** A Launch as a run reads it: its Post id, then each of its Product Hunt fields, fenced. */
+export function launchParts(launch: Launch): string[] {
   return [
     `Launch · Post id ${launch.postId}`,
     'Name:',
@@ -70,6 +71,9 @@ export function readJudgment(record: unknown, expected: ReadonlySet<string>): { 
   if (typeof reason !== 'string' || !reason.trim() || /[\r\n]/.test(reason) || reason.length > REASON_MAX_CHARS) {
     return { ok: false, error: `reason must be one line of at most ${REASON_MAX_CHARS} characters.` };
   }
-  if (!Array.isArray(rulesApplied) || rulesApplied.length > 0) return { ok: false, error: 'rulesApplied must be empty: no Rules exist yet.' };
-  return { ok: true, judgment: { postId, fit, notAProduct, reason: reason.trim(), rulesApplied: [] } };
+  // The run checked each name against its own Rules already.
+  if (!Array.isArray(rulesApplied) || !rulesApplied.every((r) => typeof r === 'string')) {
+    return { ok: false, error: 'rulesApplied must be a list of Rule names.' };
+  }
+  return { ok: true, judgment: { postId, fit, notAProduct, reason: reason.trim(), rulesApplied } };
 }

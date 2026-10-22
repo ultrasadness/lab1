@@ -4,14 +4,15 @@
 // parts. A date whose judging run hit a cap even after its automatic retry opens its post early (#45): a waiting
 // summary, then a notice with Retry for each capped run. Once the date is judged, the summary and title are rewritten
 // in place and the bands follow the notices. If the date is dropped instead, the post says so and its Retry buttons
-// are turned off. A line the person corrected (#48) keeps the band and place its first judgment gave it, and shows
-// its new judgment "after your Correction" with a note of what it was and what they wrote, cut short if its message
-// must be.
+// are turned off. A line names the Rules its judgment applied (#49). A line the person corrected (#48) keeps the band
+// and place its first judgment gave it, and shows its new judgment "after your Correction" with a note of what it
+// was and what they wrote, cut short if its message must be, and the Hard limit that declined it, if one did.
 import {
   Accent,
   button,
   ButtonStyle,
   container,
+  cut,
   escapeMarkdown,
   fits,
   section,
@@ -32,8 +33,10 @@ export interface DayPostLaunch extends JudgedLaunch {
   name: string;
   slug: string;
   reason: string;
+  /** The Rules the judgment applied, by name. */
+  rulesApplied: string[];
   /** The judgment the day was posted with, once a Correction changed it: it keeps the line's band and place. */
-  first?: JudgedLaunch & { reason: string };
+  first?: JudgedLaunch & { reason: string; rulesApplied: string[] };
   /** The person's latest Correction of it. */
   correction?: LineCorrection;
 }
@@ -48,6 +51,8 @@ export interface LineCorrection {
   why: string | null;
   /** The Product post its Launch's Dossier was withdrawn in, while it is. */
   withdrawnPost: string | null;
+  /** The Hard limit that declined what it asks, if one did (#49). */
+  declined: string | null;
 }
 
 export interface RenderedDayPost {
@@ -273,6 +278,17 @@ export function judgmentText(l: DayPostLaunch, line: number): string {
   return `**${head(l, line)}** · ${escapeMarkdown(l.reason)}`;
 }
 
+/** A judgment as a run reads it, unescaped: `Skip · fit 6 · <reason> (Rule: <name>)`. */
+export function plainJudgment(j: JudgedLaunch & { reason: string; rulesApplied: string[] }, line: number): string {
+  return `${outcomeText(j, line)} · ${j.reason}${rulesNamed(j.rulesApplied)}`;
+}
+
+/** ` (Rule: <name>)`, or ` (Rules: <name>, <name>)`, closing a judgment that applied Rules; empty when it applied none. */
+const rulesNamed = (names: string[]) => (names.length > 0 ? ` (Rule${names.length > 1 ? 's' : ''}: ${names.join(', ')})` : '');
+
+/** What a Correction a Hard limit declined says of it, naming the limit. */
+export const declinedText = (limit: string) => `declined: a Hard limit forbids it (${limit})`;
+
 /** `Dossier · fit 8`, `Skip · fit 6` or `Skip · not a Product`. */
 function outcomeText(j: JudgedLaunch, line: number): string {
   switch (outcomeOf(j, line)) {
@@ -288,25 +304,25 @@ function outcomeText(j: JudgedLaunch, line: number): string {
 /** The judgment's outcome, saying when a Correction gave it. */
 const head = (l: DayPostLaunch, line: number) => `${outcomeText(l, line)}${l.first ? ' after your Correction' : ''}`;
 
-/** Text cut to at most `max` characters, ending in an ellipsis where it was cut. */
-const cut = (value: string, max: number) => (value.length <= max ? value : `${value.slice(0, Math.max(0, max - 1)).trimEnd()}…`);
 
 /**
- * A Launch's line, which a Correction ends with a note. A corrected line's quote of the person, then its reason, keep
- * only as much as the squeeze allows.
+ * A Launch's line, its reason followed by the Rules it applied, which a Correction ends with a note. A corrected line's
+ * quote of the person, then its reason, keep only as much as the squeeze allows.
  */
 function lineText(l: DayPostLaunch, line: number, productPost: string | undefined, squeeze: Squeeze = SQUEEZES[0]): string {
   const name = `**[${escapeMarkdown(l.name)}](${launchUrl(l.slug)})**`;
   const c = l.correction;
   const reason = c ? cut(escapeMarkdown(l.reason), squeeze.reason) : escapeMarkdown(l.reason);
   const quote = c && `“${cut(escapeMarkdown(c.text), squeeze.quote)}”`;
-  if (c?.state === 're-judging') return `${name} · re-judging… · ${reason}\n-# you wrote ${quote}`;
+  const rules = rulesNamed(l.rulesApplied.map(escapeMarkdown));
+  if (c?.state === 're-judging') return `${name} · re-judging… · ${reason}${rules}\n-# you wrote ${quote}`;
   const dossier = outcomeOf(l, line) === 'dossier';
-  const text = `${name} · ${head(l, line)} · ${reason}${dossier && productPost ? ` → <#${productPost}>` : ''}`;
+  const text = `${name} · ${head(l, line)} · ${reason}${rules}${dossier && productPost ? ` → <#${productPost}>` : ''}`;
   if (!c) return text;
   if (c.state === 'not re-judged') return `${text}\n-# Your Correction ${quote} couldn't be re-judged: ${c.why}. Correct to try again.`;
   const withdrawn = c.withdrawnPost ? ` · Dossier withdrawn <#${c.withdrawnPost}>` : '';
-  return `${text}\n-# was ${outcomeText(c.was, line)} · you wrote ${quote}${withdrawn}${c.why ? ` · ${c.why}` : ''}`;
+  const declined = c.declined ? ` · ${declinedText(c.declined)}` : '';
+  return `${text}\n-# was ${outcomeText(c.was, line)} · you wrote ${quote}${withdrawn}${declined}${c.why ? ` · ${c.why}` : ''}`;
 }
 
 const bandMessage = (title: string, accent: number, lines: Section[]) => silentMessage([container(accent, [text(`### ${title}`), ...lines])]);

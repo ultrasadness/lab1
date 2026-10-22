@@ -20,6 +20,8 @@ import { Status } from './status.ts';
 import { PiRunner } from './pi-runs.ts';
 import { ProductHunt } from './product-hunt.ts';
 import { RawInputs } from './raw-inputs.ts';
+import { Proposals } from './rules/proposals.ts';
+import { loadRules } from './rules/rules.ts';
 import { Store } from './store.ts';
 
 export type { LogEntry };
@@ -75,31 +77,22 @@ export async function startAssistant(options: {
     clock,
     log,
   });
-  const pi = new PiRunner({
-    command: config.pi.command,
-    env: config.pi.env,
-    cwd: config.pi.cwd,
-    botUrl: config.forwarder.urlForPi ?? forwarder.url,
-    caps: config.runCaps,
-    forwarder,
-    store,
-    clock,
-    log,
-  });
-
   const discord = new DiscordRest({ apiBaseUrl: config.discord.apiBaseUrl, token: discordToken, log });
   const gateway = new DiscordGateway({
     rest: discord,
     token: discordToken,
     log,
     onInteraction: (interaction) => {
-      const answered = answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct });
-      interactions.add(answered);
-      void answered.finally(() => interactions.delete(answered));
+      plainWork(answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct, proposals }));
     },
   });
-  // Taps and pop-ups being answered, which may queue work.
-  const interactions = new Set<Promise<void>>();
+  // Plain-code work under way, which never queues in the lane: taps and pop-ups being answered, which may queue work or
+  // do it, such as a Keep, and the late line's checks.
+  const working = new Set<Promise<void>>();
+  const plainWork = (work: Promise<void>) => {
+    working.add(work);
+    void work.finally(() => working.delete(work));
+  };
 
   const productHunt = new ProductHunt({
     apiUrl: config.productHunt.apiUrl,
@@ -108,20 +101,42 @@ export async function startAssistant(options: {
     log,
   });
   const status = new Status({ discord, channelId: config.discord.statusChannelId, log });
+  const needsYou = new NeedsYou({ discord, channelId: config.discord.needsYouChannelId, personUserId: config.discord.personUserId, log });
   const personalDatabase = new PersonalDatabase({
     dir: config.personalDatabase.dir,
     ssh: config.personalDatabase.ssh,
     deployKey,
     retryMinutes: config.personalDatabase.retryMinutes,
     store,
-    needsYou: new NeedsYou({ discord, channelId: config.discord.needsYouChannelId, personUserId: config.discord.personUserId, log }),
+    needsYou,
+    clock,
+    log,
+  });
+  const pi = new PiRunner({
+    command: config.pi.command,
+    env: config.pi.env,
+    cwd: config.pi.cwd,
+    botUrl: config.forwarder.urlForPi ?? forwarder.url,
+    caps: config.runCaps,
+    rules: (scopes) => loadRules(personalDatabase, scopes),
+    forwarder,
+    store,
     clock,
     log,
   });
   const browser = new BrowserService({ socketPath: config.browser.socketPath });
   const dossiers = new Dossiers({ config, store, browser, pi, discord, personalDatabase, rawInputs, clock, log });
   const miner = new Miner({ config, store, productHunt, pi, discord, status, personalDatabase, dossiers, clock, log });
-  const corrections = new Corrections({ store, pi, discord, personalDatabase, dossiers, clock, log });
+  const proposals = new Proposals({
+    store,
+    personalDatabase,
+    needsYou,
+    budgetTokens: config.rules.budgetTokens,
+    showDecision: (correctionId) => corrections.showDecision(correctionId),
+    clock,
+    log,
+  });
+  const corrections = new Corrections({ store, pi, discord, personalDatabase, dossiers, proposals, clock, log });
 
   // The background lane runs one job at a time (#11), Corrections before the Miner (#40 §8).
   const lane = new Lane(log);
@@ -166,24 +181,23 @@ export async function startAssistant(options: {
   };
   const cancelDaily = everyPacificDay(clock, config.miner.startsAt, daily);
   // The late line is plain code, so it never waits behind a run in the lane.
-  const lateChecks = new Set<Promise<void>>();
   const cancelLate = everyPacificDay(clock, config.miner.lateAt, () => {
-    const check = miner.noteLate().catch((error: unknown) => log('miner.late-check-failed', { error: errorText(error) }));
-    lateChecks.add(check);
-    void check.finally(() => lateChecks.delete(check));
+    plainWork(miner.noteLate().catch((error: unknown) => log('miner.late-check-failed', { error: errorText(error) })));
   });
   const whenIdle = async () => {
     for (;;) {
       await lane.whenIdle();
       await personalDatabase.whenIdle();
-      if (lateChecks.size === 0 && interactions.size === 0) return;
-      await Promise.all([...lateChecks, ...interactions]);
+      if (working.size === 0) return;
+      await Promise.all([...working]);
     }
   };
 
   lane.add('raw-inputs expiry', 'miner', async () => rawInputs.expire());
   catchUp();
   correct();
+  // A Keep tapped before a stop, or a decision not yet shown, is done now.
+  plainWork(proposals.resume());
   // Commits a refused push left in the checkout, and files queued before a stop, don't wait for the Miner's next run.
   void personalDatabase.sync();
 
@@ -299,6 +313,8 @@ async function answer(
     corrections: Corrections;
     /** Queues the work of the Corrections sent. */
     correct(): void;
+    /** Keep, Edit and Discard on the cards of proposals that Corrections' sorts made. */
+    proposals: Proposals;
   },
 ): Promise<void> {
   const { personUserId, discord, log } = options;
@@ -326,6 +342,23 @@ async function answer(
       } finally {
         // Queued once the answer is out, so the work's own edits of the day post come after it.
         options.correct();
+      }
+    }
+    const proposal =
+      interaction.type === 3
+        ? options.proposals.tap(customId, interaction.message?.id)
+        : interaction.type === 5
+          ? options.proposals.submitEdit(customId, (field) => popupField(interaction, field))
+          : undefined;
+    if (proposal) {
+      if ('refused' in proposal) return await reply(proposal.refused);
+      if ('popup' in proposal) return await discord.respond(interaction.id, interaction.token, { type: 9, data: { ...proposal.popup } });
+      try {
+        return await discord.respond(interaction.id, interaction.token, { type: 7, data: { ...proposal.update } });
+      } finally {
+        // Done once the answer is out, so the work's own edits of the card come after it, and done even if Discord
+        // didn't take the answer, since the tap is kept already.
+        await proposal.work?.();
       }
     }
     if (customId.startsWith('correct:dossier:') || customId.startsWith('add-offer:dossier:')) {
