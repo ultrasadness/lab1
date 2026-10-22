@@ -6,9 +6,13 @@
 // happens, so a pass that stops picks up where it left off: a Dossier already written isn't written again, and a post
 // marked as started is looked for on Discord before it is created again. A Dossier that can't be written is tried
 // again at the date's next pass, and the date's list waits on it.
+// A Correction that puts a Dossier's Launch below its day's line withdraws it (#48): the post stays as the record,
+// closed and tagged *Skipped*, its first message replaced. One that puts it back above the line reopens the post with
+// its Dossier.
 import type { BrowserService, PageRead } from '../browser.ts';
 import type { Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
+import { asEdit, type MessagePayload } from '../discord/components.ts';
 import type { DiscordRest } from '../discord/rest.ts';
 import { errorText, type Log } from '../log.ts';
 import { launchUrl } from '../miner/day-post.ts';
@@ -37,8 +41,9 @@ export type Written = 'done' | 'stopped' | { problem: string };
 /** The landing page read, and the root domain it is on. */
 type Landing = Read & { rootDomain: string };
 
-/** The tag that marks a Product with no account to make (#33). */
+/** The tag that marks a Product with no account to make (#33), and the one that marks a withdrawn Dossier (#40 §2). */
 const NO_ACCOUNT_TAG = 'no account';
+const SKIPPED_TAG = 'skipped';
 
 export class Dossiers {
   #config: Config;
@@ -71,11 +76,6 @@ export class Dossiers {
     this.#rawInputs = options.rawInputs;
     this.#clock = options.clock;
     this.#log = options.log;
-  }
-
-  /** The Product post a Launch's Dossier is in, once it is posted. */
-  postOf(postId: string): string | undefined {
-    return this.#store.productOfLaunch(postId)?.threadId ?? undefined;
   }
 
   /**
@@ -121,7 +121,47 @@ export class Dossiers {
         product = written.product;
       }
     }
+    if (product.withdrawnAt) return this.#putBack(product);
     await this.#ensurePost(product);
+    return 'done';
+  }
+
+  /**
+   * Closes the post of the Product a Launch is filed under, if it has one still open, as a Correction put the Launch
+   * below its day's line: the first message becomes the one given, and the post is tagged *Skipped*. While the
+   * forum's tags can't be read, the post is left as it is, to be withdrawn at a later try.
+   */
+  async withdraw(postId: string, first: (product: Product) => MessagePayload): Promise<'done' | { problem: string }> {
+    const product = this.#store.productOfLaunch(postId);
+    if (!product?.threadId || product.withdrawnAt) return 'done';
+    const { dossier } = this.#store.latestDossier(product.id)!;
+    const tags = await this.#tagIds(dossier, true);
+    if (!tags) return { problem: `the Dossier for ${dossier.name} can't be withdrawn while the Products forum's tags can't be read` };
+    // An archived post can't be edited, so it is opened first, and closed once its first message is replaced.
+    await this.#discord.editThread(product.threadId, { archived: false });
+    await this.#discord.editMessage(product.threadId, product.threadId, asEdit(first(product)));
+    await this.#discord.editThread(product.threadId, { applied_tags: tags, archived: true });
+    this.#store.saveProductWithdrawn(product.id, this.#clock.now().toISOString());
+    this.#log('dossier.withdrawn', { postId, productId: product.id, threadId: product.threadId });
+    return 'done';
+  }
+
+  /**
+   * Reopens a withdrawn Product's post with its latest Dossier, as a Correction put its Launch back above the line.
+   * While the forum's tags can't be read, the post is left as it is, to be put back at a later try.
+   */
+  async #putBack(product: Product): Promise<Written> {
+    const threadId = product.threadId!;
+    const { dossier } = this.#store.latestDossier(product.id)!;
+    const tags = await this.#tagIds(dossier, false);
+    // writeFor names the Dossier this is about.
+    if (!tags) return { problem: "its post can't be reopened while the Products forum's tags can't be read" };
+    const { message } = dossierCard(dossier, product.id, await this.#personalDatabase.fileUrl(dossierPath(product.rootDomain)));
+    await this.#discord.editThread(threadId, { archived: false });
+    await this.#discord.editMessage(threadId, threadId, asEdit(message));
+    await this.#discord.editThread(threadId, { applied_tags: tags });
+    this.#store.saveProductWithdrawn(product.id, null);
+    this.#log('dossier.put-back', { productId: product.id, threadId });
     return 'done';
   }
 
@@ -260,7 +300,7 @@ export class Dossiers {
     }
     const { dossier } = this.#store.latestDossier(product.id)!;
     const { message, shortened } = dossierCard(dossier, product.id, await this.#personalDatabase.fileUrl(dossierPath(product.rootDomain)));
-    const tags = await this.#tagIds(dossier);
+    const tags = (await this.#tagIds(dossier, false)) ?? [];
     this.#store.saveProductPostIntended(product.id);
     const { threadId } = await this.#discord.createForumPost(forumId, product.title, message, tags);
     this.#store.saveProductPost(product.id, threadId);
@@ -269,20 +309,25 @@ export class Dossiers {
 
   /**
    * The forum tags for where the Product stands, by the names the person gave them: *no account* for a Product with
-   * no Walkthrough to come. An Open or Waitlisted Product gets its *Walkthrough* tag with its Walkthrough (#53).
+   * no Walkthrough to come, and *Skipped* once its Dossier is withdrawn. An Open or Waitlisted Product gets its
+   * *Walkthrough* tag with its Walkthrough (#53). Undefined if the forum's tags can't be read.
    */
-  async #tagIds(dossier: Dossier): Promise<string[]> {
-    if (dossier.record.state !== 'no-account') return [];
-    // A tag only labels the post, so a forum whose tags can't be read gets its post untagged rather than none.
-    let tags: { id: string; name: string }[] = [];
+  async #tagIds(dossier: Dossier, withdrawn: boolean): Promise<string[] | undefined> {
+    const names = [...(dossier.record.state === 'no-account' ? [NO_ACCOUNT_TAG] : []), ...(withdrawn ? [SKIPPED_TAG] : [])];
+    if (names.length === 0) return [];
+    // A tag only labels the post, so a forum whose tags can't be read leaves the post's tags as they are.
+    let tags: { id: string; name: string }[];
     try {
       tags = await this.#discord.forumTags(this.#config.discord.productsForumId);
     } catch (error) {
       this.#log('dossier.tags-unread', { error: errorText(error) });
+      return undefined;
     }
-    const tag = tags.find((t) => t.name.toLowerCase() === NO_ACCOUNT_TAG);
-    if (!tag) this.#log('dossier.tag-missing', { tag: NO_ACCOUNT_TAG });
-    return tag ? [tag.id] : [];
+    return names.flatMap((name) => {
+      const tag = tags.find((t) => t.name.toLowerCase() === name);
+      if (!tag) this.#log('dossier.tag-missing', { tag: name });
+      return tag ? [tag.id] : [];
+    });
   }
 }
 

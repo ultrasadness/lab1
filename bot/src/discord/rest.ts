@@ -78,8 +78,8 @@ export class DiscordRest {
     await this.#request('PATCH', `/channels/${channelId}/messages/${messageId}`, message);
   }
 
-  /** Renames a thread, such as a forum post, or archives or unarchives it. */
-  async editThread(threadId: string, change: { name?: string; archived?: boolean }): Promise<void> {
+  /** Renames a thread, such as a forum post, sets a forum post's tags by id, or archives or unarchives it. */
+  async editThread(threadId: string, change: { name?: string; archived?: boolean; applied_tags?: string[] }): Promise<void> {
     await this.#request('PATCH', `/channels/${threadId}`, change);
   }
 

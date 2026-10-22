@@ -1,6 +1,7 @@
 // The Miner judging run (#9): the model gives each Launch a Fit against the Interest scope on fixed bands, and
 // writes one judgment per Launch through record_judgment. It never writes Dossier or Skip: plain code draws the
-// Day's line once the whole date is judged.
+// Day's line once the whole date is judged. A Correction's run (#48) is one too, judging one Launch again with what
+// the person said the judgment got wrong.
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
@@ -12,6 +13,8 @@ export interface RunKind {
 const SYSTEM_PROMPT = `You judge Launches from Product Hunt for one person, against their Interest scope.
 
 For each Launch in the message, call record_judgment exactly once. Judge each Launch on its own, only from its name, tagline, description, topics and Maker comment.
+
+A message may instead carry the person's Correction of one Launch's judgment: the judgment they corrected, and what they say it got wrong. Judge that Launch again from the same fields, weighing their Correction against the Interest scope on the fixed bands.
 
 fit is a whole number from 0 to 10, on these fixed bands:
 

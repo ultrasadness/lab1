@@ -10,8 +10,22 @@ export interface Interaction {
   channel_id?: string;
   member?: { user?: { id: string } };
   user?: { id: string };
-  data?: { custom_id?: string; component_type?: number };
+  /** A pop-up's submission carries its fields, each in its label. */
+  data?: { custom_id?: string; component_type?: number; components?: unknown[] };
   message?: { id: string };
+}
+
+/** The value typed into a field of a submitted pop-up, if the submission has that field. */
+export function popupField(interaction: Interaction, customId: string): string | undefined {
+  // Each field comes in its label, or in an action row as older pop-ups have it.
+  for (const holder of interaction.data?.components ?? []) {
+    const h = holder as { component?: unknown; components?: unknown } | null;
+    for (const field of [h?.component, ...(Array.isArray(h?.components) ? h.components : [])]) {
+      const f = field as { custom_id?: unknown; value?: unknown } | null | undefined;
+      if (f?.custom_id === customId && typeof f.value === 'string') return f.value;
+    }
+  }
+  return undefined;
 }
 
 interface Frame {

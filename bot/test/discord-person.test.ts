@@ -1,7 +1,7 @@
 // Who the bot answers on Discord: only the person's own user id, with no privileged gateway intent.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EPHEMERAL, PRIVILEGED_INTENTS } from './harness/fake-discord.ts';
+import { EPHEMERAL, PRIVILEGED_INTENTS, popupOf } from './harness/fake-discord.ts';
 import { MINER_DAYS_FORUM, PERSON, STRANGER, startWorld } from './harness/world.ts';
 import { fixtureDay } from './harness/fake-product-hunt.ts';
 
@@ -25,10 +25,16 @@ test('the bot uses no privileged intent and acts only for the person', async (t)
   assert.ok((stranger.data?.flags ?? 0) & EPHEMERAL, 'only the one who tapped sees the answer');
   assert.equal(stranger.data?.content, 'This Assistant acts only for its person.');
 
-  // Correct itself comes in #48; until then the person is told so, and nothing changes.
+  // The person's tap opens Correct's pop-up, and changes nothing until they send it.
   const person = await world.discord.tap({ userId: PERSON, customId: correct.customId, channelId: post!.id, messageId: band.id });
-  assert.ok((person.data?.flags ?? 0) & EPHEMERAL);
-  assert.match(person.data?.content ?? '', /Correct isn't wired up yet/);
+  assert.equal(popupOf(person)?.title, 'Correct · Dropstone CLI');
   assert.equal(world.model.runs.length, runs, 'no tap started a run');
+  assert.deepEqual(world.discord.forumPosts(MINER_DAYS_FORUM), [post]);
+
+  // A stranger who sends the pop-up anyway corrects nothing.
+  const sent = await world.discord.submitPopup({ userId: STRANGER, customId: correct.customId, channelId: post!.id, messageId: band.id, fields: { what: 'Not for you.' } });
+  assert.equal(sent.data?.content, 'This Assistant acts only for its person.');
+  await world.assistant.whenIdle();
+  assert.equal(world.model.runs.length, runs);
   assert.deepEqual(world.discord.forumPosts(MINER_DAYS_FORUM), [post]);
 });

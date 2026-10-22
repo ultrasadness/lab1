@@ -43,6 +43,31 @@ export interface ActionRow {
 }
 export type Component = TextDisplay | Button | Section | Container | ActionRow;
 
+/** A field the person types into, in a pop-up. */
+export interface TextInput {
+  type: 4;
+  custom_id: string;
+  /** 2 is a paragraph. */
+  style: 1 | 2;
+  required: boolean;
+  max_length: number;
+}
+/** A pop-up field with its label. */
+export interface Label {
+  type: 18;
+  label: string;
+  component: TextInput;
+}
+
+/** A pop-up: Discord allows a title of at most 45 characters. */
+export interface Popup {
+  custom_id: string;
+  title: string;
+  components: (TextDisplay | Label)[];
+}
+
+export const POPUP_TITLE_LIMIT = 45;
+
 export interface MessagePayload {
   flags: number;
   components: Component[];
@@ -81,6 +106,16 @@ export const container = (accent: number, components: (TextDisplay | Section)[])
   type: 17,
   accent_color: accent,
   components,
+});
+
+/** A pop-up with one paragraph field, below any text it shows first. Its title is cut to fit. */
+export const popup = (customId: string, title: string, texts: string[], field: { customId: string; label: string; maxLength: number }): Popup => ({
+  custom_id: customId,
+  title: title.length > POPUP_TITLE_LIMIT ? `${title.slice(0, POPUP_TITLE_LIMIT - 1)}…` : title,
+  components: [
+    ...texts.map(text),
+    { type: 18, label: field.label, component: { type: 4, custom_id: field.customId, style: 2, required: true, max_length: field.maxLength } },
+  ],
 });
 
 /** A message that never notifies and mentions nobody, whatever its text says. */

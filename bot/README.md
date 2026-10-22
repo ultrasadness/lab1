@@ -4,13 +4,13 @@ English | [中文](README.zh.md)
 
 The Assistant's one long-running process: TypeScript on Node 24, run as-is through Node's type stripping, with no
 npm dependencies of its own. It holds every token, alone writes the live store, and makes every outside call.
-The spec is #41. Its first slice (#42) brought up the Miner's path from Product Hunt to the Miner days forum, and
-#47 adds a Dossier for each Launch at or above the Day's line.
+The spec is #41. Its first slice (#42) brought up the Miner's path from Product Hunt to the Miner days forum,
+#47 adds a Dossier for each Launch at or above the Day's line, and #48 lets the person correct a Miner judgment.
 
 | Path | What it is |
 |---|---|
-| `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane; who may tap |
-| `bot/src/miner/` | Judging runs, the Day's line, the day post and `days/` file, the 3-date catch-up and Retry |
+| `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane, which runs Corrections before the Miner; who may tap |
+| `bot/src/miner/` | Judging runs, the Day's line, the day post and `days/` file, the 3-date catch-up and Retry, and Corrections of a day's judgments |
 | `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, and the Product's folder in the Personal database |
 | `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)` over its Unix socket, and the root domain a Product is keyed by |
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
@@ -92,9 +92,10 @@ tried again every `personalDatabase.retryMinutes`.
 
 Dossiers go to the Products forum, `discord.productsForumId`, whose tags the person makes: *Walkthrough*,
 *Registering*, *Needs you*, *registered*, *waitlisted*, *handed off*, *abandoned*, *no account* and *Skipped*. The bot
-finds a tag by its name, so only the names matter, and for now applies *no account* alone. A Dossier reads its
-Product's pages through the browser service's socket at `browser.socketPath` (`browser/README.md`), and each read is
-kept for 90 days under `pages/`, beside the other raw inputs.
+finds a tag by its name, so only the names matter, and for now applies *no account*, and *Skipped* to the post of a
+Dossier a Correction withdraws. A Dossier reads its Product's pages through the browser service's socket at
+`browser.socketPath` (`browser/README.md`), and each read is kept for 90 days under `pages/`, beside the other raw
+inputs.
 
 ```sh
 docker build -f pi/Dockerfile -t assistant-pi .

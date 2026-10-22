@@ -5,12 +5,13 @@ import { join } from 'node:path';
 import { BrowserService } from './browser.ts';
 import { inMinutes, type Clock } from './clock.ts';
 import { checkConfig, ROLES, type Config, type Role } from './config.ts';
-import { Flags, type MessagePayload } from './discord/components.ts';
-import { DiscordGateway, type Interaction } from './discord/gateway.ts';
+import { Flags, type MessagePayload, type Popup } from './discord/components.ts';
+import { DiscordGateway, popupField, type Interaction } from './discord/gateway.ts';
 import { DiscordRest } from './discord/rest.ts';
 import { Dossiers } from './dossier/dossiers.ts';
 import { startForwarder } from './forwarder.ts';
 import { createLog, errorText, stdoutSink, type Log, type LogEntry, type LogSink } from './log.ts';
+import { CORRECTION_FIELD, Corrections } from './miner/corrections.ts';
 import { Miner } from './miner/miner.ts';
 import { NeedsYou } from './needs-you.ts';
 import { nextDate, pacificDate, pacificInstant } from './pacific.ts';
@@ -91,8 +92,14 @@ export async function startAssistant(options: {
     rest: discord,
     token: discordToken,
     log,
-    onInteraction: (interaction) => void answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry }),
+    onInteraction: (interaction) => {
+      const answered = answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct });
+      interactions.add(answered);
+      void answered.finally(() => interactions.delete(answered));
+    },
   });
+  // Taps and pop-ups being answered, which may queue work.
+  const interactions = new Set<Promise<void>>();
 
   const productHunt = new ProductHunt({
     apiUrl: config.productHunt.apiUrl,
@@ -114,21 +121,35 @@ export async function startAssistant(options: {
   const browser = new BrowserService({ socketPath: config.browser.socketPath });
   const dossiers = new Dossiers({ config, store, browser, pi, discord, personalDatabase, rawInputs, clock, log });
   const miner = new Miner({ config, store, productHunt, pi, discord, status, personalDatabase, dossiers, clock, log });
+  const corrections = new Corrections({ store, pi, discord, personalDatabase, dossiers, clock, log });
 
-  // The background lane runs one job at a time (#11).
+  // The background lane runs one job at a time (#11), Corrections before the Miner (#40 §8).
   const lane = new Lane(log);
   const retry = (id: number) => {
     const tapped = miner.tapRetry(id);
-    if ('work' in tapped) lane.add(`miner retry ${id}`, tapped.work);
+    if ('work' in tapped) lane.add(`miner retry ${id}`, 'miner', tapped.work);
     return tapped;
   };
+  // Every Correction whose work isn't done, at each Correction sent, at every start, and every 30 minutes while one
+  // is left.
+  let cancelCorrectionsRetry = () => {};
+  const correct = () =>
+    lane.add('corrections', 'correction', async () => {
+      cancelCorrectionsRetry();
+      let left = true;
+      try {
+        left = await corrections.work();
+      } finally {
+        if (left && !stopped) cancelCorrectionsRetry = inMinutes(clock, config.miner.retryMinutes, correct);
+      }
+    });
   gateway.start();
   // The Miner catches up at its daily start, at every start of the bot (a start missed while it was down runs
   // now), and every 30 minutes while a date in its window can't finish.
   let stopped = false;
   let cancelRetry = () => {};
   const catchUp = () =>
-    lane.add('miner', async () => {
+    lane.add('miner', 'miner', async () => {
       cancelRetry();
       let unfinished = true;
       try {
@@ -140,7 +161,7 @@ export async function startAssistant(options: {
       }
     });
   const daily = () => {
-    lane.add('raw-inputs expiry', async () => rawInputs.expire());
+    lane.add('raw-inputs expiry', 'miner', async () => rawInputs.expire());
     catchUp();
   };
   const cancelDaily = everyPacificDay(clock, config.miner.startsAt, daily);
@@ -155,13 +176,14 @@ export async function startAssistant(options: {
     for (;;) {
       await lane.whenIdle();
       await personalDatabase.whenIdle();
-      if (lateChecks.size === 0) return;
-      await Promise.all(lateChecks);
+      if (lateChecks.size === 0 && interactions.size === 0) return;
+      await Promise.all([...lateChecks, ...interactions]);
     }
   };
 
-  lane.add('raw-inputs expiry', async () => rawInputs.expire());
+  lane.add('raw-inputs expiry', 'miner', async () => rawInputs.expire());
   catchUp();
+  correct();
   // Commits a refused push left in the checkout, and files queued before a stop, don't wait for the Miner's next run.
   void personalDatabase.sync();
 
@@ -176,6 +198,7 @@ export async function startAssistant(options: {
         cancelDaily();
         cancelLate();
         cancelRetry();
+        cancelCorrectionsRetry();
         personalDatabase.stop();
         lane.close();
         await pi.stop();
@@ -206,10 +229,20 @@ function everyPacificDay(clock: Clock, time: string, fn: () => void): () => void
   return () => cancel();
 }
 
-/** Runs queued jobs one at a time, in the order they came; a job already waiting isn't queued twice. */
+/**
+ * The background lane's order (#40 §8): a waiting job of an earlier kind runs before one of a later kind. The raw
+ * inputs' expiry goes with the Miner, at whose daily start it is queued.
+ */
+const LANE_ORDER = ['fill', 'correction', 'mail', 'walkthrough-preparation', 'miner'] as const;
+type LaneKind = (typeof LANE_ORDER)[number];
+
+/**
+ * Runs queued jobs one at a time: the first waiting of the earliest kind in the lane's order, so jobs of one kind run
+ * in the order they came. A job already waiting isn't queued twice.
+ */
 class Lane {
   #log: Log;
-  #queue: { name: string; job: () => Promise<void> }[] = [];
+  #queue: { name: string; kind: LaneKind; job: () => Promise<void> }[] = [];
   #running: Promise<void> | undefined;
   #closed = false;
 
@@ -217,14 +250,23 @@ class Lane {
     this.#log = log;
   }
 
-  add(name: string, job: () => Promise<void>): void {
+  add(name: string, kind: LaneKind, job: () => Promise<void>): void {
     if (this.#closed || this.#queue.some((q) => q.name === name)) return;
-    this.#queue.push({ name, job });
+    this.#queue.push({ name, kind, job });
     this.#running ??= this.#drain();
   }
 
+  /** Takes the job to run next off the queue. */
+  #next(): { name: string; job: () => Promise<void> } | undefined {
+    for (const kind of LANE_ORDER) {
+      const i = this.#queue.findIndex((q) => q.kind === kind);
+      if (i >= 0) return this.#queue.splice(i, 1)[0];
+    }
+    return undefined;
+  }
+
   async #drain(): Promise<void> {
-    for (let next = this.#queue.shift(); next; next = this.#queue.shift()) {
+    for (let next = this.#next(); next; next = this.#next()) {
       if (this.#closed) break;
       try {
         await next.job();
@@ -254,6 +296,9 @@ async function answer(
     log: Log;
     /** Retry on a Miner notice: what the notice becomes, or why the tap is refused. */
     retry(id: number): { update: MessagePayload } | { refused: string };
+    corrections: Corrections;
+    /** Queues the work of the Corrections sent. */
+    correct(): void;
   },
 ): Promise<void> {
   const { personUserId, discord, log } = options;
@@ -266,8 +311,22 @@ async function answer(
       return await reply('This Assistant acts only for its person.');
     }
     const customId = interaction.data?.custom_id ?? '';
-    if (customId.startsWith('correct:launch:')) {
-      return await reply("Correct isn't wired up yet. It arrives with Corrections to Miner judgments.");
+    const correct = customId.match(/^correct:launch:(\d+)$/);
+    if (correct && interaction.type === 3) {
+      const opened = options.corrections.popup(correct[1]!);
+      if ('refused' in opened) return await reply(opened.refused);
+      return await discord.respond(interaction.id, interaction.token, { type: 9, data: { ...opened.popup } satisfies Popup });
+    }
+    if (correct && interaction.type === 5) {
+      const sent = options.corrections.submit(correct[1]!, popupField(interaction, CORRECTION_FIELD.customId) ?? '', interaction.message?.id);
+      if ('refused' in sent) return await reply(sent.refused);
+      try {
+        // The line's message shows it re-judging at once; anything else waits for the Correction's work.
+        return await discord.respond(interaction.id, interaction.token, sent.update ? { type: 7, data: { ...sent.update } } : { type: 6 });
+      } finally {
+        // Queued once the answer is out, so the work's own edits of the day post come after it.
+        options.correct();
+      }
     }
     if (customId.startsWith('correct:dossier:') || customId.startsWith('add-offer:dossier:')) {
       return await reply("Correct and Add Offer aren't wired up yet. They arrive with Corrections to Dossiers.");

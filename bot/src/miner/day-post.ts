@@ -4,7 +4,9 @@
 // parts. A date whose judging run hit a cap even after its automatic retry opens its post early (#45): a waiting
 // summary, then a notice with Retry for each capped run. Once the date is judged, the summary and title are rewritten
 // in place and the bands follow the notices. If the date is dropped instead, the post says so and its Retry buttons
-// are turned off.
+// are turned off. A line the person corrected (#48) keeps the band and place its first judgment gave it, and shows
+// its new judgment "after your Correction" with a note of what it was and what they wrote, cut short if its message
+// must be.
 import {
   Accent,
   button,
@@ -16,32 +18,59 @@ import {
   silentMessage,
   text,
   type MessagePayload,
+  type Section,
 } from '../discord/components.ts';
 import { dayLabel, leaderboardUrl, pacificTime, shortTime } from '../pacific.ts';
 import { capText } from '../pi-runs.ts';
 import type { MinerRetry } from '../store.ts';
-import { BANDS, bandOf, outcomeOf, type Band, type DayLine } from './day-line.ts';
+import { BANDS, bandOf, outcomeOf, type Band, type DayLine, type JudgedLaunch } from './day-line.ts';
 
-export interface DayPostLaunch {
+/** A Launch's line: the judgment it shows, its first one or one the person's Correction gave. */
+export interface DayPostLaunch extends JudgedLaunch {
   postId: string;
   rank: number;
   name: string;
   slug: string;
-  fit: number;
-  notAProduct: boolean;
-  reLaunchOfRegistered: boolean;
   reason: string;
+  /** The judgment the day was posted with, once a Correction changed it: it keeps the line's band and place. */
+  first?: JudgedLaunch & { reason: string };
+  /** The person's latest Correction of it. */
+  correction?: LineCorrection;
+}
+
+export interface LineCorrection {
+  /** What the person wrote. */
+  text: string;
+  state: 're-judging' | 're-judged' | 'not re-judged';
+  /** The judgment it was made on. */
+  was: JudgedLaunch;
+  /** Why it wasn't re-judged, or why what it changed isn't all done yet. */
+  why: string | null;
+  /** The Product post its Launch's Dossier was withdrawn in, while it is. */
+  withdrawnPost: string | null;
 }
 
 export interface RenderedDayPost {
   title: string;
   /** The summary, then the band messages, in posting order. */
   messages: MessagePayload[];
+  /** The Post ids of the Launches whose lines each message holds; the summary holds none. */
+  launchesIn: string[][];
 }
 
 const LINES_PER_MESSAGE = 12;
 
-/** The Correct button's id. Correct itself is wired in #48. */
+/** How much of a corrected line's quote of the person, then of its reason, is kept: all, until its message must fit. */
+const SQUEEZES = [
+  { quote: 200, reason: Infinity },
+  { quote: 80, reason: Infinity },
+  { quote: 0, reason: Infinity },
+  { quote: 0, reason: 80 },
+  { quote: 0, reason: 0 },
+] as const;
+type Squeeze = (typeof SQUEEZES)[number];
+
+/** The Correct button's id, which its pop-up shares. */
 export const correctId = (postId: string) => `correct:launch:${postId}`;
 
 /** The Retry button's id, by the Retry's id in the store. */
@@ -90,20 +119,56 @@ export function renderDayPost(input: {
     ]),
   ]);
 
+  // A line's place comes from the judgment the day was posted with.
+  const posted = (l: DayPostLaunch): DayPostLaunch => (l.first ? { ...l, ...l.first, first: undefined, correction: undefined } : l);
   const byBand = new Map<Band, DayPostLaunch[]>();
   for (const launch of launches) {
-    const band = bandOf(launch, line.line);
+    const band = bandOf(posted(launch), line.line);
     byBand.set(band, [...(byBand.get(band) ?? []), launch]);
   }
 
   const messages = [summary];
+  const launchesIn: string[][] = [[]];
   for (const band of BANDS) {
-    const members = (byBand.get(band) ?? []).sort((a, b) => b.fit - a.fit || a.rank - b.rank);
+    const members = (byBand.get(band) ?? []).sort((a, b) => posted(b).fit - posted(a).fit || a.rank - b.rank);
     if (members.length === 0) continue;
-    const lines = members.map((l) => section(lineText(l, line.line, productPosts.get(l.postId)), button(correctId(l.postId), 'Correct')));
-    messages.push(...bandMessages(heading(band, line.line), band === 'dossiers' ? Accent.dossiers : Accent.progress, lines));
+    const title = heading(band, line.line);
+    const accent = band === 'dossiers' ? Accent.dossiers : Accent.progress;
+    // Correct is off while a line is re-judging.
+    const lineOf = (l: DayPostLaunch, squeeze: Squeeze = SQUEEZES[0]) =>
+      section(
+        lineText(l, line.line, productPosts.get(l.postId), squeeze),
+        button(correctId(l.postId), 'Correct', ButtonStyle.Secondary, l.correction?.state === 're-judging'),
+      );
+    // Parts split as the band was first posted, so a corrected line stays in the message it was in.
+    const size = partSize(title, accent, members.map((l) => lineOf(posted(l))));
+    const parts = Math.ceil(members.length / size);
+    for (let i = 0; i < parts; i++) {
+      const chunk = members.slice(i * size, (i + 1) * size);
+      const part = parts > 1 ? ` (${i + 1}/${parts})` : '';
+      const message = SQUEEZES.map((squeeze) => bandMessage(`${title}${part}`, accent, chunk.map((l) => lineOf(l, squeeze)))).find(fits);
+      if (!message) throw new Error(`A corrected line of the ${title} band is longer than one Discord message allows`);
+      messages.push(message);
+      launchesIn.push(chunk.map((l) => l.postId));
+    }
   }
-  return { title, messages };
+  return { title, messages, launchesIn };
+}
+
+/** A withdrawn Dossier's first message, in its Product post: the Launch's line and the Correction that withdrew it. */
+export function renderWithdrawn(input: { title: string; date: string; line: number; launch: DayPostLaunch }): MessagePayload {
+  const { title, date, line, launch } = input;
+  return silentMessage([
+    container(Accent.progress, [
+      text(
+        [
+          `## ${escapeMarkdown(title)}`,
+          `**Withdrawn** · your Correction put it below ${dayLabel(date)}'s line of ${line}.`,
+          lineText(launch, line, undefined),
+        ].join('\n'),
+      ),
+    ]),
+  ]);
 }
 
 /** The post as it opens before its list: a summary of how far judging got. */
@@ -203,29 +268,57 @@ function heading(band: Band, line: number): string {
   }
 }
 
-function lineText(l: DayPostLaunch, line: number, productPost: string | undefined): string {
-  const name = `**[${escapeMarkdown(l.name)}](${launchUrl(l.slug)})**`;
-  const reason = escapeMarkdown(l.reason);
-  switch (outcomeOf(l, line)) {
+/** The judgment a line shows, as the Correct pop-up shows it: `**Skip · fit 6** · <reason>`. */
+export function judgmentText(l: DayPostLaunch, line: number): string {
+  return `**${head(l, line)}** · ${escapeMarkdown(l.reason)}`;
+}
+
+/** `Dossier · fit 8`, `Skip · fit 6` or `Skip · not a Product`. */
+function outcomeText(j: JudgedLaunch, line: number): string {
+  switch (outcomeOf(j, line)) {
     case 'dossier':
-      return `${name} · Dossier · fit ${l.fit} · ${reason}${productPost ? ` → <#${productPost}>` : ''}`;
+      return `Dossier · fit ${j.fit}`;
     case 'skip':
-      return `${name} · Skip · fit ${l.fit} · ${reason}`;
+      return `Skip · fit ${j.fit}`;
     case 'not-a-product':
-      return `${name} · Skip · not a Product · ${reason}`;
+      return 'Skip · not a Product';
   }
 }
 
-/** A band's messages: 12 lines each, or fewer where the text would pass Discord's limit. */
-function bandMessages(title: string, accent: number, lines: ReturnType<typeof section>[]): MessagePayload[] {
+/** The judgment's outcome, saying when a Correction gave it. */
+const head = (l: DayPostLaunch, line: number) => `${outcomeText(l, line)}${l.first ? ' after your Correction' : ''}`;
+
+/** Text cut to at most `max` characters, ending in an ellipsis where it was cut. */
+const cut = (value: string, max: number) => (value.length <= max ? value : `${value.slice(0, Math.max(0, max - 1)).trimEnd()}…`);
+
+/**
+ * A Launch's line, which a Correction ends with a note. A corrected line's quote of the person, then its reason, keep
+ * only as much as the squeeze allows.
+ */
+function lineText(l: DayPostLaunch, line: number, productPost: string | undefined, squeeze: Squeeze = SQUEEZES[0]): string {
+  const name = `**[${escapeMarkdown(l.name)}](${launchUrl(l.slug)})**`;
+  const c = l.correction;
+  const reason = c ? cut(escapeMarkdown(l.reason), squeeze.reason) : escapeMarkdown(l.reason);
+  const quote = c && `“${cut(escapeMarkdown(c.text), squeeze.quote)}”`;
+  if (c?.state === 're-judging') return `${name} · re-judging… · ${reason}\n-# you wrote ${quote}`;
+  const dossier = outcomeOf(l, line) === 'dossier';
+  const text = `${name} · ${head(l, line)} · ${reason}${dossier && productPost ? ` → <#${productPost}>` : ''}`;
+  if (!c) return text;
+  if (c.state === 'not re-judged') return `${text}\n-# Your Correction ${quote} couldn't be re-judged: ${c.why}. Correct to try again.`;
+  const withdrawn = c.withdrawnPost ? ` · Dossier withdrawn <#${c.withdrawnPost}>` : '';
+  return `${text}\n-# was ${outcomeText(c.was, line)} · you wrote ${quote}${withdrawn}${c.why ? ` · ${c.why}` : ''}`;
+}
+
+const bandMessage = (title: string, accent: number, lines: Section[]) => silentMessage([container(accent, [text(`### ${title}`), ...lines])]);
+
+/** How many lines each of a band's messages holds: 12, or fewer where the text would pass Discord's limit. */
+function partSize(title: string, accent: number, lines: Section[]): number {
   for (let parts = Math.ceil(lines.length / LINES_PER_MESSAGE); parts <= lines.length; parts++) {
     const size = Math.ceil(lines.length / parts);
-    const chunks: (typeof lines)[] = [];
+    const chunks: Section[][] = [];
     for (let i = 0; i < lines.length; i += size) chunks.push(lines.slice(i, i + size));
-    const messages = chunks.map((chunk, i) =>
-      silentMessage([container(accent, [text(`### ${title}${chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : ''}`), ...chunk])]),
-    );
-    if (messages.every(fits)) return messages;
+    const part = (i: number) => (chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : '');
+    if (chunks.every((chunk, i) => fits(bandMessage(`${title}${part(i)}`, accent, chunk)))) return size;
   }
   throw new Error(`A line of the ${title} band is longer than one Discord message allows`);
 }

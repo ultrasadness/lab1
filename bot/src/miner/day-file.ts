@@ -1,15 +1,18 @@
 // The Miner day's view in the Personal database (#37): `days/<YYYY-MM-DD>.md`, written from the live store once the
 // day is judged, and rewritten when a Correction changes the day. It holds the Day's line, then one line per Featured
-// Launch in Product Hunt order, so a line keeps its place when a Correction rewrites it. Like every date the bot writes
-// there, the day's carries its year and zone.
+// Launch in Product Hunt order, so a line keeps its place when a Correction rewrites it. A corrected line shows its new
+// judgment "after your Correction", then each Correction with its date: what it was, and what the person wrote. Like
+// every date the bot writes there, the day's carries its year and zone.
 import { fullDate, fullTime, leaderboardUrl } from '../pacific.ts';
 import { plain } from '../personal-database.ts';
 import type { StoredDayLine } from '../store.ts';
 import { count, launchUrl, whyTheLine, type DayPostLaunch } from './day-post.ts';
-import { outcomeOf } from './day-line.ts';
+import { outcomeOf, type JudgedLaunch } from './day-line.ts';
 
 export interface DayFileLaunch extends Omit<DayPostLaunch, 'postId' | 'rank'> {
   rulesApplied: string[];
+  /** Each Correction re-judged, oldest first: when, the judgment it was made on, and what the person wrote. */
+  corrections: { at: string; was: JudgedLaunch; text: string }[];
 }
 
 /** The file to write: where it goes, what it holds, and its commit's message. */
@@ -19,9 +22,9 @@ export interface DayFile {
   message: string;
 }
 
-/** The day's file, from its stored line and its Launches in Product Hunt order. */
-export function renderDayFile(input: { date: string; line: StoredDayLine; launches: DayFileLaunch[] }): DayFile {
-  const { date, line, launches } = input;
+/** The day's file, from its stored line and its Launches in Product Hunt order, and the Launch it is written for. */
+export function renderDayFile(input: { date: string; line: StoredDayLine; launches: DayFileLaunch[]; corrected?: string }): DayFile {
+  const { date, line, launches, corrected } = input;
   const dossiers = launches.filter((l) => outcomeOf(l, line.line) === 'dossier').length;
   const content = [
     `# Miner day · ${fullDate(date)}`,
@@ -36,13 +39,19 @@ export function renderDayFile(input: { date: string; line: StoredDayLine; launch
   return {
     path: `days/${date}.md`,
     content,
-    message: `Miner day ${fullDate(date)}: ${count(dossiers, 'Dossier')}, line ${line.line}`,
+    message: `Miner day ${fullDate(date)}: ${corrected ? `${corrected.trim()} corrected, ` : ''}${count(dossiers, 'Dossier')}, line ${line.line}`,
   };
 }
 
+/** `Dossier · fit 8`, or `Skip · fit 2, not a Product`. */
+function judged(j: JudgedLaunch, line: number): string {
+  const outcome = outcomeOf(j, line);
+  return outcome === 'dossier' ? `Dossier · fit ${j.fit}` : `Skip · fit ${j.fit}${outcome === 'not-a-product' ? ', not a Product' : ''}`;
+}
+
 function launchLine(l: DayFileLaunch, line: number): string {
-  const outcome = outcomeOf(l, line);
-  const judged = outcome === 'dossier' ? `Dossier · fit ${l.fit}` : `Skip · fit ${l.fit}${outcome === 'not-a-product' ? ', not a Product' : ''}`;
+  const after = l.corrections.length > 0 ? ' after your Correction' : '';
   const rules = l.rulesApplied.length > 0 ? l.rulesApplied.map(plain).join(', ') : 'none';
-  return `- [${plain(l.name)}](${launchUrl(l.slug)}) · ${judged} · ${plain(l.reason)} · Rules applied: ${rules}`;
+  const corrections = l.corrections.map((c) => ` · Corrected ${fullTime(new Date(c.at))}: was ${judged(c.was, line)}, you wrote "${plain(c.text)}"`);
+  return `- [${plain(l.name)}](${launchUrl(l.slug)}) · ${judged(l, line)}${after} · ${plain(l.reason)} · Rules applied: ${rules}${corrections.join('')}`;
 }

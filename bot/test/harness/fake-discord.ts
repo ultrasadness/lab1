@@ -14,6 +14,11 @@ export const PRIVILEGED_INTENTS = (1 << 1) | (1 << 8) | (1 << 15);
 const MAX_TEXT = 4000;
 const MAX_COMPONENTS = 40;
 const MAX_CONTENT = 2000;
+// A pop-up's limits, as Discord documents them.
+const MAX_POPUP_TITLE = 45;
+const MAX_POPUP_COMPONENTS = 5;
+const MAX_LABEL = 45;
+const MAX_TEXT_INPUT = 4000;
 
 interface Component {
   type: number;
@@ -24,6 +29,8 @@ interface Component {
   url?: string;
   components?: Component[];
   accessory?: Component;
+  /** A label's one field, in a pop-up. */
+  component?: Component;
   [key: string]: unknown;
 }
 
@@ -93,7 +100,18 @@ export interface SeenPost {
   title: string;
   /** The names of the forum tags on the post. */
   tags: string[];
+  /** Whether the post is closed, as an archived post shows in a forum. */
+  closed: boolean;
   messages: SeenMessage[];
+}
+
+/** A pop-up the bot opened, as the person sees it. */
+export interface SeenPopup {
+  customId: string;
+  title: string;
+  /** Text shown above the fields. */
+  texts: string[];
+  fields: { customId: string; label: string; required: boolean; multiline: boolean; maxLength: number | undefined }[];
 }
 
 export interface InteractionReply {
@@ -110,6 +128,8 @@ export class FakeDiscord {
   readonly identifies: { intents: number }[] = [];
   /** Requests Discord refused, with the reason it gave. */
   readonly refused: { path: string; reason: string }[] = [];
+  /** Forums Discord can't read for now, such as their tags: each read answers 503. */
+  readonly unreadable = new Set<string>();
 
   #server: http.Server;
   #wss: WebSocketServer;
@@ -172,7 +192,13 @@ export class FakeDiscord {
   forumPosts(forumId: string): SeenPost[] {
     return [...this.#threads.values()]
       .filter((t) => t.forumId === forumId)
-      .map((t) => ({ id: t.id, title: t.name, tags: t.tagIds.map((id) => this.#forums.get(forumId)!.get(id)!), messages: t.messages.map(seen) }));
+      .map((t) => ({
+        id: t.id,
+        title: t.name,
+        tags: t.tagIds.map((id) => this.#forums.get(forumId)!.get(id)!),
+        closed: Boolean(t.archivedAt),
+        messages: t.messages.map(seen),
+      }));
   }
 
   /** The messages in a plain text channel, oldest first. */
@@ -231,12 +257,16 @@ export class FakeDiscord {
     });
   }
 
-  /** A user submits a pop-up; resolves with the bot's reply. */
+  /**
+   * A user submits a pop-up; resolves with the bot's reply. A pop-up opened from a button carries the message the
+   * button is on, which the reply may rewrite.
+   */
   submitPopup(options: {
     userId: string;
     customId: string;
     channelId: string;
     fields: Record<string, string>;
+    messageId?: string;
   }): Promise<InteractionReply> {
     return this.#interact(options.userId, options.channelId, {
       type: 5,
@@ -247,6 +277,7 @@ export class FakeDiscord {
           component: { type: 4, custom_id, value },
         })),
       },
+      ...(options.messageId ? { message: { id: options.messageId, channel_id: options.channelId } } : {}),
     });
   }
 
@@ -355,6 +386,10 @@ export class FakeDiscord {
       if (!pending) return reply(404, { code: 10062, message: 'Unknown interaction' });
       this.#pending.delete(`${match[1]}/${match[2]}`);
       const answer = JSON.parse(raw) as InteractionReply;
+      if (answer.type === 9) {
+        const problem = checkPopup(answer.data ?? {});
+        if (problem) return refuse(problem);
+      }
       // UPDATE_MESSAGE rewrites the message whose component was tapped.
       if (answer.type === 7) {
         const stored = pending.messageId ? this.#message(pending.messageId) : undefined;
@@ -397,6 +432,7 @@ export class FakeDiscord {
     if (path === '/users/@me' && req.method === 'GET') return reply(200, { id: this.botUserId, username: 'Assistant', bot: true });
 
     if ((match = path.match(/^\/channels\/(\d+)$/)) && req.method === 'GET') {
+      if (this.unreadable.has(match[1]!)) return reply(503, { code: 0, message: 'Service Unavailable' });
       const tags = this.#forums.get(match[1]!);
       if (tags) {
         const available_tags = [...tags].map(([id, name]) => ({ id, name, moderated: false, emoji_id: null, emoji_name: null }));
@@ -454,11 +490,14 @@ export class FakeDiscord {
     if ((match = path.match(/^\/channels\/(\d+)$/)) && req.method === 'PATCH') {
       const thread = this.#threads.get(match[1]!);
       if (!thread) return reply(404, { code: 10003, message: 'Unknown Channel' });
-      const body = JSON.parse(raw) as { name?: string; archived?: boolean };
+      const body = JSON.parse(raw) as { name?: string; archived?: boolean; applied_tags?: string[] };
       if (body.name !== undefined && (!body.name || body.name.length > 100)) return refuse('name must be 1 to 100 characters');
+      if (body.applied_tags?.some((tag) => !this.#forums.get(thread.forumId)?.has(tag))) return refuse('applied_tags names a tag the forum lacks');
+      if ((body.applied_tags?.length ?? 0) > 5) return refuse('a post takes at most 5 tags');
       // Only unarchiving touches an archived thread; anything else must unarchive it in the same request.
       if (thread.archivedAt && body.archived !== false) return reply(400, { code: 50083, message: 'Thread is archived' });
       if (body.name !== undefined) thread.name = body.name;
+      if (body.applied_tags !== undefined) thread.tagIds = body.applied_tags;
       if (body.archived === false) delete thread.archivedAt;
       if (body.archived === true) thread.archivedAt = new Date().toISOString();
       return reply(200, this.#threadObject(thread));
@@ -524,6 +563,50 @@ function checkMessage(message: MessagePayload): string | undefined {
   if (count > MAX_COMPONENTS) return `${count} components, over ${MAX_COMPONENTS}`;
   if (text > MAX_TEXT) return `COMPONENT_DISPLAYABLE_TEXT_SIZE_EXCEEDED: ${text} characters, over ${MAX_TEXT}`;
   return problem;
+}
+
+/** Returns why real Discord would refuse this pop-up: a title, and text displays or labels each holding one field. */
+function checkPopup(popup: { custom_id?: string; title?: string; components?: Component[] }): string | undefined {
+  if (!popup.custom_id || popup.custom_id.length > 100) return 'a pop-up needs a custom_id of 1 to 100 characters';
+  if (!popup.title || popup.title.length > MAX_POPUP_TITLE) return `a pop-up title must be 1 to ${MAX_POPUP_TITLE} characters`;
+  const components = popup.components ?? [];
+  if (components.length === 0 || components.length > MAX_POPUP_COMPONENTS) return `a pop-up holds 1 to ${MAX_POPUP_COMPONENTS} components`;
+  for (const c of components) {
+    if (c.type === 10) continue;
+    if (c.type !== 18) return 'a pop-up holds only text displays and labels';
+    if (!c.label || c.label.length > MAX_LABEL) return `a label must be 1 to ${MAX_LABEL} characters`;
+    const field = c.component;
+    if (field?.type !== 4 || !field.custom_id) return 'a label holds one text input with a custom_id';
+    if (Number(field.max_length ?? MAX_TEXT_INPUT) > MAX_TEXT_INPUT) return `a text input takes at most ${MAX_TEXT_INPUT} characters`;
+  }
+  if (!components.some((c) => c.type === 18)) return 'a pop-up needs a field';
+  return undefined;
+}
+
+/** The pop-up a reply opens, as the person sees it, or undefined if the reply opens none. */
+export function popupOf(reply: InteractionReply): SeenPopup | undefined {
+  if (reply.type !== 9 || !reply.data) return undefined;
+  const components = reply.data.components ?? [];
+  return {
+    customId: reply.data.custom_id ?? '',
+    title: reply.data.title ?? '',
+    texts: components.filter((c) => c.type === 10).map((c) => c.content ?? ''),
+    fields: components
+      .filter((c) => c.type === 18)
+      .map((c) => ({
+        customId: c.component?.custom_id ?? '',
+        label: c.label ?? '',
+        required: c.component?.required !== false,
+        multiline: c.component?.style === 2,
+        maxLength: typeof c.component?.max_length === 'number' ? c.component.max_length : undefined,
+      })),
+  };
+}
+
+/** The message a reply rewrites the tapped message into, as the person sees it, or undefined if it rewrites none. */
+export function updateOf(reply: InteractionReply): SeenMessage | undefined {
+  if (reply.type !== 7 || !reply.data) return undefined;
+  return seen({ id: '', channelId: '', payload: reply.data as MessagePayload });
 }
 
 /** Returns why real Discord would refuse this plain text message. */

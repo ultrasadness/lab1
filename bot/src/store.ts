@@ -1,8 +1,9 @@
 // The live store (ADR 0007): one SQLite file the bot alone writes, the single source of truth for live state.
-// It holds the Miner dates the bot has taken on, each date's Launches, judgments by Post id, Day's lines by date, the
-// day posts on Discord, the Retries a capped date waits on, Products by root domain with their Launches, Dossiers
-// and posts, run and model-request records with each request's notional dollars, the index of raw inputs kept
-// outside git, the files waiting to be written to the Personal database, and the times its history diverged.
+// It holds the Miner dates the bot has taken on, each date's Launches, judgments by Post id, the person's Corrections
+// of them with the judgments their runs gave, Day's lines by date, the day posts on Discord, the Retries a capped date
+// waits on, Products by root domain with their Launches, Dossiers and posts, run and model-request records with each
+// request's notional dollars, the index of raw inputs kept outside git, the files waiting to be written to the
+// Personal database, and the times its history diverged.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
 import type { Dossier } from './dossier/dossier.ts';
@@ -56,6 +57,27 @@ export interface Judgment extends JudgmentRecord {
   /** The model request whose reply held the judgment; one reply can judge several Launches. */
   requestId: number;
   judgedAt: string;
+}
+
+/**
+ * A Correction the person made on a line of a day post: what they wrote, and the judgment its run gave. The Launch's
+ * first judgment stays as it was, so each Correction is one more version of it.
+ */
+export interface Correction {
+  id: number;
+  postId: string;
+  date: string;
+  /** What the person wrote: what the judgment got wrong. */
+  text: string;
+  submittedAt: string;
+  /** The judgment the run recorded, once it has. */
+  judgment: Judgment | null;
+  /** Why the run recorded no judgment; the Launch keeps the one it had. */
+  unjudged: string | null;
+  /** Why what the Correction changed isn't all done yet, such as a Dossier that couldn't be written. */
+  problem: string | null;
+  /** When the day post, any Product post and the day's file show the Correction. */
+  doneAt: string | null;
 }
 
 export interface StoredDayLine extends DayLine {
@@ -115,6 +137,8 @@ export interface Product {
   /** The post was about to be created; marked before it is sent. */
   postIntended: boolean;
   threadId: string | null;
+  /** When a Correction put its Dossier below the day's line, closing its post; cleared if one puts it back. */
+  withdrawnAt: string | null;
 }
 
 /** One version of a Product's Dossier, with the run that wrote it. */
@@ -227,6 +251,27 @@ CREATE TABLE IF NOT EXISTS judgments (
   request_id INTEGER NOT NULL REFERENCES model_requests(id),
   judged_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS corrections (
+  id INTEGER PRIMARY KEY,
+  post_id TEXT NOT NULL REFERENCES launches(post_id),
+  date TEXT NOT NULL,
+  text TEXT NOT NULL,
+  submitted_at TEXT NOT NULL,
+  fit INTEGER CHECK (fit BETWEEN 0 AND 10),
+  not_a_product INTEGER,
+  reason TEXT,
+  rules_applied TEXT,
+  run_id TEXT,
+  role TEXT,
+  provider TEXT,
+  model TEXT,
+  request_id INTEGER REFERENCES model_requests(id),
+  judged_at TEXT,
+  unjudged TEXT,
+  problem TEXT,
+  done_at TEXT
+);
+CREATE INDEX IF NOT EXISTS corrections_by_date ON corrections(date, id);
 CREATE TABLE IF NOT EXISTS day_lines (
   date TEXT PRIMARY KEY,
   featured_count INTEGER NOT NULL,
@@ -267,7 +312,8 @@ CREATE TABLE IF NOT EXISTS products (
   title TEXT NOT NULL,
   created_at TEXT NOT NULL,
   post_intended INTEGER NOT NULL DEFAULT 0,
-  thread_id TEXT
+  thread_id TEXT,
+  withdrawn_at TEXT
 );
 CREATE TABLE IF NOT EXISTS product_launches (
   post_id TEXT PRIMARY KEY REFERENCES launches(post_id),
@@ -360,6 +406,35 @@ const productOf = (row: Row): Product => ({
   createdAt: String(row.created_at),
   postIntended: Boolean(row.post_intended),
   threadId: textOrNull(row.thread_id),
+  withdrawnAt: textOrNull(row.withdrawn_at),
+});
+
+/** A judgment, from a row of judgments or of a Correction that has one: both hold it in the same columns. */
+const judgmentOf = (row: Row): Judgment => ({
+  postId: String(row.post_id),
+  date: String(row.date),
+  fit: Number(row.fit),
+  notAProduct: Boolean(row.not_a_product),
+  reason: String(row.reason),
+  rulesApplied: JSON.parse(String(row.rules_applied)) as string[],
+  runId: String(row.run_id),
+  role: String(row.role) as Role,
+  provider: String(row.provider),
+  model: textOrNull(row.model),
+  requestId: Number(row.request_id),
+  judgedAt: String(row.judged_at),
+});
+
+const correctionOf = (row: Row): Correction => ({
+  id: Number(row.id),
+  postId: String(row.post_id),
+  date: String(row.date),
+  text: String(row.text),
+  submittedAt: String(row.submitted_at),
+  judgment: row.judged_at === null ? null : judgmentOf(row),
+  unjudged: textOrNull(row.unjudged),
+  problem: textOrNull(row.problem),
+  doneAt: textOrNull(row.done_at),
 });
 
 const minerRetryOf = (row: Row): MinerRetry => ({
@@ -464,6 +539,12 @@ export class Store {
       .map((row) => JSON.parse(String(row.launch)) as Launch);
   }
 
+  /** A Launch the Miner fetched, with the date it was featured on. */
+  launch(postId: string): (Launch & { date: string }) | undefined {
+    const row = this.#db.prepare('SELECT date, launch FROM launches WHERE post_id = ?').get(postId);
+    return row ? { ...(JSON.parse(String(row.launch)) as Launch), date: String(row.date) } : undefined;
+  }
+
   /** Keeps the date's whole set of Featured Launches; the set is fixed once fetched. */
   saveLaunches(date: string, launches: Launch[], fetchedAt: string): void {
     this.#transaction(() => {
@@ -476,23 +557,7 @@ export class Store {
   // ---------- Judgments ----------
 
   judgmentsFor(date: string): Judgment[] {
-    return this.#db
-      .prepare('SELECT * FROM judgments WHERE date = ?')
-      .all(date)
-      .map((row) => ({
-        postId: String(row.post_id),
-        date: String(row.date),
-        fit: Number(row.fit),
-        notAProduct: Boolean(row.not_a_product),
-        reason: String(row.reason),
-        rulesApplied: JSON.parse(String(row.rules_applied)) as string[],
-        runId: String(row.run_id),
-        role: String(row.role) as Role,
-        provider: String(row.provider),
-        model: row.model === null ? null : String(row.model),
-        requestId: Number(row.request_id),
-        judgedAt: String(row.judged_at),
-      }));
+    return this.#db.prepare('SELECT * FROM judgments WHERE date = ?').all(date).map(judgmentOf);
   }
 
   hasJudgment(postId: string): boolean {
@@ -521,6 +586,55 @@ export class Store {
         j.requestId,
         j.judgedAt,
       );
+  }
+
+  // ---------- Corrections of judgments ----------
+
+  /** Keeps a Correction as the person sends it, before its run. Returns its id. */
+  saveCorrection(c: { postId: string; date: string; text: string; submittedAt: string }): number {
+    const result = this.#db
+      .prepare('INSERT INTO corrections (post_id, date, text, submitted_at) VALUES (?, ?, ?, ?)')
+      .run(c.postId, c.date, c.text, c.submittedAt);
+    return Number(result.lastInsertRowid);
+  }
+
+  /** The date's Corrections, oldest first. */
+  correctionsFor(date: string): Correction[] {
+    return this.#db.prepare('SELECT * FROM corrections WHERE date = ? ORDER BY id').all(date).map(correctionOf);
+  }
+
+  /** The Corrections whose work isn't done, oldest first. */
+  unfinishedCorrections(): Correction[] {
+    return this.#db.prepare('SELECT * FROM corrections WHERE done_at IS NULL ORDER BY id').all().map(correctionOf);
+  }
+
+  correction(id: number): Correction | undefined {
+    const row = this.#db.prepare('SELECT * FROM corrections WHERE id = ?').get(id);
+    return row ? correctionOf(row) : undefined;
+  }
+
+  /** Keeps the judgment a Correction's run recorded. Only the first counts; a later one returns false. */
+  saveCorrectionJudgment(id: number, j: Judgment): boolean {
+    const result = this.#db
+      .prepare(
+        `UPDATE corrections SET fit = ?, not_a_product = ?, reason = ?, rules_applied = ?, run_id = ?, role = ?, provider = ?,
+           model = ?, request_id = ?, judged_at = ?
+         WHERE id = ? AND judged_at IS NULL AND unjudged IS NULL`,
+      )
+      .run(j.fit, j.notAProduct ? 1 : 0, j.reason, JSON.stringify(j.rulesApplied), j.runId, j.role, j.provider, j.model, j.requestId, j.judgedAt, id);
+    return Number(result.changes) > 0;
+  }
+
+  saveCorrectionUnjudged(id: number, why: string): void {
+    this.#db.prepare('UPDATE corrections SET unjudged = ? WHERE id = ? AND judged_at IS NULL').run(why, id);
+  }
+
+  saveCorrectionProblem(id: number, problem: string | null): void {
+    this.#db.prepare('UPDATE corrections SET problem = ? WHERE id = ?').run(problem, id);
+  }
+
+  saveCorrectionDone(id: number, at: string): void {
+    this.#db.prepare('UPDATE corrections SET done_at = ?, problem = NULL WHERE id = ?').run(at, id);
   }
 
   // ---------- Day's lines ----------
@@ -712,6 +826,11 @@ export class Store {
   /** Keeps the post's id, which is also the id of its first message, the Dossier. */
   saveProductPost(id: number, threadId: string): void {
     this.#db.prepare('UPDATE products SET thread_id = ? WHERE id = ?').run(threadId, id);
+  }
+
+  /** Marks the Product's Dossier as withdrawn by a Correction, or as put back. */
+  saveProductWithdrawn(id: number, at: string | null): void {
+    this.#db.prepare('UPDATE products SET withdrawn_at = ? WHERE id = ?').run(at, id);
   }
 
   // ---------- Runs and model requests ----------

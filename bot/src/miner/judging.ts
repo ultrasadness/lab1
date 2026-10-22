@@ -1,6 +1,7 @@
 // A Miner judging run's input and output. The input is Product Hunt data only (name, tagline, description, topics
-// and the Maker comment), never votes or rank. The output is one judgment per Launch, written through our Pi
-// extension's schema-checked record tool, and checked again here before it is kept.
+// and the Maker comment), never votes or rank. A Correction's run (#48) also gets the judgment the person corrected
+// and what they wrote. The output is one judgment per Launch, written through our Pi extension's schema-checked record
+// tool, and checked again here before it is kept.
 import { fence as block } from '../fence.ts';
 import type { Launch } from '../store.ts';
 
@@ -22,22 +23,40 @@ export function judgingPrompt(interestScope: string, launches: Launch[]): string
     '',
     `Judge these ${launches.length} Launches, each on its own. Call record_judgment once for each.`,
   ];
-  for (const launch of launches) {
-    parts.push(
-      '',
-      `Launch · Post id ${launch.postId}`,
-      'Name:',
-      block(launch.name),
-      'Tagline:',
-      block(launch.tagline),
-      'Topics:',
-      block(launch.topics.join(', ') || 'none'),
-      'Description:',
-      block(launch.description || 'none'),
-      ...(launch.makerComment ? ['Maker comment:', block(launch.makerComment)] : ['Maker comment: none']),
-    );
-  }
+  for (const launch of launches) parts.push('', ...launchParts(launch));
   return parts.join('\n');
+}
+
+/** A Correction's run: the Interest scope, its one Launch, the judgment the person corrected and what they wrote. */
+export function correctionPrompt(interestScope: string, launch: Launch, corrected: Omit<JudgmentRecord, 'postId'>, correction: string): string {
+  return [
+    'Interest scope:',
+    block(interestScope),
+    '',
+    'The person corrected the judgment of this Launch. Judge it again, on its own, with their Correction in mind. Call record_judgment once.',
+    '',
+    ...launchParts(launch),
+    '',
+    `The judgment they corrected: fit ${corrected.fit}${corrected.notAProduct ? ', not a Product' : ''}, for this reason:`,
+    block(corrected.reason),
+    'Their Correction, what they say it got wrong:',
+    block(correction),
+  ].join('\n');
+}
+
+function launchParts(launch: Launch): string[] {
+  return [
+    `Launch · Post id ${launch.postId}`,
+    'Name:',
+    block(launch.name),
+    'Tagline:',
+    block(launch.tagline),
+    'Topics:',
+    block(launch.topics.join(', ') || 'none'),
+    'Description:',
+    block(launch.description || 'none'),
+    ...(launch.makerComment ? ['Maker comment:', block(launch.makerComment)] : ['Maker comment: none']),
+  ];
 }
 
 /** Checks a record from a run against the run's own Launches. The extension's schema checked it once already. */

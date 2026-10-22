@@ -25,13 +25,10 @@ import type { ProductHunt } from '../product-hunt.ts';
 import type { Status } from '../status.ts';
 import type { CappedRun, Launch, Store } from '../store.ts';
 import { catchUpWindow, droppedLine, lateLine, type BudgetHold } from './catch-up.ts';
-import { renderDayFile, type DayFile, type DayFileLaunch } from './day-file.ts';
 import { drawDayLine, outcomeOf } from './day-line.ts';
-import { renderDayPost, renderDroppedPost, renderRetryNotice, renderWaitingPost, type DayPostLaunch } from './day-post.ts';
+import { renderDroppedPost, renderRetryNotice, renderWaitingPost } from './day-post.ts';
+import { dayFileOf, dayLaunches, dayPostOf, reLaunchOfRegistered } from './day-view.ts';
 import { judgingPrompt, readJudgment } from './judging.ts';
-
-// No Product has a Registration yet, so no Launch is a re-Launch of a registered Product; they arrive with #66.
-const reLaunchOfRegistered = (_launch: Launch) => false;
 
 export class Miner {
   #config: Config;
@@ -219,13 +216,13 @@ export class Miner {
       this.#log('miner.line-drawn', { date, ...line });
     }
     // Queued before the post goes out and written after it, so the post never waits on git and nothing is lost.
-    this.#personalDatabase.queue(this.#dayFile(date, launches));
+    this.#personalDatabase.queue(dayFileOf(this.#store, date));
     try {
       // The day's post links each Dossier's Product post, so it waits until every one is posted.
       const written = await this.#dossiers.writeFor(this.#dossierLaunches(date, launches));
       if (written === 'stopped') return;
       if (written !== 'done') return this.#problem(date, written.problem);
-      await this.#post(date, launches);
+      await this.#post(date);
     } finally {
       await this.#personalDatabase.sync();
     }
@@ -234,35 +231,11 @@ export class Miner {
   /** The date's Launches at or above its line, as the Dossiers band lists them: by Fit, then Product Hunt rank. */
   #dossierLaunches(date: string, launches: Launch[]): DossierLaunchInput[] {
     const line = this.#store.dayLine(date)!.line;
-    const judged = new Map(this.#judged(date, launches).map((l) => [l.postId, l]));
+    const judged = new Map(dayLaunches(this.#store, date).map((l) => [l.postId, l]));
     return launches
       .filter((l) => outcomeOf(judged.get(l.postId)!, line) === 'dossier')
       .sort((a, b) => judged.get(b.postId)!.fit - judged.get(a.postId)!.fit || a.rank - b.rank)
       .map((launch) => ({ launch, date, fit: judged.get(launch.postId)!.fit, featuredCount: launches.length }));
-  }
-
-  /** The date's `days/` file, written from the store. */
-  #dayFile(date: string, launches: Launch[]): DayFile {
-    return renderDayFile({ date, line: this.#store.dayLine(date)!, launches: this.#judged(date, launches) });
-  }
-
-  /** The date's Launches with their judgments, as the day post and the day's file show them. */
-  #judged(date: string, launches: Launch[]): (DayPostLaunch & DayFileLaunch)[] {
-    const judgments = new Map(this.#store.judgmentsFor(date).map((j) => [j.postId, j]));
-    return launches.map((l) => {
-      const j = judgments.get(l.postId)!;
-      return {
-        postId: l.postId,
-        rank: l.rank,
-        name: l.name,
-        slug: l.slug,
-        fit: j.fit,
-        notAProduct: j.notAProduct,
-        reLaunchOfRegistered: reLaunchOfRegistered(l),
-        reason: j.reason,
-        rulesApplied: j.rulesApplied,
-      };
-    });
   }
 
   /** The date's fixed set of Featured Launches, or undefined while Product Hunt shows none for it. */
@@ -447,16 +420,10 @@ export class Miner {
    * is looked for on Discord first, so a stop between Discord taking it and the store hearing back sends nothing twice.
    * A post that opened early takes the day's title and summary in place, and its bands follow its notices.
    */
-  async #post(date: string, launches: Launch[]): Promise<void> {
+  async #post(date: string): Promise<void> {
     if (this.posted(date)) return;
-    const judged = this.#judged(date, launches);
-    const productPosts = new Map<string, string>();
-    for (const l of judged) {
-      const post = this.#dossiers.postOf(l.postId);
-      if (post) productPosts.set(l.postId, post);
-    }
-    const rendered = renderDayPost({ date, line: this.#store.dayLine(date)!, launches: judged, productPosts });
-    const [summary, ...bands] = rendered.messages;
+    const rendered = dayPostOf(this.#store, date);
+    const [summary, ...rest] = rendered.messages;
 
     const { threadId } = await this.#ensurePost(date, rendered.title, summary!);
     if (this.#store.dayPost(date).title !== rendered.title) {
@@ -466,7 +433,7 @@ export class Miner {
       this.#store.saveDayPostTitle(date, rendered.title);
       this.#log('miner.post-rewritten', { date, threadId, title: rendered.title });
     }
-    await this.#sendInOrder(date, threadId, [...this.#notices(date), ...bands]);
+    await this.#sendInOrder(date, threadId, rest);
     this.#store.saveDayPosted(date, this.#clock.now().toISOString());
     this.#log('miner.posted', {
       date,
