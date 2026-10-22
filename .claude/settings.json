@@ -1,5 +1,32 @@
 {
   "permissions": {
     "deny": ["Read(~/.config/lab1/**)", "Edit(~/.config/lab1/**)"]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/reply-language.ts\"",
+            "timeout": 10,
+            "statusMessage": "Checking the reply's language"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/review-committed.ts\"",
+            "timeout": 15,
+            "statusMessage": "Checking the review reads committed work"
+          }
+        ]
+      }
+    ]
   }
 }

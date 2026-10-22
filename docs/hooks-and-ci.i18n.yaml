@@ -4,9 +4,12 @@
 /hooks-and-ci/hooks:
   en: d14c45c3fb20555a
   zh: c57ef45385ae53df
+/hooks-and-ci/claude-code-hooks:
+  en: 89e275264fcab3a6
+  zh: e46552c6b035e310
 /hooks-and-ci/ci:
-  en: 20c2404d82e373f4
-  zh: bd785d389ebe50f8
+  en: efeb8be20bb09dfb
+  zh: 162146f126af779a
 /hooks-and-ci/tests:
-  en: af060010a3bffb94
-  zh: d2c32646cca52336
+  en: fe99937f03c9c8d5
+  zh: fb433e67f0398e04

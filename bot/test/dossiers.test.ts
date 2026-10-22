@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { EPHEMERAL } from './harness/fake-discord.ts';
-import { INTEREST_SCOPE, MINER_DAYS_FORUM, PERSON, PRODUCTS_FORUM, STATUS, TOKENS, startWorld, type World } from './harness/world.ts';
+import { INTEREST_SCOPE, MINER_DAYS_FORUM, PERSON, PRODUCTS_FORUM, STATUS, TOKENS, startWorld } from './harness/world.ts';
 import { fixtureDay, websiteOf } from './harness/fake-product-hunt.ts';
 import { said, type ScriptedDossier, type ScriptedOffer } from './harness/fake-model.ts';
 import { ACYCLIC, CODEMIND, serveProduct, XIRYN } from './harness/dossier-fixtures.ts';
@@ -27,20 +27,11 @@ function fenced(prompt: string): { outside: string[]; inside: string[] } {
   return { outside, inside };
 }
 
-/** Only these Launches reach the Day's line: every other one is judged at most 6. */
-function onlyDossiers(world: World, postIds: string[]): void {
-  const standIn = world.model.judgment;
-  world.model.judgment = (postId) => {
-    const j = standIn(postId);
-    return j === 'omit' || postIds.includes(postId) ? j : { ...j, fit: Math.min(j.fit, 6) };
-  };
-}
-
 test('an Open Product’s Dossier is posted silently as the first message of its own post, in the card’s order', async (t) => {
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' }); // 00:30 PDT
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
-  onlyDossiers(world, [CODEMIND.postId]);
+  world.model.onlyDossiers([CODEMIND.postId]);
   serveProduct(world, CODEMIND);
 
   await world.advanceTo('2026-10-12T08:00:00Z'); // 01:00 PDT
@@ -98,7 +89,7 @@ test('a Dossier run is a registration-role run given the Launch, its Maker comme
   const codemind = day.find((p) => p.id === CODEMIND.postId)!;
   codemind.comments.nodes.push({ body: '<p>Use code PHBUILD for 50 more builds.</p>', createdAt: '2026-10-12T09:00:00Z', parentId: '1273823-c3', userId: '875554' });
   world.productHunt.addFeatured(day, '2026-10-12T07:01:00Z');
-  onlyDossiers(world, [CODEMIND.postId]);
+  world.model.onlyDossiers([CODEMIND.postId]);
   serveProduct(world, CODEMIND);
 
   await world.advanceTo('2026-10-12T08:00:00Z');
@@ -153,7 +144,7 @@ test('a Product that needs no account says so, with no Walkthrough, and its post
   const world = await startWorld({ now: '2026-10-13T07:30:00Z' });
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-13'), '2026-10-13T07:01:00Z');
-  onlyDossiers(world, [XIRYN.postId]);
+  world.model.onlyDossiers([XIRYN.postId]);
   serveProduct(world, XIRYN);
 
   await world.advanceTo('2026-10-13T08:00:00Z');
@@ -185,7 +176,7 @@ test('a Product that signs in only with Google or GitHub is named so in Register
   const world = await startWorld({ now: '2026-10-14T07:30:00Z' });
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-14'), '2026-10-14T07:01:00Z');
-  onlyDossiers(world, [ACYCLIC.postId]);
+  world.model.onlyDossiers([ACYCLIC.postId]);
   serveProduct(world, ACYCLIC);
 
   await world.advanceTo('2026-10-14T08:00:00Z');
@@ -213,7 +204,7 @@ test('Offers come only from the Launch, its Maker comment, the landing page and 
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
-  onlyDossiers(world, [CODEMIND.postId]);
+  world.model.onlyDossiers([CODEMIND.postId]);
   serveProduct(world, CODEMIND);
   const offer = { code: null, card: 'not stated', deadline: null, cap: null, condition: null } as const;
   const offers: ScriptedOffer[] = [
@@ -280,7 +271,7 @@ test('a Dossier over 4,000 characters is rewritten once, shortening only What it
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
-  onlyDossiers(world, [CODEMIND.postId]);
+  world.model.onlyDossiers([CODEMIND.postId]);
   serveProduct(world, CODEMIND);
   const first = longest();
   world.model.dossier = (run) => (run.postIds.includes(CODEMIND.postId) ? first : 'none');
@@ -321,7 +312,7 @@ test('a Dossier still over 4,000 characters after its rewrite is cut to fit, and
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
-  onlyDossiers(world, [CODEMIND.postId]);
+  world.model.onlyDossiers([CODEMIND.postId]);
   serveProduct(world, CODEMIND);
   const first = longest();
   world.model.dossier = (run) => (run.postIds.includes(CODEMIND.postId) ? first : 'none');
@@ -353,7 +344,7 @@ test('a Dossier of Markdown characters, which escaping doubles, is cut to fit at
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
-  onlyDossiers(world, [CODEMIND.postId]);
+  world.model.onlyDossiers([CODEMIND.postId]);
   serveProduct(world, CODEMIND);
   // As a page might steer a model to write: every part as long as it may be, all of it characters Discord would format.
   const marks = (length: number) => '*_'.repeat(length).slice(0, length);
@@ -388,7 +379,7 @@ test('each Product gets a folder in the Personal database, and its notes.md is t
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
   world.productHunt.addFeatured(fixtureDay('2026-10-13'), '2026-10-13T07:01:00Z');
   const guilds = '1274741'; // guilds.run, on a plain `.example` site of its own
-  onlyDossiers(world, [CODEMIND.postId, guilds, XIRYN.postId]);
+  world.model.onlyDossiers([CODEMIND.postId, guilds, XIRYN.postId]);
   serveProduct(world, CODEMIND);
   serveProduct(world, XIRYN);
   // The person already keeps notes on Codemind, before it has a Dossier.
@@ -452,7 +443,7 @@ test('the day’s list waits on a Dossier that can’t be written, says why at 0
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
   const guilds = '1274741';
-  onlyDossiers(world, [CODEMIND.postId, guilds]);
+  world.model.onlyDossiers([CODEMIND.postId, guilds]);
   serveProduct(world, CODEMIND);
   world.browser.fail(CODEMIND.landing.url, { kind: 'load-failed', message: 'net::ERR_CONNECTION_REFUSED at https://codemindhq.dev/' });
 
@@ -488,7 +479,7 @@ test('a Dossier run that records no Dossier holds the day’s list until the nex
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
-  onlyDossiers(world, [CODEMIND.postId]);
+  world.model.onlyDossiers([CODEMIND.postId]);
   serveProduct(world, CODEMIND);
   const scripted = world.model.dossier;
   world.model.dossier = () => 'none';
@@ -514,7 +505,7 @@ test('Products are keyed by root domain: a Launch of a Product that has a post g
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
   world.productHunt.addFeatured(fixtureDay('2026-10-13'), '2026-10-13T07:01:00Z');
-  onlyDossiers(world, [CODEMIND.postId, XIRYN.postId]);
+  world.model.onlyDossiers([CODEMIND.postId, XIRYN.postId]);
   serveProduct(world, CODEMIND);
   // The next day's Launch leads to another page on Codemind's own domain.
   world.browser.redirect(websiteOf(XIRYN.postId), 'https://beta.codemindhq.dev/');
@@ -536,7 +527,7 @@ test('a Product post Discord took while the bot never heard back is found again,
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
-  onlyDossiers(world, [CODEMIND.postId]);
+  world.model.onlyDossiers([CODEMIND.postId]);
   serveProduct(world, CODEMIND);
   world.discord.loseReply('post', 1, PRODUCTS_FORUM);
 

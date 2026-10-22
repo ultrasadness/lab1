@@ -43,6 +43,8 @@ node --test bot/test/miner-day.test.ts # one file
 
 假的浏览器服务在一个 Unix 套接字上回答 `read(url)`。每个 Launch 的网站跳转都通向 `.example` 上一个属于它自己的普通站点，带一个价格页和一个注册页，除非测试从 `bot/test/harness/dossier-fixtures.ts` 提供某个真实 Product 的页面。
 
+每次 Pi 运行大约要半秒 CPU，一个 Miner 日除了评判运行，还要为它的每份 Dossier 各跑一次，所以 fixture 日的 Dossier 会让每个发出一天的测试都付出代价。不是测 Dossier 的测试，用 `world.model.onlyDossiers(postIds)` 把它那一天的 Dossier 限制在需要的几份：其他每个 Launch 都会被评判在 Day's line 以下。
+
 假的 Product Hunt 只回答真实 API 的实时 schema 接受、变量也符合这份 schema 的查询，其他查询一律拒绝：回复里有 GraphQL 错误，没有数据。这样，写错的字段、参数或 enum 值会让测试失败，而不是等到上线时才让机器人的读取失败。`npm run capture:producthunt-schema` 通过内省（introspection）抓取这份 schema，以 SDL 形式写到 `bot/test/fixtures/producthunt/schema.graphql`，假的 Product Hunt 就从那里读取它。遇到 HTTP 错误、GraphQL 错误，或者回复建不出 schema 时，脚本什么都不写，并说明原因。这个脚本由这个人来运行，因为 agent 从不读取令牌：它像机器人一样，自己读取 `$CREDENTIALS_DIRECTORY` 里的 `producthunt-token`，并向机器人配置里写的 API 发请求。在 Claude Code 会话里，在命令前输入 `!`，令牌就不会进入 agent 的上下文。每当 `bot/src/product-hunt.ts` 里的某个查询改变，或者实时 API 可能已经改变时，就再运行一次，并提交它写出的文件。
 
 ```sh

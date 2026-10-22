@@ -98,6 +98,18 @@ export class FakeModelProvider {
   };
   /** Whether the model runs away in a Miner run that starts now, asked once per run. */
   runaway: (run: SeenRun) => boolean = () => false;
+
+  /**
+   * Judges every Launch but these at most 6, below the floor of the Day's line, so only these can get a Dossier. Each
+   * Dossier is one more run in the day's pass, so a test that isn't about Dossiers keeps its day to the few it needs.
+   */
+  onlyDossiers(postIds: readonly string[]): void {
+    const judged = this.judgment;
+    this.judgment = (postId) => {
+      const j = judged(postId);
+      return j === 'omit' || postIds.includes(postId) ? j : { ...j, fit: Math.min(j.fit, 6) };
+    };
+  }
   /** What the model records in a Dossier run; `'none'` records nothing. By default, a plain Dossier. */
   dossier: (run: SeenRun) => ScriptedDossier | 'none' = (run) => plainDossier(run.prompt);
   /** What the model records after the bot refused its Dossier for any other reason; `'none'` records nothing more. */

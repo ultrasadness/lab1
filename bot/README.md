@@ -58,6 +58,10 @@ The fake browser service answers `read(url)` on a Unix socket. Each Launch's web
 its own on `.example`, with a pricing page and a signup page, unless a test serves a real Product's pages from
 `bot/test/harness/dossier-fixtures.ts`.
 
+Each Pi run takes about half a second of CPU, and a Miner day makes one for each of its Dossiers beside its judging
+runs, so the fixture days' Dossiers cost every test that posts a day. A test that isn't about Dossiers keeps its day to
+the few it needs with `world.model.onlyDossiers(postIds)`, which judges every other Launch below the Day's line.
+
 The fake Product Hunt answers only a query that the real API's live schema accepts, with variables that fit it, and
 refuses any other with GraphQL errors and no data, so a wrong field, argument or enum value fails a test instead of
 the bot's read at go-live. `npm run capture:producthunt-schema` captures that schema by introspection and writes it as

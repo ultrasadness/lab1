@@ -15,23 +15,12 @@ const TITLES: Record<string, string> = {
 };
 
 /** Each day's best Launch, the only one these tests let reach the line. */
-const KEPT = new Set(['1273545', '1277000', '1278232', '1265035']);
+const KEPT = ['1273545', '1277000', '1278232', '1265035'];
 
-/**
- * Product Hunt features each fixture day on its own date. Every Launch but the day's best is judged at most 6, so the
- * dates these tests time each wait on one Dossier run, not one per Launch at or above the line.
- */
+/** Product Hunt features each fixture day on its own date, and each day keeps one Dossier, its best Launch's. */
 function featureEveryDay(world: World): void {
   for (const date of DATES) world.productHunt.addFeatured(fixtureDay(date), `${date}T07:01:00Z`);
-  oneDossierADay(world);
-}
-
-function oneDossierADay(world: World): void {
-  const standIn = world.model.judgment;
-  world.model.judgment = (postId) => {
-    const j = standIn(postId);
-    return j === 'omit' || KEPT.has(postId) ? j : { ...j, fit: Math.min(j.fit, 6) };
-  };
+  world.model.onlyDossiers(KEPT);
 }
 
 const titles = (world: World) => world.discord.forumPosts(MINER_DAYS_FORUM).map((p) => p.title);

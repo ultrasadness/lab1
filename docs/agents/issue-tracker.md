@@ -13,6 +13,10 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **A ticket that settles a question by trying it** says what to build for each result the trial can give, not only
   the expected ones. #91's criteria covered GitHub closing an issue on one of two split forms, or on neither. It closed
   on both, and two of the criteria then asked for opposite things.
+- **A question the person settles while you work a ticket** goes on the ticket as a comment before the review: the
+  question, the answer, and what it changes in the ticket's criteria. The review then reads it with the ticket, and
+  later tickets find it there. In #47 the person chose to hold the day's list on a Dossier that can't be written. Only
+  the Spec prompt was told, and the Standards reviewer reported that choice as a hard violation.
 - **Read an issue**: `npm run ticket -- <number>`. It prints the issue's number, state, title, labels, body and
   comments, then its parent with the parent's body and comments, then each issue that mentions it with the lines that
   do. A `Spec:` parent prints its headings in place of its body: print the spec whole when one names what the ticket
