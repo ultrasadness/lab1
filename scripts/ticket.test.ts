@@ -1,6 +1,7 @@
-// `npm run ticket -- <number>` (#87): prints a ticket whole, with its parent and each issue that mentions it. Each test
-// runs the script as its own process, with no terminal, against a fake `gh` on PATH that answers `gh api` from the
-// issues the test gives it, so no test reaches GitHub.
+// `npm run ticket -- <number>` (#87): prints a ticket whole, with its parent and each issue that mentions it, or with
+// `--heading`, only the parts of it the ticket names (the #48 retro). Each test runs the script as its own process,
+// with no terminal, against a fake `gh` on PATH that answers `gh api` from the issues the test gives it, so no test
+// reaches GitHub.
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
@@ -199,7 +200,7 @@ test("prints the ticket's parent, with its body and comments, after the ticket's
   );
 });
 
-test("prints a Spec parent's headings and comments in place of its body, and how to print it whole", async (t) => {
+test("prints a Spec parent's headings and comments in place of its body, and how to print it whole or in part", async (t) => {
   const run = await ticket(t, ['84'], {
     issues: [
       {
@@ -222,7 +223,7 @@ test("prints a Spec parent's headings and comments in place of its body, and how
         '#41 OPEN Spec: the Assistant that judges Launches [ready-for-agent]\n\n' +
         '## Problem Statement\n### The Miner\n## Testing Decisions\n\n' +
         '--- ana, 2026-10-21T08:14:31Z:\nAmended by #77.\n\n' +
-        'Print the spec whole with npm run ticket -- 41.\n\n' +
+        'Print the spec whole with npm run ticket -- 41, or only the parts you need with npm run ticket -- 41 --heading "<words>".\n\n' +
         '=== Mentioned by\n\n',
     ),
     run.stdout,
@@ -332,12 +333,15 @@ test("fails with gh's own error when gh can't answer, printing nothing else", as
   assert.match(run.stderr, /^ticket: gh api repos\/\{owner\}\/\{repo\}\/issues\/87 failed: To get started with GitHub CLI/);
 });
 
-for (const args of [[], ['eighty-seven'], ['87', '94']]) {
+for (const args of [[], ['eighty-seven'], ['87', '94'], ['87', '--heading'], ['87', '--heading', ' '], ['87', '--part', 'One']]) {
   test(`fails on ${args.length === 0 ? 'no argument' : args.join(' ')}, saying how to run it`, async (t) => {
     const run = await ticket(t, args, { error: 'gh was asked' });
     assert.equal(run.code, 1);
     assert.equal(run.stdout, '');
-    assert.match(run.stderr, /^ticket: give one issue number, as in npm run ticket -- 87\n$/);
+    assert.equal(
+      run.stderr,
+      'ticket: give one issue number, as in npm run ticket -- 87, and any parts of it by heading, as in npm run ticket -- 40 --heading "8."\n',
+    );
   });
 }
 
@@ -368,5 +372,128 @@ test('tells apart an issue from another repo that mentions the ticket, naming th
         'owner/data#5 OPEN Elsewhere\n  Uses owner/repo#87.\n  Still owner/repo#87.\n',
     ),
     run.stdout,
+  );
+});
+
+/** A decision ticket shaped like #40: a question in its body, and the resolution's numbered parts in a comment. */
+const DECISIONS: Issue[] = [
+  {
+    number: 40,
+    title: 'What is left to decide?',
+    state: 'closed',
+    labels: ['wayfinder:grilling'],
+    body: '## Question\r\n\r\nWhat is left.\r\n\r\n## Context\r\n\r\nSome.',
+    comments: [
+      { author: 'ana', at: '2026-10-16T09:00:00Z', body: '## Input from #38\n\nThe digest.' },
+      {
+        author: 'ana',
+        at: '2026-10-17T09:00:00Z',
+        body: [
+          '## Resolution',
+          '',
+          'Grilled in two rounds.',
+          '',
+          '### 1. When a page is read again',
+          '',
+          'Every rewrite reads again.',
+          '',
+          '### 2. A Dossier Correction',
+          '',
+          '- Approve turns off.',
+          '',
+          '#### Withdrawn',
+          '',
+          '```md',
+          '# a line in a code block, not a heading',
+          '```',
+          '',
+          '### 8. A Correction\'s run',
+          '',
+          '- It goes second.',
+          '',
+          '## Handed on',
+          '',
+          'To the PRD.',
+        ].join('\n'),
+      },
+    ],
+    parent: 1,
+  },
+  { number: 1, title: 'The map', body: 'The whole map, long.' },
+  { number: 48, title: 'Correct a Miner judgment', body: 'Decided in #40 §2 and §8.' },
+];
+
+test('with --heading, prints only the parts whose heading names those words, each to the next heading of its level or above', async (t) => {
+  const run = await ticket(t, ['40', '--heading', '2.', '--heading', "8. a correction's"], { issues: DECISIONS });
+  assert.equal(run.code, 0, run.stderr);
+  assert.equal(
+    run.stdout,
+    [
+      '#40 CLOSED What is left to decide? [wayfinder:grilling]',
+      '',
+      '--- ana, 2026-10-17T09:00:00Z:',
+      '### 2. A Dossier Correction',
+      '',
+      '- Approve turns off.',
+      '',
+      '#### Withdrawn',
+      '',
+      '```md',
+      '# a line in a code block, not a heading',
+      '```',
+      '',
+      "### 8. A Correction's run",
+      '',
+      '- It goes second.',
+      '',
+      'Print it whole with npm run ticket -- 40.',
+      '',
+    ].join('\n'),
+    'its parent and the issues that mention it are left out too',
+  );
+});
+
+test('with --heading, takes parts from the body and from each comment that has one, in order', async (t) => {
+  const run = await ticket(t, ['40', '--heading', 'context', '--heading', 'Input from'], { issues: DECISIONS });
+  assert.equal(run.code, 0, run.stderr);
+  assert.equal(
+    run.stdout,
+    [
+      '#40 CLOSED What is left to decide? [wayfinder:grilling]',
+      '',
+      '## Context',
+      '',
+      'Some.',
+      '',
+      '--- ana, 2026-10-16T09:00:00Z:',
+      '## Input from #38',
+      '',
+      'The digest.',
+      '',
+      'Print it whole with npm run ticket -- 40.',
+      '',
+    ].join('\n'),
+  );
+});
+
+test('with --heading that names no heading, fails, listing the headings the issue has', async (t) => {
+  const run = await ticket(t, ['40', '--heading', 'Starting values'], { issues: DECISIONS });
+  assert.equal(run.code, 1);
+  assert.equal(run.stdout, '');
+  assert.equal(
+    run.stderr,
+    [
+      'ticket: no heading of #40 names "Starting values". Its headings:',
+      '## Question',
+      '## Context',
+      '## Input from #38',
+      '## Resolution',
+      '### 1. When a page is read again',
+      '### 2. A Dossier Correction',
+      '#### Withdrawn',
+      "### 8. A Correction's run",
+      '## Handed on',
+      '',
+    ].join('\n'),
   );
 });

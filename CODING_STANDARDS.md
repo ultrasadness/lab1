@@ -92,6 +92,42 @@ by its Product Hunt Post id, and sorted the ranking at the end.
 - pages appended to a list with no check by id;
 - a position or rank read from a page, where pages were read at different moments.
 
+## A test of a fallback shows it ran
+
+A test of a fallback, a cut or a limit, such as a message shortened to fit Discord or a run retried after its cap,
+asserts that its input reached that path, not only that nothing failed. A test that never reaches the path passes the
+same with the path taken out.
+
+**Why it matters:** a test that passes for the wrong reason looks the same as one that passes for the right one. In
+#48, a test of a long Correction, on a day of long names and reasons, asserted only that Discord refused nothing. It
+passed with the code that cuts a corrected line to fit, and passed again with that cut taken out, because the line's
+message had room to spare. Only taking the cut out by hand showed it. `f871f7d` landed the test correcting a line in
+the day's fullest message, over 3,700 characters, where it fails once the cut is taken out. The test of long names and
+reasons that `ee12dc3` landed in #42 already showed its path: it asserts that the bands split into more than 8
+messages.
+
+**In a diff, look for:**
+
+- a test whose only assertions are that nothing was refused, failed or went over a limit, with nothing showing its
+  input came near the limit or took the fallback;
+- a fallback the diff adds, such as a shorter text, a retry or a default, that no test shows running.
+
+## A doc that describes changed behaviour changes with it
+
+When a diff changes what the code does, each sentence of a README or doc that describes the old behaviour changes in
+the same diff.
+
+**Why it matters:** the person and later sessions read the docs as true. In #48, Corrections began tagging a withdrawn
+Dossier's post *Skipped*, while `bot/README.md` still said the bot "for now applies *no account* alone". The Standards
+review didn't flag it, and the Spec reviewer noticed it in passing. `f871f7d` landed both sides of the README saying
+the bot applies *Skipped* too.
+
+**In a diff, look for:**
+
+- each tag, config key, command, file, log event or behaviour the diff adds or changes: search the docs (`*.md`
+  outside `node_modules`) for it and for what it replaces, and read the sentences that describe it;
+- "for now", "only", "alone", "not yet" or "until #<number>" in a doc sentence about what the diff changes.
+
 ## A Chinese side says what its English side says
 
 In each section of a doc pair that a diff changes, the Chinese side changes, drops or adds no meaning. A word that

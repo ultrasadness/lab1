@@ -19,9 +19,13 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
   the Spec prompt was told, and the Standards reviewer reported that choice as a hard violation.
 - **Read an issue**: `npm run ticket -- <number>`. It prints the issue's number, state, title, labels, body and
   comments, then its parent with the parent's body and comments, then each issue that mentions it with the lines that
-  do. A `Spec:` parent prints its headings in place of its body: print the spec whole when one names what the ticket
-  needs. It reads through `gh api`, so it prints the same without a terminal, where `gh issue view --comments` prints
-  only the comments.
+  do. A `Spec:` parent prints its headings in place of its body. It reads through `gh api`, so it prints the same
+  without a terminal, where `gh issue view --comments` prints only the comments.
+- **Read part of an issue**: `npm run ticket -- <number> --heading "<words>"`, once for each part, prints only the parts
+  of the issue's body and comments whose heading names those words, each down to the next heading of its level. Use it
+  for a part another issue names, such as a spec heading the ticket needs or the "#40 §2 and §8" #48 was decided in:
+  `npm run ticket -- 40 --heading "2." --heading "8."`. #48's session printed #40 whole for those two, 54 KB where the
+  parts are 2.5 KB. Words that name no heading fail, listing the issue's headings.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **List the ready tickets**: open, `ready-for-agent`, unassigned and with no open blocker. A `Spec:` issue is its tickets' parent, not a ticket. `gh issue list --state open --label ready-for-agent --limit 100 --json number,title,assignees,blockedBy --jq '.[] | select(.assignees == [] and ([.blockedBy.nodes[] | select(.state == "OPEN")] | length) == 0 and (.title | startswith("Spec:") | not)) | "#\(.number) \(.title)"'`
 - **Claim a ticket** as the session's first write on it: `gh issue edit <number> --add-assignee @me`. **List the ready tickets** leaves out an assigned ticket, so a claimed one stays with this session while parallel sessions pick theirs.
@@ -55,8 +59,8 @@ comment may leave work for this one (`Left for #<number>: ...`), and that work i
 prints that line. The parent may hold work beside the ticket's own that no ticket takes on yet: #77 was cut from half
 of #74's triage brief, and the other half, now #92, came to light only because the session read #74. A `Spec:` parent
 prints its heading line, the headings of its body and its comments, since a spec is the plan its tickets were cut
-from: when a heading names what the ticket needs, such as Starting values for a ticket that sets one, print the spec
-whole with `npm run ticket -- <its number>`.
+from: when a heading names what the ticket needs, such as Starting values for a ticket that sets one, print that part
+with **Read part of an issue**. Do the same for each part of another issue the ticket says it was decided in.
 
 ## Wayfinding operations
 
