@@ -1,11 +1,13 @@
 // A PostToolUse hook (.claude/settings.json): the notes Claude writes the person between tool calls are in Simplified
 // Chinese, like the reply that ends a turn (reply-language.ts), as the Language section of CLAUDE.md asks. In #48's
 // session most notes were English, and the Stop hook reads only the last reply.
-// A tool hook can't see the note just before its own call: Claude Code writes the transcript a message or more behind,
-// and the MessageDisplay hook, which does see the text, only changes what the screen shows (both tried in the #48
-// retro). So after each tool call this reads the notes of the turn the transcript holds by then, judges each by
-// reply-language.ts's rule, and names back to Claude, through the context it adds, the English notes it hasn't named
-// before. They are recorded by id in the session's scratchpad.
+// A tool hook may not see the note just before its own call: in an interactive session Claude Code wrote the
+// transcript a message or more behind, and the MessageDisplay hook, which does see the text, only changes what the
+// screen shows (both tried in the #48 retro). So after each tool call this reads the notes of the turn the transcript
+// holds by then, judges each by reply-language.ts's rule, and names back to Claude, through the context it adds, the
+// English notes it hasn't named before. They are recorded by id in the session's scratchpad. A note the transcript
+// records as thinking, as that session's sometimes did, goes unseen.
+// A `claude -p` session showed it working end to end: each of three English notes was named after its own tool call.
 // Tried on every note in this repo's sessions from 2026-10-19 to 2026-10-22: it names 218 of 780, each one English.
 // It says nothing on a subagent's tool call, or when it can't read its input or the transcript.
 import { closeSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
@@ -86,10 +88,12 @@ function tail(path: string, bytes: number): string {
 export function reminder(english: Note[]): string {
   const latest = english.at(-1)!.text.replace(/\s+/g, ' ').trim();
   const quote = latest.length > QUOTE_CHARS ? `${latest.slice(0, QUOTE_CHARS - 1)}…` : latest;
+  // A note that ends its own sentence needs no second full stop after its quote.
+  const stop = /[.!?。！？…]$/.test(quote) ? '' : '.';
   const what =
     english.length === 1
-      ? `Your note to the person before a tool call was in English: “${quote}”.`
-      : `${english.length} of your notes to the person before tool calls were in English, the latest: “${quote}”.`;
+      ? `Your note to the person before a tool call was in English: “${quote}”${stop}`
+      : `${english.length} of your notes to the person before tool calls were in English, the latest: “${quote}”${stop}`;
   return `${what} ${HOW}`;
 }
 

@@ -60,7 +60,7 @@ test('an English note before a tool call is named back to Claude, quoted, with h
   const said = context(session(t).run([prompt('做 #48'), say(CHINESE), toolCall(), toolResult(), say(ENGLISH), toolCall(), toolResult()]));
   assert.equal(
     said,
-    `Your note to the person before a tool call was in English: “${ENGLISH}”. Write the notes between tool calls in ` +
+    `Your note to the person before a tool call was in English: “${ENGLISH}” Write the notes between tool calls in ` +
       'Simplified Chinese, like your replies, keeping glossary terms (CONTEXT.md) and skill names in English, as the ' +
       'Language section of CLAUDE.md asks.',
   );
@@ -77,12 +77,12 @@ test('each English note is named once, however many tool calls follow it', (t) =
   assert.ok(context(s.run(turn)));
   assert.equal(s.run([...turn, toolCall(), toolResult()]), '', 'the same note again adds nothing');
   const later = context(s.run([...turn, toolCall(), toolResult(), say(ENGLISH_TOO), toolCall(), toolResult()]));
-  assert.match(later ?? '', new RegExp(`^Your note to the person before a tool call was in English: “${ENGLISH_TOO}”`));
+  assert.match(later ?? '', new RegExp(`^Your note to the person before a tool call was in English: “${ENGLISH_TOO}” Write`));
 });
 
 test('notes the transcript holds only late are named together, the latest quoted', (t) => {
   const said = context(session(t).run([prompt('做 #48'), say(ENGLISH), toolCall(), toolResult(), say(ENGLISH_TOO), toolCall(), toolResult()]));
-  assert.match(said ?? '', new RegExp(`^2 of your notes to the person before tool calls were in English, the latest: “${ENGLISH_TOO}”\\. Write`));
+  assert.match(said ?? '', new RegExp(`^2 of your notes to the person before tool calls were in English, the latest: “${ENGLISH_TOO}” Write`));
 });
 
 test('only the turn since the last prompt counts, though a skill’s body or a hook’s feedback comes within it', (t) => {
@@ -90,6 +90,11 @@ test('only the turn since the last prompt counts, though a skill’s body or a h
   assert.equal(session(t).run([...earlier, prompt('做 #48'), say(CHINESE), toolCall(), toolResult()]), '');
   const within = [prompt('做 #48'), toolCall(), toolResult(), meta('Base directory for this skill: …'), say(ENGLISH), toolCall(), toolResult()];
   assert.ok(context(session(t).run(within)));
+});
+
+test('a note that ends without a full stop gets one after its quote', (t) => {
+  const said = context(session(t).run([prompt('做 #48'), say('Now the rendering, then the day file and the Correction run'), toolCall(), toolResult()]));
+  assert.match(said ?? '', /: “Now the rendering, then the day file and the Correction run”\. Write/);
 });
 
 test('a note too short to tell, or a final reply with no tool call after it, adds nothing', (t) => {

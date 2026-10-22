@@ -35,15 +35,16 @@ What checks each commit and push, for both packages: the root's (the bot, our Pi
   takes a reply of at least 40 Latin letters to be English when Han characters make up under 15% of its letters and
   characters. A reply already sent back once ends the turn.
 - **note-language** (after every tool call) judges the notes Claude wrote the person before tool calls in the turn by
-  the same rule, and names each English one back to Claude once, so that the next note is in Chinese. The transcript
-  is written a message or more behind, so a note is named a tool call or more after it.
+  the same rule, and names each English one back to Claude once, so that the next note is in Chinese. An interactive
+  session can write its transcript a message or more behind, so a note may be named a tool call or more after it, and
+  one it records as thinking goes unseen.
 - **review-committed** (on the Skill tool) refuses a code-review skill while the checkout holds work not yet
   committed, or a branch that lacks commits `main` has, and says to commit or to rebase first, as the Code review
   section of `CLAUDE.md` asks.
 
-A session reads them from the checkout it started in, so a change to them counts once it is on `main`. A running
-session picks up a change to `.claude/settings.json` there at once, as the #48 retro found, and runs each script as it
-then is.
+A session reads them from the checkout it started in, so a change to them counts once it is on `main`. In the #48
+retro, a running session took up a settings file added to `.claude/` at its next tool call, and a session started
+afterwards ran a new hook from `main`.
 
 ## CI
 
