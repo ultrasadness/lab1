@@ -45,6 +45,11 @@ test('a last reply in Chinese passes, glossary terms, code and links in English 
   assert.equal(stop(t, [prompt('Land it.'), say(reply)]), '');
 });
 
+test('a Chinese reply that names an English title in bold passes (the #48 retro)', (t) => {
+  const reply = 'Ticket #48：**Correct a Miner judgment** 已合入，**Write a Dossier for each Launch at or above the line** 也是。';
+  assert.equal(stop(t, [prompt('落地吧'), say(reply)]), '');
+});
+
 test('only the text after the turn’s last tool call counts as its reply', (t) => {
   assert.equal(stop(t, [prompt('落地吧'), say(ENGLISH), toolCall(), toolResult(), say(CHINESE)]), '');
   assert.ok(blocked(stop(t, [prompt('落地吧'), say(CHINESE), toolCall(), toolResult(), say(ENGLISH)])));

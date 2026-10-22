@@ -27,6 +27,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/note-language.ts\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

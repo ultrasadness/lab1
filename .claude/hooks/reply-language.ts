@@ -1,10 +1,12 @@
 // A Stop hook (.claude/settings.json): the reply that ends a turn is in Simplified Chinese, as the Language section of
 // CLAUDE.md asks. Late in a long session, among English tool output, a reply slipped into English (the #47 retro).
-// The hook reads the turn's last reply from the session's transcript and leaves out code blocks, inline code and URLs.
-// It blocks a reply that keeps 40 Latin letters or more, of which Han characters make up under 15% of letters and
-// characters together; Claude then writes the reply again.
+// The hook reads the turn's last reply from the session's transcript and leaves out code blocks, inline code, URLs and
+// bold spans, which hold titles, such as a ticket's English title in a Chinese reply (the #48 retro). It blocks a reply
+// that keeps 40 Latin letters or more, of which Han characters make up under 15% of letters and characters together;
+// Claude then writes the reply again.
 // Tried on every final reply in this repo's sessions since that rule landed on 2026-10-19: each English one reads 0%,
-// and each Chinese one, glossary terms and all, 28% or more.
+// and each Chinese one, glossary terms and all, 28% or more. Leaving bold spans out turned none of the 22 English
+// replies by 2026-10-22 Chinese. note-language.ts judges notes by the same rule.
 // The hook says nothing when it can't read the transcript, and blocks once per stop, so a second English try ends.
 import { readFileSync } from 'node:fs';
 
@@ -48,12 +50,13 @@ export function lastReply(transcript: string): string {
   return reply.join('\n');
 }
 
-/** Whether the reply is in another language than Chinese, by how much of it is Han once code and links are out. */
+/** Whether a reply is in another language than Chinese, by how much of it is Han once code, links and bold are out. */
 export function notChinese(reply: string): boolean {
   const prose = reply
     .replace(/```[\s\S]*?```/g, '')
     .replace(/`[^`\n]*`/g, '')
-    .replace(/https?:\/\/\S+/g, '');
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\*\*[^*\n]+\*\*/g, '');
   const han = prose.match(/\p{Script=Han}/gu)?.length ?? 0;
   const latin = prose.match(/[A-Za-z]/g)?.length ?? 0;
   return latin >= MIN_LATIN && han / (han + latin) < MIN_HAN_SHARE;

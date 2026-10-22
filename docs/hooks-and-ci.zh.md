@@ -13,12 +13,13 @@
 
 ## Claude Code hook
 
-`.claude/settings.json` 给这个仓库里的每个 Claude Code 会话两个它自己的 hook，都是 `.claude/hooks/` 里用 Node 运行的脚本：
+`.claude/settings.json` 给这个仓库里的每个 Claude Code 会话三个它自己的 hook，都是 `.claude/hooks/` 里用 Node 运行的脚本：
 
-- **reply-language**（在 Stop 时）：一轮的最后一条回复是英文时，它把回复退回去重写，这是 `CLAUDE.md` 的 Language 一节的要求。它不计代码、行内代码和链接；一条回复至少有 40 个拉丁字母、且汉字在字母和汉字合计中占不到 15% 时，它就把这条回复当作英文。已经退回过一次的回复，这一轮就到此结束。
+- **reply-language**（在 Stop 时）：一轮的最后一条回复是英文时，它把回复退回去重写，这是 `CLAUDE.md` 的 Language 一节的要求。它不计代码、行内代码、链接和加粗片段（加粗里放的是标题）；一条回复至少有 40 个拉丁字母、且汉字在字母和汉字合计中占不到 15% 时，它就把这条回复当作英文。已经退回过一次的回复，这一轮就到此结束。
+- **note-language**（在每次工具调用之后）：按同一条规则判断这一轮里 Claude 在工具调用之前写给这个人的说明，每条英文说明向 Claude 指出一次，让下一条说明用中文写。会话记录要落后一条或几条消息才写入，所以一条说明要在它之后一次或几次工具调用时才被指出。
 - **review-committed**（在 Skill 工具上）：checkout 里还有没提交的改动，或者分支缺少 `main` 上的提交时，它拒绝启动 code-review skill，并说明要先提交还是先 rebase，这是 `CLAUDE.md` 的 Code review 一节的要求。
 
-会话从它启动时所在的 checkout 读取这两个 hook，所以对它们的改动，要等到进了 `main`、并且会话重启或打开过 `/hooks` 之后才生效。
+会话从它启动时所在的 checkout 读取这些 hook，所以对它们的改动，要等到进了 `main` 才生效。#48 的 retro 发现，正在运行的会话会立即读到那里 `.claude/settings.json` 的改动，每个脚本也按它当时的样子运行。
 
 ## CI
 
@@ -32,7 +33,7 @@ GitHub Actions 在每次 push 和 pull request 时运行两个 workflow，所以
 根目录的 `npm test` 运行这些 hook 和检查的测试：
 
 - `scripts/pre-commit.test.ts`、`scripts/post-checkout.test.ts` 和 `scripts/commit-msg.test.ts` 在一个用完即弃的仓库里提交，或者添加一个 worktree。`scripts/pre-push.test.ts` 从这样一个仓库 push，用的是一个需要 `jq` 的假 `gh`。
-- `scripts/reply-language.test.ts` 和 `scripts/review-committed.test.ts` 像会话那样运行每个 Claude Code hook，用的是一份用完即弃的会话记录或一个用完即弃的仓库。`scripts/slowest-tests.test.ts` 在一次运行的输出上运行 CI 摘要。
+- `scripts/reply-language.test.ts`、`scripts/note-language.test.ts` 和 `scripts/review-committed.test.ts` 像会话那样运行每个 Claude Code hook，用的是一份用完即弃的会话记录或一个用完即弃的仓库。`scripts/slowest-tests.test.ts` 在一次运行的输出上运行 CI 摘要。
 - `scripts/doc-pairs.test.ts` 在用完即弃的文档对上运行文档配对检查。
 - `scripts/bounded-waits.test.ts`：某个 `spawnSync`、`execSync` 或 `execFileSync` 调用自己的参数里没有 `timeout` 时，它就失败：同步的子进程会阻塞事件循环，所以别的定时器都结束不了它（`CODING_STANDARDS.md` 里的 **Every wait has a bound**）。
 - `scripts/bot-imports.test.ts`：`bot/src` 导入的某个模块既不是 Node 自己的（`node:`），也不是机器人自己的文件时，它就失败：机器人自己没有任何 npm 依赖（`bot/README.md`），`graphql` 只给测试和 schema 抓取用。

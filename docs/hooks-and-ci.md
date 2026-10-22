@@ -27,19 +27,23 @@ What checks each commit and push, for both packages: the root's (the bot, our Pi
 
 ## Claude Code hooks
 
-`.claude/settings.json` gives every Claude Code session in this repo two hooks of its own, scripts in
+`.claude/settings.json` gives every Claude Code session in this repo three hooks of its own, scripts in
 `.claude/hooks/` run with Node:
 
 - **reply-language** (on Stop) sends a turn's last reply back to be written again when it is in English, as the
-  Language section of `CLAUDE.md` asks. It leaves out code, inline code and links, and takes a reply of at least 40
-  Latin letters to be English when Han characters make up under 15% of its letters and characters. A reply already
-  sent back once ends the turn.
+  Language section of `CLAUDE.md` asks. It leaves out code, inline code, links and bold spans, which hold titles, and
+  takes a reply of at least 40 Latin letters to be English when Han characters make up under 15% of its letters and
+  characters. A reply already sent back once ends the turn.
+- **note-language** (after every tool call) judges the notes Claude wrote the person before tool calls in the turn by
+  the same rule, and names each English one back to Claude once, so that the next note is in Chinese. The transcript
+  is written a message or more behind, so a note is named a tool call or more after it.
 - **review-committed** (on the Skill tool) refuses a code-review skill while the checkout holds work not yet
   committed, or a branch that lacks commits `main` has, and says to commit or to rebase first, as the Code review
   section of `CLAUDE.md` asks.
 
-A session reads them from the checkout it started in, so a change to them counts once it is on `main` and a session
-has restarted or opened `/hooks`.
+A session reads them from the checkout it started in, so a change to them counts once it is on `main`. A running
+session picks up a change to `.claude/settings.json` there at once, as the #48 retro found, and runs each script as it
+then is.
 
 ## CI
 
@@ -59,8 +63,8 @@ The root's `npm test` runs the tests of the hooks and checks:
 
 - `scripts/pre-commit.test.ts`, `scripts/post-checkout.test.ts` and `scripts/commit-msg.test.ts` commit, or add a
   worktree, in a throwaway repo. `scripts/pre-push.test.ts` pushes from one, with a fake `gh` that needs `jq`.
-- `scripts/reply-language.test.ts` and `scripts/review-committed.test.ts` run each Claude Code hook as a session
-  would, on a throwaway transcript or repo. `scripts/slowest-tests.test.ts` runs the CI summary on a run's output.
+- `scripts/reply-language.test.ts`, `scripts/note-language.test.ts` and `scripts/review-committed.test.ts` run each
+  Claude Code hook as a session would, on a throwaway transcript or repo. `scripts/slowest-tests.test.ts` runs the CI summary on a run's output.
 - `scripts/doc-pairs.test.ts` runs the doc-pair check on throwaway pairs.
 - `scripts/bounded-waits.test.ts` fails on a `spawnSync`, `execSync` or `execFileSync` call whose own arguments
   name no `timeout`: a synchronous child process blocks the event loop, so no other timer can end it (**Every wait
