@@ -23,6 +23,27 @@ after a grace time.
   with no timer that ends it;
 - a timer whose path doesn't free the wait it guards, such as killing one process while another still holds its pipes.
 
+## A retry that starts a run is bounded in what it spends
+
+Work tried again on a timer, starting a model run each time, stops by itself: after a count of tries kept in the
+store, or once a budget checked before each run is spent.
+
+**Why it matters:** a run that fails the same way each time spends about the same each time, and a retry every 30
+minutes is 48 runs a day. In #53, a Walkthrough preparation whose run failed, or hit its cap without recording a
+Walkthrough, was queued again every 30 minutes with no end. The registration budget counts that spend but holds no run
+until #69. Neither #53's reviewers nor #99's caught it; the person's question in #99 did. Tried over the bot, the rule
+found two more. A Dossier run that fails is run again at each 30-minute pass of its date, for as long as the date
+stays in the 3-date catch-up window. One a Miner Correction asks for is run again every 30 minutes with no end. #99
+shipped Walkthroughs off and left them to #69, and #100 bounds the Dossier runs.
+
+**In a diff, look for:**
+
+- a job that re-arms its timer (`inMinutes(…, retryMinutes, …)`) while work is left, where the work left can be a run
+  that failed or hit its cap, with no count of tries in the store and no budget checked before the next run starts;
+- a window or a date standing in for that bound: 3 dates of 30-minute passes are 144 runs;
+- a failed run recorded only as a problem to retry, where a Correction's sorting run records it as the outcome
+  (`unsorted`), and so runs once.
+
 ## Outside input is parsed totally
 
 Code that reads outside input, from Product Hunt, Discord, a model, a page or mail, has an answer for every value it
@@ -126,7 +147,10 @@ the bot applies *Skipped* too.
 
 - each tag, config key, command, file, log event or behaviour the diff adds or changes: search the docs (`*.md`
   outside `node_modules`) for it and for what it replaces, and read the sentences that describe it;
-- "for now", "only", "alone", "not yet" or "until #<number>" in a doc sentence about what the diff changes.
+- "for now", "only", "alone", "not yet" or "until #<number>" in a doc sentence about what the diff changes;
+- an "until" that names no ticket or condition, such as "until their sprint": a later diff can't check it, so the
+  sentence names what it waits on, as `bot/README.md` keeps Walkthroughs off "until #56 lets an Approval fill the
+  form" (#99).
 
 ## A Chinese side says what its English side says
 

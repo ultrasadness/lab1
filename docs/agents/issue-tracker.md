@@ -17,10 +17,18 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
   spec's parts and boundaries. #49's "The extension measures the Rule budget… when a Rule is kept" named our Pi
   extension, which runs only inside a Pi run, and Keep happens in none. The bot measured it instead, and #49 closed on
   a departure from its own criteria.
+- **A criterion over a state**, such as "With Walkthroughs off: …", names each way into that state it covers. #99's
+  meant a bot whose Walkthroughs had never been on. Both reviewers read it as covering Walkthroughs turned off after
+  their cards went out too, where Correct still starts a run, and the person settled that case only after the review.
+- **A ticket says when by what it waits on**: a ticket or a condition, as "until #56 lets an Approval fill the form".
+  #85's "The other parts stay off until their sprint" gave #99 its title and `bot/README.md` its phrase, and the
+  person asked what a sprint was. Nothing in the repo or the tracker defines one.
 - **A question the person settles while you work a ticket** goes on the ticket as a comment before the review: the
   question, the answer, and what it changes in the ticket's criteria. The review then reads it with the ticket, and
   later tickets find it there. In #47 the person chose to hold the day's list on a Dossier that can't be written. Only
-  the Spec prompt was told, and the Standards reviewer reported that choice as a hard violation.
+  the Spec prompt was told, and the Standards reviewer reported that choice as a hard violation. A case the criteria's
+  wording reaches that the ticket never weighed is such a question: ask it when you find it. #99's session met the
+  turned-off-again case while building, decided it alone, and asked only once both reviewers sent it back.
 - **Read an issue**: `npm run ticket -- <number>`. It prints the issue's number, state, title, labels, body and
   comments, then its parent with the parent's body and comments, then each issue that mentions it with the lines that
   do. A `Spec:` parent prints its headings in place of its body. It reads through `gh api`, so it prints the same
