@@ -43,7 +43,8 @@ node --test bot/test/miner-day.test.ts # one file
 ```
 
 `npm test` gives each test 60 seconds. A test that runs out fails, and the run still ends even when it leaves a
-server or timer open (`--test-force-exit`).
+server or timer open (`--test-force-exit`). With `TEST_SHARD` set, such as `TEST_SHARD=2/3`, it runs only that shard
+of the test files, as CI does.
 
 The hooks and CI that check each commit and push, and how to turn the hooks on in a fresh clone, are in
 `docs/hooks-and-ci.md`.

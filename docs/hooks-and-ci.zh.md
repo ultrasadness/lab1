@@ -25,7 +25,7 @@
 
 GitHub Actions 在每次 push 和 pull request 时运行两个 workflow，所以浏览器那边的运行慢了或失败了，也不会遮住机器人的结果：
 
-- **Bot**（`.github/workflows/bot.yml`）：根目录的类型检查、文档配对检查和根目录的测试。job 的摘要会列出最慢的测试和整次运行的总耗时（`scripts/slowest-tests.ts`），这样某个测试快到 60 秒、或者 job 快到 15 分钟时，在失败之前就能看出来。
+- **Bot**（`.github/workflows/bot.yml`）：根目录的类型检查、文档配对检查和根目录的测试。测试分成三个分片，各是一个独立的 job（`TEST_SHARD`，`npm test` 把它作为 `--test-shard` 传给 `node --test`），第一个 job 还运行类型检查和文档配对检查。在 #53 里，原来那一个 job 用掉了 15 分钟里的 11.5 分钟。每个 job 的摘要会列出它最慢的测试和它的总耗时（`scripts/slowest-tests.ts`），这样某个测试快到 60 秒、或者某个分片快到 15 分钟时，在失败之前就能看出来。
 - **Browser**（`.github/workflows/browser.yml`）：在 `browser/` 里运行 `npm ci`、类型检查和测试。测试会构建镜像，并通过 Docker Compose 启动它。runner 是 amd64 的，所以测试的是固定 digest 里的 amd64 镜像，而 VM 上运行的是其中的 arm64 镜像。
 
 ## 测试

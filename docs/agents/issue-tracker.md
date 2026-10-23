@@ -64,7 +64,10 @@ prints that line. The parent may hold work beside the ticket's own that no ticke
 of #74's triage brief, and the other half, now #92, came to light only because the session read #74. A `Spec:` parent
 prints its heading line, the headings of its body and its comments, since a spec is the plan its tickets were cut
 from: when a heading names what the ticket needs, such as Starting values for a ticket that sets one, print that part
-with **Read part of an issue**. Do the same for each part of another issue the ticket says it was decided in.
+with **Read part of an issue**. Do the same for each part of another issue the ticket says it was decided in. An
+issue the ticket names whole, as #53 named "#12 (the card)", holds its decision in its `## Resolution` comment: print
+that part, `npm run ticket -- 12 --heading Resolution`. #53's session printed #10, #11 and #12 whole, 53 to 61 KB
+each, where their Resolutions print in 7 to 11 KB.
 
 ## Wayfinding operations
 

@@ -51,9 +51,11 @@ afterwards ran a new hook from `main`.
 GitHub Actions runs two workflows on every push and pull request, so a slow or failing browser run doesn't hide the
 bot's result:
 
-- **Bot** (`.github/workflows/bot.yml`): the root's typecheck, the doc-pair check and the root's tests. The job's
-  summary lists the slowest tests and the run's total (`scripts/slowest-tests.ts`), so a test nearing its 60 seconds,
-  or the job its 15 minutes, shows before it fails.
+- **Bot** (`.github/workflows/bot.yml`): the root's typecheck, the doc-pair check and the root's tests. The tests
+  run in three shards, each a job of its own (`TEST_SHARD`, which `npm test` passes to `node --test` as
+  `--test-shard`), and the first job runs the typecheck and the doc-pair check too. In #53 the one job took 11.5 of its
+  15 minutes. Each job's summary lists its slowest tests and its total (`scripts/slowest-tests.ts`), so a test nearing
+  its 60 seconds, or a shard its 15 minutes, shows before it fails.
 - **Browser** (`.github/workflows/browser.yml`): `npm ci`, the typecheck and the tests in `browser/`. The tests build
   the image and start it through Docker Compose. The runner is amd64, so they test the pinned digest's amd64 image,
   where the VM runs its arm64 one.

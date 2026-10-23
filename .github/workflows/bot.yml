@@ -1,5 +1,6 @@
-# The bot's typecheck, the doc-pair check and the tests on every push and pull request, with the slowest tests in the
-# job's summary. The tests reach only fakes, so no secret is needed.
+# The bot's typecheck, the doc-pair check and the tests on every push and pull request, with the slowest tests in each
+# job's summary. The tests reach only fakes, so no secret is needed. They run in three shards, each a job of its own:
+# in #53 the one job took 11.5 of its 15 minutes.
 name: Bot
 
 on:
@@ -13,6 +14,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -21,10 +26,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+        if: ${{ matrix.shard == 1 }}
       - run: npm run check:docs
+        if: ${{ matrix.shard == 1 }}
       # bash runs with pipefail here, so a failing run still fails this step.
       - run: npm test 2>&1 | tee test-output.txt
         shell: bash
+        env:
+          TEST_SHARD: ${{ matrix.shard }}/3
       - name: List the slowest tests
         if: ${{ !cancelled() && hashFiles('test-output.txt') != '' }}
         run: node scripts/slowest-tests.ts < test-output.txt >> "$GITHUB_STEP_SUMMARY"
