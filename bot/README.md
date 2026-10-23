@@ -8,6 +8,7 @@ The spec is #41. Its first slice (#42) brought up the Miner's path from Product 
 #47 adds a Dossier for each Launch at or above the Day's line, #48 lets the person correct a Miner judgment, #49
 sorts each Correction into fix only, an Interest scope change or a Rule, and loads each kept Rule into later runs, and
 #53 puts a Walkthrough to the person for each open or waitlisted Product, whose Approval starts its Registration.
+#99 lets the config switch Walkthroughs off, and it ships with them off.
 
 | Path | What it is |
 |---|---|
@@ -64,9 +65,10 @@ its own on `.example`, with a pricing page and a signup page, unless a test serv
 `bot/test/harness/dossier-fixtures.ts`.
 
 Each Pi run takes about half a second of CPU, and a Miner day makes one for each of its Dossiers beside its judging
-runs, and one more for each open or waitlisted Product's Walkthrough, so the fixture days' Dossiers cost every test
-that posts a day. A test that isn't about Dossiers keeps its day to
-the few it needs with `world.model.onlyDossiers(postIds)`, which judges every other Launch below the Day's line.
+runs, and, as the harness starts the bot with Walkthroughs on, one more for each open or waitlisted Product's
+Walkthrough, so the fixture days' Dossiers cost every test that posts a day. A test that isn't about Dossiers keeps
+its day to the few it needs with `world.model.onlyDossiers(postIds)`, which judges every other Launch below the Day's
+line.
 
 The fake Product Hunt answers only a query that the real API's live schema accepts, with variables that fit it, and
 refuses any other with GraphQL errors and no data, so a wrong field, argument or enum value fails a test instead of
@@ -99,7 +101,8 @@ tried again every `personalDatabase.retryMinutes`.
 The person's Profile is `profile/profile.md` there, in whatever Markdown they write. A Walkthrough's run reads the
 names it fills from it, and while there is no such file, a Walkthrough leaves the names empty and says where to add
 them. Each Product's Signup identity is a plus-address of `signupMailbox`, the Signup mailbox's own address, with that
-address as the fallback for a form that refuses `+` (ADR 0003).
+address as the fallback for a form that refuses `+` (ADR 0003). The bot needs it while Walkthroughs are on, or while
+one is still in `#needs-you`.
 
 Each run loads its Rules from the checkout's last commit (ADR 0002): every file in `rules/all/`, and every one in its
 own scope's folder, `miner`, `dossier`, `registration` or `mail`, as `rules/<scope>/<slug>.md`. Our extension asks the
@@ -122,14 +125,24 @@ Dossier a Correction withdraws. A Dossier reads its Product's pages through the 
 `browser.socketPath` (`browser/README.md`), and each read is kept for 90 days under `pages/`, beside the other raw
 inputs.
 
-Once an open or waitlisted Product's post is up, the bot reads its signup page again, live: the one its landing page
-links to, or the landing page itself when it links to none. A registration-role run prepares the Walkthrough from that
-read, the Dossier and the Profile. Its card goes to `#needs-you`, a copy of each version goes to the Product's post,
-and the Dossier's Register line says where the Walkthrough stands. Card fields on the signup page, or a wall the run
-names that nothing can get past, mean no Walkthrough, and Register says why. Edit makes a new version of the same
-card, Correct a new card from another run, and Dismiss ends it. One left unanswered lapses after 14 days, with
-**Prepare again**. Approve records the Approval and starts the Registration as *queued*, or as *handed off* when the
-Product's terms ban accounts made by a bot, with a silent status message in the post and a line in
+Walkthroughs come only while `walkthroughs.on` is `true`, changed like any setting through `ops/upgrade`.
+`config/assistant.json` ships with them off, and the go-live (#85) keeps them off until #56 lets an Approval fill the
+form. While they are off, the bot prepares no new Walkthrough: no signup page is read for one and no run prepares
+one, so no card goes to `#needs-you`, no post is tagged *Walkthrough*, and a Dossier's Register line says nothing of
+one; the bot also starts without `signupMailbox`. The start that turns them on prepares a Walkthrough for each open
+or waitlisted Product whose Dossier was posted while they were off, however old it is, oldest first, in the
+background lane. Turning them off again only stops that preparation, Prepare again's included, and holds back a
+version whose card didn't go out (settled by the person on #99): one already in `#needs-you` can still be approved,
+edited, corrected or dismissed, and a Correction's run still needs `signupMailbox`.
+
+While they are on, once an open or waitlisted Product's post is up, the bot reads its signup page again, live: the
+one its landing page links to, or the landing page itself when it links to none. A registration-role run prepares the
+Walkthrough from that read, the Dossier and the Profile. Its card goes to `#needs-you`, a copy of each version goes
+to the Product's post, and the Dossier's Register line says where the Walkthrough stands. Card fields on the signup
+page, or a wall the run names that nothing can get past, mean no Walkthrough, and Register says why. Edit makes a new
+version of the same card, Correct a new card from another run, and Dismiss ends it. One left unanswered lapses after
+14 days, with **Prepare again**. Approve records the Approval and starts the Registration as *queued*, or as *handed
+off* when the Product's terms ban accounts made by a bot, with a silent status message in the post and a line in
 `registration.md`. Filling the form is #56's, and **Stop** on the status message is wired with it.
 
 ```sh

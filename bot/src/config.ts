@@ -58,8 +58,14 @@ export interface Config {
   /** The browser service's Unix socket, which only the bot's user can reach (ADR 0006). */
   browser: { socketPath: string };
   /**
+   * Whether Walkthroughs are on (#99). While they are off, no Walkthrough is prepared and `signupMailbox` may be left
+   * unset. Turning them on prepares one for each open or waitlisted Product posted while they were off.
+   */
+  walkthroughs: { on: boolean };
+  /**
    * The Signup mailbox's own address (ADR 0003). Each Product's Signup identity is its plus-address, with this one as
-   * the fallback for a form that refuses `+`.
+   * the fallback for a form that refuses `+`. Needed while Walkthroughs are on, and by the Correction of one still out
+   * after they are turned off.
    */
   signupMailbox: string;
   /** new-api's OpenAI-compatible base URL, reached only by the forwarder. */
@@ -133,7 +139,10 @@ export function checkConfig(config: Config): string[] {
   if (!(config.miner?.retryMinutes > 0)) problems.push('miner.retryMinutes must be above 0');
   if (!/^\d{2}:\d{2}$/.test(config.miner?.lateAt ?? '')) problems.push('miner.lateAt must look like 06:00');
   if (!config.browser?.socketPath?.startsWith('/')) problems.push("browser.socketPath must be the browser service's socket, as an absolute path");
-  if (!/^[^\s@+]+@[^\s@]+\.[^\s@]+$/.test(config.signupMailbox ?? '')) problems.push("signupMailbox must be the Signup mailbox's address, with no +");
+  if (typeof config.walkthroughs?.on !== 'boolean') problems.push('walkthroughs.on must be true or false');
+  if (config.walkthroughs?.on && !/^[^\s@+]+@[^\s@]+\.[^\s@]+$/.test(config.signupMailbox ?? '')) {
+    problems.push("signupMailbox must be the Signup mailbox's address, with no +, while Walkthroughs are on");
+  }
   if (!(config.personalDatabase?.ssh?.length > 0)) problems.push('personalDatabase.ssh must name the ssh command');
   if (!(config.personalDatabase?.retryMinutes > 0)) problems.push('personalDatabase.retryMinutes must be above 0');
   if (!(config.pi?.command?.length > 0)) problems.push('pi.command must name the command that starts a run');

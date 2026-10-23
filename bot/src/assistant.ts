@@ -183,9 +183,11 @@ export async function startAssistant(options: {
   gateway.start();
   let stopped = false;
   // Walkthroughs are prepared once a Product's post is up, at every start, when the person taps Prepare again, and
-  // every 30 minutes while one can't be, such as when its signup page won't load. Their Corrections go with the Miner's.
+  // every 30 minutes while one can't be, such as when its signup page won't load; while they are switched off, never
+  // (#99), so the start after they are turned on prepares each one due. Their Corrections go with the Miner's.
   let cancelWalkthroughsRetry = () => {};
-  const prepareWalkthroughs = () =>
+  const prepareWalkthroughs = () => {
+    if (!config.walkthroughs.on) return;
     lane.add('walkthroughs', 'walkthrough-preparation', async () => {
       cancelWalkthroughsRetry();
       let left = true;
@@ -195,6 +197,7 @@ export async function startAssistant(options: {
         if (left && !stopped) cancelWalkthroughsRetry = inMinutes(clock, config.miner.retryMinutes, prepareWalkthroughs);
       }
     });
+  };
   let cancelWalkthroughCorrectionsRetry = () => {};
   const correctWalkthroughs = () =>
     lane.add('walkthrough corrections', 'correction', async () => {

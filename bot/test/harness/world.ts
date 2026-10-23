@@ -123,6 +123,7 @@ export async function startWorld(options: {
     },
     productHunt: { apiUrl: productHunt.apiUrl },
     browser: { socketPath: browser.socketPath },
+    walkthroughs: { on: true },
     signupMailbox: SIGNUP_MAILBOX,
     gateway: { baseUrl: model.baseUrl },
     roles: {

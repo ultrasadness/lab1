@@ -1,8 +1,8 @@
-// Walkthroughs (#53, #10, #11, #12): once an open or waitlisted Product's post is up, plain code reads its signup page
-// again, live, and a registration-role run prepares the Walkthrough from that read, the Dossier and the Profile. Card
-// fields on the page, or a wall the run names that nothing can get past, mean no Walkthrough, and the Dossier says
-// why. Otherwise its card goes to #needs-you, a copy of each version goes to the Product's post, the post is tagged
-// *Walkthrough*, and the Dossier's Register line says where it is.
+// Walkthroughs (#53, #10, #11, #12), while the config has them on (#99): once an open or waitlisted Product's post is
+// up, plain code reads its signup page again, live, and a registration-role run prepares the Walkthrough from that
+// read, the Dossier and the Profile. Card fields on the page, or a wall the run names that nothing can get past, mean
+// no Walkthrough, and the Dossier says why. Otherwise its card goes to #needs-you, a copy of each version goes to the
+// Product's post, the post is tagged *Walkthrough*, and the Dossier's Register line says where it is.
 // The person then:
 // - edits one field, which makes a new version of the same card with a fresh Approve, and is no Correction;
 // - corrects it, which turns Approve off at once; a registration-role run prepares it again with their Correction, the

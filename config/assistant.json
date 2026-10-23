@@ -19,7 +19,10 @@
   "browser": {
     "socketPath": "set at go-live"
   },
-  "signupMailbox": "set at go-live",
+  "walkthroughs": {
+    "on": false
+  },
+  "signupMailbox": "set when Walkthroughs turn on",
   "gateway": {
     "baseUrl": "http://127.0.0.1:3000/v1"
   },

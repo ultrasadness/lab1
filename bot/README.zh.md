@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，借助 Node 的类型剥离（type stripping）原样运行，自己没有任何 npm 依赖。它持有所有令牌，独自写入实时存储（live store），并发出所有对外调用。规格是 #41。它的第一个切片（#42）打通了 Miner 从 Product Hunt 到 Miner days 论坛的路径，#47 为每个达到或高于 Day's line 的 Launch 加上一份 Dossier，#48 让这个人可以对 Miner 的评判做 Correction，#49 把每个 Correction 分为只修正本项、Interest scope 的改动或 Rule，并把每条保留下来的 Rule 载入之后的运行，#53 为每个 open 或 waitlisted 的 Product 把一份 Walkthrough 交给这个人，它的 Approval 开启这个 Product 的 Registration。
+Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，借助 Node 的类型剥离（type stripping）原样运行，自己没有任何 npm 依赖。它持有所有令牌，独自写入实时存储（live store），并发出所有对外调用。规格是 #41。它的第一个切片（#42）打通了 Miner 从 Product Hunt 到 Miner days 论坛的路径，#47 为每个达到或高于 Day's line 的 Launch 加上一份 Dossier，#48 让这个人可以对 Miner 的评判做 Correction，#49 把每个 Correction 分为只修正本项、Interest scope 的改动或 Rule，并把每条保留下来的 Rule 载入之后的运行，#53 为每个 open 或 waitlisted 的 Product 把一份 Walkthrough 交给这个人，它的 Approval 开启这个 Product 的 Registration。#99 让配置可以关掉 Walkthrough，发布时它们就是关着的。
 
 | 路径 | 是什么 |
 |---|---|
@@ -45,7 +45,7 @@ node --test bot/test/miner-day.test.ts # one file
 
 假的浏览器服务在一个 Unix 套接字上回答 `read(url)`。每个 Launch 的网站跳转都通向 `.example` 上一个属于它自己的普通站点，带一个价格页和一个注册页，除非测试从 `bot/test/harness/dossier-fixtures.ts` 提供某个真实 Product 的页面。
 
-每次 Pi 运行大约要半秒 CPU，一个 Miner 日除了评判运行，还要为它的每份 Dossier 各跑一次，再为每个 open 或 waitlisted 的 Product 的 Walkthrough 各跑一次，所以 fixture 日的 Dossier 会让每个发出一天的测试都付出代价。不是测 Dossier 的测试，用 `world.model.onlyDossiers(postIds)` 把它那一天的 Dossier 限制在需要的几份：其他每个 Launch 都会被评判在 Day's line 以下。
+每次 Pi 运行大约要半秒 CPU，一个 Miner 日除了评判运行，还要为它的每份 Dossier 各跑一次，再为每个 open 或 waitlisted 的 Product 的 Walkthrough 各跑一次（harness 启动机器人时 Walkthrough 是打开的），所以 fixture 日的 Dossier 会让每个发出一天的测试都付出代价。不是测 Dossier 的测试，用 `world.model.onlyDossiers(postIds)` 把它那一天的 Dossier 限制在需要的几份：其他每个 Launch 都会被评判在 Day's line 以下。
 
 假的 Product Hunt 只回答真实 API 的实时 schema 接受、变量也符合这份 schema 的查询，其他查询一律拒绝：回复里有 GraphQL 错误，没有数据。这样，写错的字段、参数或 enum 值会让测试失败，而不是等到上线时才让机器人的读取失败。`npm run capture:producthunt-schema` 通过内省（introspection）抓取这份 schema，以 SDL 形式写到 `bot/test/fixtures/producthunt/schema.graphql`，假的 Product Hunt 就从那里读取它。遇到 HTTP 错误、GraphQL 错误，或者回复建不出 schema 时，脚本什么都不写，并说明原因。这个脚本由这个人来运行，因为 agent 从不读取令牌：它像机器人一样，自己读取 `$CREDENTIALS_DIRECTORY` 里的 `producthunt-token`，并向机器人配置里写的 API 发请求。在 Claude Code 会话里，在命令前输入 `!`，令牌就不会进入 agent 的上下文。每当 `bot/src/product-hunt.ts` 里的某个查询改变，或者实时 API 可能已经改变时，就再运行一次，并提交它写出的文件。
 
@@ -59,13 +59,15 @@ CREDENTIALS_DIRECTORY=/path/to/credentials npm run capture:producthunt-schema
 
 机器人的 Personal database checkout 位于 `personalDatabase.dir`：这个人的仓库的一个克隆，检出 `main`，`origin` 指向仓库的 ssh URL。机器人在里面运行 git 时，除了这个 checkout 自己的 git 配置之外不读任何配置，并带着 deploy key 通过 `personalDatabase.ssh` 访问 GitHub，所以机器人用户的 `known_hosts` 里必须有 GitHub 的主机密钥。每次运行前它都快进这个 checkout，运行从其中的 `profile/interest-scope.md` 读取 Interest scope。机器人写的每个文件，比如 `days/<YYYY-MM-DD>.md`，都先在实时存储里排队，再单独提交，每次提交都会推送。被 GitHub 拒绝的推送，或者已经分叉的历史，每隔 `personalDatabase.retryMinutes` 重试一次。
 
-这个人的 Profile 是其中的 `profile/profile.md`，用这个人自己写的任意 Markdown。Walkthrough 的运行从它读取要填的名字；在没有这个文件时，Walkthrough 让名字留空，并写明去哪里补上。每个 Product 的 Signup identity 是 `signupMailbox`（Signup mailbox 自己的地址）的一个加号地址，表单拒绝 `+` 时退回到这个地址本身（ADR 0003）。
+这个人的 Profile 是其中的 `profile/profile.md`，用这个人自己写的任意 Markdown。Walkthrough 的运行从它读取要填的名字；在没有这个文件时，Walkthrough 让名字留空，并写明去哪里补上。每个 Product 的 Signup identity 是 `signupMailbox`（Signup mailbox 自己的地址）的一个加号地址，表单拒绝 `+` 时退回到这个地址本身（ADR 0003）。Walkthrough 打开时，或者还有 Walkthrough 在 `#needs-you` 里时，机器人需要它。
 
 每次运行从这个 checkout 的最后一次提交载入它的 Rule（ADR 0002）：`rules/all/` 里的每个文件，以及它自己作用范围的文件夹 `miner`、`dossier`、`registration` 或 `mail` 里的每个文件，即 `rules/<scope>/<slug>.md`。我们的扩展在这次运行开始前向 forwarder 要来这些 Rule，把每一条完整地放进这次运行的系统提示词，所以拿不到 Rule 的运行不会开始。一条记录写明它用了哪些 Rule，写了这次运行没有载入的 Rule 的记录会被机器人退回。一个 Correction 的 Launch 重新评判之后，一次 Miner 角色的运行为这个 Correction 分类。当天的文件写明分类的结果，因 Hard limit 被拒（declined）的 Correction 还会在每日帖子里它那个 Launch 的那一行上写明。Walkthrough 的 Correction 也这样分类，由一次载入 Walkthrough/Registration Rule 的 registration 角色运行来做，它的 Product 的 `registration.md` 写明分类的结果。提议的 Rule、对一条已保留 Rule 的修订，或 Interest scope 的改动，会作为紫色卡片发到 `#needs-you`。Keep 会在写入锁下提交这个 Rule 文件或 `profile/interest-scope.md`，除非自提议以来 git 里它要替换的内容变了，或者这条 Rule 会让它那些运行的 Rule 超出 Rule budget，即 `rules.budgetTokens`（约 4,000 个 token，按四个字符一个 token 计）。这时卡片写明原因，并保持打开。
 
 Dossier 发到 Products 论坛 `discord.productsForumId`，论坛标签由这个人创建：*Walkthrough*、*Registering*、*Needs you*、*registered*、*waitlisted*、*handed off*、*abandoned*、*no account* 和 *Skipped*。机器人按名字找标签，所以只有名字要紧；目前它打 *no account*；Walkthrough 等着这个人时打 *Walkthrough*；Walkthrough 被批准后打 *Registering* 或 *handed off*；并给被一次 Correction 撤回的 Dossier 的帖子打 *Skipped*。Dossier 通过位于 `browser.socketPath` 的浏览器服务套接字（`browser/README.md`）读取它的 Product 的页面，每次读取都在 `pages/` 下和其他原始输入放在一起，保留 90 天。
 
-一个 open 或 waitlisted 的 Product 的帖子发出后，机器人再实时读一次它的注册页：它的落地页链接到的那一页，落地页没有链接到注册页时就读落地页本身。一次 registration 角色的运行根据这次读取、Dossier 和 Profile 准备 Walkthrough。它的卡片发到 `#needs-you`，每个版本的副本发到 Product 的帖子里，Dossier 的 Register 一行写明 Walkthrough 处在哪里。注册页上有银行卡字段，或者运行指出了一道什么都过不去的 Wall，就没有 Walkthrough，Register 写明原因。Edit 在同一张卡片上产生新版本，Correct 由另一次运行产生一张新卡片，Dismiss 结束它。没人回应的 Walkthrough 在 14 天后过期，带 **Prepare again**。Approve 记下 Approval 并开启 Registration：通常以 *queued* 开启，Product 的条款禁止机器人创建账号时以 *handed off* 开启；两种情况都在帖子里发一条静默的状态消息，并在 `registration.md` 里写一行。填写表单是 #56 的事，状态消息上的 **Stop** 也随它接通。
+只有 `walkthroughs.on` 为 `true` 时才有 Walkthrough，它和其他设置一样通过 `ops/upgrade` 修改。`config/assistant.json` 发布时把它们关着，上线（#85）也让它们一直关着，直到 #56 让 Approval 能填写表单。关着时，机器人不准备新的 Walkthrough：不会为它读取注册页，也没有运行准备它，所以没有卡片发到 `#needs-you`，没有帖子被打上 *Walkthrough*，Dossier 的 Register 一行也不提 Walkthrough；机器人没有 `signupMailbox` 也能启动。把它们打开的那次启动，会为关着期间发出 Dossier 的每个 open 或 waitlisted 的 Product 准备一份 Walkthrough，不管那份 Dossier 有多旧，从最旧的开始，在后台通道里进行。再把它们关掉，只会停止这种准备，Prepare again 的也算在内，并扣下卡片没发出去的版本（由这个人在 #99 中决定）：已经在 `#needs-you` 里的 Walkthrough 仍然可以 Approve、Edit、Correct 或 Dismiss，而 Correction 的运行仍然需要 `signupMailbox`。
+
+Walkthrough 打开时，一个 open 或 waitlisted 的 Product 的帖子发出后，机器人再实时读一次它的注册页：它的落地页链接到的那一页，落地页没有链接到注册页时就读落地页本身。一次 registration 角色的运行根据这次读取、Dossier 和 Profile 准备 Walkthrough。它的卡片发到 `#needs-you`，每个版本的副本发到 Product 的帖子里，Dossier 的 Register 一行写明 Walkthrough 处在哪里。注册页上有银行卡字段，或者运行指出了一道什么都过不去的 Wall，就没有 Walkthrough，Register 写明原因。Edit 在同一张卡片上产生新版本，Correct 由另一次运行产生一张新卡片，Dismiss 结束它。没人回应的 Walkthrough 在 14 天后过期，带 **Prepare again**。Approve 记下 Approval 并开启 Registration：通常以 *queued* 开启，Product 的条款禁止机器人创建账号时以 *handed off* 开启；两种情况都在帖子里发一条静默的状态消息，并在 `registration.md` 里写一行。填写表单是 #56 的事，状态消息上的 **Stop** 也随它接通。
 
 ```sh
 docker build -f pi/Dockerfile -t assistant-pi .
