@@ -57,6 +57,11 @@ export interface Config {
   productHunt: { apiUrl: string };
   /** The browser service's Unix socket, which only the bot's user can reach (ADR 0006). */
   browser: { socketPath: string };
+  /**
+   * The Signup mailbox's own address (ADR 0003). Each Product's Signup identity is its plus-address, with this one as
+   * the fallback for a form that refuses `+`.
+   */
+  signupMailbox: string;
   /** new-api's OpenAI-compatible base URL, reached only by the forwarder. */
   gateway: { baseUrl: string };
   /** Each role's providers, in priority order. For now the first one serves every request. */
@@ -128,6 +133,7 @@ export function checkConfig(config: Config): string[] {
   if (!(config.miner?.retryMinutes > 0)) problems.push('miner.retryMinutes must be above 0');
   if (!/^\d{2}:\d{2}$/.test(config.miner?.lateAt ?? '')) problems.push('miner.lateAt must look like 06:00');
   if (!config.browser?.socketPath?.startsWith('/')) problems.push("browser.socketPath must be the browser service's socket, as an absolute path");
+  if (!/^[^\s@+]+@[^\s@]+\.[^\s@]+$/.test(config.signupMailbox ?? '')) problems.push("signupMailbox must be the Signup mailbox's address, with no +");
   if (!(config.personalDatabase?.ssh?.length > 0)) problems.push('personalDatabase.ssh must name the ssh command');
   if (!(config.personalDatabase?.retryMinutes > 0)) problems.push('personalDatabase.retryMinutes must be above 0');
   if (!(config.pi?.command?.length > 0)) problems.push('pi.command must name the command that starts a run');

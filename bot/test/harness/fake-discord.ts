@@ -19,6 +19,9 @@ const MAX_POPUP_TITLE = 45;
 const MAX_POPUP_COMPONENTS = 5;
 const MAX_LABEL = 45;
 const MAX_TEXT_INPUT = 4000;
+/** A radio group: one choice among 2 to 10 options, in a label of a pop-up. */
+const RADIO_GROUP = 21;
+const MAX_RADIOS = 10;
 
 interface Component {
   type: number;
@@ -115,8 +118,19 @@ export interface SeenPopup {
   title: string;
   /** Text shown above the fields. */
   texts: string[];
-  /** Each field, with what it holds as the pop-up opens, if anything. */
-  fields: { customId: string; label: string; required: boolean; multiline: boolean; maxLength: number | undefined; value?: string }[];
+  /**
+   * Each field, with what it holds as the pop-up opens, if anything. A radio group has its options, and the one
+   * chosen as it opens as its value.
+   */
+  fields: {
+    customId: string;
+    label: string;
+    required: boolean;
+    multiline: boolean;
+    maxLength: number | undefined;
+    value?: string;
+    options?: string[];
+  }[];
 }
 
 export interface InteractionReply {
@@ -151,6 +165,8 @@ export class FakeDiscord {
   #seq = 0;
   #nextId = 500000000000000000n;
   #pending = new Map<string, { messageId?: string; resolve: (reply: InteractionReply) => void }>();
+  /** The radio groups in each pop-up the bot opened, by the pop-up's custom_id, whose submissions carry them as such. */
+  #radios = new Map<string, Set<string>>();
   #lost: { kind: 'post' | 'message'; remaining: number; forumId: string | undefined }[] = [];
 
   private constructor(token: string) {
@@ -224,8 +240,8 @@ export class FakeDiscord {
   }
 
   /**
-   * Discord takes the `nth` forum post or message created from now on, in one forum if one is named, but its reply
-   * never reaches the bot, as when the bot stops in the middle of the request.
+   * Discord takes the `nth` forum post or message created from now on, in one forum or text channel if one is named,
+   * but its reply never reaches the bot, as when the bot stops in the middle of the request.
    */
   loseReply(kind: 'post' | 'message', nth = 1, forumId?: string): void {
     this.#lost.push({ kind, remaining: nth, forumId });
@@ -281,7 +297,7 @@ export class FakeDiscord {
         custom_id: options.customId,
         components: Object.entries(options.fields).map(([custom_id, value]) => ({
           type: 18,
-          component: { type: 4, custom_id, value },
+          component: { type: this.#radios.get(options.customId)?.has(custom_id) ? RADIO_GROUP : 4, custom_id, value },
         })),
       },
       ...(options.messageId ? { message: { id: options.messageId, channel_id: options.channelId } } : {}),
@@ -395,6 +411,13 @@ export class FakeDiscord {
       const answer = JSON.parse(raw) as InteractionReply;
       if (answer.type === 9) {
         const problem = checkPopup(answer.data ?? {});
+        if (problem) return refuse(problem);
+        const radios = (answer.data?.components ?? []).filter((c) => c.component?.type === RADIO_GROUP).map((c) => c.component!.custom_id!);
+        this.#radios.set(answer.data!.custom_id!, new Set(radios));
+      }
+      // An ephemeral message of components is held to a message's limits too.
+      if (answer.type === 4 && (answer.data?.flags ?? 0) & IS_COMPONENTS_V2) {
+        const problem = checkMessage(answer.data as MessagePayload);
         if (problem) return refuse(problem);
       }
       // UPDATE_MESSAGE rewrites the message whose component was tapped.
@@ -517,6 +540,7 @@ export class FakeDiscord {
       if (problem) return refuse(problem);
       const id = this.#id();
       this.#textChannels.get(match[1]!)!.push({ id, channelId: match[1]!, payload: body });
+      if (this.#replyLost('message', match[1]!)) return void res.socket?.destroy();
       return reply(200, { id, channel_id: match[1] });
     }
 
@@ -584,7 +608,14 @@ function checkPopup(popup: { custom_id?: string; title?: string; components?: Co
     if (c.type !== 18) return 'a pop-up holds only text displays and labels';
     if (!c.label || c.label.length > MAX_LABEL) return `a label must be 1 to ${MAX_LABEL} characters`;
     const field = c.component;
-    if (field?.type !== 4 || !field.custom_id) return 'a label holds one text input with a custom_id';
+    if ((field?.type !== 4 && field?.type !== RADIO_GROUP) || !field.custom_id) return 'a label holds one text input or radio group with a custom_id';
+    if (field.type === RADIO_GROUP) {
+      const options = (field.options ?? []) as { label?: string; value?: string; default?: boolean }[];
+      if (options.length < 2 || options.length > MAX_RADIOS) return `a radio group holds 2 to ${MAX_RADIOS} options`;
+      if (options.some((o) => !o.label || o.label.length > 100 || !o.value || o.value.length > 100)) return 'a radio option needs a label and value of 1 to 100 characters';
+      if (options.filter((o) => o.default).length > 1) return 'a radio group has at most one default option';
+      continue;
+    }
     if (Number(field.max_length ?? MAX_TEXT_INPUT) > MAX_TEXT_INPUT) return `a text input takes at most ${MAX_TEXT_INPUT} characters`;
     if (typeof field.value === 'string' && field.value.length > Number(field.max_length ?? MAX_TEXT_INPUT)) return 'a text input’s value is over its max_length';
   }
@@ -602,15 +633,26 @@ export function popupOf(reply: InteractionReply): SeenPopup | undefined {
     texts: components.filter((c) => c.type === 10).map((c) => c.content ?? ''),
     fields: components
       .filter((c) => c.type === 18)
-      .map((c) => ({
-        customId: c.component?.custom_id ?? '',
-        label: c.label ?? '',
-        required: c.component?.required !== false,
-        multiline: c.component?.style === 2,
-        maxLength: typeof c.component?.max_length === 'number' ? c.component.max_length : undefined,
-        ...(typeof c.component?.value === 'string' ? { value: c.component.value } : {}),
-      })),
+      .map((c) => {
+        const options = c.component?.type === RADIO_GROUP ? ((c.component.options ?? []) as { label: string; value: string; default?: boolean }[]) : undefined;
+        const chosen = options?.find((o) => o.default)?.value;
+        return {
+          customId: c.component?.custom_id ?? '',
+          label: c.label ?? '',
+          required: c.component?.required !== false,
+          multiline: c.component?.style === 2,
+          maxLength: typeof c.component?.max_length === 'number' ? c.component.max_length : undefined,
+          ...(typeof c.component?.value === 'string' ? { value: c.component.value } : {}),
+          ...(options ? { options: options.map((o) => o.value), ...(chosen ? { value: chosen } : {}) } : {}),
+        };
+      }),
   };
+}
+
+/** The ephemeral message of components a reply shows only the person, as they see it, or undefined if it shows none. */
+export function ephemeralOf(reply: InteractionReply): SeenMessage | undefined {
+  if (reply.type !== 4 || !reply.data || !((reply.data.flags ?? 0) & EPHEMERAL) || !reply.data.components) return undefined;
+  return seen({ id: '', channelId: '', payload: reply.data as MessagePayload });
 }
 
 /** The message a reply rewrites the tapped message into, as the person sees it, or undefined if it rewrites none. */

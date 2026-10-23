@@ -2,13 +2,14 @@
 // - `dossier.md` is always the whole Dossier, never shortened (#40 §4), its citations named links in brackets. The bot
 //   rewrites it whenever the Dossier changes, so git keeps every version.
 // - `registration.md` holds the Registration's milestone lines, appended from the live store, and until there is a
-//   Registration says so on one line.
+//   Registration says so on one line (`bot/src/walkthrough/registration-file.ts`).
 // - `notes.md` is the person's. The bot creates it once, empty, and never writes it again.
 // Every date in them carries its year and zone (#37).
 import { launchUrl } from '../miner/day-post.ts';
 import { fullDate, fullTime } from '../pacific.ts';
 import { plain } from '../personal-database.ts';
 import { headLine, launchText, NO_OFFER, offerText, postTitle } from './card.ts';
+import { registrationFile, registrationPath } from '../walkthrough/registration-file.ts';
 import { SOURCE_NAMES, type Dossier, type Part, type SourceKey } from './dossier.ts';
 
 /** A file to write, with its commit's message; one written only if the file isn't there yet is never overwritten. */
@@ -33,14 +34,8 @@ export function newProductFiles(d: Dossier, version: number): ProductFile[] {
   return [
     { path: dossierPath(d.rootDomain), content: dossierFile(d), message: `Dossier v${version}: ${product}` },
     {
-      path: `${folder}/registration.md`,
-      content: [
-        `# ${title} · Registration`,
-        '',
-        '<!-- Appended by the bot at milestones from the live store. Edits here are not read back. -->',
-        'No Registration yet.',
-        '',
-      ].join('\n'),
+      path: registrationPath(d.rootDomain),
+      content: registrationFile(title, { noWalkthrough: null, registered: false, lines: [] }),
       message: `Registration file: ${product}, none yet`,
     },
     { path: `${folder}/notes.md`, content: '', message: `Notes file for the person: ${product}`, createOnly: true },

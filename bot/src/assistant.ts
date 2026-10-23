@@ -22,7 +22,9 @@ import { ProductHunt } from './product-hunt.ts';
 import { RawInputs } from './raw-inputs.ts';
 import { Proposals } from './rules/proposals.ts';
 import { loadRules } from './rules/rules.ts';
+import { correctionOf } from './rules/sorting.ts';
 import { Store } from './store.ts';
+import { Walkthroughs } from './walkthrough/walkthroughs.ts';
 
 export type { LogEntry };
 
@@ -83,7 +85,7 @@ export async function startAssistant(options: {
     token: discordToken,
     log,
     onInteraction: (interaction) => {
-      plainWork(answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct, proposals }));
+      plainWork(answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct, proposals, walkthroughs }));
     },
   });
   // Plain-code work under way, which never queues in the lane: taps and pop-ups being answered, which may queue work or
@@ -125,21 +127,41 @@ export async function startAssistant(options: {
     log,
   });
   const browser = new BrowserService({ socketPath: config.browser.socketPath });
-  const dossiers = new Dossiers({ config, store, browser, pi, discord, personalDatabase, rawInputs, clock, log });
+  // The background lane runs one job at a time (#11): Corrections, then Walkthrough preparation, then the Miner (#40 §8).
+  const lane = new Lane(log);
+  const dossiers = new Dossiers({ config, store, browser, pi, discord, personalDatabase, rawInputs, walkthroughsDue: () => prepareWalkthroughs(), clock, log });
   const miner = new Miner({ config, store, productHunt, pi, discord, status, personalDatabase, dossiers, clock, log });
   const proposals = new Proposals({
     store,
     personalDatabase,
     needsYou,
     budgetTokens: config.rules.budgetTokens,
-    showDecision: (correctionId) => corrections.showDecision(correctionId),
+    showDecision: (key) => {
+      const { kind, id } = correctionOf(key)!;
+      return kind === 'walkthrough' ? walkthroughs.showDecision(id) : corrections.showDecision(id);
+    },
     clock,
     log,
   });
   const corrections = new Corrections({ store, pi, discord, personalDatabase, dossiers, proposals, clock, log });
+  const walkthroughs = new Walkthroughs({
+    config,
+    store,
+    browser,
+    pi,
+    discord,
+    needsYou,
+    dossiers,
+    personalDatabase,
+    proposals,
+    rawInputs,
+    walkthroughsDue: () => prepareWalkthroughs(),
+    correctionsDue: () => correctWalkthroughs(),
+    plainWork: (work) => plainWork(work().catch((error: unknown) => log('walkthrough.work-failed', { error: errorText(error) }))),
+    clock,
+    log,
+  });
 
-  // The background lane runs one job at a time (#11), Corrections before the Miner (#40 §8).
-  const lane = new Lane(log);
   const retry = (id: number) => {
     const tapped = miner.tapRetry(id);
     if ('work' in tapped) lane.add(`miner retry ${id}`, 'miner', tapped.work);
@@ -159,9 +181,33 @@ export async function startAssistant(options: {
       }
     });
   gateway.start();
+  let stopped = false;
+  // Walkthroughs are prepared once a Product's post is up, at every start, when the person taps Prepare again, and
+  // every 30 minutes while one can't be, such as when its signup page won't load. Their Corrections go with the Miner's.
+  let cancelWalkthroughsRetry = () => {};
+  const prepareWalkthroughs = () =>
+    lane.add('walkthroughs', 'walkthrough-preparation', async () => {
+      cancelWalkthroughsRetry();
+      let left = true;
+      try {
+        left = await walkthroughs.prepareDue();
+      } finally {
+        if (left && !stopped) cancelWalkthroughsRetry = inMinutes(clock, config.miner.retryMinutes, prepareWalkthroughs);
+      }
+    });
+  let cancelWalkthroughCorrectionsRetry = () => {};
+  const correctWalkthroughs = () =>
+    lane.add('walkthrough corrections', 'correction', async () => {
+      cancelWalkthroughCorrectionsRetry();
+      let left = true;
+      try {
+        left = await walkthroughs.workCorrections();
+      } finally {
+        if (left && !stopped) cancelWalkthroughCorrectionsRetry = inMinutes(clock, config.miner.retryMinutes, correctWalkthroughs);
+      }
+    });
   // The Miner catches up at its daily start, at every start of the bot (a start missed while it was down runs
   // now), and every 30 minutes while a date in its window can't finish.
-  let stopped = false;
   let cancelRetry = () => {};
   const catchUp = () =>
     lane.add('miner', 'miner', async () => {
@@ -196,8 +242,11 @@ export async function startAssistant(options: {
   lane.add('raw-inputs expiry', 'miner', async () => rawInputs.expire());
   catchUp();
   correct();
-  // A Keep tapped before a stop, or a decision not yet shown, is done now.
+  correctWalkthroughs();
+  prepareWalkthroughs();
+  // A Keep tapped before a stop, or a decision not yet shown, is done now; so is an Approval, Edit, dismissal or lapse.
   plainWork(proposals.resume());
+  plainWork(walkthroughs.resume());
   // Commits a refused push left in the checkout, and files queued before a stop, don't wait for the Miner's next run.
   void personalDatabase.sync();
 
@@ -213,6 +262,9 @@ export async function startAssistant(options: {
         cancelLate();
         cancelRetry();
         cancelCorrectionsRetry();
+        cancelWalkthroughsRetry();
+        cancelWalkthroughCorrectionsRetry();
+        walkthroughs.stop();
         personalDatabase.stop();
         lane.close();
         await pi.stop();
@@ -315,6 +367,8 @@ async function answer(
     correct(): void;
     /** Keep, Edit and Discard on the cards of proposals that Corrections' sorts made. */
     proposals: Proposals;
+    /** Approve, Edit, Correct, Dismiss and Prepare again on Walkthroughs' cards. */
+    walkthroughs: Walkthroughs;
   },
 ): Promise<void> {
   const { personUserId, discord, log } = options;
@@ -361,6 +415,25 @@ async function answer(
         await proposal.work?.();
       }
     }
+    const walkthrough =
+      interaction.type === 3
+        ? options.walkthroughs.tap(customId, { userId: userId!, interactionId: interaction.id, messageId: interaction.message?.id })
+        : interaction.type === 5
+          ? options.walkthroughs.submit(customId, (field) => popupField(interaction, field), interaction.message?.id)
+          : undefined;
+    if (walkthrough) {
+      if ('refused' in walkthrough) return await reply(walkthrough.refused);
+      if ('stale' in walkthrough) return await discord.respond(interaction.id, interaction.token, { type: 4, data: { ...walkthrough.stale } });
+      if ('popup' in walkthrough) return await discord.respond(interaction.id, interaction.token, { type: 9, data: { ...walkthrough.popup } });
+      try {
+        return await discord.respond(interaction.id, interaction.token, { type: 7, data: { ...walkthrough.update } });
+      } finally {
+        // Done once the answer is out, so the work's own edits come after it, and done even if Discord didn't take
+        // the answer, since the tap is kept already.
+        await walkthrough.work?.();
+      }
+    }
+    if (/^stop:registration:\d+$/.test(customId)) return await reply("Stop isn't wired up yet. It arrives with filling the form.");
     if (customId.startsWith('correct:dossier:') || customId.startsWith('add-offer:dossier:')) {
       return await reply("Correct and Add Offer aren't wired up yet. They arrive with Corrections to Dossiers.");
     }

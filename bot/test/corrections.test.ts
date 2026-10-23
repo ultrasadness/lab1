@@ -155,7 +155,11 @@ test('a Dossier corrected below the line is withdrawn: its post is closed as Ski
   assert.equal(withdrawn!.id, product!.id);
   assert.equal(withdrawn!.closed, true);
   assert.deepEqual(withdrawn!.tags, ['Skipped']);
-  assert.equal(withdrawn!.messages.length, 1);
+  assert.deepEqual(
+    withdrawn!.messages.slice(1).map((m) => m.text.split('\n')[0]!.split(' · ')[0]),
+    ['**Walkthrough v1**'],
+    'the copy of its Walkthrough stays too',
+  );
   assert.equal(
     withdrawn!.messages[0]!.text,
     [
@@ -187,7 +191,7 @@ test('a Dossier corrected below the line is withdrawn: its post is closed as Ski
   const [back, ...more] = world.discord.forumPosts(PRODUCTS_FORUM);
   assert.deepEqual(more, []);
   assert.equal(back!.closed, false);
-  assert.deepEqual(back!.tags, []);
+  assert.deepEqual(back!.tags, ['Walkthrough'], 'its Walkthrough still waits');
   assert.equal(back!.messages[0]!.text, dossier.text, 'its Dossier is back as it was');
   assert.deepEqual(back!.messages[0]!.buttons, dossier.buttons);
   assert.equal(world.model.dossierRuns.length, 1, 'the Dossier isn’t written again');

@@ -4,6 +4,7 @@
 // file has, a new Rule may not share a kept Rule's name, an amendment must name a kept Rule the run loaded, and a
 // declined Correction must name one of the Hard limits.
 import { fence } from '../fence.ts';
+import type { StoredSort } from '../store.ts';
 import { sameName, SCOPE_NAMES, type Rule, type RuleScope } from './rules.ts';
 
 /** The Hard limits, which no Correction or Rule can change, as the spec names them. */
@@ -15,6 +16,58 @@ export const HARD_LIMITS = [
   "No Secret in a model's input or a Discord message",
   'No cancelling an account or waitlist spot, no unsubscribing, and never suggesting either',
 ] as const;
+
+/** The kinds of item a Correction is made on. Each one's sorts are kept under its kind and id. */
+export type CorrectionKind = 'miner' | 'walkthrough';
+
+/** A Correction's key, as its sort is kept under it: `miner:12` or `walkthrough:3`. */
+export const sortKey = (kind: CorrectionKind, id: number) => `${kind}:${id}`;
+
+/** The kind and id a Correction's key names, or undefined if it names none. */
+export function correctionOf(key: string): { kind: CorrectionKind; id: number } | undefined {
+  const m = key.match(/^(miner|walkthrough):(\d+)$/);
+  return m ? { kind: m[1] as CorrectionKind, id: Number(m[2]) } : undefined;
+}
+
+/** What a Hard limit that declined a Correction says, on its line and in its history. */
+export const declinedText = (limit: string) => `declined: a Hard limit forbids it (${limit})`;
+
+/** What a Correction did once the person decided on its proposal, as a commit's message says it. */
+export function decidedText(sort: StoredSort): string {
+  if (!sort.keptAt) return 'is fix only';
+  const kind = sort.proposal!.kind;
+  return kind === 'rule' ? 'taught a Rule' : kind === 'amendment' ? 'amended a Rule' : 'changed the Interest scope';
+}
+
+/**
+ * What came of a Correction's sort, as the item's history says it once nothing more waits on it, with the Rules its run
+ * applied.
+ */
+export function sortNote(sort: StoredSort | undefined): string | null {
+  const note = settledSort(sort);
+  const rules = sort?.rulesApplied.length ? ` (Rules applied: ${sort.rulesApplied.join(', ')})` : '';
+  return note && `${note}${rules}`;
+}
+
+function settledSort(sort: StoredSort | undefined): string | null {
+  switch (sort?.outcome) {
+    case 'fix-only':
+      return 'fix only';
+    case 'unsorted':
+      return `fix only, as it couldn't be sorted: ${sort.why}`;
+    case 'declined':
+      return declinedText(sort.hardLimit!);
+    case 'proposed': {
+      const p = sort.proposal!;
+      if (sort.discardedAt) return 'fix only, its proposal discarded';
+      if (!sort.keptAt) return null;
+      if (p.kind === 'interest-scope') return 'changed the Interest scope';
+      return `${p.kind === 'rule' ? 'taught' : 'amended'} the Rule "${p.name}"`;
+    }
+    default:
+      return null;
+  }
+}
 
 /** The person's Interest scope, in the Personal database (#9). */
 export const INTEREST_SCOPE_PATH = 'profile/interest-scope.md';

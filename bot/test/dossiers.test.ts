@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { EPHEMERAL } from './harness/fake-discord.ts';
-import { INTEREST_SCOPE, MINER_DAYS_FORUM, PERSON, PRODUCTS_FORUM, STATUS, TOKENS, startWorld } from './harness/world.ts';
+import { INTEREST_SCOPE, MINER_DAYS_FORUM, NEEDS_YOU, PERSON, PRODUCTS_FORUM, STATUS, TOKENS, startWorld } from './harness/world.ts';
 import { fixtureDay, websiteOf } from './harness/fake-product-hunt.ts';
 import { said, type ScriptedDossier, type ScriptedOffer } from './harness/fake-model.ts';
 import { ACYCLIC, CODEMIND, serveProduct, XIRYN } from './harness/dossier-fixtures.ts';
@@ -40,9 +40,10 @@ test('an Open Product’s Dossier is posted silently as the first message of its
   assert.equal(posts.length, 1);
   const [post] = posts;
   assert.equal(post!.title, 'Codemind · Delegate coding. Get back code that works.');
-  assert.deepEqual(post!.tags, [], 'an Open Product has no tag until its Walkthrough');
-  const [dossier, ...rest] = post!.messages;
-  assert.deepEqual(rest, [], 'the Dossier is the post’s only message');
+  assert.deepEqual(post!.tags, ['Walkthrough'], 'an Open Product is tagged with its Walkthrough (#53)');
+  const [dossier, walkthrough, ...rest] = post!.messages;
+  assert.match(walkthrough!.text, /^\*\*Walkthrough v1\*\* · /, 'after the Dossier, only its Walkthrough’s copy');
+  assert.deepEqual(rest, []);
   assert.ok(dossier!.silent, 'the Dossier never notifies');
   assert.ok(dossier!.mentionsNobody);
   assert.equal(
@@ -50,7 +51,7 @@ test('an Open Product’s Dossier is posted silently as the first message of its
     [
       '## Codemind · Delegate coding. Get back code that works.',
       '**Open** · fit 8 · Mon Oct 12 · 1 Offer',
-      '**Register:** Sign in with an emailed link or Google at app.codemindhq.dev; signing in creates the account. No card.⁴ ⁵',
+      `**Register:** Sign in with an emailed link or Google at app.codemindhq.dev; signing in creates the account. No card.⁴ ⁵ Walkthrough in <#${NEEDS_YOU}>.`,
       '**What it is:** A build service your coding agent calls over MCP: it writes the code for one task, tests it against your acceptance criteria and returns the files. A failed build is never charged.¹ ²',
       '**For you:** Fits coding agents and what runs around them: routine tasks handed off from Claude Code or OpenCode. Free plan.⁴ ⁶',
       '**Offers**',
@@ -96,8 +97,8 @@ test('a Dossier run is a registration-role run given the Launch, its Maker comme
 
   assert.deepEqual(
     world.browser.reads,
-    [websiteOf(CODEMIND.postId), 'https://codemindhq.dev/pricing/', 'https://app.codemindhq.dev/'],
-    'the website redirect the API returns, then the pricing and signup pages the landing page links to, and nothing else',
+    [websiteOf(CODEMIND.postId), 'https://codemindhq.dev/pricing/', 'https://app.codemindhq.dev/', 'https://app.codemindhq.dev/'],
+    'the website redirect the API returns, then the pricing and signup pages the landing page links to, then the signup page again for its Walkthrough, and nothing else',
   );
   const [run] = world.model.dossierRuns;
   assert.deepEqual(run?.postIds, [CODEMIND.postId]);
@@ -134,7 +135,7 @@ test('a Dossier run is a registration-role run given the Launch, its Maker comme
   // Each read is kept as it came, outside git, for 90 days.
   const folder = join(world.dataDir, 'raw', 'pages', 'codemindhq.dev');
   const kept = readdirSync(folder).map((f) => (JSON.parse(readFileSync(join(folder, f), 'utf8')) as { url: string }).url);
-  assert.deepEqual(kept.sort(), ['https://app.codemindhq.dev/', 'https://codemindhq.dev/pricing/', websiteOf(CODEMIND.postId)]);
+  assert.deepEqual(kept.sort(), ['https://app.codemindhq.dev/', 'https://app.codemindhq.dev/', 'https://codemindhq.dev/pricing/', websiteOf(CODEMIND.postId)]);
   const run1 = world.logs.find((l) => l.event === 'run.finished' && l.kind === 'dossier');
   assert.equal(run1?.role, 'registration');
   assert.equal(run1?.outcome, 'settled');
@@ -181,17 +182,21 @@ test('a Product that signs in only with Google or GitHub is named so in Register
 
   await world.advanceTo('2026-10-14T08:00:00Z');
 
-  assert.deepEqual(world.browser.reads, [websiteOf(ACYCLIC.postId), 'https://acyclic.dev/auth'], 'its only sign-in link is the signup page');
+  assert.deepEqual(
+    world.browser.reads,
+    [websiteOf(ACYCLIC.postId), 'https://acyclic.dev/auth', 'https://acyclic.dev/auth'],
+    'its only sign-in link is the signup page, which its Walkthrough reads again',
+  );
   const prompt = said(world.model.requests.find((r) => r.tools.includes('record_dossier'))!, 'user');
   assert.ok(fenced(prompt).inside.includes('Welcome to Acyclic · Continue with Google · Continue with GitHub'), 'the run sees the signup page');
   assert.match(prompt, /^Maker comment: none$/m, 'none of its makers commented');
   const [post] = world.discord.forumPosts(PRODUCTS_FORUM);
-  assert.deepEqual(post!.tags, []);
+  assert.deepEqual(post!.tags, ['Walkthrough']);
   const lines = post!.messages[0]!.text.split('\n');
   assert.equal(lines[1], '**Open** · fit 7 · Wed Oct 14');
   assert.equal(
     lines[2],
-    '**Register:** Sign-in only with Google or GitHub at acyclic.dev/auth, so a Handoff with the Signup mailbox Google account.³',
+    `**Register:** Sign-in only with Google or GitHub at acyclic.dev/auth, so a Handoff with the Signup mailbox Google account.³ Walkthrough in <#${NEEDS_YOU}>.`,
   );
   assert.equal(
     lines.at(-2),
@@ -330,7 +335,7 @@ test('a Dossier still over 4,000 characters after its rewrite is cut to fit, and
     const shown = line.slice(`**${label}:** `.length).replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹ ]+$/, '');
     assert.ok(shown.endsWith('…') && part.text.startsWith(shown.slice(0, -1)), `${label} is cut at a word: ${shown.slice(-30)}`);
   }
-  assert.ok(lines.includes(`**Register:** ${first.register.text}³ ⁴`), 'Register is never cut');
+  assert.ok(lines.includes(`**Register:** ${first.register.text}³ ⁴ Walkthrough in <#${NEEDS_YOU}>.`), 'Register is never cut');
   assert.equal(lines.filter((l) => /^- \*\*Yours to act on:\*\* Offer \d/.test(l)).length, 5, 'nor is any Offer');
   assert.equal(
     lines.at(-1),
@@ -361,7 +366,7 @@ test('a Dossier of Markdown characters, which escaping doubles, is cut to fit at
   const card = post!.messages[0]!;
   assert.ok(card.textLength <= 4000, `${card.textLength} characters`);
   const lines = card.text.split('\n');
-  assert.match(lines.find((l) => l.startsWith('**Register:** '))!, /…³ ⁴$/, 'Register is cut at a word, its citations kept');
+  assert.match(lines.find((l) => l.startsWith('**Register:** '))!, /…³ ⁴ Walkthrough in <#\d+>\.$/, 'Register is cut at a word, its citations kept');
   const offers = lines.filter((l) => l.startsWith('- **Yours to act on:** '));
   assert.equal(offers.length, 10, 'every Offer stays');
   for (const line of offers) assert.match(line, /…\*³$/, 'each Offer is cut, its citation kept');

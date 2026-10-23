@@ -9,6 +9,8 @@
 // A Correction that puts a Dossier's Launch below its day's line withdraws it (#48): the post stays as the record,
 // closed and tagged *Skipped*, its first message replaced. One that puts it back above the line reopens the post with
 // its Dossier.
+// Once an open or waitlisted Product's post is up, its Walkthrough is due (#53). The post's tags, and what the
+// Dossier's Register line says of the Walkthrough, follow where the Product stands.
 import type { BrowserService, PageRead } from '../browser.ts';
 import type { Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
@@ -21,6 +23,7 @@ import { capText, type PiRunner } from '../pi-runs.ts';
 import type { RawInputs } from '../raw-inputs.ts';
 import { onRootDomain, rootDomain } from '../root-domain.ts';
 import type { Launch, ModelRequest, Product, Store } from '../store.ts';
+import { standingOf } from '../walkthrough/standing.ts';
 import { dossierCard, overBy, postTitle } from './card.ts';
 import { readDossier, SOURCE_KEYS, type Dossier, type DossierRecord, type SourceKey } from './dossier.ts';
 import { dossierPath, newProductFiles } from './files.ts';
@@ -41,10 +44,6 @@ export type Written = 'done' | 'stopped' | { problem: string };
 /** The landing page read, and the root domain it is on. */
 type Landing = Read & { rootDomain: string };
 
-/** The tag that marks a Product with no account to make (#33), and the one that marks a withdrawn Dossier (#40 §2). */
-const NO_ACCOUNT_TAG = 'no account';
-const SKIPPED_TAG = 'skipped';
-
 export class Dossiers {
   #config: Config;
   #store: Store;
@@ -53,6 +52,7 @@ export class Dossiers {
   #discord: DiscordRest;
   #personalDatabase: PersonalDatabase;
   #rawInputs: RawInputs;
+  #walkthroughsDue: () => void;
   #clock: Clock;
   #log: Log;
 
@@ -64,6 +64,8 @@ export class Dossiers {
     discord: DiscordRest;
     personalDatabase: PersonalDatabase;
     rawInputs: RawInputs;
+    /** Queues the preparation of each Walkthrough now due. */
+    walkthroughsDue(): void;
     clock: Clock;
     log: Log;
   }) {
@@ -74,6 +76,7 @@ export class Dossiers {
     this.#discord = options.discord;
     this.#personalDatabase = options.personalDatabase;
     this.#rawInputs = options.rawInputs;
+    this.#walkthroughsDue = options.walkthroughsDue;
     this.#clock = options.clock;
     this.#log = options.log;
   }
@@ -123,6 +126,7 @@ export class Dossiers {
     }
     if (product.withdrawnAt) return this.#putBack(product);
     await this.#ensurePost(product);
+    this.#walkthroughsDue();
     return 'done';
   }
 
@@ -135,7 +139,7 @@ export class Dossiers {
     const product = this.#store.productOfLaunch(postId);
     if (!product?.threadId || product.withdrawnAt) return 'done';
     const { dossier } = this.#store.latestDossier(product.id)!;
-    const tags = await this.#tagIds(dossier, true);
+    const tags = await this.#tagIds({ ...product, withdrawnAt: this.#clock.now().toISOString() });
     if (!tags) return { problem: `the Dossier for ${dossier.name} can't be withdrawn while the Products forum's tags can't be read` };
     // An archived post can't be edited, so it is opened first, and closed once its first message is replaced.
     await this.#discord.editThread(product.threadId, { archived: false });
@@ -152,17 +156,39 @@ export class Dossiers {
    */
   async #putBack(product: Product): Promise<Written> {
     const threadId = product.threadId!;
-    const { dossier } = this.#store.latestDossier(product.id)!;
-    const tags = await this.#tagIds(dossier, false);
+    const back = { ...product, withdrawnAt: null };
+    const tags = await this.#tagIds(back);
     // writeFor names the Dossier this is about.
     if (!tags) return { problem: "its post can't be reopened while the Products forum's tags can't be read" };
-    const { message } = dossierCard(dossier, product.id, await this.#personalDatabase.fileUrl(dossierPath(product.rootDomain)));
     await this.#discord.editThread(threadId, { archived: false });
-    await this.#discord.editMessage(threadId, threadId, asEdit(message));
+    await this.#discord.editMessage(threadId, threadId, asEdit(await this.#card(back)));
     await this.#discord.editThread(threadId, { applied_tags: tags });
     this.#store.saveProductWithdrawn(product.id, null);
     this.#log('dossier.put-back', { productId: product.id, threadId });
+    this.#walkthroughsDue();
     return 'done';
+  }
+
+  /**
+   * Shows where a posted Product now stands: its Dossier's Register line and its post's tags, as the store has them.
+   * While the forum's tags can't be read, the tags are left as they are. A withdrawn Dossier's post is left as it is.
+   */
+  async restand(productId: number): Promise<void> {
+    const product = this.#store.product(productId)!;
+    // A withdrawn Dossier's post shows its withdrawal until a Correction puts it back.
+    if (product.withdrawnAt) return;
+    const threadId = product.threadId!;
+    const tags = await this.#tagIds(product);
+    // An archived post can't be edited, so it is opened first.
+    await this.#discord.editThread(threadId, { archived: false, ...(tags ? { applied_tags: tags } : {}) });
+    await this.#discord.editMessage(threadId, threadId, asEdit(await this.#card(product)));
+  }
+
+  /** The Dossier's card as it now reads, its Register line saying where the Walkthrough stands. */
+  async #card(product: Product): Promise<MessagePayload> {
+    const { dossier } = this.#store.latestDossier(product.id)!;
+    const { registerNote } = standingOf(this.#store, product, this.#config.discord.needsYouChannelId);
+    return dossierCard(dossier, product.id, await this.#personalDatabase.fileUrl(dossierPath(product.rootDomain)), registerNote).message;
   }
 
   /** The landing page the Launch's website redirect leads to, and the root domain it is on. */
@@ -201,7 +227,8 @@ export class Dossiers {
     const { launch, date } = input;
     const root = landing.rootDomain;
     const pricing = await this.#readLinked('pricing page', pricingLink(landing.page, root), root);
-    const signup = await this.#readLinked('signup page', signupLink(landing.page, root), root);
+    const signupHref = signupLink(landing.page, root);
+    const signup = await this.#readLinked('signup page', signupHref, root);
     const launchLink = launchUrl(launch.slug);
     const links: Dossier['links'] = {
       launch: launchLink,
@@ -219,6 +246,7 @@ export class Dossiers {
       launches: [{ postId: launch.postId, date, slug: launch.slug, fit: input.fit, rank: launch.rank, featuredCount: input.featuredCount }],
       links,
       readAt: landing.readAt.toISOString(),
+      startUrl: signupHref ?? landing.page.finalUrl,
     };
 
     let kept: { record: DossierRecord; request: ModelRequest; final: boolean } | undefined;
@@ -300,7 +328,7 @@ export class Dossiers {
     }
     const { dossier } = this.#store.latestDossier(product.id)!;
     const { message, shortened } = dossierCard(dossier, product.id, await this.#personalDatabase.fileUrl(dossierPath(product.rootDomain)));
-    const tags = (await this.#tagIds(dossier, false)) ?? [];
+    const tags = (await this.#tagIds(product)) ?? [];
     this.#store.saveProductPostIntended(product.id);
     const { threadId } = await this.#discord.createForumPost(forumId, product.title, message, tags);
     this.#store.saveProductPost(product.id, threadId);
@@ -309,11 +337,11 @@ export class Dossiers {
 
   /**
    * The forum tags for where the Product stands, by the names the person gave them: *no account* for a Product with
-   * no Walkthrough to come, and *Skipped* once its Dossier is withdrawn. An Open or Waitlisted Product gets its
-   * *Walkthrough* tag with its Walkthrough (#53). Undefined if the forum's tags can't be read.
+   * no Walkthrough to come, *Skipped* once its Dossier is withdrawn, and for an open or waitlisted Product the tag of
+   * where its Walkthrough or Registration stands. Undefined if the forum's tags can't be read.
    */
-  async #tagIds(dossier: Dossier, withdrawn: boolean): Promise<string[] | undefined> {
-    const names = [...(dossier.record.state === 'no-account' ? [NO_ACCOUNT_TAG] : []), ...(withdrawn ? [SKIPPED_TAG] : [])];
+  async #tagIds(product: Product): Promise<string[] | undefined> {
+    const names = standingOf(this.#store, product, this.#config.discord.needsYouChannelId).tags;
     if (names.length === 0) return [];
     // A tag only labels the post, so a forum whose tags can't be read leaves the post's tags as they are.
     let tags: { id: string; name: string }[];

@@ -8,8 +8,14 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { dossierRun } from './dossier.ts';
 import { minerJudging, type RunKind } from './miner.ts';
 import { correctionSorting } from './sorting.ts';
+import { walkthroughPreparation } from './walkthrough.ts';
 
-const RUN_KINDS: Record<string, RunKind> = { 'miner-judging': minerJudging, dossier: dossierRun, 'correction-sorting': correctionSorting };
+const RUN_KINDS: Record<string, RunKind> = {
+  'miner-judging': minerJudging,
+  dossier: dossierRun,
+  'walkthrough-preparation': walkthroughPreparation,
+  'correction-sorting': correctionSorting,
+};
 
 function required(name: string): string {
   const value = process.env[name];

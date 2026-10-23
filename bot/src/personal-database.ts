@@ -80,6 +80,12 @@ export class PersonalDatabase {
     return readFileSync(join(this.#dir, path), 'utf8');
   }
 
+  /** A file the person may keep in the repo, such as their Profile, or undefined while they keep none. */
+  find(path: string): string | undefined {
+    const file = join(this.#dir, path);
+    return existsSync(file) ? readFileSync(file, 'utf8') : undefined;
+  }
+
   /**
    * The files under a folder that `keep` keeps, as the checkout's last commit holds them, with that commit. They are
    * read from the commit itself, so a sync writing the checkout meanwhile can't change what is read.

@@ -69,6 +69,11 @@ export interface Dossier {
   links: Partial<Record<SourceKey, string>>;
   /** When the Product's pages were read. */
   readAt: string;
+  /**
+   * Where a Walkthrough reads the signup page from: the signup page the landing page links to, or the landing page
+   * itself when it links to none. Never shown: it may hold a token.
+   */
+  startUrl: string;
 }
 
 /** An Offer the Assistant can't take up itself: one that needs a card, or anything beyond a code, deadline or cap. */

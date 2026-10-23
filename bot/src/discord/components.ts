@@ -55,11 +55,18 @@ export interface TextInput {
   /** What the field holds when the pop-up opens. */
   value?: string;
 }
+/** One choice among 2 to 10 options, in a pop-up. */
+export interface RadioGroup {
+  type: 21;
+  custom_id: string;
+  required: boolean;
+  options: { label: string; value: string; default?: boolean }[];
+}
 /** A pop-up field with its label. */
 export interface Label {
   type: 18;
   label: string;
-  component: TextInput;
+  component: TextInput | RadioGroup;
 }
 
 /** A pop-up: Discord allows a title of at most 45 characters. */
@@ -111,12 +118,13 @@ export const container = (accent: number, components: (TextDisplay | Section)[])
   components,
 });
 
-/** A pop-up field: a paragraph unless it is one line, empty unless it holds a value. */
+/** A pop-up field: a paragraph unless it is one line, empty unless it holds a value, and required unless it says not. */
 export interface PopupField {
   customId: string;
   label: string;
   maxLength: number;
   oneLine?: boolean;
+  required?: boolean;
   value?: string;
 }
 
@@ -134,7 +142,7 @@ export const popup = (customId: string, title: string, texts: string[], ...field
           type: 4,
           custom_id: field.customId,
           style: field.oneLine ? 1 : 2,
-          required: true,
+          required: field.required ?? true,
           max_length: field.maxLength,
           ...(field.value === undefined ? {} : { value: field.value }),
         },

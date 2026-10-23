@@ -19,6 +19,7 @@ import {
 } from '../discord/components.ts';
 import { count, launchUrl } from '../miner/day-post.ts';
 import { dayLabel, shortTime } from '../pacific.ts';
+import { REGISTER_NOTE_MAX } from '../walkthrough/standing.ts';
 import { SOURCE_KEYS, SOURCE_NAMES, yoursToActOn, type Dossier, type DossierLaunch, type Offer, type Part, type SourceKey } from './dossier.ts';
 
 /** Add Offer and Correct are wired in #66. */
@@ -62,24 +63,34 @@ interface Shape {
 
 const WHOLE: Shape = { collapsed: 0, kept: null, keptRest: null };
 
-/** How many characters over Discord's limit the whole card runs, or 0 when it fits. */
+/**
+ * How many characters over Discord's limit the whole card runs, or 0 when it fits. A Product with an account to make
+ * keeps room for what Register will say of its Walkthrough.
+ */
 export function overBy(d: Dossier, productId: number): number {
-  return Math.max(0, measure(cardOf(d, productId, WHOLE, undefined).components).text - MESSAGE_LIMITS.text);
+  const note = d.record.state === 'no-account' ? null : 'x'.repeat(REGISTER_NOTE_MAX);
+  return Math.max(0, measure(cardOf(d, productId, WHOLE, undefined, note).components).text - MESSAGE_LIMITS.text);
 }
 
 /**
  * The card as posted: whole when it fits, otherwise with its oldest Launches collapsed, then with What it is, For you
- * and Note cut as little as fits. `fullDossier` links the whole Dossier in git, which a shortened card points to.
+ * and Note cut as little as fits. `fullDossier` links the whole Dossier in git, which a shortened card points to, and
+ * Register ends with `registerNote`, what is known of the Product's Walkthrough, when there is one.
  */
-export function dossierCard(d: Dossier, productId: number, fullDossier: string | undefined): { message: MessagePayload; shortened: boolean } {
-  const whole = cardOf(d, productId, WHOLE, fullDossier);
+export function dossierCard(
+  d: Dossier,
+  productId: number,
+  fullDossier: string | undefined,
+  registerNote: string | null = null,
+): { message: MessagePayload; shortened: boolean } {
+  const whole = cardOf(d, productId, WHOLE, fullDossier, registerNote);
   if (fits(whole)) return { message: whole, shortened: false };
   for (let collapsed = 1; collapsed < d.launches.length; collapsed++) {
-    const folded = cardOf(d, productId, { ...WHOLE, collapsed }, fullDossier);
+    const folded = cardOf(d, productId, { ...WHOLE, collapsed }, fullDossier, registerNote);
     if (fits(folded)) return { message: folded, shortened: true };
   }
   const collapsed = d.launches.length - 1;
-  const at = (kept: number, keptRest: number | null) => cardOf(d, productId, { collapsed, kept, keptRest }, fullDossier);
+  const at = (kept: number, keptRest: number | null) => cardOf(d, productId, { collapsed, kept, keptRest }, fullDossier, registerNote);
   if (fits(at(0, null))) return { message: at(most((kept) => fits(at(kept, null))), null), shortened: true };
   // Only escaping can make the rest overrun, in a record of Markdown characters a page may have steered the model to
   // write. Register and the Offers' text are then cut too, at a word, keeping every Offer, Launch and citation. Within
@@ -99,7 +110,7 @@ function most(fitsAt: (share: number) => boolean): number {
   return low / 1000;
 }
 
-function cardOf(d: Dossier, productId: number, shape: Shape, fullDossier: string | undefined): MessagePayload {
+function cardOf(d: Dossier, productId: number, shape: Shape, fullDossier: string | undefined, registerNote: string | null): MessagePayload {
   const used = usedSources(d);
   const cite = (sources: SourceKey[]) => sources.map((k) => superscript(used.indexOf(k) + 1)).join(' ');
   const claim = (label: string, part: Part, kept: number | null) => `**${label}:** ${escapeMarkdown(shorten(part.text, kept))}${cite(part.sources)}`;
@@ -115,7 +126,7 @@ function cardOf(d: Dossier, productId: number, shape: Shape, fullDossier: string
   const body = [
     `## ${escapeMarkdown(postTitle(d))}`,
     headLine(d, dayLabel),
-    claim('Register', record.register, shape.keptRest),
+    `${claim('Register', record.register, shape.keptRest)}${registerNote ? ` ${registerNote}` : ''}`,
     claim('What it is', record.whatItIs, shape.kept),
     claim('For you', record.forYou, shape.kept),
     ...offers,

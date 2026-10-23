@@ -29,8 +29,13 @@ export const TOKENS = {
   deployKey: '-----BEGIN OPENSSH PRIVATE KEY-----\nthe Personal database deploy key\n-----END OPENSSH PRIVATE KEY-----\n',
 };
 
+/** The Signup mailbox's address (ADR 0003). */
+export const SIGNUP_MAILBOX = 'you@gmail.com';
+
 /** The Interest scope the Personal database starts with. */
 export const INTEREST_SCOPE = readFileSync(new URL('../fixtures/interest-scope.md', import.meta.url), 'utf8');
+/** The Profile the Personal database starts with, unless a test starts it without one. */
+export const PROFILE = readFileSync(new URL('../fixtures/profile.md', import.meta.url), 'utf8');
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 
@@ -70,6 +75,8 @@ export async function startWorld(options: {
   piCommand?: (piRun: string) => string[];
   /** Changes the config the bot first starts with. */
   configure?: (config: Config) => void;
+  /** Whether the Personal database starts with the person's Profile, `profile/profile.md`; it does unless this is false. */
+  profile?: boolean;
 }): Promise<World> {
   const dir = mkdtempSync(join(tmpdir(), 'assistant-test-'));
   const credentials = join(dir, 'credentials');
@@ -86,7 +93,7 @@ export async function startWorld(options: {
   const git = FakeGitRemote.create({
     dir: join(dir, 'github'),
     deployKey: TOKENS.deployKey,
-    files: { 'profile/interest-scope.md': INTEREST_SCOPE },
+    files: { 'profile/interest-scope.md': INTEREST_SCOPE, ...(options.profile === false ? {} : { 'profile/profile.md': PROFILE }) },
   });
   git.cloneTo(personalDatabase);
   // Pi retries a failed model request itself, after 2, 4 and 8 seconds by default; here after milliseconds.
@@ -116,6 +123,7 @@ export async function startWorld(options: {
     },
     productHunt: { apiUrl: productHunt.apiUrl },
     browser: { socketPath: browser.socketPath },
+    signupMailbox: SIGNUP_MAILBOX,
     gateway: { baseUrl: model.baseUrl },
     roles: {
       miner: { providers: [{ name: 'openrouter', model: 'judge-model-1' }] },

@@ -158,7 +158,9 @@ test('once the histories diverge, the bot stops committing and tells the person 
   // The next try finds the histories diverged, but the card waits until its branch is on GitHub.
   await world.advanceTo('2026-10-12T08:30:00Z');
   assert.deepEqual(world.git.branches(), ['main']);
-  assert.deepEqual(world.discord.cards(NEEDS_YOU), []);
+  // The day's Dossiers' Walkthroughs wait in #needs-you too; the Personal database's cards are among them.
+  const databaseCards = () => world.discord.cards(NEEDS_YOU).filter((c) => /Personal database/.test(c.text));
+  assert.deepEqual(databaseCards(), []);
 
   world.git.refusePushes = false;
   await world.advanceTo('2026-10-12T09:00:00Z');
@@ -169,7 +171,7 @@ test('once the histories diverge, the bot stops committing and tells the person 
   assert.equal(world.git.file('days/2026-10-12.md', branch), OCT_12, "the Assistant's commit waits on its own branch");
   assert.equal(world.git.file('days/2026-10-12.md'), undefined);
   assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }), ['Start the Personal database', 'Note an idea']);
-  let cards = world.discord.cards(NEEDS_YOU);
+  let cards = databaseCards();
   assert.equal(cards.length, 1);
   const card = cards[0]!;
   assert.deepEqual(card.mentions, [PERSON], 'the card notifies the person');
@@ -185,7 +187,7 @@ test('once the histories diverge, the bot stops committing and tells the person 
   await world.advanceTo('2026-10-13T08:00:00Z');
   assert.equal(world.discord.forumPosts(MINER_DAYS_FORUM).at(-1)?.title, 'Tue Oct 13 · 3 Dossiers · line 7');
   assert.equal(world.git.file('days/2026-10-13.md'), undefined);
-  assert.equal(world.discord.cards(NEEDS_YOU).length, 1, 'the person is told once');
+  assert.equal(databaseCards().length, 1, 'the person is told once');
 
   // The person merges the Assistant's branch on GitHub, and the next try picks up from there.
   world.git.mergeAsPerson(branch!);
@@ -199,7 +201,7 @@ test('once the histories diverge, the bot stops committing and tells the person 
     `Merge branch '${branch}'`,
     'Miner day Tue 2026-10-13 PT: 3 Dossiers, line 7',
   ]);
-  cards = world.discord.cards(NEEDS_YOU);
+  cards = databaseCards();
   assert.equal(cards.length, 1);
   assert.match(cards[0]!.text, /^Personal database: the histories rejoined at 01:30 PT Tue Oct 13\. The Assistant is committing again\.$/);
   assert.deepEqual(cards[0]!.lines, [], 'the card shrank to a line');

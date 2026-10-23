@@ -53,7 +53,7 @@ const NOTE_ROOM = 400;
  * saying why a Keep wasn't done.
  */
 export function cardFits(proposal: Proposal, item: SortedItem, rulesApplied: string[]): boolean {
-  const open = { correctionId: 0, version: 2, proposal, item, rulesApplied, keepTappedAt: null, notKept: 'x'.repeat(NOTE_ROOM) };
+  const open = { correction: 'miner:0', version: 2, proposal, item, rulesApplied, keepTappedAt: null, notKept: 'x'.repeat(NOTE_ROOM) };
   const { heading, body, buttons } = cardOf(open);
   // A Discord user id has at most 20 digits.
   return fits(needsYouCard('0'.repeat(20), heading, body, { accent: Accent.rule, buttons }));
@@ -62,15 +62,15 @@ export function cardFits(proposal: Proposal, item: SortedItem, rulesApplied: str
 /** What a tap on a card answers with, or why it is refused, and the plain-code work it leaves to do. */
 export type Tapped = { update: MessagePayload; work?: () => Promise<void> } | { popup: Popup } | { refused: string };
 
-const cardId = (action: 'keep' | 'edit' | 'discard', sort: Pick<StoredSort, 'correctionId' | 'version'>) =>
-  `${action}:sort:${sort.correctionId}:${sort.version}`;
+const cardId = (action: 'keep' | 'edit' | 'discard', sort: Pick<StoredSort, 'correction' | 'version'>) =>
+  `${action}:sort:${sort.correction}:${sort.version}`;
 
 export class Proposals {
   #store: Store;
   #personalDatabase: PersonalDatabase;
   #needsYou: NeedsYou;
   #budgetTokens: number;
-  #showDecision: (correctionId: number) => Promise<void>;
+  #showDecision: (correction: string) => Promise<void>;
   #clock: Clock;
   #log: Log;
   /** Keeps run one at a time, so each one measures the Rules the one before it kept. */
@@ -82,8 +82,8 @@ export class Proposals {
     needsYou: NeedsYou;
     /** The Rule budget, in tokens: what the Rules loaded into one run may take. */
     budgetTokens: number;
-    /** Shows what the person decided in the history of the item the Correction was made on. */
-    showDecision(correctionId: number): Promise<void>;
+    /** Shows what the person decided in the history of the item the Correction, by its key, was made on. */
+    showDecision(correction: string): Promise<void>;
     clock: Clock;
     log: Log;
   }) {
@@ -100,40 +100,40 @@ export class Proposals {
   async post(sort: StoredSort): Promise<void> {
     if (sort.cardIntended) return;
     const { heading, body, buttons } = cardOf(sort);
-    this.#store.saveSortCardIntended(sort.correctionId, true);
+    this.#store.saveSortCardIntended(sort.correction, true);
     try {
       const { messageId } = await this.#needsYou.post(heading, body, { accent: Accent.rule, buttons });
-      this.#store.saveSortCard(sort.correctionId, messageId);
+      this.#store.saveSortCard(sort.correction, messageId);
     } catch (error) {
-      if (refused(error)) this.#store.saveSortCardIntended(sort.correctionId, false);
+      if (refused(error)) this.#store.saveSortCardIntended(sort.correction, false);
       throw error;
     }
   }
 
   /** The person tapped a button on a proposal's card, the message `messageId`. Undefined if it isn't one. */
   tap(customId: string, messageId: string | undefined): Tapped | undefined {
-    const m = customId.match(/^(keep|edit|discard):sort:(\d+):(\d+)$/);
+    const m = customId.match(/^(keep|edit|discard):sort:([a-z-]+:\d+):(\d+)$/);
     if (!m) return undefined;
-    const [, action, id, version] = m;
-    const sort = this.#store.sortOf(Number(id));
+    const [, action, key, version] = m;
+    const sort = this.#store.sortOf(key!);
     if (!sort?.proposal) return { refused: 'That proposal is no longer on record.' };
     if (sort.keptAt) return { refused: 'It is kept already.' };
     if (sort.discardedAt) return { refused: 'It was discarded already.' };
     if (sort.keepTappedAt) return { refused: 'It is being kept.' };
     if (sort.version !== Number(version)) return { refused: 'It was edited since; the card now shows it as edited.' };
-    if (!sort.cardMessageId && messageId) this.#store.saveSortCard(sort.correctionId, messageId);
+    if (!sort.cardMessageId && messageId) this.#store.saveSortCard(sort.correction, messageId);
     const at = this.#clock.now().toISOString();
-    const { correctionId } = sort;
+    const { correction } = sort;
     if (action === 'keep') {
-      if (!this.#store.saveSortKeepTapped(correctionId, sort.version, at)) return { refused: 'It is being kept.' };
-      this.#log('proposal.keep-tapped', { correctionId, version: sort.version });
-      return { update: this.#cardPayload(this.#store.sortOf(correctionId)!), work: () => this.#keepInTurn(correctionId) };
+      if (!this.#store.saveSortKeepTapped(correction, sort.version, at)) return { refused: 'It is being kept.' };
+      this.#log('proposal.keep-tapped', { correction, version: sort.version });
+      return { update: this.#cardPayload(this.#store.sortOf(correction)!), work: () => this.#keepInTurn(correction) };
     }
     if (action === 'discard') {
-      if (!this.#store.saveSortDiscarded(correctionId, sort.version, at)) return { refused: 'It was decided already.' };
-      this.#log('proposal.discarded', { correctionId, version: sort.version });
-      const discarded = this.#store.sortOf(correctionId)!;
-      return { update: this.#needsYou.shrunk(settledLine(discarded, undefined)), work: () => this.#settle(correctionId) };
+      if (!this.#store.saveSortDiscarded(correction, sort.version, at)) return { refused: 'It was decided already.' };
+      this.#log('proposal.discarded', { correction, version: sort.version });
+      const discarded = this.#store.sortOf(correction)!;
+      return { update: this.#needsYou.shrunk(settledLine(discarded, undefined)), work: () => this.#settle(correction) };
     }
     return editPopup(sort);
   }
@@ -143,10 +143,10 @@ export class Proposals {
    * proposal as edited, as its next version.
    */
   submitEdit(customId: string, field: (customId: string) => string | undefined): Tapped | undefined {
-    const m = customId.match(/^edit:sort:(\d+):(\d+)$/);
+    const m = customId.match(/^edit:sort:([a-z-]+:\d+):(\d+)$/);
     if (!m) return undefined;
-    const [correctionId, version] = [Number(m[1]), Number(m[2])];
-    const p = this.#store.sortOf(correctionId)?.proposal;
+    const [correction, version] = [m[1]!, Number(m[2])];
+    const p = this.#store.sortOf(correction)?.proposal;
     if (!p) return { refused: 'That proposal is no longer on record.' };
     let edited: Proposal;
     if (p.kind === 'interest-scope') {
@@ -159,15 +159,15 @@ export class Proposals {
       if (!checked.ok) return { refused: `${checked.error} Edit it again.` };
       edited = p.kind === 'rule' ? { ...p, name: checked.name, statement: checked.statement } : { ...p, statement: checked.statement };
     }
-    const { item, rulesApplied } = this.#store.sortOf(correctionId)!;
+    const { item, rulesApplied } = this.#store.sortOf(correction)!;
     if (!cardFits(edited, item, rulesApplied)) {
       return { refused: 'That is too long to show on one Discord card. Edit it shorter.' };
     }
-    if (!this.#store.saveSortEdited(correctionId, version, edited)) {
+    if (!this.#store.saveSortEdited(correction, version, edited)) {
       return { refused: 'It was edited or decided since; the card shows where it stands.' };
     }
-    this.#log('proposal.edited', { correctionId, version: version + 1 });
-    return { update: this.#cardPayload(this.#store.sortOf(correctionId)!) };
+    this.#log('proposal.edited', { correction, version: version + 1 });
+    return { update: this.#cardPayload(this.#store.sortOf(correction)!) };
   }
 
   /**
@@ -176,20 +176,20 @@ export class Proposals {
    */
   async resume(): Promise<void> {
     for (const sort of this.#store.undoneProposals()) {
-      const { correctionId } = sort;
+      const { correction } = sort;
       try {
-        if (sort.keepTappedAt && !sort.keptAt) await this.#keepInTurn(correctionId);
-        else if (sort.keptAt || sort.discardedAt) await this.#settle(correctionId);
+        if (sort.keepTappedAt && !sort.keptAt) await this.#keepInTurn(correction);
+        else if (sort.keptAt || sort.discardedAt) await this.#settle(correction);
         else if (sort.cardMessageId) await this.#needsYou.edit(sort.cardMessageId, this.#cardPayload(sort));
       } catch (error) {
-        this.#log('proposal.resume-failed', { correctionId, error: errorText(error) });
+        this.#log('proposal.resume-failed', { correction, error: errorText(error) });
       }
     }
   }
 
-  #keepInTurn(correctionId: number): Promise<void> {
+  #keepInTurn(correction: string): Promise<void> {
     const run = this.#keeping.then(() =>
-      this.#keep(correctionId).catch((error: unknown) => this.#log('proposal.keep-failed', { correctionId, error: errorText(error) })),
+      this.#keep(correction).catch((error: unknown) => this.#log('proposal.keep-failed', { correction, error: errorText(error) })),
     );
     this.#keeping = run;
     return run;
@@ -201,8 +201,8 @@ export class Proposals {
    * person pushes meanwhile is written over. The proposal is recorded kept as its file is queued, so a stop after
    * that commits the file at the next start, and never checks it again.
    */
-  async #keep(correctionId: number): Promise<void> {
-    const sort = this.#store.sortOf(correctionId)!;
+  async #keep(correction: string): Promise<void> {
+    const sort = this.#store.sortOf(correction)!;
     if (!sort.keepTappedAt || sort.keptAt) return;
     let checked: 'kept' | { notKept: string } | { error: unknown } | undefined;
     await this.#personalDatabase.sync(async () => {
@@ -215,14 +215,14 @@ export class Proposals {
     if (!checked) throw new Error("the Personal database's checkout couldn't be brought up to date");
     if (typeof checked === 'object' && 'error' in checked) throw checked.error;
     if (typeof checked === 'object') {
-      this.#store.saveSortNotKept(correctionId, checked.notKept);
-      this.#log('proposal.not-kept', { correctionId, why: checked.notKept });
-      const cardMessage = this.#store.sortOf(correctionId)!.cardMessageId;
-      if (cardMessage) await this.#needsYou.edit(cardMessage, this.#cardPayload(this.#store.sortOf(correctionId)!));
+      this.#store.saveSortNotKept(correction, checked.notKept);
+      this.#log('proposal.not-kept', { correction, why: checked.notKept });
+      const cardMessage = this.#store.sortOf(correction)!.cardMessageId;
+      if (cardMessage) await this.#needsYou.edit(cardMessage, this.#cardPayload(this.#store.sortOf(correction)!));
       return;
     }
-    this.#log('proposal.kept', { correctionId, kind: sort.proposal!.kind, path: this.#store.sortOf(correctionId)!.keptPath });
-    await this.#settle(correctionId);
+    this.#log('proposal.kept', { correction, kind: sort.proposal!.kind, path: this.#store.sortOf(correction)!.keptPath });
+    await this.#settle(correction);
   }
 
   /** Records the proposal kept with the file Keep writes queued, or says why it can't be kept. */
@@ -258,7 +258,7 @@ export class Proposals {
         write = { path: kept.path, content, message: `Rule amended: ${kept.name} (${SCOPE_NAMES[kept.scope]})` };
       }
     }
-    this.#store.saveSortKept(sort.correctionId, { ...write, queuedAt: this.#clock.now().toISOString() });
+    this.#store.saveSortKept(sort.correction, { ...write, queuedAt: this.#clock.now().toISOString() });
     return 'kept';
   }
 
@@ -274,13 +274,13 @@ export class Proposals {
   }
 
   /** The item's history shows what the person decided, and the card shrinks to one line saying it. */
-  async #settle(correctionId: number): Promise<void> {
-    const sort = this.#store.sortOf(correctionId)!;
-    await this.#showDecision(correctionId);
+  async #settle(correction: string): Promise<void> {
+    const sort = this.#store.sortOf(correction)!;
+    await this.#showDecision(correction);
     const url = sort.keptPath ? await this.#personalDatabase.fileUrl(sort.keptPath) : undefined;
     if (sort.cardMessageId) await this.#needsYou.shrink(sort.cardMessageId, settledLine(sort, url));
-    this.#store.saveSortSettled(correctionId, this.#clock.now().toISOString());
-    this.#log('proposal.settled', { correctionId, kept: Boolean(sort.keptAt) });
+    this.#store.saveSortSettled(correction, this.#clock.now().toISOString());
+    this.#log('proposal.settled', { correction, kept: Boolean(sort.keptAt) });
   }
 
   /** The open card as it now stands, for an edit. */
@@ -319,7 +319,7 @@ function editPopup(sort: StoredSort): Tapped {
 
 /** A proposal's card while it is open: what it proposes, from which Correction, and whether a Keep is under way. */
 function cardOf(
-  sort: Pick<StoredSort, 'correctionId' | 'version' | 'proposal' | 'item' | 'rulesApplied' | 'keepTappedAt' | 'notKept'>,
+  sort: Pick<StoredSort, 'correction' | 'version' | 'proposal' | 'item' | 'rulesApplied' | 'keepTappedAt' | 'notKept'>,
 ): { heading: string; body: TextDisplay[]; buttons: Button[] } {
   const p = sort.proposal!;
   const { item } = sort;

@@ -2,16 +2,20 @@
 // It holds the Miner dates the bot has taken on, each date's Launches, judgments by Post id, the person's Corrections
 // of them with the judgments their runs gave and what their sorting runs and the person made of them, Day's lines by
 // date, the day posts on Discord, the Retries a capped date
-// waits on, Products by root domain with their Launches, Dossiers and posts, run and model-request records with each
-// run's Rule-set commit and each request's notional dollars, the index of raw inputs kept outside git, the files
-// waiting to be written to the Personal database, and the times its history diverged.
+// waits on, Products by root domain with their Launches, Dossiers and posts, each Product's Walkthrough versions and the
+// person's Corrections of them, Approvals and Registrations, run and model-request records with each run's Rule-set
+// commit and each request's notional dollars, the index of raw inputs kept outside git, the files waiting to be written
+// to the Personal database, and the times its history diverged.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
+import type { PageRead } from './browser.ts';
 import type { Dossier } from './dossier/dossier.ts';
 import type { DayLine } from './miner/day-line.ts';
 import type { JudgmentRecord } from './miner/judging.ts';
 import type { RunCap } from './pi-runs.ts';
 import type { Proposal, SortedItem } from './rules/sorting.ts';
+import type { VersionCause } from './walkthrough/card.ts';
+import type { Walkthrough } from './walkthrough/walkthrough.ts';
 
 /** A reply's exact tokens. `input` counts every input token, the `cached` ones among them. */
 export interface Tokens {
@@ -88,7 +92,8 @@ export interface Correction {
  * card in #needs-you.
  */
 export interface StoredSort {
-  correctionId: number;
+  /** The Correction it sorts, by its kind and id, such as `miner:12` or `walkthrough:3`. */
+  correction: string;
   /** The item the Correction was made on, as its card and a kept Rule name it. */
   item: SortedItem;
   outcome: 'fix-only' | 'declined' | 'unsorted' | 'proposed';
@@ -255,6 +260,89 @@ export interface Divergence {
   cardMessageId: string | null;
 }
 
+/**
+ * One version of a Product's Walkthrough, with the read it was prepared from, what made it, and where its card and its
+ * copy in the Product's post stand. Each part is marked as intended before it is sent, and an uncertain send counts as
+ * sent (ADR 0007).
+ */
+export interface StoredWalkthrough {
+  productId: number;
+  version: number;
+  walkthrough: Walkthrough;
+  /** What the person sees and approves, hashed: Approvals are unique on it. */
+  hash: string;
+  /** The signup page read it was prepared from, which a Correction prepares it again from. */
+  read: PageRead;
+  cause: VersionCause;
+  /** The run that prepared it; none for the person's Edit. */
+  runId: string | null;
+  preparedAt: string;
+  cardIntended: boolean;
+  /** The card in #needs-you: an Edit's version is the same card as the version it edits. */
+  cardMessageId: string | null;
+  copyIntended: boolean;
+  copyMessageId: string | null;
+  /** When the card, the copy, the Dossier and the post's tags showed this version. */
+  shownAt: string | null;
+  dismissedAt: string | null;
+  lapsedAt: string | null;
+  /** When the person tapped Prepare again on it, lapsed. */
+  againTappedAt: string | null;
+  /** When the card and the Dossier showed it dismissed or lapsed. */
+  endShownAt: string | null;
+}
+
+/** Why a Product gets no Walkthrough: a wall nothing can get past (#10). */
+export interface NoWalkthrough {
+  productId: number;
+  why: string;
+  foundAt: string;
+  /** When the Dossier, the post's tags and `registration.md` showed it. */
+  shownAt: string | null;
+}
+
+/** The person's Correction of one version of a Walkthrough, and what its run made of it. */
+export interface WalkthroughCorrection {
+  id: number;
+  productId: number;
+  version: number;
+  text: string;
+  submittedAt: string;
+  /** The version its run prepared. */
+  redoneVersion: number | null;
+  /** Why its run found no Walkthrough can be offered, so none is. */
+  withdrawn: string | null;
+  /** Why its run prepared nothing; the version it corrected is open again. */
+  unapplied: string | null;
+  /** When the cards, the copy, the Dossier and `registration.md` showed what came of it. */
+  doneAt: string | null;
+}
+
+/** The person's yes to one exact version of an item (ADR 0007), such as a Walkthrough. */
+export interface Approval {
+  /** The item approved, such as `walkthrough:3` for a Product's Walkthrough. */
+  item: string;
+  versionHash: string;
+  version: number;
+  userId: string;
+  interactionId: string;
+  approvedAt: string;
+}
+
+/** A Product's one Registration, from its Approval on. */
+export interface StoredRegistration {
+  productId: number;
+  /** The Walkthrough version approved. */
+  version: number;
+  state: 'queued' | 'handed-off';
+  approvedAt: string;
+  /** The status message in the Product's post, marked before it is sent. */
+  statusIntended: boolean;
+  statusMessageId: string | null;
+  /** When the status message, the post's tags, `registration.md` and the shrunk card showed the Approval. */
+  shownAt: string | null;
+}
+
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS miner_cursor (
   id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -316,7 +404,7 @@ CREATE TABLE IF NOT EXISTS corrections (
 );
 CREATE INDEX IF NOT EXISTS corrections_by_date ON corrections(date, id);
 CREATE TABLE IF NOT EXISTS sorts (
-  correction_id INTEGER PRIMARY KEY REFERENCES corrections(id),
+  correction TEXT PRIMARY KEY,
   item TEXT NOT NULL,
   outcome TEXT NOT NULL,
   hard_limit TEXT,
@@ -394,6 +482,65 @@ CREATE TABLE IF NOT EXISTS dossiers (
   written_at TEXT NOT NULL,
   PRIMARY KEY (product_id, version)
 );
+CREATE TABLE IF NOT EXISTS signup_tags (
+  product_id INTEGER PRIMARY KEY REFERENCES products(id),
+  tag TEXT NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS walkthroughs (
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  version INTEGER NOT NULL,
+  walkthrough TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  read TEXT NOT NULL,
+  cause TEXT NOT NULL,
+  run_id TEXT REFERENCES runs(id),
+  prepared_at TEXT NOT NULL,
+  card_intended INTEGER NOT NULL DEFAULT 0,
+  card_message_id TEXT,
+  copy_intended INTEGER NOT NULL DEFAULT 0,
+  copy_message_id TEXT,
+  shown_at TEXT,
+  dismissed_at TEXT,
+  lapsed_at TEXT,
+  again_tapped_at TEXT,
+  end_shown_at TEXT,
+  PRIMARY KEY (product_id, version)
+);
+CREATE TABLE IF NOT EXISTS no_walkthroughs (
+  product_id INTEGER PRIMARY KEY REFERENCES products(id),
+  why TEXT NOT NULL,
+  found_at TEXT NOT NULL,
+  shown_at TEXT
+);
+CREATE TABLE IF NOT EXISTS walkthrough_corrections (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  version INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  submitted_at TEXT NOT NULL,
+  redone_version INTEGER,
+  withdrawn TEXT,
+  unapplied TEXT,
+  done_at TEXT
+);
+CREATE TABLE IF NOT EXISTS approvals (
+  item TEXT NOT NULL,
+  version_hash TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  user_id TEXT NOT NULL,
+  interaction_id TEXT NOT NULL,
+  approved_at TEXT NOT NULL,
+  PRIMARY KEY (item, version_hash)
+);
+CREATE TABLE IF NOT EXISTS registrations (
+  product_id INTEGER PRIMARY KEY REFERENCES products(id),
+  version INTEGER NOT NULL,
+  state TEXT NOT NULL,
+  approved_at TEXT NOT NULL,
+  status_intended INTEGER NOT NULL DEFAULT 0,
+  status_message_id TEXT,
+  shown_at TEXT
+);
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL,
@@ -464,6 +611,57 @@ const minerDayOf = (row: Row): MinerDay => ({
   dropNotedAt: textOrNull(row.drop_noted_at),
 });
 
+const walkthroughOf = (row: Row): StoredWalkthrough => ({
+  productId: Number(row.product_id),
+  version: Number(row.version),
+  walkthrough: JSON.parse(String(row.walkthrough)) as Walkthrough,
+  hash: String(row.hash),
+  read: JSON.parse(String(row.read)) as PageRead,
+  cause: JSON.parse(String(row.cause)) as VersionCause,
+  runId: textOrNull(row.run_id),
+  preparedAt: String(row.prepared_at),
+  cardIntended: Boolean(row.card_intended),
+  cardMessageId: textOrNull(row.card_message_id),
+  copyIntended: Boolean(row.copy_intended),
+  copyMessageId: textOrNull(row.copy_message_id),
+  shownAt: textOrNull(row.shown_at),
+  dismissedAt: textOrNull(row.dismissed_at),
+  lapsedAt: textOrNull(row.lapsed_at),
+  againTappedAt: textOrNull(row.again_tapped_at),
+  endShownAt: textOrNull(row.end_shown_at),
+});
+
+const walkthroughCorrectionOf = (row: Row): WalkthroughCorrection => ({
+  id: Number(row.id),
+  productId: Number(row.product_id),
+  version: Number(row.version),
+  text: String(row.text),
+  submittedAt: String(row.submitted_at),
+  redoneVersion: row.redone_version === null ? null : Number(row.redone_version),
+  withdrawn: textOrNull(row.withdrawn),
+  unapplied: textOrNull(row.unapplied),
+  doneAt: textOrNull(row.done_at),
+});
+
+const registrationOf = (row: Row): StoredRegistration => ({
+  productId: Number(row.product_id),
+  version: Number(row.version),
+  state: String(row.state) as StoredRegistration['state'],
+  approvedAt: String(row.approved_at),
+  statusIntended: Boolean(row.status_intended),
+  statusMessageId: textOrNull(row.status_message_id),
+  shownAt: textOrNull(row.shown_at),
+});
+
+const approvalOf = (row: Row): Approval => ({
+  item: String(row.item),
+  versionHash: String(row.version_hash),
+  version: Number(row.version),
+  userId: String(row.user_id),
+  interactionId: String(row.interaction_id),
+  approvedAt: String(row.approved_at),
+});
+
 const productOf = (row: Row): Product => ({
   id: Number(row.id),
   rootDomain: String(row.root_domain),
@@ -503,7 +701,7 @@ const correctionOf = (row: Row): Correction => ({
 });
 
 const sortOf = (row: Row): StoredSort => ({
-  correctionId: Number(row.correction_id),
+  correction: String(row.correction),
   item: JSON.parse(String(row.item)) as SortedItem,
   outcome: String(row.outcome) as StoredSort['outcome'],
   hardLimit: textOrNull(row.hard_limit),
@@ -730,7 +928,7 @@ export class Store {
   unsortedCorrections(): Correction[] {
     return this.#db
       .prepare(
-        `SELECT corrections.* FROM corrections LEFT JOIN sorts ON sorts.correction_id = corrections.id
+        `SELECT corrections.* FROM corrections LEFT JOIN sorts ON sorts.correction = 'miner:' || corrections.id
          WHERE corrections.done_at IS NOT NULL AND corrections.judged_at IS NOT NULL AND sorts.shown_at IS NULL
          ORDER BY corrections.id`,
       )
@@ -738,20 +936,20 @@ export class Store {
       .map(correctionOf);
   }
 
-  sortOf(correctionId: number): StoredSort | undefined {
-    const row = this.#db.prepare('SELECT * FROM sorts WHERE correction_id = ?').get(correctionId);
+  sortOf(correction: string): StoredSort | undefined {
+    const row = this.#db.prepare('SELECT * FROM sorts WHERE correction = ?').get(correction);
     return row ? sortOf(row) : undefined;
   }
 
   /** Keeps what a sorting run made of a Correction. Only the first counts; a later one returns false. */
-  saveSort(s: Pick<StoredSort, 'correctionId' | 'item' | 'outcome' | 'hardLimit' | 'proposal' | 'why' | 'rulesApplied' | 'runId' | 'sortedAt'>): boolean {
+  saveSort(s: Pick<StoredSort, 'correction' | 'item' | 'outcome' | 'hardLimit' | 'proposal' | 'why' | 'rulesApplied' | 'runId' | 'sortedAt'>): boolean {
     const result = this.#db
       .prepare(
-        `INSERT INTO sorts (correction_id, item, outcome, hard_limit, proposal, why, rules_applied, run_id, sorted_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (correction_id) DO NOTHING`,
+        `INSERT INTO sorts (correction, item, outcome, hard_limit, proposal, why, rules_applied, run_id, sorted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (correction) DO NOTHING`,
       )
       .run(
-        s.correctionId,
+        s.correction,
         JSON.stringify(s.item),
         s.outcome,
         s.hardLimit,
@@ -764,17 +962,17 @@ export class Store {
     return Number(result.changes) > 0;
   }
 
-  saveSortShown(correctionId: number, at: string): void {
-    this.#db.prepare('UPDATE sorts SET shown_at = ? WHERE correction_id = ?').run(at, correctionId);
+  saveSortShown(correction: string, at: string): void {
+    this.#db.prepare('UPDATE sorts SET shown_at = ? WHERE correction = ?').run(at, correction);
   }
 
   /** Marks the proposal's card as about to be sent, or as not sent after all. */
-  saveSortCardIntended(correctionId: number, intended: boolean): void {
-    this.#db.prepare('UPDATE sorts SET card_intended = ? WHERE correction_id = ?').run(intended ? 1 : 0, correctionId);
+  saveSortCardIntended(correction: string, intended: boolean): void {
+    this.#db.prepare('UPDATE sorts SET card_intended = ? WHERE correction = ?').run(intended ? 1 : 0, correction);
   }
 
-  saveSortCard(correctionId: number, messageId: string): void {
-    this.#db.prepare('UPDATE sorts SET card_message_id = ? WHERE correction_id = ?').run(messageId, correctionId);
+  saveSortCard(correction: string, messageId: string): void {
+    this.#db.prepare('UPDATE sorts SET card_message_id = ? WHERE correction = ?').run(messageId, correction);
   }
 
   /**
@@ -786,7 +984,7 @@ export class Store {
       .prepare(
         `SELECT * FROM sorts WHERE outcome = 'proposed' AND settled_at IS NULL
            AND (keep_tapped_at IS NOT NULL OR kept_at IS NOT NULL OR discarded_at IS NOT NULL OR not_kept IS NOT NULL)
-         ORDER BY correction_id`,
+         ORDER BY sorted_at, rowid`,
       )
       .all()
       .map(sortOf);
@@ -796,14 +994,14 @@ export class Store {
    * Records Keep tapped on this version of a proposal. Only a tap on the latest version of one still open counts; any
    * other returns false.
    */
-  saveSortKeepTapped(correctionId: number, version: number, at: string): boolean {
+  saveSortKeepTapped(correction: string, version: number, at: string): boolean {
     const result = this.#db
       .prepare(
         `UPDATE sorts SET keep_tapped_at = ?, not_kept = NULL
-         WHERE correction_id = ? AND version = ? AND outcome = 'proposed' AND keep_tapped_at IS NULL AND kept_at IS NULL
+         WHERE correction = ? AND version = ? AND outcome = 'proposed' AND keep_tapped_at IS NULL AND kept_at IS NULL
            AND discarded_at IS NULL`,
       )
-      .run(at, correctionId, version);
+      .run(at, correction, version);
     return Number(result.changes) > 0;
   }
 
@@ -811,44 +1009,44 @@ export class Store {
    * Keeps the person's edit of this version of a proposal as its next version. Only an edit of the latest version of
    * one still open counts; any other returns false.
    */
-  saveSortEdited(correctionId: number, version: number, proposal: Proposal): boolean {
+  saveSortEdited(correction: string, version: number, proposal: Proposal): boolean {
     const result = this.#db
       .prepare(
         `UPDATE sorts SET proposal = ?, version = version + 1, not_kept = NULL
-         WHERE correction_id = ? AND version = ? AND outcome = 'proposed' AND keep_tapped_at IS NULL AND kept_at IS NULL
+         WHERE correction = ? AND version = ? AND outcome = 'proposed' AND keep_tapped_at IS NULL AND kept_at IS NULL
            AND discarded_at IS NULL`,
       )
-      .run(JSON.stringify(proposal), correctionId, version);
+      .run(JSON.stringify(proposal), correction, version);
     return Number(result.changes) > 0;
   }
 
   /** Records Discard tapped on this version of a proposal still open; any other tap returns false. */
-  saveSortDiscarded(correctionId: number, version: number, at: string): boolean {
+  saveSortDiscarded(correction: string, version: number, at: string): boolean {
     const result = this.#db
       .prepare(
         `UPDATE sorts SET discarded_at = ?
-         WHERE correction_id = ? AND version = ? AND outcome = 'proposed' AND keep_tapped_at IS NULL AND kept_at IS NULL
+         WHERE correction = ? AND version = ? AND outcome = 'proposed' AND keep_tapped_at IS NULL AND kept_at IS NULL
            AND discarded_at IS NULL`,
       )
-      .run(at, correctionId, version);
+      .run(at, correction, version);
     return Number(result.changes) > 0;
   }
 
   /** Records a proposal kept, with the file Keep writes queued, both at once. */
-  saveSortKept(correctionId: number, write: PersonalDatabaseWrite): void {
+  saveSortKept(correction: string, write: PersonalDatabaseWrite): void {
     this.#transaction(() => {
       this.queuePersonalDatabaseWrite(write);
-      this.#db.prepare('UPDATE sorts SET kept_at = ?, kept_path = ? WHERE correction_id = ?').run(write.queuedAt, write.path, correctionId);
+      this.#db.prepare('UPDATE sorts SET kept_at = ?, kept_path = ? WHERE correction = ?').run(write.queuedAt, write.path, correction);
     });
   }
 
   /** The Keep tapped couldn't be done, for this reason; the proposal is open again. */
-  saveSortNotKept(correctionId: number, why: string): void {
-    this.#db.prepare('UPDATE sorts SET keep_tapped_at = NULL, not_kept = ? WHERE correction_id = ?').run(why, correctionId);
+  saveSortNotKept(correction: string, why: string): void {
+    this.#db.prepare('UPDATE sorts SET keep_tapped_at = NULL, not_kept = ? WHERE correction = ?').run(why, correction);
   }
 
-  saveSortSettled(correctionId: number, at: string): void {
-    this.#db.prepare('UPDATE sorts SET settled_at = ? WHERE correction_id = ?').run(at, correctionId);
+  saveSortSettled(correction: string, at: string): void {
+    this.#db.prepare('UPDATE sorts SET settled_at = ? WHERE correction = ?').run(at, correction);
   }
 
   // ---------- Day's lines ----------
@@ -1045,6 +1243,306 @@ export class Store {
   /** Marks the Product's Dossier as withdrawn by a Correction, or as put back. */
   saveProductWithdrawn(id: number, at: string | null): void {
     this.#db.prepare('UPDATE products SET withdrawn_at = ? WHERE id = ?').run(at, id);
+  }
+
+  // ---------- Walkthroughs, Approvals and Registrations ----------
+
+  /** The Product's plus-address tag (ADR 0003), kept once made: `base`, or `base` with a number when another has it. */
+  signupTag(productId: number, base: string): string {
+    return this.#transaction(() => {
+      const kept = this.#db.prepare('SELECT tag FROM signup_tags WHERE product_id = ?').get(productId);
+      if (kept) return String(kept.tag);
+      for (let n = 1; ; n++) {
+        const tag = n === 1 ? base : `${base}${n}`;
+        const taken = this.#db.prepare('SELECT 1 FROM signup_tags WHERE tag = ?').get(tag);
+        if (taken) continue;
+        this.#db.prepare('INSERT INTO signup_tags (product_id, tag) VALUES (?, ?)').run(productId, tag);
+        return tag;
+      }
+    });
+  }
+
+  /**
+   * The Products that wait on a Walkthrough being prepared: each open or waitlisted Product whose Dossier is posted and
+   * not withdrawn, with no Walkthrough yet, or one the person tapped Prepare again on, and no wall that rules one out.
+   */
+  productsDueWalkthrough(): Product[] {
+    return this.#db
+      .prepare(
+        `SELECT products.* FROM products
+         WHERE thread_id IS NOT NULL AND withdrawn_at IS NULL
+           AND (SELECT json_extract(dossier, '$.record.state') FROM dossiers WHERE dossiers.product_id = products.id
+                ORDER BY version DESC LIMIT 1) IN ('open', 'waitlisted')
+           AND NOT EXISTS (SELECT 1 FROM no_walkthroughs WHERE no_walkthroughs.product_id = products.id)
+           AND NOT EXISTS (SELECT 1 FROM registrations WHERE registrations.product_id = products.id)
+           AND COALESCE((SELECT again_tapped_at IS NOT NULL FROM walkthroughs WHERE walkthroughs.product_id = products.id
+                         ORDER BY version DESC LIMIT 1), 1)
+         ORDER BY products.id`,
+      )
+      .all()
+      .map(productOf);
+  }
+
+  /**
+   * Keeps a new version of a Product's Walkthrough as its latest, and returns its number. A Correction's version is
+   * recorded as what came of that Correction, at once.
+   */
+  saveWalkthrough(w: {
+    productId: number;
+    walkthrough: Walkthrough;
+    hash: string;
+    read: PageRead;
+    cause: VersionCause;
+    runId: string | null;
+    preparedAt: string;
+    /** For an Edit: the card it edits, which this version is shown on too. */
+    cardMessageId?: string | null;
+    correctionId?: number;
+  }): number {
+    return this.#transaction(() => {
+      const last = this.#db.prepare('SELECT MAX(version) AS v FROM walkthroughs WHERE product_id = ?').get(w.productId);
+      const version = Number(last?.v ?? 0) + 1;
+      const sameCard = w.cardMessageId !== undefined;
+      this.#db
+        .prepare(
+          `INSERT INTO walkthroughs (product_id, version, walkthrough, hash, read, cause, run_id, prepared_at, card_intended, card_message_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          w.productId,
+          version,
+          JSON.stringify(w.walkthrough),
+          w.hash,
+          JSON.stringify(w.read),
+          JSON.stringify(w.cause),
+          w.runId,
+          w.preparedAt,
+          sameCard ? 1 : 0,
+          w.cardMessageId ?? null,
+        );
+      if (w.correctionId !== undefined) {
+        this.#db.prepare('UPDATE walkthrough_corrections SET redone_version = ? WHERE id = ?').run(version, w.correctionId);
+      }
+      return version;
+    });
+  }
+
+  walkthrough(productId: number, version: number): StoredWalkthrough | undefined {
+    const row = this.#db.prepare('SELECT * FROM walkthroughs WHERE product_id = ? AND version = ?').get(productId, version);
+    return row ? walkthroughOf(row) : undefined;
+  }
+
+  latestWalkthrough(productId: number): StoredWalkthrough | undefined {
+    const row = this.#db.prepare('SELECT * FROM walkthroughs WHERE product_id = ? ORDER BY version DESC LIMIT 1').get(productId);
+    return row ? walkthroughOf(row) : undefined;
+  }
+
+  /** Versions not yet shown, or dismissed or lapsed and not yet shown so, oldest first. */
+  unshownWalkthroughs(): StoredWalkthrough[] {
+    return this.#db
+      .prepare(
+        `SELECT * FROM walkthroughs WHERE shown_at IS NULL OR ((dismissed_at IS NOT NULL OR lapsed_at IS NOT NULL) AND end_shown_at IS NULL)
+         ORDER BY prepared_at, product_id, version`,
+      )
+      .all()
+      .map(walkthroughOf);
+  }
+
+  /**
+   * The latest version of each Walkthrough still waiting on the person: not approved, dismissed or lapsed, not under a
+   * Correction, and of a Dossier not withdrawn.
+   */
+  openWalkthroughs(): StoredWalkthrough[] {
+    return this.#db
+      .prepare(
+        `SELECT w.* FROM walkthroughs w
+         WHERE w.version = (SELECT MAX(version) FROM walkthroughs WHERE product_id = w.product_id)
+           AND w.dismissed_at IS NULL AND w.lapsed_at IS NULL
+           AND NOT EXISTS (SELECT 1 FROM products p WHERE p.id = w.product_id AND p.withdrawn_at IS NOT NULL)
+           AND NOT EXISTS (SELECT 1 FROM registrations r WHERE r.product_id = w.product_id)
+           AND NOT EXISTS (SELECT 1 FROM no_walkthroughs n WHERE n.product_id = w.product_id)
+           AND NOT EXISTS (SELECT 1 FROM walkthrough_corrections c WHERE c.product_id = w.product_id AND c.version = w.version AND c.done_at IS NULL)
+         ORDER BY w.prepared_at, w.product_id`,
+      )
+      .all()
+      .map(walkthroughOf);
+  }
+
+  /** Marks a version's card as about to be sent, or as not sent after all. */
+  saveWalkthroughCardIntended(productId: number, version: number, intended: boolean): void {
+    this.#db.prepare('UPDATE walkthroughs SET card_intended = ? WHERE product_id = ? AND version = ?').run(intended ? 1 : 0, productId, version);
+  }
+
+  saveWalkthroughCard(productId: number, version: number, messageId: string): void {
+    this.#db.prepare('UPDATE walkthroughs SET card_message_id = ? WHERE product_id = ? AND version = ?').run(messageId, productId, version);
+  }
+
+  /** Marks a version's copy in the Product's post as about to be sent, or as not sent after all. */
+  saveWalkthroughCopyIntended(productId: number, version: number, intended: boolean): void {
+    this.#db.prepare('UPDATE walkthroughs SET copy_intended = ? WHERE product_id = ? AND version = ?').run(intended ? 1 : 0, productId, version);
+  }
+
+  saveWalkthroughCopy(productId: number, version: number, messageId: string): void {
+    this.#db.prepare('UPDATE walkthroughs SET copy_message_id = ? WHERE product_id = ? AND version = ?').run(messageId, productId, version);
+  }
+
+  saveWalkthroughShown(productId: number, version: number, at: string): void {
+    this.#db.prepare('UPDATE walkthroughs SET shown_at = ? WHERE product_id = ? AND version = ?').run(at, productId, version);
+  }
+
+  /** Records Dismiss on a version still open; any other returns false. */
+  saveWalkthroughDismissed(productId: number, version: number, at: string): boolean {
+    return this.#endOpen('dismissed_at', productId, version, at);
+  }
+
+  /** Records a version lapsed while still open; any other returns false. */
+  saveWalkthroughLapsed(productId: number, version: number, at: string): boolean {
+    return this.#endOpen('lapsed_at', productId, version, at);
+  }
+
+  #endOpen(column: 'dismissed_at' | 'lapsed_at', productId: number, version: number, at: string): boolean {
+    const open = this.openWalkthroughs().some((w) => w.productId === productId && w.version === version);
+    if (!open) return false;
+    this.#db.prepare(`UPDATE walkthroughs SET ${column} = ? WHERE product_id = ? AND version = ?`).run(at, productId, version);
+    return true;
+  }
+
+  /** Records Prepare again on the latest version, lapsed, once; any other tap returns false. */
+  saveWalkthroughAgainTapped(productId: number, version: number, at: string): boolean {
+    const result = this.#db
+      .prepare(
+        `UPDATE walkthroughs SET again_tapped_at = ?
+         WHERE product_id = ? AND version = ? AND lapsed_at IS NOT NULL AND again_tapped_at IS NULL
+           AND version = (SELECT MAX(version) FROM walkthroughs WHERE product_id = ?)`,
+      )
+      .run(at, productId, version, productId);
+    return Number(result.changes) > 0;
+  }
+
+  saveWalkthroughEndShown(productId: number, version: number, at: string): void {
+    this.#db.prepare('UPDATE walkthroughs SET end_shown_at = ? WHERE product_id = ? AND version = ?').run(at, productId, version);
+  }
+
+  noWalkthrough(productId: number): NoWalkthrough | undefined {
+    const row = this.#db.prepare('SELECT * FROM no_walkthroughs WHERE product_id = ?').get(productId);
+    return row
+      ? { productId, why: String(row.why), foundAt: String(row.found_at), shownAt: textOrNull(row.shown_at) }
+      : undefined;
+  }
+
+  /** Records that a Product gets no Walkthrough, and why: the first reason found stands. */
+  saveNoWalkthrough(productId: number, why: string, at: string): void {
+    this.#db.prepare('INSERT INTO no_walkthroughs (product_id, why, found_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING').run(productId, why, at);
+  }
+
+  unshownNoWalkthroughs(): NoWalkthrough[] {
+    return this.#db
+      .prepare('SELECT product_id FROM no_walkthroughs WHERE shown_at IS NULL ORDER BY found_at')
+      .all()
+      .map((row) => this.noWalkthrough(Number(row.product_id))!);
+  }
+
+  saveNoWalkthroughShown(productId: number, at: string): void {
+    this.#db.prepare('UPDATE no_walkthroughs SET shown_at = ? WHERE product_id = ?').run(at, productId);
+  }
+
+  /** Keeps the person's Correction of a version, and returns its id. */
+  saveWalkthroughCorrection(c: { productId: number; version: number; text: string; submittedAt: string }): number {
+    const result = this.#db
+      .prepare('INSERT INTO walkthrough_corrections (product_id, version, text, submitted_at) VALUES (?, ?, ?, ?)')
+      .run(c.productId, c.version, c.text, c.submittedAt);
+    return Number(result.lastInsertRowid);
+  }
+
+  walkthroughCorrection(id: number): WalkthroughCorrection | undefined {
+    const row = this.#db.prepare('SELECT * FROM walkthrough_corrections WHERE id = ?').get(id);
+    return row ? walkthroughCorrectionOf(row) : undefined;
+  }
+
+  /** A Product's Walkthrough Corrections, oldest first. */
+  walkthroughCorrectionsOf(productId: number): WalkthroughCorrection[] {
+    return this.#db.prepare('SELECT * FROM walkthrough_corrections WHERE product_id = ? ORDER BY id').all(productId).map(walkthroughCorrectionOf);
+  }
+
+  unfinishedWalkthroughCorrections(): WalkthroughCorrection[] {
+    return this.#db.prepare('SELECT * FROM walkthrough_corrections WHERE done_at IS NULL ORDER BY id').all().map(walkthroughCorrectionOf);
+  }
+
+  /** Walkthrough Corrections whose item is redone, or found to need no Walkthrough, and whose sort isn't shown yet. */
+  unsortedWalkthroughCorrections(): WalkthroughCorrection[] {
+    return this.#db
+      .prepare(
+        `SELECT c.* FROM walkthrough_corrections c LEFT JOIN sorts ON sorts.correction = 'walkthrough:' || c.id
+         WHERE c.done_at IS NOT NULL AND (c.redone_version IS NOT NULL OR c.withdrawn IS NOT NULL) AND sorts.shown_at IS NULL
+         ORDER BY c.id`,
+      )
+      .all()
+      .map(walkthroughCorrectionOf);
+  }
+
+  /** Records that a Correction's run found no Walkthrough can be offered, so the Product gets none. */
+  saveWalkthroughCorrectionWithdrawn(id: number, why: string, at: string): void {
+    this.#transaction(() => {
+      const { product_id } = this.#db.prepare('SELECT product_id FROM walkthrough_corrections WHERE id = ?').get(id)!;
+      this.#db.prepare('UPDATE walkthrough_corrections SET withdrawn = ? WHERE id = ?').run(why, id);
+      this.saveNoWalkthrough(Number(product_id), why, at);
+    });
+  }
+
+  saveWalkthroughCorrectionUnapplied(id: number, why: string): void {
+    this.#db.prepare('UPDATE walkthrough_corrections SET unapplied = ? WHERE id = ?').run(why, id);
+  }
+
+  saveWalkthroughCorrectionDone(id: number, at: string): void {
+    this.#db.prepare('UPDATE walkthrough_corrections SET done_at = ? WHERE id = ?').run(at, id);
+  }
+
+  /**
+   * Records the person's Approval of one version of a Product's Walkthrough, and the Registration it starts, at once.
+   * Only one Approval counts per version, and a Product has at most one Registration: a later tap returns the Approval
+   * already kept.
+   */
+  approveWalkthrough(a: Omit<Approval, 'item'> & { productId: number; state: StoredRegistration['state'] }): 'approved' | { already: Approval } {
+    const item = `walkthrough:${a.productId}`;
+    return this.#transaction(() => {
+      const kept = this.#db.prepare('SELECT * FROM approvals WHERE item = ? ORDER BY approved_at LIMIT 1').get(item);
+      if (kept) return { already: approvalOf(kept) };
+      this.#db
+        .prepare('INSERT INTO approvals (item, version_hash, version, user_id, interaction_id, approved_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(item, a.versionHash, a.version, a.userId, a.interactionId, a.approvedAt);
+      this.#db
+        .prepare('INSERT INTO registrations (product_id, version, state, approved_at) VALUES (?, ?, ?, ?)')
+        .run(a.productId, a.version, a.state, a.approvedAt);
+      return 'approved';
+    });
+  }
+
+  /** The Approval of a Product's Walkthrough, once it has one. */
+  walkthroughApproval(productId: number): Approval | undefined {
+    const row = this.#db.prepare('SELECT * FROM approvals WHERE item = ?').get(`walkthrough:${productId}`);
+    return row ? approvalOf(row) : undefined;
+  }
+
+  registration(productId: number): StoredRegistration | undefined {
+    const row = this.#db.prepare('SELECT * FROM registrations WHERE product_id = ?').get(productId);
+    return row ? registrationOf(row) : undefined;
+  }
+
+  unshownRegistrations(): StoredRegistration[] {
+    return this.#db.prepare('SELECT * FROM registrations WHERE shown_at IS NULL ORDER BY approved_at').all().map(registrationOf);
+  }
+
+  /** Marks the Registration's status message as about to be sent, or as not sent after all. */
+  saveRegistrationStatusIntended(productId: number, intended: boolean): void {
+    this.#db.prepare('UPDATE registrations SET status_intended = ? WHERE product_id = ?').run(intended ? 1 : 0, productId);
+  }
+
+  saveRegistrationStatus(productId: number, messageId: string): void {
+    this.#db.prepare('UPDATE registrations SET status_message_id = ? WHERE product_id = ?').run(messageId, productId);
+  }
+
+  saveRegistrationShown(productId: number, at: string): void {
+    this.#db.prepare('UPDATE registrations SET shown_at = ? WHERE product_id = ?').run(at, productId);
   }
 
   // ---------- Runs and model requests ----------

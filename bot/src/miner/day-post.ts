@@ -23,6 +23,7 @@ import {
 } from '../discord/components.ts';
 import { dayLabel, leaderboardUrl, pacificTime, shortTime } from '../pacific.ts';
 import { capText } from '../pi-runs.ts';
+import { declinedText } from '../rules/sorting.ts';
 import type { MinerRetry } from '../store.ts';
 import { BANDS, bandOf, outcomeOf, type Band, type DayLine, type JudgedLaunch } from './day-line.ts';
 
@@ -285,9 +286,6 @@ export function plainJudgment(j: JudgedLaunch & { reason: string; rulesApplied: 
 
 /** ` (Rule: <name>)`, or ` (Rules: <name>, <name>)`, closing a judgment that applied Rules; empty when it applied none. */
 const rulesNamed = (names: string[]) => (names.length > 0 ? ` (Rule${names.length > 1 ? 's' : ''}: ${names.join(', ')})` : '');
-
-/** What a Correction a Hard limit declined says of it, naming the limit. */
-export const declinedText = (limit: string) => `declined: a Hard limit forbids it (${limit})`;
 
 /** `Dossier · fit 8`, `Skip · fit 6` or `Skip · not a Product`. */
 function outcomeText(j: JudgedLaunch, line: number): string {

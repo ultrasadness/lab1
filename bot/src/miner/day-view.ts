@@ -1,11 +1,12 @@
 // A Miner day as the store holds it: each Featured Launch with the judgment its line shows, which is its first one or
 // the one the person's latest re-judged Correction gave, and its latest Correction. The day post and the day's file
 // are both drawn from it, so a Correction changes them alike.
-import type { Correction, Judgment, Launch, Store, StoredSort } from '../store.ts';
+import type { Correction, Judgment, Launch, Store } from '../store.ts';
 import { renderDayFile, type DayFile, type DayFileLaunch } from './day-file.ts';
-import { declinedText, renderDayPost, renderRetryNotice, type DayPostLaunch, type RenderedDayPost } from './day-post.ts';
+import { renderDayPost, renderRetryNotice, type DayPostLaunch, type RenderedDayPost } from './day-post.ts';
+import { sortKey, sortNote } from '../rules/sorting.ts';
 
-// No Product has a Registration yet, so no Launch is a re-Launch of a registered Product; they arrive with #66.
+// A re-Launch of a Product with a Registration is added to its Dossier, which arrives with #66; until then no Launch counts as one.
 export const reLaunchOfRegistered = (_launch: Launch) => false;
 
 export type DayLaunch = DayPostLaunch & DayFileLaunch;
@@ -25,7 +26,7 @@ export function dayLaunches(store: Store, date: string): DayLaunch[] {
     for (const c of corrections.get(l.postId) ?? []) {
       latest = { correction: c, was: shown };
       if (!c.judgment) continue;
-      rejudged.push({ at: c.judgment.judgedAt, was: judged(shown), text: c.text, sort: sortNote(store.sortOf(c.id)) });
+      rejudged.push({ at: c.judgment.judgedAt, was: judged(shown), text: c.text, sort: sortNote(store.sortOf(sortKey('miner', c.id))) });
       shown = c.judgment;
     }
     const c = latest?.correction;
@@ -46,7 +47,7 @@ export function dayLaunches(store: Store, date: string): DayLaunch[] {
           was: judged(latest!.was),
           why: c.unjudged ?? c.problem,
           withdrawnPost: product?.withdrawnAt ? product.threadId : null,
-          declined: store.sortOf(c.id)?.hardLimit ?? null,
+          declined: store.sortOf(sortKey('miner', c.id))?.hardLimit ?? null,
         },
       }),
       corrections: rejudged,
@@ -62,36 +63,6 @@ export function judgmentBefore(store: Store, correction: Correction): Judgment {
     if (c.postId === correction.postId && c.judgment) shown = c.judgment;
   }
   return shown;
-}
-
-/**
- * What came of a Correction's sort, as the day's file says it once nothing more waits on it, with the Rules its run
- * applied.
- */
-function sortNote(sort: StoredSort | undefined): string | null {
-  const note = settledSort(sort);
-  const rules = sort?.rulesApplied.length ? ` (Rules applied: ${sort.rulesApplied.join(', ')})` : '';
-  return note && `${note}${rules}`;
-}
-
-function settledSort(sort: StoredSort | undefined): string | null {
-  switch (sort?.outcome) {
-    case 'fix-only':
-      return 'fix only';
-    case 'unsorted':
-      return `fix only, as it couldn't be sorted: ${sort.why}`;
-    case 'declined':
-      return declinedText(sort.hardLimit!);
-    case 'proposed': {
-      const p = sort.proposal!;
-      if (sort.discardedAt) return 'fix only, its proposal discarded';
-      if (!sort.keptAt) return null;
-      if (p.kind === 'interest-scope') return 'changed the Interest scope';
-      return `${p.kind === 'rule' ? 'taught' : 'amended'} the Rule "${p.name}"`;
-    }
-    default:
-      return null;
-  }
 }
 
 /** The date's post as it now reads, from its stored line: the summary, its Retry notices, then its bands. */

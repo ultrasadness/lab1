@@ -1,5 +1,5 @@
 // The browser service (ADR 0006), reached only through its Unix socket. This slice uses its throwaway `read(url)`,
-// which reads one page before any Approval. The bot imports nothing from browser/, so the part of the socket's API
+// which reads one page before any Approval: a Dossier's pages, and the signup page a Walkthrough is prepared from. The bot imports nothing from browser/, so the part of the socket's API
 // it reads is written out here (browser/src/api.ts holds the whole of it).
 import http from 'node:http';
 
@@ -26,7 +26,13 @@ export interface Field {
   name: string | null;
   label: string;
   required: boolean;
+  autocomplete: string | null;
+  /** A value the page put there itself, and whether a box is ticked. */
+  value?: string;
+  checked?: boolean;
   options?: { label: string; value: string; selected: boolean }[];
+  /** Links in the field's label, such as the terms a checkbox accepts. */
+  links: Link[];
 }
 
 export interface Link {
@@ -129,7 +135,17 @@ function fieldOf(value: unknown): Field | undefined {
     const opt = o as Record<string, unknown> | null;
     return opt && isString(opt.label) && isString(opt.value) ? [{ label: opt.label, value: opt.value, selected: opt.selected === true }] : [];
   });
-  return { type: f.type, name: isString(f.name) ? f.name : null, label: f.label, required: f.required === true, ...(options.length ? { options } : {}) };
+  return {
+    type: f.type,
+    name: isString(f.name) ? f.name : null,
+    label: f.label,
+    required: f.required === true,
+    autocomplete: isString(f.autocomplete) ? f.autocomplete : null,
+    ...(isString(f.value) ? { value: f.value } : {}),
+    ...(typeof f.checked === 'boolean' ? { checked: f.checked } : {}),
+    ...(options.length ? { options } : {}),
+    links: linksOf(f.links),
+  };
 }
 
 /** The page read in an answer, or undefined when it isn't one. Parts the bot can't read are left out. */

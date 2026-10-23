@@ -19,6 +19,7 @@ export interface FakeField {
   links: FakeLink[];
   value?: string;
   checked?: boolean;
+  options?: { label: string; value: string; selected: boolean }[];
 }
 
 export interface FakeForm {

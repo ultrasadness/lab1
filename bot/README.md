@@ -5,15 +5,17 @@ English | [中文](README.zh.md)
 The Assistant's one long-running process: TypeScript on Node 24, run as-is through Node's type stripping, with no
 npm dependencies of its own. It holds every token, alone writes the live store, and makes every outside call.
 The spec is #41. Its first slice (#42) brought up the Miner's path from Product Hunt to the Miner days forum,
-#47 adds a Dossier for each Launch at or above the Day's line, #48 lets the person correct a Miner judgment, and #49
-sorts each Correction into fix only, an Interest scope change or a Rule, and loads each kept Rule into later runs.
+#47 adds a Dossier for each Launch at or above the Day's line, #48 lets the person correct a Miner judgment, #49
+sorts each Correction into fix only, an Interest scope change or a Rule, and loads each kept Rule into later runs, and
+#53 puts a Walkthrough to the person for each open or waitlisted Product, whose Approval starts its Registration.
 
 | Path | What it is |
 |---|---|
-| `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane, which runs Corrections before the Miner, and the plain-code work that never waits in it, such as a Keep; who may tap |
+| `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane, which runs Corrections, then Walkthrough preparation, then the Miner, and the plain-code work that never waits in it, such as a Keep or an Approve; who may tap |
 | `bot/src/miner/` | Judging runs, the Day's line, the day post and `days/` file, the 3-date catch-up and Retry, and Corrections of a day's judgments with their sorting runs |
 | `bot/src/rules/` | Rules: each run's Rule files, its prompt's Rules section and the Rule budget; a Correction's sorting run; and the cards of proposed Rules and Interest scope changes, with Keep, Edit and Discard |
 | `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, and the Product's folder in the Personal database |
+| `bot/src/walkthrough/` | Walkthroughs: the read of the signup page, its run's prompt and record, the card in `#needs-you` and its copy in the Product's post, Edit, Correct, Dismiss, the 14-day lapse and Prepare again, the Approval that starts the Registration, where the Product stands, and `registration.md` |
 | `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)` over its Unix socket, and the root domain a Product is keyed by |
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
@@ -61,7 +63,8 @@ its own on `.example`, with a pricing page and a signup page, unless a test serv
 `bot/test/harness/dossier-fixtures.ts`.
 
 Each Pi run takes about half a second of CPU, and a Miner day makes one for each of its Dossiers beside its judging
-runs, so the fixture days' Dossiers cost every test that posts a day. A test that isn't about Dossiers keeps its day to
+runs, and one more for each open or waitlisted Product's Walkthrough, so the fixture days' Dossiers cost every test
+that posts a day. A test that isn't about Dossiers keeps its day to
 the few it needs with `world.model.onlyDossiers(postIds)`, which judges every other Launch below the Day's line.
 
 The fake Product Hunt answers only a query that the real API's live schema accepts, with variables that fit it, and
@@ -92,12 +95,19 @@ and reaches GitHub through `personalDatabase.ssh` with the deploy key, so GitHub
 store and committed on its own, and every commit is pushed. A push GitHub refuses, or a history that has diverged, is
 tried again every `personalDatabase.retryMinutes`.
 
+The person's Profile is `profile/profile.md` there, in whatever Markdown they write. A Walkthrough's run reads the
+names it fills from it, and while there is no such file, a Walkthrough leaves the names empty and says where to add
+them. Each Product's Signup identity is a plus-address of `signupMailbox`, the Signup mailbox's own address, with that
+address as the fallback for a form that refuses `+` (ADR 0003).
+
 Each run loads its Rules from the checkout's last commit (ADR 0002): every file in `rules/all/`, and every one in its
 own scope's folder, `miner`, `dossier`, `registration` or `mail`, as `rules/<scope>/<slug>.md`. Our extension asks the
 forwarder for them before the run starts and puts each one whole into the run's system prompt, so a run whose Rules
 don't arrive doesn't start. A record names the Rules it applied, and the bot turns back one naming a Rule its run didn't
 load. Once a Correction's Launch is re-judged, a Miner-role run sorts the Correction. The day's file says what came of
-it, and a Correction declined for a Hard limit says so on its Launch's line in the day post too. A proposed Rule, an amendment of a kept
+it, and a Correction declined for a Hard limit says so on its Launch's line in the day post too. A Walkthrough's
+Correction is sorted the same way, by a registration-role run that loads the Walkthrough/Registration Rules, and its
+Product's `registration.md` says what came of it. A proposed Rule, an amendment of a kept
 one or an Interest scope change goes to `#needs-you` as a purple card. Keep commits the Rule file or
 `profile/interest-scope.md` under the write lock, unless git changed what it replaces since the proposal, or a Rule
 would take its runs' Rules past the Rule budget, `rules.budgetTokens` (about 4,000 tokens, counted at four characters a
@@ -105,10 +115,21 @@ token). The card then says why and stays open.
 
 Dossiers go to the Products forum, `discord.productsForumId`, whose tags the person makes: *Walkthrough*,
 *Registering*, *Needs you*, *registered*, *waitlisted*, *handed off*, *abandoned*, *no account* and *Skipped*. The bot
-finds a tag by its name, so only the names matter, and for now applies *no account*, and *Skipped* to the post of a
+finds a tag by its name, so only the names matter, and for now applies *no account*; *Walkthrough* while a
+Walkthrough waits on the person; *Registering*, or *handed off*, once one is approved; and *Skipped* to the post of a
 Dossier a Correction withdraws. A Dossier reads its Product's pages through the browser service's socket at
 `browser.socketPath` (`browser/README.md`), and each read is kept for 90 days under `pages/`, beside the other raw
 inputs.
+
+Once an open or waitlisted Product's post is up, the bot reads its signup page again, live: the one its landing page
+links to, or the landing page itself when it links to none. A registration-role run prepares the Walkthrough from that
+read, the Dossier and the Profile. Its card goes to `#needs-you`, a copy of each version goes to the Product's post,
+and the Dossier's Register line says where the Walkthrough stands. Card fields on the signup page, or a wall the run
+names that nothing can get past, mean no Walkthrough, and Register says why. Edit makes a new version of the same
+card, Correct a new card from another run, and Dismiss ends it. One left unanswered lapses after 14 days, with
+**Prepare again**. Approve records the Approval and starts the Registration as *queued*, or as *handed off* when the
+Product's terms ban accounts made by a bot, with a silent status message in the post and a line in
+`registration.md`. Filling the form is #56's, and **Stop** on the status message is wired with it.
 
 ```sh
 docker build -f pi/Dockerfile -t assistant-pi .
@@ -135,7 +156,7 @@ finishes even when it goes over. Once the Miner budget is spent, the date's rema
 line names the Miner budget; raising `budgets.miner` and restarting the bot lets them go on. The Miner provider's
 model is set at go-live (#85), with its price; `prices` already holds GPT-6.1 Sol's, the price the budgets were sized
 at (#39). `budgets.registration`, $20 to start, is what the registration role's runs may spend in a Pacific day,
-Dossier runs among them; their spend is counted, but nothing holds a run to it until #69.
+Dossier and Walkthrough runs among them; their spend is counted, but nothing holds a run to it until #69.
 
 The bot logs one JSON line per event to stdout. A `run.finished` line carries the run's role, providers, models,
 exact tokens and notional dollars, and for a capped run the cap it hit. A `miner.run-held` line names a run that waits
@@ -143,4 +164,6 @@ on the Miner budget, with the date's spend, and a `miner.posted` line carries wh
 `miner.judged` line names the model request whose reply held the judgment, with that request's exact tokens; one reply
 usually judges every Launch in its run. A `dossier.written` line names a Dossier's Product by its root domain, with
 the run, provider and model that wrote it. A `run.rules-loaded` line names the commit a run's Rules were read at, the
-Rules by name, and about how many tokens they take.
+Rules by name, and about how many tokens they take. A `walkthrough.prepared` line names a Walkthrough's version and
+the run that prepared it, a `walkthrough.none` line why a Product gets none, and a `walkthrough.approved` line the
+Discord interaction an Approval came in.

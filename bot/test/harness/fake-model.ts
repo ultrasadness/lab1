@@ -1,8 +1,9 @@
 // A fake model provider behind the forwarder, speaking OpenAI Chat Completions with streaming, as new-api does.
 // It replays scripted tool calls per run kind and item: for a Miner judging run, one record_judgment call for
 // each Launch the run asks about, then a short closing reply; for a Dossier run, one record_dossier call, and one
-// more if the bot says the Dossier is too long; for a Correction's sorting run, one record_sort call, and another if
-// the bot refuses it and the test scripts one. Usage is scripted too.
+// more if the bot says the Dossier is too long; for a Walkthrough preparation run, one record_walkthrough call, and
+// another if the bot refuses it and the test scripts one; for a Correction's sorting run, one record_sort call, and
+// another if the bot refuses it and the test scripts one. Usage is scripted too.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { readFileSync } from 'node:fs';
@@ -66,6 +67,21 @@ export interface ScriptedOffer {
   sources: string[];
 }
 
+/** A Walkthrough as the model records it through record_walkthrough. */
+export interface ScriptedWalkthrough {
+  /** The form it fills, by its number in the prompt, or null when it fills none. */
+  form: number | null;
+  fields: { field: number; fill: string; value: string | null }[];
+  names: { first: string | null; last: string | null };
+  button: string | null;
+  onSubmit: 'verification-email' | 'waitlist' | 'logged-in';
+  walls: string[];
+  providers: string[];
+  termsBan: string | null;
+  authVendor: string | null;
+  rulesApplied: string[];
+}
+
 /** A Correction's sort as the model records it through record_sort. */
 export interface ScriptedSort {
   sort: 'fix-only' | 'interest-scope' | 'rule' | 'declined';
@@ -87,12 +103,16 @@ export const sorted = (sort: ScriptedSort['sort'], parts: Partial<Omit<ScriptedS
 
 /** One conversation the provider saw: a run, with the Launches it was asked to judge, write a Dossier of, or sort a Correction of. */
 export interface SeenRun {
-  kind: 'miner-judging' | 'dossier' | 'correction-sorting' | 'other';
+  kind: 'miner-judging' | 'dossier' | 'walkthrough-preparation' | 'correction-sorting' | 'other';
   postIds: string[];
+  /** The root domain of the Product a Walkthrough preparation run prepares for. */
+  rootDomain: string | null;
   /** What the run's first request said as the user. */
   prompt: string;
   /** What each record_dossier call got back, in order. */
   dossierReplies: string[];
+  /** What each record_walkthrough call got back, in order. */
+  walkthroughReplies: string[];
   /** What each record_sort call got back, in order. */
   sortReplies: string[];
   /** Whether the model ran away in this run: it recorded nothing and called its tool turn after turn. */
@@ -113,6 +133,11 @@ export class FakeModelProvider {
   /** The Dossier runs seen, oldest first. */
   get dossierRuns(): SeenRun[] {
     return this.runs.filter((r) => r.kind === 'dossier');
+  }
+
+  /** The Walkthrough preparation runs seen, oldest first. */
+  get walkthroughRuns(): SeenRun[] {
+    return this.runs.filter((r) => r.kind === 'walkthrough-preparation');
   }
 
   /** The Corrections' sorting runs seen, oldest first. */
@@ -145,6 +170,13 @@ export class FakeModelProvider {
   again: (run: SeenRun, refusal: string) => ScriptedDossier | 'none' = () => 'none';
   /** What the model records once told its Dossier runs `over` characters too long; `'none'` records nothing more. */
   rewrite: (run: SeenRun, over: number, first: ScriptedDossier) => ScriptedDossier | 'none' = (_run, over, first) => shortened(first, over);
+  /**
+   * What the model records in a Walkthrough preparation run; `'none'` records nothing. By default, the first form's
+   * email and password fields filled, any box left unticked, and the Profile's names.
+   */
+  walkthrough: (run: SeenRun) => ScriptedWalkthrough | 'none' = (run) => plainWalkthrough(run.prompt);
+  /** What the model records after the bot refused its Walkthrough; `'none'` records nothing more. */
+  walkthroughAgain: (run: SeenRun, refusal: string) => ScriptedWalkthrough | 'none' = () => 'none';
   /** What the model records in a Correction's sorting run; `'none'` records nothing. By default, fix only. */
   sort: (run: SeenRun) => ScriptedSort | 'none' = () => sorted('fix-only');
   /** What the model records after the bot refused its sort; `'none'` records nothing more. */
@@ -212,13 +244,16 @@ export class FakeModelProvider {
     if (startsRun) {
       const judging = tools.includes('record_judgment');
       const dossier = tools.includes('record_dossier');
+      const walkthrough = tools.includes('record_walkthrough');
       const sorting = tools.includes('record_sort');
       const user = body.messages.filter((m) => m.role === 'user').map(text).join('\n');
       const run: SeenRun = {
-        kind: judging ? 'miner-judging' : dossier ? 'dossier' : sorting ? 'correction-sorting' : 'other',
+        kind: judging ? 'miner-judging' : dossier ? 'dossier' : walkthrough ? 'walkthrough-preparation' : sorting ? 'correction-sorting' : 'other',
         postIds: judging || dossier || sorting ? [...new Set([...user.matchAll(/Post id (\d+)/g)].map((m) => m[1]!))] : [],
+        rootDomain: user.match(/^Root domain: (\S+)$/m)?.[1] ?? null,
         prompt: user,
         dossierReplies: [],
+        walkthroughReplies: [],
         sortReplies: [],
         ranAway: false,
         requests: 0,
@@ -291,6 +326,16 @@ export class FakeModelProvider {
       if (startsRun && next !== 'none') this.#firstDossier = next;
       if (next === 'none') reply(startsRun ? 'Nothing to record.' : 'Recorded.');
       else callTools([next as unknown as Record<string, unknown>], 'record_dossier');
+    } else if (run?.kind === 'walkthrough-preparation') {
+      const replied = body.messages.at(-1)?.role === 'tool' ? text(body.messages.at(-1)!) : undefined;
+      if (replied !== undefined) run.walkthroughReplies.push(replied);
+      const next = startsRun
+        ? this.walkthrough(run)
+        : replied !== undefined && !/^Recorded/.test(replied)
+          ? this.walkthroughAgain(run, replied)
+          : 'none';
+      if (next === 'none') reply(startsRun ? 'Nothing to record.' : 'Recorded.');
+      else callTools([next as unknown as Record<string, unknown>], 'record_walkthrough');
     } else if (run?.kind === 'correction-sorting') {
       const replied = body.messages.at(-1)?.role === 'tool' ? text(body.messages.at(-1)!) : undefined;
       if (replied !== undefined) run.sortReplies.push(replied);
@@ -330,6 +375,34 @@ function plainDossier(prompt: string): ScriptedDossier {
     forYou: { text: 'Near something you want.', sources: ['interest-scope'] },
     offers: [],
     note: null,
+    rulesApplied: [],
+  };
+}
+
+/**
+ * A Walkthrough of the first form a Walkthrough preparation run's prompt lists: its email and password fields filled,
+ * each box left unticked, every other field empty, and its first button. The names are the Profile's, when the run
+ * was given one.
+ */
+export function plainWalkthrough(prompt: string): ScriptedWalkthrough {
+  const form = prompt.match(/^Form 1\b.*$/m);
+  const fields = [...prompt.matchAll(/^Form 1 field (\d+) \(([^,;)]+)/gm)].map((m) => {
+    const [field, type] = [Number(m[1]), m[2]!];
+    if (type === 'email' || type === 'password') return { field, fill: type, value: null };
+    if (type === 'checkbox') return { field, fill: 'choice', value: 'left unticked' };
+    return { field, fill: 'empty', value: null };
+  });
+  const profile = !/^Profile: none/m.test(prompt);
+  return {
+    form: form ? 1 : null,
+    fields,
+    names: profile ? { first: 'Alex', last: 'Example' } : { first: null, last: null },
+    button: prompt.match(/^Form 1 · buttons? ([^/\n]+?)(?: \/ .*)?$/m)?.[1] ?? null,
+    onSubmit: 'verification-email',
+    walls: [],
+    providers: [],
+    termsBan: null,
+    authVendor: null,
     rulesApplied: [],
   };
 }
