@@ -10,10 +10,12 @@
 // and once the Miner budget is spent the date's remaining runs wait, until it is raised and the bot restarts.
 // Each run fast-forwards the Personal database first and reads the Interest scope there. Once the date is judged, its
 // `days/` file is queued in the store, then every Launch at or above the line gets its Dossier, and the day's post,
-// which links each Dossier's Product post, goes out once they all have one; the files are committed after.
+// which links each Dossier's Product post, goes out once each one is posted or couldn't be written, naming those not
+// written (#100); the files are committed after. Each pass also tries again every Dossier not written, once per start
+// of the Miner, and shows in its date's posted list how each try went.
 import type { Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
-import type { Dossiers, DossierLaunchInput } from '../dossier/dossiers.ts';
+import type { Dossiers, DossierLaunchInput, Written } from '../dossier/dossiers.ts';
 import { asEdit, type MessagePayload } from '../discord/components.ts';
 import { refused, type DiscordRest } from '../discord/rest.ts';
 import type { RecordResult } from '../forwarder.ts';
@@ -27,7 +29,7 @@ import type { CappedRun, Launch, Store } from '../store.ts';
 import { catchUpWindow, droppedLine, lateLine, type BudgetHold } from './catch-up.ts';
 import { drawDayLine, outcomeOf } from './day-line.ts';
 import { renderDroppedPost, renderRetryNotice, renderWaitingPost } from './day-post.ts';
-import { dayFileOf, dayLaunches, dayPostOf, reLaunchOfRegistered } from './day-view.ts';
+import { dayFileOf, dayLaunches, dayPostOf, reLaunchOfRegistered, rewriteDayPost } from './day-view.ts';
 import { judgingPrompt, readJudgment } from './judging.ts';
 
 export class Miner {
@@ -104,10 +106,62 @@ export class Miner {
       // A pass that ran into nothing leaves no reason standing from an earlier one.
       if (!this.#troubled.has(date)) this.#store.saveMinerDayProblem(date, null);
     }
+    const dossiersLeft = await this.#retryDossiers(pacificInstant(latest, this.#config.miner.startsAt));
+    const unshownLeft = await this.#showRetriedDossiers();
     await this.noteLate();
     // A date held by its Miner budget can go on only once it is raised, which takes a restart.
-    return this.#unfinished(window).some((date) => !this.#heldByBudget(date));
+    return dossiersLeft || unshownLeft || this.#unfinished(window).some((date) => !this.#heldByBudget(date));
   }
+
+  /**
+   * The queue's pass: tries again each Dossier kept for a later try and not tried since the Miner's latest start,
+   * highest Fit first, then oldest Launch. One whose Launch a Correction has put below its line, or whose date was
+   * dropped, is left. Returns whether one ran into a problem other than its Dossier not being written.
+   */
+  async #retryDossiers(since: Date): Promise<boolean> {
+    const queued = new Set(this.#dossiers.queued(since));
+    const dates = [...new Set([...queued].map((postId) => this.#store.launch(postId)!.date))];
+    const launches = dates
+      .filter((date) => !this.#store.minerDay(date)?.droppedAt)
+      .flatMap((date) => this.#dossierLaunches(date, this.#store.launchesFor(date)!).filter((l) => queued.has(l.launch.postId)))
+      .sort((a, b) => b.fit - a.fit || a.date.localeCompare(b.date) || a.launch.rank - b.launch.rank);
+    if (launches.length === 0) return false;
+    const postIds = launches.map((l) => l.launch.postId);
+    this.#log('dossier.queue-pass', { postIds });
+    // Marked before they are tried, so their lists show how the tries went even after a stop or a failed edit.
+    this.#store.saveDossiersUnshown(postIds, true);
+    let written: Written;
+    try {
+      written = await this.#dossiers.writeFor(launches, { queued: true });
+    } finally {
+      await this.#personalDatabase.sync();
+    }
+    if (written === 'stopped') return false;
+    if (written !== 'done') this.#log('dossier.queue-problem', { problem: written.problem });
+    return written !== 'done';
+  }
+
+  /**
+   * Shows in each date's posted list how the queue's tries at its Dossiers went: its summary, and each message holding
+   * one of their lines. A list not posted yet shows them once it is. Returns whether one is left to show.
+   */
+  async #showRetriedDossiers(): Promise<boolean> {
+    let left = false;
+    for (const { date, postIds } of this.#store.unshownDossiers()) {
+      try {
+        if (this.posted(date)) {
+          await rewriteDayPost(this.#store, this.#discord, date, new Set(postIds));
+          this.#log('miner.post-reshown', { date, postIds });
+        }
+        this.#store.saveDossiersUnshown(postIds, false);
+      } catch (error) {
+        left = true;
+        this.#log('miner.post-reshow-failed', { date, error: errorText(error) });
+      }
+    }
+    return left;
+  }
+
 
   /** Dates in the window, taken on and not yet posted. */
   #unfinished(window: string[]): string[] {
@@ -218,7 +272,7 @@ export class Miner {
     // Queued before the post goes out and written after it, so the post never waits on git and nothing is lost.
     this.#personalDatabase.queue(dayFileOf(this.#store, date));
     try {
-      // The day's post links each Dossier's Product post, so it waits until every one is posted.
+      // The day's post links each Dossier's Product post, so it waits until each one is posted or kept for a later try.
       const written = await this.#dossiers.writeFor(this.#dossierLaunches(date, launches));
       if (written === 'stopped') return;
       if (written !== 'done') return this.#problem(date, written.problem);

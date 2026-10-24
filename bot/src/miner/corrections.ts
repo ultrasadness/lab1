@@ -21,7 +21,7 @@ import { decidedText, INTEREST_SCOPE_PATH, sortingPrompt, sortKey, type SortedIt
 import type { Correction, Judgment, Store } from '../store.ts';
 import { outcomeOf } from './day-line.ts';
 import { correctId, judgmentText, plainJudgment, renderWithdrawn } from './day-post.ts';
-import { dayFileOf, dayLaunches, dayPostOf, judgmentBefore, reLaunchOfRegistered, type DayLaunch } from './day-view.ts';
+import { dayFileOf, dayLaunches, dayPostOf, judgmentBefore, reLaunchOfRegistered, rewriteDayPost, type DayLaunch } from './day-view.ts';
 import { correctionPrompt, launchParts, readJudgment } from './judging.ts';
 
 /** The pop-up's one field. */
@@ -83,7 +83,8 @@ export class Corrections {
 
   /**
    * Works through every Correction whose work isn't done, oldest first, then sorts each one re-judged that isn't sorted
-   * yet. Returns whether one is left for later, such as a Dossier that couldn't be written.
+   * yet. Returns whether one is left for later, such as a Product post Discord didn't take. A Dossier that couldn't be
+   * written is kept for the Miner's next start, and leaves the Correction done.
    */
   async work(): Promise<boolean> {
     let left = false;
@@ -277,21 +278,9 @@ export class Corrections {
     return dayLaunches(this.#store, date).find((l) => l.postId === postId)!;
   }
 
-  /**
-   * Rewrites the day post as the store now has it: its title and summary, and each message holding a corrected
-   * line. An archived post can't be edited, so the rename unarchives it too.
-   */
+  /** Rewrites the day post as the store now has it: its title and summary, and each message holding a corrected line. */
   async #show(date: string): Promise<void> {
-    const post = this.#store.dayPost(date);
-    const threadId = post.threadId!;
-    const rendered = dayPostOf(this.#store, date);
-    const corrected = new Set(this.#store.correctionsFor(date).map((c) => c.postId));
-    await this.#discord.editThread(threadId, { name: rendered.title, archived: false });
-    this.#store.saveDayPostTitle(date, rendered.title);
-    for (const [i, message] of rendered.messages.entries()) {
-      if (i > 0 && !rendered.launchesIn[i]!.some((id) => corrected.has(id))) continue;
-      await this.#discord.editMessage(threadId, post.messageIds[i]!, asEdit(message));
-    }
+    await rewriteDayPost(this.#store, this.#discord, date, new Set(this.#store.correctionsFor(date).map((c) => c.postId)));
   }
 
   /** The Launch's line on its posted day, and the day's stored line, unless the line can't be corrected now. */

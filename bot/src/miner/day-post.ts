@@ -1,5 +1,5 @@
 // The day post (#29): one silent post per Miner day in the Miner days forum. A summary comes first, linking each
-// Dossier's Product post, then one message per band, each Launch on one line with its own Correct button, a Dossier's
+// Dossier's Product post and naming each Dossier not written, with why (#100), then one message per band, each Launch on one line with its own Correct button, a Dossier's
 // ending in its Product post. Every message stays within Discord's limits; a band longer than 12 lines splits into
 // parts. A date whose judging run hit a cap even after its automatic retry opens its post early (#45): a waiting
 // summary, then a notice with Retry for each capped run. Once the date is judged, the summary and title are rewritten
@@ -66,6 +66,12 @@ export interface RenderedDayPost {
 
 const LINES_PER_MESSAGE = 12;
 
+/** A post id as long as Discord's longest, standing in for the post of a Dossier written later. */
+const LATER_POST = '9'.repeat(20);
+
+/** How much of why each Dossier wasn't written the summary keeps: 200 characters, less where it must fit, or none. */
+const WHYS_KEPT = [200, 80, 0] as const;
+
 /** How much of a corrected line's quote of the person, then of its reason, is kept: all, until its message must fit. */
 const SQUEEZES = [
   { quote: 200, reason: Infinity },
@@ -98,32 +104,40 @@ export function renderDayPost(input: {
   launches: DayPostLaunch[];
   /** The Product post holding each Dossier Launch's Dossier, by Post id. */
   productPosts: ReadonlyMap<string, string>;
+  /** Why each Launch filed under no Product went without a Dossier at its latest try, by Post id. */
+  unwritten: ReadonlyMap<string, string>;
 }): RenderedDayPost {
-  const { date, line, launches, productPosts } = input;
-  const dossiers = launches.filter((l) => outcomeOf(l, line.line) === 'dossier').length;
-  const dossierPosts = [
-    ...new Set(
-      launches
-        .filter((l) => outcomeOf(l, line.line) === 'dossier')
-        .sort((a, b) => b.fit - a.fit || a.rank - b.rank)
-        .flatMap((l) => productPosts.get(l.postId) ?? []),
-    ),
-  ];
+  const { date, line, launches, productPosts, unwritten } = input;
+  const dossierLaunches = launches.filter((l) => outcomeOf(l, line.line) === 'dossier').sort((a, b) => b.fit - a.fit || a.rank - b.rank);
+  const dossiers = dossierLaunches.length;
+  const dossierPosts = [...new Set(dossierLaunches.flatMap((l) => productPosts.get(l.postId) ?? []))];
+  // Each Dossier not written, and why, as much of it as the summary has room for.
+  const notWritten = (whyKept: number) =>
+    dossierLaunches.flatMap((l) => {
+      const why = unwritten.get(l.postId);
+      if (why === undefined) return [];
+      const name = `**Not written:** ${escapeMarkdown(l.name.trim())}`;
+      return [whyKept > 0 ? `${name}, because ${cut(escapeMarkdown(why), whyKept)}` : name];
+    });
 
   const title = `${dayLabel(date)} · ${count(dossiers, 'Dossier')} · line ${line.line}`;
-  const summary = silentMessage([
-    container(Accent.progress, [
-      text(
-        [
-          `## Miner · ${dayLabel(date)}`,
-          `**${count(dossiers, 'Dossier')}** · ${count(launches.length - dossiers, 'Skip')} · ${count(line.featuredCount, 'Featured Launch', 'Featured Launches')} · Day's line **${line.line}**`,
-          ...(dossierPosts.length > 0 ? [`**Dossiers:** ${dossierPosts.map((id) => `<#${id}>`).join(' · ')}`] : []),
-          `-# Line: ${whyTheLine(line)}`,
-          `-# [Data sourced from Product Hunt](${leaderboardUrl(date)})`,
-        ].join('\n'),
-      ),
-    ]),
-  ]);
+  const summaryKeeping = (whyKept: number) =>
+    silentMessage([
+      container(Accent.progress, [
+        text(
+          [
+            `## Miner · ${dayLabel(date)}`,
+            `**${count(dossiers, 'Dossier')}** · ${count(launches.length - dossiers, 'Skip')} · ${count(line.featuredCount, 'Featured Launch', 'Featured Launches')} · Day's line **${line.line}**`,
+            ...(dossierPosts.length > 0 ? [`**Dossiers:** ${dossierPosts.map((id) => `<#${id}>`).join(' · ')}`] : []),
+            ...notWritten(whyKept),
+            `-# Line: ${whyTheLine(line)}`,
+            `-# [Data sourced from Product Hunt](${leaderboardUrl(date)})`,
+          ].join('\n'),
+        ),
+      ]),
+    ]);
+  const summary = WHYS_KEPT.map(summaryKeeping).find(fits);
+  if (!summary) throw new Error(`${dayLabel(date)}'s summary is longer than one Discord message allows`);
 
   // A line's place comes from the judgment the day was posted with.
   const posted = (l: DayPostLaunch): DayPostLaunch => (l.first ? { ...l, ...l.first, first: undefined, correction: undefined } : l);
@@ -141,13 +155,14 @@ export function renderDayPost(input: {
     const title = heading(band, line.line);
     const accent = band === 'dossiers' ? Accent.dossiers : Accent.progress;
     // Correct is off while a line is re-judging.
-    const lineOf = (l: DayPostLaunch, squeeze: Squeeze = SQUEEZES[0]) =>
+    const lineOf = (l: DayPostLaunch, squeeze: Squeeze = SQUEEZES[0], post = productPosts.get(l.postId)) =>
       section(
-        lineText(l, line.line, productPosts.get(l.postId), squeeze),
+        lineText(l, line.line, post, squeeze),
         button(correctId(l.postId), 'Correct', ButtonStyle.Secondary, l.correction?.state === 're-judging'),
       );
-    // Parts split as the band was first posted, so a corrected line stays in the message it was in.
-    const size = partSize(title, accent, members.map((l) => lineOf(posted(l))));
+    // Parts split as the band was first posted, with a post for every Dossier, so a corrected line, or one whose
+    // Dossier is written later, stays in the message it was in.
+    const size = partSize(title, accent, members.map((l) => lineOf(posted(l), SQUEEZES[0], productPosts.get(l.postId) ?? LATER_POST)));
     const parts = Math.ceil(members.length / size);
     for (let i = 0; i < parts; i++) {
       const chunk = members.slice(i * size, (i + 1) * size);

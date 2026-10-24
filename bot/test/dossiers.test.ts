@@ -443,7 +443,7 @@ test('each Product gets a folder in the Personal database, and its notes.md is t
   assert.ok(!world.git.subjects().slice(-4).some((s) => s.includes('guilds.run') || s.includes('Codemind')));
 });
 
-test('the day’s list waits on a Dossier that can’t be written, says why at 06:00 PT, and goes out once it is', async (t) => {
+test('a Dossier whose landing page won’t load is named in the day’s list as not written, and each day it still won’t counts as a try', async (t) => {
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
@@ -451,58 +451,76 @@ test('the day’s list waits on a Dossier that can’t be written, says why at 0
   world.model.onlyDossiers([CODEMIND.postId, guilds]);
   serveProduct(world, CODEMIND);
   world.browser.fail(CODEMIND.landing.url, { kind: 'load-failed', message: 'net::ERR_CONNECTION_REFUSED at https://codemindhq.dev/' });
+  const landingReads = () => world.browser.reads.filter((url) => url === websiteOf(CODEMIND.postId)).length;
 
   await world.advanceTo('2026-10-12T08:00:00Z');
-  assert.deepEqual(
-    world.discord.forumPosts(PRODUCTS_FORUM).map((p) => p.title),
-    ['guilds.run · Create multi-agent workflows that you can trust'],
-    'the other Dossier goes out',
+  const [guildsPost, ...more] = world.discord.forumPosts(PRODUCTS_FORUM);
+  assert.equal(guildsPost!.title, 'guilds.run · Create multi-agent workflows that you can trust', 'the other Dossier goes out');
+  assert.deepEqual(more, []);
+  const [day] = world.discord.forumPosts(MINER_DAYS_FORUM);
+  assert.equal(day?.title, 'Mon Oct 12 · 2 Dossiers · line 7', 'the day’s list goes out');
+  assert.ok(
+    day.messages[0]!.text.includes(
+      `**Dossiers:** <#${guildsPost!.id}>\n**Not written:** Codemind, because its landing page won't load (load-failed: net::ERR\\_CONNECTION\\_REFUSED at https://codemindhq.dev/)`,
+    ),
+    day.messages[0]!.text,
   );
-  assert.deepEqual(world.discord.forumPosts(MINER_DAYS_FORUM), [], 'the day’s list waits');
-
-  await world.stepThrough('2026-10-12T13:00:00Z', 30); // 06:00 PDT
-  assert.deepEqual(
-    world.discord.textMessages(STATUS).map((l) => l.content),
-    [
-      "Miner: Mon Oct 12's list is late: the Dossier for Codemind couldn't be written: its landing page won't load (load-failed: net::ERR_CONNECTION_REFUSED at https://codemindhq.dev/). The Miner tries again every 30 minutes until the date leaves the 3-day catch-up at 01:00 PT Thu Oct 15.",
-    ],
-  );
+  assert.equal(landingReads(), 1);
   assert.equal(world.model.dossierRuns.length, 1, 'no run is made without the landing page');
 
-  // The site is back by the next try.
+  // The site stays down through two more of the Miner's starts, the last try the limit allows.
+  await world.advanceTo('2026-10-13T08:00:00Z');
+  await world.advanceTo('2026-10-14T08:00:00Z');
+  assert.equal(landingReads(), 3);
+  assert.deepEqual(
+    world.discord.textMessages(STATUS).filter((l) => l.content.startsWith('Dossiers:')).map((l) => l.content),
+    [
+      "Dossiers: Codemind's Dossier (Mon Oct 12) won't be tried again. Its 3 tries ended without one, the last because its landing page won't load (load-failed: net::ERR_CONNECTION_REFUSED at https://codemindhq.dev/).",
+    ],
+  );
+
   world.browser.fail(CODEMIND.landing.url, undefined);
-  await world.advanceTo('2026-10-12T13:30:00Z');
-  const products = world.discord.forumPosts(PRODUCTS_FORUM);
-  assert.equal(products.length, 2);
-  assert.equal(world.model.dossierRuns.length, 2, 'the Dossier already written isn’t written again');
-  const [day] = world.discord.forumPosts(MINER_DAYS_FORUM);
-  assert.equal(day!.title, 'Mon Oct 12 · 2 Dossiers · line 7');
-  assert.ok(day!.messages[0]!.text.includes(`**Dossiers:** <#${products[0]!.id}> · <#${products[1]!.id}>`));
+  await world.advanceTo('2026-10-15T08:00:00Z');
+  assert.equal(landingReads(), 3, 'its page isn’t read again');
+  assert.equal(world.model.dossierRuns.length, 1);
+  assert.equal(world.discord.forumPosts(PRODUCTS_FORUM).length, 1);
+
+  // Raising the limit through ops/upgrade, which restarts the bot, lets it try once more.
+  await world.outage('2026-10-15T09:00:00Z', (config) => void (config.dossiers.tries = 4));
+  assert.equal(landingReads(), 4);
+  const [, codemindPost] = world.discord.forumPosts(PRODUCTS_FORUM);
+  assert.equal(codemindPost?.title, 'Codemind · Delegate coding. Get back code that works.');
+  assert.ok(world.discord.forumPosts(MINER_DAYS_FORUM)[0]!.messages[0]!.text.includes(`**Dossiers:** <#${guildsPost!.id}> · <#${codemindPost.id}>`));
 });
 
-test('a Dossier run that records no Dossier holds the day’s list until the next pass writes it', async (t) => {
+test('a Dossier run that records no Dossier leaves it out of the day’s list until the Miner’s next start writes it, and the list then links it', async (t) => {
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
   t.after(() => world.stop());
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
-  world.model.onlyDossiers([CODEMIND.postId]);
+  const guilds = '1274741';
+  world.model.onlyDossiers([CODEMIND.postId, guilds]);
   serveProduct(world, CODEMIND);
   const scripted = world.model.dossier;
-  world.model.dossier = () => 'none';
+  world.model.dossier = (run) => (run.postIds.includes(CODEMIND.postId) ? 'none' : scripted(run));
 
   await world.advanceTo('2026-10-12T08:00:00Z');
-  assert.deepEqual(world.discord.forumPosts(PRODUCTS_FORUM), []);
-  assert.deepEqual(world.discord.forumPosts(MINER_DAYS_FORUM), [], 'the day’s list waits');
-  assert.ok(
-    world.logs.some(
-      (l) => l.event === 'miner.date-problem' && l.problem === "the Dossier for Codemind couldn't be written: its Dossier run recorded no Dossier",
-    ),
-  );
+  const [guildsPost] = world.discord.forumPosts(PRODUCTS_FORUM);
+  let [day] = world.discord.forumPosts(MINER_DAYS_FORUM);
+  assert.ok(day!.messages[0]!.text.includes('**Not written:** Codemind, because its Dossier run recorded no Dossier'), day!.messages[0]!.text);
+  const codemindLine = () => world.discord.forumPosts(MINER_DAYS_FORUM)[0]!.messages[1]!.lines.find((l) => l.text.startsWith('**[Codemind]'))!.text;
+  assert.doesNotMatch(codemindLine(), /→/);
 
   world.model.dossier = scripted;
-  await world.advanceTo('2026-10-12T08:30:00Z');
-  assert.equal(world.model.dossierRuns.length, 2, 'the next pass runs it again');
-  assert.equal(world.discord.forumPosts(PRODUCTS_FORUM).length, 1);
-  assert.equal(world.discord.forumPosts(MINER_DAYS_FORUM)[0]?.title, 'Mon Oct 12 · 1 Dossier · line 7');
+  await world.advanceTo('2026-10-13T08:00:00Z');
+  assert.equal(world.model.dossierRuns.length, 3, 'the Miner’s next start runs it again');
+  const [, codemindPost] = world.discord.forumPosts(PRODUCTS_FORUM);
+  assert.equal(codemindPost!.title, 'Codemind · Delegate coding. Get back code that works.', 'posted as any other');
+  assert.ok(codemindPost!.messages[0]!.silent);
+  [day] = world.discord.forumPosts(MINER_DAYS_FORUM);
+  assert.equal(day!.title, 'Mon Oct 12 · 2 Dossiers · line 7');
+  assert.ok(day!.messages[0]!.text.includes(`**Dossiers:** <#${guildsPost!.id}> · <#${codemindPost!.id}>\n-# Line:`), day!.messages[0]!.text);
+  assert.match(codemindLine(), new RegExp(`· Dossier · fit 8 · .* → <#${codemindPost!.id}>$`));
+  assert.ok(world.git.file('products/codemindhq.dev/dossier.md'));
 });
 
 test('Products are keyed by root domain: a Launch of a Product that has a post gets no second one', async (t) => {

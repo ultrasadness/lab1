@@ -393,7 +393,7 @@ test('a long Correction on a day of long names and reasons keeps every message, 
   assert.match(corrected.text, /\n-# was Skip · fit \d · you wrote “(It has \\\*no\\\* export at all, \\\[see\\\]\(https:\/\/example\.com\) \\<@123\\>\..*)?…”$/);
 });
 
-test('a Skip corrected above the line whose Dossier can’t be written yet says so, and its Dossier follows 30 minutes later', async (t) => {
+test('a Skip corrected above the line whose Dossier can’t be written yet is done at once, the list names it, and its Dossier follows at the Miner’s next start', async (t) => {
   const world = await dayPosted(t);
   await world.advanceTo('2026-10-12T16:15:00Z'); // 09:15 PDT
   rejudges(world, CODEMIND.postId, { fit: 8, notAProduct: false, reason: 'your coding agent hands off tasks over MCP; free allowance to start' });
@@ -406,22 +406,21 @@ test('a Skip corrected above the line whose Dossier can’t be written yet says 
 
   assert.deepEqual(world.discord.forumPosts(PRODUCTS_FORUM), []);
   assert.equal(dayPost(world).title, 'Mon Oct 12 · 1 Dossier · line 7');
-  assert.equal(
-    lineOf(world, 'Codemind').line.text,
-    `**[Codemind](${ph('codemind-2')})** · Dossier · fit 8 after your Correction · your coding agent hands off tasks over MCP; free allowance to start` +
-      "\n-# was Skip · fit 6 · you wrote “This is squarely what I want.” · the Dossier for Codemind couldn't be written: its landing page won't load (timeout: the page took over 30 seconds)",
+  const corrected =
+    `**[Codemind](${ph('codemind-2')})** · Dossier · fit 8 after your Correction · your coding agent hands off tasks over MCP; free allowance to start`;
+  assert.equal(lineOf(world, 'Codemind').line.text, `${corrected}\n-# was Skip · fit 6 · you wrote “This is squarely what I want.”`);
+  assert.ok(
+    dayPost(world).messages[0]!.text.includes("**Not written:** Codemind, because its landing page won't load (timeout: the page took over 30 seconds)"),
   );
 
   world.browser.fail(websiteOf(CODEMIND.postId), undefined);
   await world.advanceTo('2026-10-12T16:45:00Z'); // 09:45 PDT
+  assert.deepEqual(world.discord.forumPosts(PRODUCTS_FORUM), [], 'the Correction isn’t worked again');
+  await world.advanceTo('2026-10-13T08:00:00Z'); // Tue 01:00 PDT
   const [product] = world.discord.forumPosts(PRODUCTS_FORUM);
   assert.ok(product);
-  assert.equal(
-    lineOf(world, 'Codemind').line.text,
-    `**[Codemind](${ph('codemind-2')})** · Dossier · fit 8 after your Correction · your coding agent hands off tasks over MCP; free allowance to start → <#${product.id}>` +
-      '\n-# was Skip · fit 6 · you wrote “This is squarely what I want.”',
-  );
-  assert.ok(dayPost(world).messages[0]!.text.includes(`**Dossiers:** <#${product.id}>`));
+  assert.equal(lineOf(world, 'Codemind').line.text, `${corrected} → <#${product.id}>\n-# was Skip · fit 6 · you wrote “This is squarely what I want.”`);
+  assert.ok(dayPost(world).messages[0]!.text.includes(`**Dossiers:** <#${product.id}>\n-# Line:`));
 });
 
 test('a Dossier whose forum tags can’t be read yet is withdrawn 30 minutes later, never closed without its Skipped tag', async (t) => {

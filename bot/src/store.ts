@@ -1,11 +1,11 @@
 // The live store (ADR 0007): one SQLite file the bot alone writes, the single source of truth for live state.
 // It holds the Miner dates the bot has taken on, each date's Launches, judgments by Post id, the person's Corrections
 // of them with the judgments their runs gave and what their sorting runs and the person made of them, Day's lines by
-// date, the day posts on Discord, the Retries a capped date
-// waits on, Products by root domain with their Launches, Dossiers and posts, each Product's Walkthrough versions and the
-// person's Corrections of them, Approvals and Registrations, run and model-request records with each run's Rule-set
-// commit and each request's notional dollars, the index of raw inputs kept outside git, the files waiting to be written
-// to the Personal database, and the times its history diverged.
+// date, the day posts on Discord, the Retries a capped date waits on, the tries at each Launch's Dossier that ended
+// without one, Products by root domain with their Launches, Dossiers and posts, each Product's Walkthrough versions
+// and the person's Corrections of them, Approvals and Registrations, run and model-request records with each run's
+// Rule-set commit and each request's notional dollars, the index of raw inputs kept outside git, the files waiting to
+// be written to the Personal database, and the times its history diverged.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
 import type { PageRead } from './browser.ts';
@@ -185,6 +185,21 @@ export interface Product {
   threadId: string | null;
   /** When a Correction put its Dossier below the day's line, closing its post; cleared if one puts it back. */
   withdrawnAt: string | null;
+}
+
+/**
+ * The tries at a Launch's Dossier that ended without one (#100): its landing page wouldn't load, or its run failed, hit
+ * its cap or recorded none. A run the Assistant stopped itself, or a crash cut short, never ended so, and isn't one.
+ */
+export interface DossierTries {
+  postId: string;
+  /** How many, which the limit counts. */
+  tries: number;
+  /** Why the latest one ended without a Dossier, and when. */
+  why: string;
+  unwrittenAt: string;
+  /** When #status was told it won't be tried again. */
+  stopNotedAt: string | null;
 }
 
 /** One version of a Product's Dossier, with the run that wrote it. */
@@ -482,6 +497,14 @@ CREATE TABLE IF NOT EXISTS dossiers (
   written_at TEXT NOT NULL,
   PRIMARY KEY (product_id, version)
 );
+CREATE TABLE IF NOT EXISTS dossier_tries (
+  post_id TEXT PRIMARY KEY REFERENCES launches(post_id),
+  tries INTEGER NOT NULL,
+  why TEXT NOT NULL,
+  unwritten_at TEXT NOT NULL,
+  stop_noted_at TEXT,
+  unshown INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS signup_tags (
   product_id INTEGER PRIMARY KEY REFERENCES products(id),
   tag TEXT NOT NULL UNIQUE
@@ -660,6 +683,14 @@ const approvalOf = (row: Row): Approval => ({
   userId: String(row.user_id),
   interactionId: String(row.interaction_id),
   approvedAt: String(row.approved_at),
+});
+
+const dossierTriesOf = (row: Row): DossierTries => ({
+  postId: String(row.post_id),
+  tries: Number(row.tries),
+  why: String(row.why),
+  unwrittenAt: String(row.unwritten_at),
+  stopNotedAt: textOrNull(row.stop_noted_at),
 });
 
 const productOf = (row: Row): Product => ({
@@ -1238,6 +1269,74 @@ export class Store {
   /** Keeps the post's id, which is also the id of its first message, the Dossier. */
   saveProductPost(id: number, threadId: string): void {
     this.#db.prepare('UPDATE products SET thread_id = ? WHERE id = ?').run(threadId, id);
+  }
+
+  /** The tries at a Launch's Dossier that ended without one, if any did. */
+  dossierTries(postId: string): DossierTries | undefined {
+    const row = this.#db.prepare('SELECT * FROM dossier_tries WHERE post_id = ?').get(postId);
+    return row ? dossierTriesOf(row) : undefined;
+  }
+
+  /** The Launches filed under no Product whose Dossier a try ended without. */
+  unwrittenDossiers(): DossierTries[] {
+    return this.#db
+      .prepare(
+        `SELECT * FROM dossier_tries
+         WHERE NOT EXISTS (SELECT 1 FROM product_launches WHERE product_launches.post_id = dossier_tries.post_id)
+         ORDER BY post_id`,
+      )
+      .all()
+      .map(dossierTriesOf);
+  }
+
+  /**
+   * The Launches whose Dossier a try ended without once, filed under a Product whose post isn't up: not taken by
+   * Discord yet, or withdrawn.
+   */
+  unpostedTriedDossiers(): string[] {
+    return this.#db
+      .prepare(
+        `SELECT dossier_tries.post_id FROM dossier_tries
+           JOIN product_launches ON product_launches.post_id = dossier_tries.post_id
+           JOIN products ON products.id = product_launches.product_id
+         WHERE products.thread_id IS NULL OR products.withdrawn_at IS NOT NULL
+         ORDER BY dossier_tries.post_id`,
+      )
+      .all()
+      .map((row) => String(row.post_id));
+  }
+
+  saveDossierStopNoted(postId: string, at: string | null): void {
+    this.#db.prepare('UPDATE dossier_tries SET stop_noted_at = ? WHERE post_id = ?').run(at, postId);
+  }
+
+  /** Marks the queue's tries at these Launches' Dossiers as not yet shown in their dates' lists, or as shown. */
+  saveDossiersUnshown(postIds: string[], unshown: boolean): void {
+    const update = this.#db.prepare('UPDATE dossier_tries SET unshown = ? WHERE post_id = ?');
+    this.#transaction(() => {
+      for (const postId of postIds) update.run(unshown ? 1 : 0, postId);
+    });
+  }
+
+  /** The Launches whose Dossier the queue tried, not yet shown in their dates' lists, by date. */
+  unshownDossiers(): { date: string; postIds: string[] }[] {
+    const rows = this.#db
+      .prepare('SELECT launches.date, dossier_tries.post_id FROM dossier_tries JOIN launches USING (post_id) WHERE unshown = 1 ORDER BY date, post_id')
+      .all();
+    return [...Map.groupBy(rows, (r) => String(r.date))].map(([date, rs]) => ({ date, postIds: rs.map((r) => String(r.post_id)) }));
+  }
+
+  /**
+   * Counts one more try that ended without the Launch's Dossier, and keeps why. A stop told under a lower limit is told
+   * again.
+   */
+  saveDossierUnwritten(postId: string, why: string, at: string): void {
+    this.#db
+      .prepare(
+        `INSERT INTO dossier_tries (post_id, tries, why, unwritten_at) VALUES (?, 1, ?, ?)
+         ON CONFLICT DO UPDATE SET tries = tries + 1, why = excluded.why, unwritten_at = excluded.unwritten_at, stop_noted_at = NULL`,
+      )
+      .run(postId, why, at);
   }
 
   /** Marks the Product's Dossier as withdrawn by a Correction, or as put back. */

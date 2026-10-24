@@ -1,6 +1,8 @@
 // A Miner day as the store holds it: each Featured Launch with the judgment its line shows, which is its first one or
 // the one the person's latest re-judged Correction gave, and its latest Correction. The day post and the day's file
 // are both drawn from it, so a Correction changes them alike.
+import { asEdit } from '../discord/components.ts';
+import type { DiscordRest } from '../discord/rest.ts';
 import type { Correction, Judgment, Launch, Store } from '../store.ts';
 import { renderDayFile, type DayFile, type DayFileLaunch } from './day-file.ts';
 import { renderDayPost, renderRetryNotice, type DayPostLaunch, type RenderedDayPost } from './day-post.ts';
@@ -73,13 +75,30 @@ export function dayPostOf(store: Store, date: string): RenderedDayPost {
     const post = store.productOfLaunch(l.postId)?.threadId;
     if (post) productPosts.set(l.postId, post);
   }
-  const { title, messages, launchesIn } = renderDayPost({ date, line: store.dayLine(date)!, launches, productPosts });
+  const unwritten = new Map(store.unwrittenDossiers().map((t) => [t.postId, t.why]));
+  const { title, messages, launchesIn } = renderDayPost({ date, line: store.dayLine(date)!, launches, productPosts, unwritten });
   const notices = store.minerRetries(date).map((retry) => renderRetryNotice(retry));
   return {
     title,
     messages: [messages[0]!, ...notices, ...messages.slice(1)],
     launchesIn: [launchesIn[0]!, ...notices.map(() => []), ...launchesIn.slice(1)],
   };
+}
+
+/**
+ * Rewrites the date's posted list as the store now has it: its title and summary, and each message holding one of these
+ * Launches' lines. An archived post can't be edited, so the rename unarchives it too.
+ */
+export async function rewriteDayPost(store: Store, discord: DiscordRest, date: string, postIds: ReadonlySet<string>): Promise<void> {
+  const post = store.dayPost(date);
+  const threadId = post.threadId!;
+  const rendered = dayPostOf(store, date);
+  await discord.editThread(threadId, { name: rendered.title, archived: false });
+  store.saveDayPostTitle(date, rendered.title);
+  for (const [i, message] of rendered.messages.entries()) {
+    if (i > 0 && !rendered.launchesIn[i]!.some((id) => postIds.has(id))) continue;
+    await discord.editMessage(threadId, post.messageIds[i]!, asEdit(message));
+  }
 }
 
 /** The date's `days/` file, written from the store, with what changed it if that is given, such as a Correction. */

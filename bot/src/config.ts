@@ -96,6 +96,11 @@ export interface Config {
     lateAt: string;
   };
   runCaps: Record<RunKind, RunCaps>;
+  /**
+   * How many tries at a Launch's Dossier may end without one before the bot stops trying (#100): a run that fails or
+   * hits its cap, or a landing page that won't load. Each one not written is tried again at the Miner's next start.
+   */
+  dossiers: { tries: number };
   /** The Rule budget (ADR 0002): about how many tokens the Rules loaded into one run may take, checked at each Keep. */
   rules: { budgetTokens: number };
   rawInputs: { keepDays: number };
@@ -147,6 +152,7 @@ export function checkConfig(config: Config): string[] {
   if (!(config.personalDatabase?.retryMinutes > 0)) problems.push('personalDatabase.retryMinutes must be above 0');
   if (!(config.pi?.command?.length > 0)) problems.push('pi.command must name the command that starts a run');
   if (!(config.rules?.budgetTokens > 0)) problems.push('rules.budgetTokens must be above 0');
+  if (!(Number.isInteger(config.dossiers?.tries) && config.dossiers.tries > 0)) problems.push('dossiers.tries must be a whole number above 0');
   for (const kind of RUN_KINDS) {
     const caps = config.runCaps?.[kind];
     for (const cap of ['wallClockMinutes', 'turns', 'tokens'] as const) {

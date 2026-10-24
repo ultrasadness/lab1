@@ -129,7 +129,19 @@ export async function startAssistant(options: {
   const browser = new BrowserService({ socketPath: config.browser.socketPath });
   // The background lane runs one job at a time (#11): Corrections, then Walkthrough preparation, then the Miner (#40 §8).
   const lane = new Lane(log);
-  const dossiers = new Dossiers({ config, store, browser, pi, discord, personalDatabase, rawInputs, walkthroughsDue: () => prepareWalkthroughs(), clock, log });
+  const dossiers = new Dossiers({
+    config,
+    store,
+    browser,
+    pi,
+    discord,
+    personalDatabase,
+    rawInputs,
+    status,
+    walkthroughsDue: () => prepareWalkthroughs(),
+    clock,
+    log,
+  });
   const miner = new Miner({ config, store, productHunt, pi, discord, status, personalDatabase, dossiers, clock, log });
   const proposals = new Proposals({
     store,
@@ -210,7 +222,8 @@ export async function startAssistant(options: {
       }
     });
   // The Miner catches up at its daily start, at every start of the bot (a start missed while it was down runs
-  // now), and every 30 minutes while a date in its window can't finish.
+  // now), and every 30 minutes while a date in its window can't finish, or a Dossier it tried again isn't posted or
+  // shown in its list yet. Each Dossier not written is tried again at the first pass after each daily start.
   let cancelRetry = () => {};
   const catchUp = () =>
     lane.add('miner', 'miner', async () => {

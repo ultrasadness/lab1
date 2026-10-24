@@ -4,8 +4,11 @@
 // A Product is keyed by the root domain its landing page is on, so a Launch of a Product that already has a Dossier is
 // filed under it and gets no second post; adding it to that Dossier is #66's. Each step is kept in the store as it
 // happens, so a pass that stops picks up where it left off: a Dossier already written isn't written again, and a post
-// marked as started is looked for on Discord before it is created again. A Dossier that can't be written is tried
-// again at the date's next pass, and the date's list waits on it.
+// marked as started is looked for on Discord before it is created again. A try that writes no Dossier, as its landing
+// page won't load or its run fails or hits its cap, is counted in the store (#100), and the Dossier waits for the
+// Miner's next start, when the queue's pass tries it again; the date's list doesn't wait on it. A Launch gets at most
+// `dossiers.tries` such tries, whichever path asks for them, and #status names the one at the limit. A run the
+// Assistant stops itself, or one a crash cuts short, doesn't count (settled by the person on #100).
 // A Correction that puts a Dossier's Launch below its day's line withdraws it (#48): the post stays as the record,
 // closed and tagged *Skipped*, its first message replaced. One that puts it back above the line reopens the post with
 // its Dossier.
@@ -15,14 +18,16 @@ import type { BrowserService, PageRead } from '../browser.ts';
 import type { Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
 import { asEdit, type MessagePayload } from '../discord/components.ts';
-import type { DiscordRest } from '../discord/rest.ts';
+import { refused, type DiscordRest } from '../discord/rest.ts';
 import { errorText, type Log } from '../log.ts';
 import { launchUrl } from '../miner/day-post.ts';
+import { dayLabel } from '../pacific.ts';
 import type { PersonalDatabase } from '../personal-database.ts';
 import { capText, type PiRunner } from '../pi-runs.ts';
 import type { RawInputs } from '../raw-inputs.ts';
 import { onRootDomain, rootDomain } from '../root-domain.ts';
-import type { Launch, ModelRequest, Product, Store } from '../store.ts';
+import type { Status } from '../status.ts';
+import type { DossierTries, Launch, ModelRequest, Product, Store } from '../store.ts';
 import { standingOf } from '../walkthrough/standing.ts';
 import { dossierCard, overBy, postTitle } from './card.ts';
 import { readDossier, SOURCE_KEYS, type Dossier, type DossierRecord, type SourceKey } from './dossier.ts';
@@ -38,8 +43,20 @@ export interface DossierLaunchInput {
   featuredCount: number;
 }
 
-/** Whether the Dossiers were written, the Assistant stopped the work, or why one or more couldn't be. */
+/**
+ * Whether each Dossier is posted or, if it couldn't be written, kept for a later try; or the Assistant stopped the
+ * work; or why one or more is neither yet, such as a post Discord didn't take.
+ */
 export type Written = 'done' | 'stopped' | { problem: string };
+
+/**
+ * Where one Launch's Dossier stands once asked for: posted, kept for a later try, stopped with the Assistant, or why it
+ * is neither yet.
+ */
+type Outcome = 'posted' | 'kept' | 'stopped' | { problem: string };
+
+/** How one try at a Dossier ended: with the Product it is filed under, without a Dossier and why, or stopped. */
+type Tried = { product: Product } | { unwritten: string } | 'stopped';
 
 /** The landing page read, and the root domain it is on. */
 type Landing = Read & { rootDomain: string };
@@ -52,6 +69,7 @@ export class Dossiers {
   #discord: DiscordRest;
   #personalDatabase: PersonalDatabase;
   #rawInputs: RawInputs;
+  #status: Status;
   #walkthroughsDue: () => void;
   #clock: Clock;
   #log: Log;
@@ -64,6 +82,7 @@ export class Dossiers {
     discord: DiscordRest;
     personalDatabase: PersonalDatabase;
     rawInputs: RawInputs;
+    status: Status;
     /** Queues the preparation of each Walkthrough now due. */
     walkthroughsDue(): void;
     clock: Clock;
@@ -76,58 +95,109 @@ export class Dossiers {
     this.#discord = options.discord;
     this.#personalDatabase = options.personalDatabase;
     this.#rawInputs = options.rawInputs;
+    this.#status = options.status;
     this.#walkthroughsDue = options.walkthroughsDue;
     this.#clock = options.clock;
     this.#log = options.log;
   }
 
   /**
-   * Writes and posts the Dossier of each Launch that has none yet, in the order given. One that can't be written
-   * doesn't stop the rest; the outcome says why each such one couldn't.
+   * Writes and posts the Dossier of each Launch that has none yet, in the order given. One that can't be written is
+   * kept for a later try, and doesn't stop the rest; the outcome says why each one neither posted nor kept is so.
+   * A Dossier kept for a later try is tried only by the queue's pass (`queued`), and none at the limit at all.
    */
-  async writeFor(launches: DossierLaunchInput[]): Promise<Written> {
+  async writeFor(launches: DossierLaunchInput[], { queued = false } = {}): Promise<Written> {
     const problems: string[] = [];
     // Read once for the pass, as GitHub has it, so an edit the person made there counts from the next pass.
     let interestScope: Promise<string> | undefined;
     const readInterestScope = () =>
       (interestScope ??= this.#personalDatabase.sync().then(() => this.#personalDatabase.read('profile/interest-scope.md')));
     for (const input of launches) {
-      let written: Written;
+      let outcome: Outcome;
       try {
-        written = await this.#write(input, readInterestScope);
+        outcome = await this.#write(input, readInterestScope, queued);
       } catch (error) {
-        written = { problem: `the Assistant hit an error (${errorText(error)})` };
+        outcome = { problem: `the Assistant hit an error (${errorText(error)})` };
       }
-      if (written === 'stopped') return 'stopped';
-      if (written !== 'done') {
-        this.#log('dossier.unwritten', { postId: input.launch.postId, problem: written.problem });
-        problems.push(`the Dossier for ${input.launch.name.trim()} couldn't be written: ${written.problem}`);
+      if (outcome === 'stopped') return 'stopped';
+      if (typeof outcome !== 'string') {
+        this.#log('dossier.unsettled', { postId: input.launch.postId, problem: outcome.problem });
+        problems.push(`the Dossier for ${input.launch.name.trim()} couldn't be written: ${outcome.problem}`);
       }
     }
+    await this.#noteStopped();
     return problems.length > 0 ? { problem: problems.join('; ') } : 'done';
   }
 
-  async #write(input: DossierLaunchInput, interestScope: () => Promise<string>): Promise<Written> {
+  /**
+   * The Launches whose Dossier was kept for a later try and waits for the queue's pass: those under the limit not tried
+   * since `since`, the Miner's latest start, and those a later try wrote whose post isn't up yet.
+   */
+  queued(since: Date): string[] {
+    const due = this.#store.unwrittenDossiers().filter((t) => !this.#atLimit(t) && t.unwrittenAt < since.toISOString());
+    return [...due.map((t) => t.postId), ...this.#store.unpostedTriedDossiers()];
+  }
+
+  /** Whether a Launch's Dossier has had every try the limit allows. */
+  #atLimit(tries: DossierTries | undefined): boolean {
+    return tries !== undefined && tries.tries >= this.#config.dossiers.tries;
+  }
+
+  async #write(input: DossierLaunchInput, interestScope: () => Promise<string>, queued: boolean): Promise<Outcome> {
     const { launch } = input;
     let product = this.#store.productOfLaunch(launch.postId);
     if (!product) {
-      const landing = await this.#readLanding(launch);
-      if ('problem' in landing) return landing;
-      const known = this.#store.productByDomain(landing.rootDomain);
-      if (known) {
-        this.#store.saveProductLaunch(launch.postId, known.id, this.#clock.now().toISOString());
-        this.#log('dossier.re-launch', { postId: launch.postId, rootDomain: known.rootDomain, productId: known.id });
-        product = known;
-      } else {
-        const written = await this.#writeNew(input, landing, await interestScope());
-        if (typeof written === 'string' || 'problem' in written) return written;
-        product = written.product;
-      }
+      const tries = this.#store.dossierTries(launch.postId);
+      // One at the limit is tried no more, and one kept for a later try waits for the queue's pass.
+      if (this.#atLimit(tries) || (tries && !queued)) return 'kept';
+      const tried = await this.#try(input, interestScope);
+      if (tried === 'stopped') return tried;
+      if ('unwritten' in tried) return this.#unwritten(launch, tried.unwritten);
+      product = tried.product;
     }
     if (product.withdrawnAt) return this.#putBack(product);
     await this.#ensurePost(product);
     this.#walkthroughsDue();
-    return 'done';
+    return 'posted';
+  }
+
+  /**
+   * One try at the Dossier of a Launch filed under no Product: its landing page read, then, unless that page is on a
+   * Product's root domain already, its run.
+   */
+  async #try(input: DossierLaunchInput, interestScope: () => Promise<string>): Promise<Tried> {
+    const { launch } = input;
+    const landing = await this.#readLanding(launch);
+    if ('problem' in landing) return { unwritten: landing.problem };
+    const known = this.#store.productByDomain(landing.rootDomain);
+    if (!known) return this.#writeNew(input, landing, await interestScope());
+    this.#store.saveProductLaunch(launch.postId, known.id, this.#clock.now().toISOString());
+    this.#log('dossier.re-launch', { postId: launch.postId, rootDomain: known.rootDomain, productId: known.id });
+    return { product: known };
+  }
+
+  /** Counts a try that ended without the Launch's Dossier, and keeps why, for a later try. */
+  #unwritten(launch: Launch, why: string): 'kept' {
+    this.#store.saveDossierUnwritten(launch.postId, why, this.#clock.now().toISOString());
+    this.#log('dossier.unwritten', { postId: launch.postId, tries: this.#store.dossierTries(launch.postId)!.tries, why });
+    return 'kept';
+  }
+
+  /** Tells #status, once, of each Dossier at the limit, which won't be tried again. */
+  async #noteStopped(): Promise<void> {
+    for (const tries of this.#store.unwrittenDossiers().filter((t) => this.#atLimit(t) && !t.stopNotedAt)) {
+      const launch = this.#store.launch(tries.postId)!;
+      const line = stoppedLine(launch.name.trim(), launch.date, tries);
+      // Marked before it is said; an uncertain send counts as said (ADR 0007).
+      this.#store.saveDossierStopNoted(tries.postId, this.#clock.now().toISOString());
+      try {
+        await this.#status.say(line);
+        this.#log('dossier.stopped', { postId: tries.postId, tries: tries.tries, why: tries.why });
+      } catch (error) {
+        if (refused(error)) this.#store.saveDossierStopNoted(tries.postId, null);
+        this.#log('dossier.status-failed', { postId: tries.postId, error: errorText(error) });
+      }
+    }
   }
 
   /**
@@ -154,7 +224,7 @@ export class Dossiers {
    * Reopens a withdrawn Product's post with its latest Dossier, as a Correction put its Launch back above the line.
    * While the forum's tags can't be read, the post is left as it is, to be put back at a later try.
    */
-  async #putBack(product: Product): Promise<Written> {
+  async #putBack(product: Product): Promise<'posted' | { problem: string }> {
     const threadId = product.threadId!;
     const back = { ...product, withdrawnAt: null };
     const tags = await this.#tagIds(back);
@@ -166,7 +236,7 @@ export class Dossiers {
     this.#store.saveProductWithdrawn(product.id, null);
     this.#log('dossier.put-back', { productId: product.id, threadId });
     this.#walkthroughsDue();
-    return 'done';
+    return 'posted';
   }
 
   /**
@@ -223,7 +293,7 @@ export class Dossiers {
   }
 
   /** Reads the rest of a new Product's pages, runs its Dossier, and keeps the Product with it. */
-  async #writeNew(input: DossierLaunchInput, landing: Landing, interestScope: string): Promise<Written | { product: Product }> {
+  async #writeNew(input: DossierLaunchInput, landing: Landing, interestScope: string): Promise<Tried> {
     const { launch, date } = input;
     const root = landing.rootDomain;
     const pricing = await this.#readLinked('pricing page', pricingLink(landing.page, root), root);
@@ -288,7 +358,7 @@ export class Dossiers {
           : result.outcome === 'failed'
             ? `its Dossier run failed (${result.error ?? 'no reason given'})`
             : 'its Dossier run recorded no Dossier';
-      return { problem: why };
+      return { unwritten: why };
     }
 
     const dossier: Dossier = { ...base, record: kept.record };
@@ -357,6 +427,12 @@ export class Dossiers {
       return tag ? [tag.id] : [];
     });
   }
+}
+
+/** The #status line saying a Launch's Dossier won't be tried again, and why its tries wrote none. */
+function stoppedLine(name: string, date: string, { tries, why }: DossierTries): string {
+  const ended = tries === 1 ? `Its one try ended without one, because ${why}` : `Its ${tries} tries ended without one, the last because ${why}`;
+  return `Dossiers: ${name}'s Dossier (${dayLabel(date)}) won't be tried again. ${ended}.`;
 }
 
 /** The first record with the rewrite's What it is, For you and Note, each citing what either version cited. */

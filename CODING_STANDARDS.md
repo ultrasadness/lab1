@@ -32,9 +32,10 @@ store, or once a budget checked before each run is spent.
 minutes is 48 runs a day. In #53, a Walkthrough preparation whose run failed, or hit its cap without recording a
 Walkthrough, was queued again every 30 minutes with no end. The registration budget counts that spend but holds no run
 until #69. Neither #53's reviewers nor #99's caught it; the person's question in #99 did. Tried over the bot, the rule
-found two more. A Dossier run that fails is run again at each 30-minute pass of its date, for as long as the date
-stays in the 3-date catch-up window. One a Miner Correction asks for is run again every 30 minutes with no end. #99
-shipped Walkthroughs off and left them to #69, and #100 bounds the Dossier runs.
+found two more. A Dossier run that failed was run again at each 30-minute pass of its date, for as long as the date
+stayed in the 3-date catch-up window. One a Miner Correction asked for was run again every 30 minutes with no end. #99
+shipped Walkthroughs off and left them to #69, and #100 gave each Launch's Dossier at most 3 tries that end without
+one, counted in the store and tried once a day.
 
 **In a diff, look for:**
 

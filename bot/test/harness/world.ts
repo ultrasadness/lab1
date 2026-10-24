@@ -154,6 +154,7 @@ export async function startWorld(options: {
       'correction-sorting': { wallClockMinutes: 5, turns: 6, tokens: 100_000 },
     },
     rules: { budgetTokens: 4000 },
+    dossiers: { tries: 3 },
     rawInputs: { keepDays: 90 },
   };
 

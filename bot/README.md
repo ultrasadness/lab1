@@ -8,14 +8,15 @@ The spec is #41. Its first slice (#42) brought up the Miner's path from Product 
 #47 adds a Dossier for each Launch at or above the Day's line, #48 lets the person correct a Miner judgment, #49
 sorts each Correction into fix only, an Interest scope change or a Rule, and loads each kept Rule into later runs, and
 #53 puts a Walkthrough to the person for each open or waitlisted Product, whose Approval starts its Registration.
-#99 lets the config switch Walkthroughs off, and it ships with them off.
+#99 lets the config switch Walkthroughs off, and it ships with them off. #100 bounds the tries at a Dossier that
+can't be written.
 
 | Path | What it is |
 |---|---|
 | `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane, which runs Corrections, then Walkthrough preparation, then the Miner, and the plain-code work that never waits in it, such as a Keep or an Approve; who may tap |
 | `bot/src/miner/` | Judging runs, the Day's line, the day post and `days/` file, the 3-date catch-up and Retry, and Corrections of a day's judgments with their sorting runs |
 | `bot/src/rules/` | Rules: each run's Rule files, its prompt's Rules section and the Rule budget; a Correction's sorting run; and the cards of proposed Rules and Interest scope changes, with Keep, Edit and Discard |
-| `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, and the Product's folder in the Personal database |
+| `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, the Product's folder in the Personal database, and the tries at one that can't be written |
 | `bot/src/walkthrough/` | Walkthroughs: the read of the signup page, its run's prompt and record, the card in `#needs-you` and its copy in the Product's post, Edit, Correct, Dismiss, the 14-day lapse and Prepare again, the Approval that starts the Registration, where the Product stands, and `registration.md` |
 | `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)` over its Unix socket, and the root domain a Product is keyed by |
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
@@ -125,6 +126,20 @@ Dossier a Correction withdraws. A Dossier reads its Product's pages through the 
 `browser.socketPath` (`browser/README.md`), and each read is kept for 90 days under `pages/`, beside the other raw
 inputs.
 
+A Dossier that can't be written doesn't hold its day's list (settled by the person on #100). The list goes out once each
+of its Dossiers is posted or has failed in that pass, and its summary names each one not written, with why. A try fails
+when the Product's landing page won't load, or its Dossier run fails, hits its cap or records no Dossier. Each Dossier
+not written is tried again once a day, at the Miner's 01:00 PT start or the bot's first start after it, highest Fit
+first, then the oldest Launch. A Dossier a Correction asks for joins them when its try fails, and the Correction is done
+without it. A Launch gets at most `dossiers.tries` tries that end without a Dossier, 3 to start, counted in the live
+store across passes, restarts and both paths. A run the Assistant stops itself, as at shutdown, or one a crash cuts
+short doesn't count, and neither does an error of its own before the run starts, such as a browser service it can't
+reach: that still holds the list, and the Miner tries again every 30 minutes. A run that fails because the Pi container
+or every provider is down counts like any other. At the limit no more tries start, and one silent line in `#status`
+names the Dossier and why its last try failed. A Dossier written on a later try is posted as any other, and its date's
+list then links it. Raising `dossiers.tries` through `ops/upgrade` lets the bot try such a Dossier again, however old,
+as after an outage that stopped Dossiers.
+
 Walkthroughs come only while `walkthroughs.on` is `true`, changed like any setting through `ops/upgrade`.
 `config/assistant.json` ships with them off, and the go-live (#85) keeps them off until #56 lets an Approval fill the
 form. While they are off, the bot prepares no new Walkthrough: no signup page is read for one and no run prepares
@@ -172,12 +187,13 @@ model is set at go-live (#85), with its price; `prices` already holds GPT-6.1 So
 at (#39). `budgets.registration`, $20 to start, is what the registration role's runs may spend in a Pacific day,
 Dossier and Walkthrough runs among them; their spend is counted, but nothing holds a run to it until #69.
 
-The bot logs one JSON line per event to stdout. A `run.finished` line carries the run's role, providers, models,
-exact tokens and notional dollars, and for a capped run the cap it hit. A `miner.run-held` line names a run that waits
-on the Miner budget, with the date's spend, and a `miner.posted` line carries what the date spent in all. A
+The bot logs one JSON line per event to stdout. A `run.finished` line carries the run's role, providers, models, exact
+tokens and notional dollars, and for a capped run the cap it hit. A `miner.run-held` line names a run that waits on
+the Miner budget, with the date's spend, and a `miner.posted` line carries what the date spent in all. A
 `miner.judged` line names the model request whose reply held the judgment, with that request's exact tokens; one reply
 usually judges every Launch in its run. A `dossier.written` line names a Dossier's Product by its root domain, with
-the run, provider and model that wrote it. A `run.rules-loaded` line names the commit a run's Rules were read at, the
-Rules by name, and about how many tokens they take. A `walkthrough.prepared` line names a Walkthrough's version and
-the run that prepared it, a `walkthrough.none` line why a Product gets none, and a `walkthrough.approved` line the
-Discord interaction an Approval came in.
+the run, provider and model that wrote it. A `dossier.unwritten` line names a Launch whose try wrote no Dossier, with
+why and how many of its tries count, and a `dossier.stopped` line one that reached the limit. A `run.rules-loaded`
+line names the commit a run's Rules were read at, the Rules by name, and about how many tokens they take. A
+`walkthrough.prepared` line names a Walkthrough's version and the run that prepared it, a `walkthrough.none` line why
+a Product gets none, and a `walkthrough.approved` line the Discord interaction an Approval came in.
