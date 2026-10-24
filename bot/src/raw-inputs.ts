@@ -1,5 +1,6 @@
 // Raw inputs exactly as a source returned them, kept for 90 days outside git (for Rule cases and the Miner Fit
 // check), indexed by the store, then deleted.
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Clock } from './clock.ts';
@@ -14,7 +15,6 @@ export class RawInputs {
   #clock: Clock;
   #keepDays: number;
   #log: Log;
-  #seq = 0;
 
   constructor(options: { dir: string; store: Store; clock: Clock; keepDays: number; log: Log }) {
     this.#dir = options.dir;
@@ -24,14 +24,16 @@ export class RawInputs {
     this.#log = options.log;
   }
 
-  /** Writes one response body as it came, under `<source>/<item>/`, and indexes it. */
+  /**
+   * Writes one response body as it came, under `<source>/<item>/`, and indexes it. Its name is new each time, so a
+   * second read of the same item at the same moment, as after a restart, keeps both.
+   */
   keep(source: string, item: string, body: string): void {
     const now = this.#clock.now();
     const folder = join(this.#dir, source, item);
     mkdirSync(folder, { recursive: true, mode: 0o700 });
-    this.#seq += 1;
-    const path = join(folder, `${now.toISOString().replace(/[:.]/g, '-')}-${process.pid}-${this.#seq}.json`);
-    writeFileSync(path, body, { mode: 0o600 });
+    const path = join(folder, `${now.toISOString().replace(/[:.]/g, '-')}-${randomUUID()}.json`);
+    writeFileSync(path, body, { mode: 0o600, flag: 'wx' });
     this.#store.addRawInput({
       source,
       item,

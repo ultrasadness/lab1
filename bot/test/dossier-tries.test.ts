@@ -5,6 +5,8 @@
 // one stopped at the limit.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { MINER_DAYS_FORUM, PRODUCTS_FORUM, STATUS, startWorld, type World } from './harness/world.ts';
 import { fixtureDay, websiteOf } from './harness/fake-product-hunt.ts';
 import type { SeenPost } from './harness/fake-discord.ts';
@@ -164,10 +166,14 @@ test('a Dossier run the bot stops itself, as at shutdown, isn’t counted as a t
   world.clock.advanceTo('2026-10-12T08:00:00Z');
   await until(() => (world.model.dossierRuns[0]?.requests ?? 0) >= 3);
   world.model.hold = false;
-  // Within the run's 10-minute wall clock, and late enough that its pages are read again under a new time.
-  world.clock.advanceTo('2026-10-12T08:01:00Z');
+  const pages = join(world.dataDir, 'raw', 'pages', 'codemindhq.dev');
+  const readBefore = readdirSync(pages);
+  // At the same moment, so the restarted bot reads the Dossier's pages again under the same time as the stopped run.
   await world.restart();
 
+  const read = readdirSync(pages);
+  assert.equal(read.length, 2 * readBefore.length, 'each page read at the same moment is kept twice');
+  assert.ok(read.every((name) => name.startsWith('2026-10-12T08-00-00-000Z-')), read.join(', '));
   assert.ok(world.logs.some((l) => l.event === 'run.finished' && l.kind === 'dossier' && l.outcome === 'stopped'));
   assert.equal(runsFor(world, CODEMIND.postId), 2, 'the run the bot stopped left the one try the limit allows');
   assert.deepEqual(

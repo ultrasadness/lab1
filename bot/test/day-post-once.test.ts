@@ -60,7 +60,6 @@ test('an empty answer from Product Hunt posts nothing, and the date is read agai
   assert.ok(world.logs.some((l) => l.event === 'miner.nothing-featured' && l.date === '2026-10-12'));
 
   world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
-  world.clock.advanceTo('2026-10-12T08:30:00Z');
   await world.restart();
 
   const [post] = world.discord.forumPosts(MINER_DAYS_FORUM);

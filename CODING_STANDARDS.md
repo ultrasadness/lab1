@@ -34,8 +34,8 @@ Walkthrough, was queued again every 30 minutes with no end. The registration bud
 until #69. Neither #53's reviewers nor #99's caught it; the person's question in #99 did. Tried over the bot, the rule
 found two more. A Dossier run that failed was run again at each 30-minute pass of its date, for as long as the date
 stayed in the 3-date catch-up window. One a Miner Correction asked for was run again every 30 minutes with no end. #99
-shipped Walkthroughs off and left them to #69, and #100 gave each Launch's Dossier at most 3 tries that end without
-one, counted in the store and tried once a day.
+shipped Walkthroughs off and left them to #69, and `d093b01` gave each Launch's Dossier at most 3 tries that end
+without one, counted in the store and tried once a day (#100).
 
 **In a diff, look for:**
 
@@ -84,11 +84,15 @@ passing it on.
 The lane lives only in memory, so what a queued job must still do is kept in the store, and marked done only once
 the job has done it. The job checks its preconditions when it runs, not only when it's queued.
 
-**Why it matters:** a restart drops the whole lane, and a job queued earlier can run first and change what a later
-one finds. In #45, a draft of the Miner's Retry marked itself done when the person tapped it, before its job ran. A
+**Why it matters:** a restart drops the whole lane, and a job queued earlier can run first and change what a later one
+finds. In #45, a draft of the Miner's Retry marked itself done when the person tapped it, before its job ran. A
 catch-up pass already in the lane then judged those Launches as ordinary ones, batched and retried automatically,
 where a Retry gets a run of its own and no automatic retry. `83d2677` made the tap store only when it was tapped, and
-the Retry count as run once its run was over.
+the Retry count as run once its run was over. A query of the store can mark work done too. In #100, a draft of the
+queue of Dossiers to try again was a query for Launches with a failed try and no Product. A try that wrote the
+Dossier, but whose post Discord didn't take, left its Launch with a Product and no post: the query no longer matched
+it, and nothing would ever post it. The session caught it in its own read of the diff, and `d093b01` landed the queue
+matching a Launch whose Product's post isn't up too.
 
 **In a diff, look for:**
 
@@ -96,7 +100,9 @@ the Retry count as run once its run was over.
 - a store write that marks work done, run or sent in the code that queues it, rather than in the job once the work
   is done;
 - a job that acts on what its caller checked at queue time (a window, a state, a tap) without reading it again when it
-  starts.
+  starts;
+- a queue read from the store whose query stops matching an item once its first step leaves a record, such as a
+  Product row, while a later step, such as its post, is still undone.
 
 ## Pages don't move
 

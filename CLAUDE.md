@@ -22,6 +22,9 @@ A review's standards sources include each ADR in `docs/adr/` whose decision cove
 question the person settled on the ticket. Name them in the Standards prompt, and the Standards report names each ADR
 it checked, or says that none covers the diff.
 
+The Spec prompt asks for each case the spec's wording reaches that neither the spec nor the questions settled on it
+weighed, as a question for the person rather than a defect, and the Spec report names each one or says it found none.
+
 ## Branches
 
 A ticket's branch gets a worktree of its own: `git worktree add .claude/worktrees/<branch> -b <branch> main`, and the
