@@ -11,8 +11,9 @@ the scripts) and `browser/`'s (the browser service). In a fresh clone, turn on t
 - **pre-commit** refuses a commit on any branch but `main` in the main checkout, and a commit that changes, deletes
   or renames a schema fixture of the live store that `main` holds (`bot/test/fixtures/store-schemas/`, #98). Then it
   checks a copy of what is staged: each package's typecheck, run with that package's own dependencies, then the
-  doc-pair check (`docs/agents/doc-pairs.md`). It refuses the commit when one fails. Without a package's
-  dependencies, it refuses every commit and says how to install them. It runs no tests: the root's took 8 minutes in
+  doc-pair check (`docs/agents/doc-pairs.md`), then the shell check, shellcheck over every file whose first line is a
+  sh or bash shebang (`npm run check:shell`, `scripts/check-shell.ts`). It refuses the commit when one fails. Without
+  a package's dependencies, or without shellcheck, it refuses every commit and says how to install them. It runs no tests: the root's took 8 minutes in
   #98, and the browser service's build an image.
 - **post-checkout** runs `npm ci` for each package in a worktree that `git worktree add` has just made, from npm's
   cache where it can, so the typechecks have their dependencies. It installs them rather than linking the main
@@ -52,9 +53,9 @@ afterwards ran a new hook from `main`.
 GitHub Actions runs two workflows on every push and pull request, so a slow or failing browser run doesn't hide the
 bot's result:
 
-- **Bot** (`.github/workflows/bot.yml`): the root's typecheck, the doc-pair check and the root's tests. The tests
-  run in three shards, each a job of its own (`TEST_SHARD`, which `npm test` passes to `node --test` as
-  `--test-shard`), and the first job runs the typecheck and the doc-pair check too. In #53 the one job took 11.5 of its
+- **Bot** (`.github/workflows/bot.yml`): the root's typecheck, the doc-pair check, the shell check and the root's
+  tests. The tests run in three shards, each a job of its own (`TEST_SHARD`, which `npm test` passes to `node --test`
+  as `--test-shard`), and the first job runs the typecheck, the doc-pair check and the shell check too. In #53 the one job took 11.5 of its
   15 minutes. Each job's summary lists its slowest tests and its total (`scripts/slowest-tests.ts`), so a test nearing
   its 60 seconds, or a shard its 15 minutes, shows before it fails.
 - **Browser** (`.github/workflows/browser.yml`): `npm ci`, the typecheck and the tests in `browser/`. The tests build
@@ -69,7 +70,8 @@ The root's `npm test` runs the tests of the hooks and checks:
   worktree, in a throwaway repo. `scripts/pre-push.test.ts` pushes from one, with a fake `gh` that needs `jq`.
 - `scripts/reply-language.test.ts`, `scripts/note-language.test.ts` and `scripts/review-committed.test.ts` run each
   Claude Code hook as a session would, on a throwaway transcript or repo. `scripts/slowest-tests.test.ts` runs the CI summary on a run's output.
-- `scripts/doc-pairs.test.ts` runs the doc-pair check on throwaway pairs.
+- `scripts/doc-pairs.test.ts` runs the doc-pair check on throwaway pairs, and `scripts/check-shell.test.ts` the shell
+  check on throwaway folders.
 - `scripts/bounded-waits.test.ts` fails on a `spawnSync`, `execSync` or `execFileSync` call whose own arguments
   name no `timeout`: a synchronous child process blocks the event loop, so no other timer can end it (**Every wait
   has a bound** in `CODING_STANDARDS.md`).

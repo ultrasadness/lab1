@@ -6,7 +6,7 @@
 set -eu
 
 remote_url=$2
-while read -r local_ref sha remote_ref remote_sha; do
+while read -r _ sha remote_ref _; do
   [ "$remote_ref" = refs/heads/main ] || continue
   # A delete sends an all-zero object name, and has no commit to check.
   case $sha in

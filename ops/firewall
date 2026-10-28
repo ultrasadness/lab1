@@ -28,13 +28,12 @@ blocked4=(0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 172.16.0
   192.168.0.0/16 198.18.0.0/15 198.51.100.0/24 203.0.113.0/24 224.0.0.0/4 240.0.0.0/4)
 blocked6=(::/128 ::1/128 ::ffff:0:0/96 64:ff9b::/96 100::/64 2001:db8::/32 fc00::/7 fe80::/10 fec0::/10 ff00::/8)
 
-# The rules for one family, as iptables-restore reads them. Declaring the chain empties it, so applying twice leaves
-# one copy of each rule.
+# The rules for one family, given its blocked ranges, as iptables-restore reads them. Declaring the chain empties it,
+# so applying twice leaves one copy of each rule.
 rules() {
-  local -n blocked=$1
   echo '*raw'
   echo ":$chain - [0:0]"
-  for range in "${blocked[@]}"; do echo "-A $chain -d $range -j DROP"; done
+  for range in "$@"; do echo "-A $chain -d $range -j DROP"; done
   echo "-A $chain -m addrtype --dst-type LOCAL -j DROP"
   echo 'COMMIT'
 }
@@ -43,7 +42,7 @@ apply() {
   local family tool
   for family in 4 6; do
     tool=$([ $family = 4 ] && echo iptables || echo ip6tables)
-    rules "blocked$family" | "$tool-restore" --noflush
+    if [ $family = 4 ]; then rules "${blocked4[@]}"; else rules "${blocked6[@]}"; fi | "$tool-restore" --noflush
     "$tool" -t raw -C PREROUTING -i "$bridge" -j "$chain" >/dev/null 2>&1 || "$tool" -t raw -I PREROUTING 1 -i "$bridge" -j "$chain"
   done
   echo "The firewall keeps $bridge on the public internet."
@@ -106,9 +105,9 @@ case "${1:-}" in
   remove) remove ;;
   --dry-run)
     echo "# For $bridge, IPv4 (iptables-restore --noflush), then a jump to $chain at the top of the raw table's PREROUTING:"
-    rules blocked4
+    rules "${blocked4[@]}"
     echo "# IPv6 (ip6tables-restore --noflush), and the same jump:"
-    rules blocked6
+    rules "${blocked6[@]}"
     ;;
   check) check ;;
   *)

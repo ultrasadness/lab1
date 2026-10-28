@@ -11,6 +11,7 @@
     "typecheck": "tsc -p .",
     "test": "node --test ${TEST_SHARD:+--test-shard=$TEST_SHARD} --test-timeout=60000 --test-force-exit \"bot/test/**/*.test.ts\" \"ops/test/**/*.test.ts\" \"scripts/**/*.test.ts\"",
     "check:docs": "node scripts/check-docs.ts",
+    "check:shell": "node scripts/check-shell.ts",
     "capture:producthunt-schema": "node scripts/capture-producthunt-schema.ts",
     "ticket": "node scripts/ticket.ts"
   },

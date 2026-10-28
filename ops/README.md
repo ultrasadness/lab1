@@ -173,8 +173,8 @@ folders.
 system's commands and of every outside service, and dummy tokens only:
 
 - `install.test.ts` installs twice, and checks the second run changes nothing; it also covers the dry run, the
-  Personal database through a fake GitHub that lets in only the deploy keys added, `--deploy`, and the unit files as
-  `systemd-analyze verify` reads them;
+  Personal database through a fake GitHub that lets in only the deploy keys added, `--deploy`, the unit files as
+  `systemd-analyze verify` reads them, and that `ops/install` makes no change where bash ignores `set -e`;
 - `token.test.ts` types each kind of token, including one under a terminal that would echo it, and checks what is
   written and restarted;
 - `docker-helper.test.ts` runs the helper behind `systemd-socket-activate`, as systemd does, with a fake `docker`;

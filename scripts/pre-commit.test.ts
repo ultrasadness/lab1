@@ -1,6 +1,7 @@
 // The pre-commit hook's typecheck of the browser service (#89): browser/ is a package of its own, so the hook runs its
 // typecheck too, with its own dependencies, on the staged copy. And its hold on the live store's schema fixtures
-// (#98): a commit may add one, but not change, delete or rename one that main holds. Each test commits in a throwaway
+// (#98): a commit may add one, but not change, delete or rename one that main holds. And its shell check (#71 retro):
+// a staged shell script that shellcheck refuses refuses the commit. Each test commits in a throwaway
 // repo shaped like this one: a root package and a browser/ package, each with a small typecheck. Their tsc is this
 // repo's own, and browser/'s dependencies hold a package the root's don't, which browser/'s code imports.
 import { test, type TestContext } from 'node:test';
@@ -11,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 const HOOK = join(import.meta.dirname, '..', '.githooks', 'pre-commit');
+const CHECK_SHELL = join(import.meta.dirname, 'check-shell.ts');
 const NODE_MODULES = join(import.meta.dirname, '..', 'node_modules');
 
 const TSCONFIG = JSON.stringify({
@@ -106,7 +108,7 @@ function repo(t: TestContext): Repo {
   r.write('package.json', JSON.stringify({
     private: true,
     type: 'module',
-    scripts: { typecheck: 'tsc -p .', 'check:docs': 'true' },
+    scripts: { typecheck: 'tsc -p .', 'check:docs': 'true', 'check:shell': `node ${CHECK_SHELL}` },
   }), { stage: true });
   r.write('tsconfig.json', TSCONFIG, { stage: true });
   r.write('src/index.ts', 'export const n: number = 1;\n', { stage: true });
@@ -169,6 +171,19 @@ test('a commit in a worktree with no dependencies is refused, naming each packag
   const said = refused(wt);
   assert.ok(said.includes(`none are installed in:\n  ${wt.dir}\n  ${wt.dir}/browser\nRun npm ci in each`), said);
   assert.doesNotMatch(said, /ln -s/);
+});
+
+test('a staged shell script that fails shellcheck refuses the commit, and one fixed goes through', (t) => {
+  const r = repo(t);
+  // An unquoted variable splits on spaces (SC2086); the working copy's fix doesn't count until it is staged.
+  r.write('tools/run.sh', '#!/bin/sh\nset -eu\nrm -f $1\n', { stage: true });
+  r.write('tools/run.sh', '#!/bin/sh\nset -eu\nrm -f "$1"\n');
+  const said = refused(r);
+  assert.match(said, /tools\/run\.sh line 3:[\s\S]*SC2086/);
+  assert.match(said, /a shell script fails shellcheck, so the commit is refused/);
+  r.write('tools/run.sh', '#!/bin/sh\nset -eu\nrm -f "$1"\n', { stage: true });
+  const committed = r.commit();
+  assert.equal(committed.ok, true, committed.stderr);
 });
 
 const FIXTURE = 'bot/test/fixtures/store-schemas/1.sql';

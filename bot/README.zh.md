@@ -32,6 +32,7 @@ Pi 自己的文档随它的包一起发布，`npm ci` 运行之后位于 `node_m
 npm ci
 npm run typecheck
 npm run check:docs                     # the doc pairs
+npm run check:shell                    # shellcheck over the shell scripts
 npm test                               # every test
 node --test bot/test/miner-day.test.ts # one file
 ```

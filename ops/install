@@ -68,7 +68,8 @@ problems=()
 waiting=()
 # Makes one change, or in a dry run only says it would: `change "<what it does>" <command>…`. It runs as a command
 # of its own or in an `if` body, since under `||`, `&&` or an `if` condition bash ignores a failure inside it; the one
-# change made in a condition, check_out_pd, chains its own steps with `&&`.
+# change made in a condition, check_out_pd, chains its own steps with `&&`. ops/test/install.test.ts fails on another,
+# as on a `file` or `put_file` there.
 change() {
   local what=$1
   shift
@@ -162,7 +163,7 @@ if ! $dry_run; then
   differs=$(git -c safe.directory='*' -C "$repo" diff --name-only main -- ops; git -c safe.directory='*' -C "$repo" ls-files --others --exclude-standard -- ops)
   if [ -n "$differs" ]; then
     echo "ops/install runs only what main holds, and in $repo these differ from it:" >&2
-    printf '  %s\n' $differs >&2
+    while IFS= read -r path; do echo "  $path"; done <<<"$differs" >&2
     echo "Commit and land them, or put them back; ops/install --dry-run runs them as they are." >&2
     exit 1
   fi
@@ -399,14 +400,14 @@ while IFS= read -r line; do
   [ -z "$line" ] || waiting+=("config/assistant.json: $line")
 done < <("$node" --input-type=module -e 'const { loadConfig, checkConfig } = await import(process.argv[1]);
   console.log(checkConfig(loadConfig(process.argv[2])).join("\n"))' "$files/bot/src/config.ts" "$files/config/assistant.json")
-for name in $(sed -n 's|^LoadCredential=[^:]*:/etc/assistant/credentials/||p' "$files/ops/systemd/assistant.service"); do
+while IFS= read -r name; do
   [ -e "$credentials/$name" ] || waiting+=("$name: ops/token $name")
-done
+done < <(sed -n 's|^LoadCredential=[^:]*:/etc/assistant/credentials/||p' "$files/ops/systemd/assistant.service")
 # Each unit that alerts when it gives up names its check in OnFailure=, and the alert reads that check's ping URL.
 alerts=()
-for check in $(sed -n 's/^OnFailure=assistant-alert@\(.*\)\.service$/\1/p' "$files"/ops/systemd/*.service | sort -u); do
+while IFS= read -r check; do
   [ -e "$credentials/healthchecks-ping-$check" ] || alerts+=("healthchecks-ping-$check: ops/token healthchecks-ping-$check")
-done
+done < <(sed -n 's/^OnFailure=assistant-alert@\(.*\)\.service$/\1/p' "$files"/ops/systemd/*.service | sort -u)
 if [ ${#waiting[@]} -eq 0 ]; then
   if ! systemctl is-active --quiet assistant.service; then
     change 'start the bot' sh -c 'systemctl reset-failed assistant.service; systemctl start assistant.service'

@@ -42,6 +42,7 @@ and `settings.md` for Pi's `settings.json`, its retry backoff included.
 npm ci
 npm run typecheck
 npm run check:docs                     # the doc pairs
+npm run check:shell                    # shellcheck over the shell scripts
 npm test                               # every test
 node --test bot/test/miner-day.test.ts # one file
 ```

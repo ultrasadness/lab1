@@ -389,6 +389,19 @@ test("new-api not answering on loopback is a problem the install names", async (
   assert.match(ran.out, /Problem: new-api doesn't answer at http:\/\/127\.0\.0\.1:3000: publish its port on loopback/);
 });
 
+test("ops/install's changes run where set -e holds: never under ||, && or a condition", () => {
+  // bash ignores set -e inside a function called under ||, && or in a condition, so a change made there carries on
+  // past a failed step: in #71's first commit, a Node download whose SHA-256 didn't match would still have been
+  // unpacked. The one change made in a condition, check_out_pd, chains its own steps with &&.
+  const call = String.raw`(?:change|file|put_file)\b`;
+  const inCondition = new RegExp(
+    String.raw`(?:\|\||&&|\b(?:if|elif|while|until))\s*!?\s*${call}|(?:^|[;{(]|\bthen|\bdo)\s*${call}[^#]*(?:\|\||&&)`,
+  );
+  const lines = readFileSync(join(REPO, 'ops/install'), 'utf8').split('\n');
+  const found = lines.flatMap((line, i) => (!/^\s*#/.test(line) && inCondition.test(line) && !/ check_out_pd; then$/.test(line) ? [`${i + 1}: ${line.trim()}`] : []));
+  assert.deepEqual(found, []);
+});
+
 test('systemd reads every unit file without a complaint', { skip: spawnSync('sh', ['-c', 'command -v systemd-analyze'], { timeout: 5000 }).status !== 0 && 'needs systemd-analyze' }, async (t) => {
   // The units name the installed paths; here they name this checkout and this Node, which exist.
   const dir = mkdtempSync(join(tmpdir(), 'ops-units-'));

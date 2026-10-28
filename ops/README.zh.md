@@ -112,7 +112,7 @@ sudo docker start new-api
 
 `npm test` 会和其他测试一起运行 `ops/test/`。这些测试把 VM 放在一个临时目录里（`OPS_ROOT`），用假的系统命令和假的外部服务，只用假的令牌：
 
-- `install.test.ts` 安装两次，检查第二次什么都不改；它还覆盖试运行、经过一个只放行已添加的 deploy key 的假 GitHub 的 Personal database、`--deploy`，以及 `systemd-analyze verify` 读到的单元文件；
+- `install.test.ts` 安装两次，检查第二次什么都不改；它还覆盖试运行、经过一个只放行已添加的 deploy key 的假 GitHub 的 Personal database、`--deploy`、`systemd-analyze verify` 读到的单元文件，以及 `ops/install` 不在 bash 忽略 `set -e` 的地方做任何改动；
 - `token.test.ts` 输入每一种令牌，包括在一个会回显输入的终端下输入，并检查写入了什么、重启了什么；
 - `docker-helper.test.ts` 像 systemd 那样，在 `systemd-socket-activate` 后面运行辅助程序，配一个假的 `docker`；
 - `alert.test.ts` 让告警对着一个假的 healthchecks.io 运行，它按测试说的次数失败；
