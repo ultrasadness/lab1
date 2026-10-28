@@ -69,7 +69,12 @@ async function vm(t: TestContext): Promise<Vm> {
       if (auth !== 'Bearer good-ph') return json(401, { error: 'invalid_oauth_token' });
       return json(200, { data: { posts: { edges: [{ node: { id: '1' } }] } } });
     }
-    if (url.pathname === '/newapi/v1/models') return auth === 'Bearer good-key' ? json(200, { data: [{ id: 'miner@openrouter' }] }) : json(401, { error: { message: 'invalid token' } });
+    if (url.pathname === '/newapi/v1/models') {
+      // The miner role's own key, and a key whose token new-api limits to the upstream model's name.
+      if (auth === 'Bearer good-key') return json(200, { data: [{ id: 'miner@openrouter' }] });
+      if (auth === 'Bearer upstream-key') return json(200, { data: [{ id: 'nvidia/nemotron-3-ultra-550b-a55b:free' }] });
+      return json(401, { error: { message: 'invalid token' } });
+    }
     if (url.pathname === '/google/token') {
       const form = new URLSearchParams(text);
       if (form.get('client_id') !== 'client.apps.googleusercontent.com' || form.get('client_secret') !== 'good-secret') return json(401, { error: 'invalid_client' });
@@ -203,7 +208,7 @@ test("the bot isn't started while another of its tokens is missing, and the pers
   const machine = await vm(t);
   const ran = await opsToken(machine, ['newapi-key-miner'], [{ after: /Paste/, type: 'good-key' }]);
   assert.equal(ran.code, 0, ran.out);
-  assert.match(ran.out, /new-api lists 1 models for it/);
+  assert.match(ran.out, /new-api lets it reach miner@openrouter/);
   assert.match(ran.out, /assistant\.service waits on: discord-bot-token, producthunt-token, newapi-key-registration, personal-database-deploy-key, healthchecks-ping-bot\./);
   assert.equal(machine.systemctl(), '');
 });
@@ -223,6 +228,21 @@ test('a pasted value never shows on the terminal', { skip: spawnSync('sh', ['-c'
   clearTimeout(timer);
   assert.match(out, /It works/);
   assert.ok(!out.includes('good-discord'), `the token showed:\n${out}`);
+});
+
+// The forwarder asks new-api for <role>@<provider> (ADR 0011). At #85's go-live both role tokens were limited to the
+// upstream model's name, and the registration role's slot held the miner key; each check passed, and every run failed.
+test("a role's key is refused unless new-api lets it reach each model name the role asks for", async (t) => {
+  const machine = await vm(t);
+  const upstream = await opsToken(machine, ['newapi-key-miner'], [{ after: /Paste/, type: 'upstream-key' }]);
+  assert.equal(upstream.code, 1, upstream.out);
+  assert.match(upstream.out, /Nothing changed: new-api doesn't let it reach miner@openrouter, which the miner role asks for/);
+  const another = await opsToken(machine, ['newapi-key-registration'], [{ after: /Paste/, type: 'good-key' }]);
+  assert.equal(another.code, 1, another.out);
+  assert.match(another.out, /Nothing changed: new-api doesn't let it reach registration@openrouter, which the registration role asks for/);
+  assert.ok(!existsSync(join(machine.credentials, 'newapi-key-miner')));
+  assert.ok(!existsSync(join(machine.credentials, 'newapi-key-registration')));
+  assert.equal(machine.systemctl(), '');
 });
 
 test('the check mode reports each token in place, and fails while one is dead', async (t) => {

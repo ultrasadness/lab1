@@ -77,7 +77,7 @@ without writing it.
 |---|---|---|
 | `discord-bot-token` | the Developer Portal's Bot page | Discord's `/users/@me` |
 | `producthunt-token` | Product Hunt API v2's developer token | a query for one Launch |
-| `newapi-key-<role>`, for `miner`, `registration`, `mail`, `question` and `checks` | a key new-api makes for the role | new-api's `/models` |
+| `newapi-key-<role>`, for `miner`, `registration`, `mail`, `question` and `checks` | a key new-api makes for the role (below) | new-api's `/models`, which must list each `<role>@<provider>` the role asks for |
 | `newapi-key-probe` | a key new-api makes for the daily probe | new-api's `/models` |
 | `gmail-client-secret` | the JSON Google Cloud's Credentials page downloads for the Desktop app client | Google takes the client, refusing only a made-up code |
 | `gmail-refresh-token` | a consent in Safari: open the link `ops/token` shows, signed in to the Signup mailbox's account, then paste the address Safari can't load | a refresh, exactly `gmail.readonly` and `gmail.compose`, and the mailbox's address |
@@ -92,9 +92,27 @@ changes nothing: remove it from the repo and run `ops/token` again. CPA's ChatGP
 `localhost:1455` address, comes with CPA itself in #72.
 
 The bot's unit hands over only the tokens the bot reads today: `discord-bot-token`, `producthunt-token`,
-`newapi-key-miner`, `newapi-key-registration`, `personal-database-deploy-key` and `healthchecks-ping-bot`. A later ticket that reads another
-adds its `LoadCredential=` line to `ops/systemd/assistant.service`: `ops/test/token.test.ts` fails while the unit and
-the names the bot reads differ.
+`newapi-key-miner`, `newapi-key-registration`, `personal-database-deploy-key` and `healthchecks-ping-bot`. A later
+ticket that reads another adds its `LoadCredential=` line to `ops/systemd/assistant.service`: `ops/test/token.test.ts`
+fails while the unit and the names the bot reads differ.
+
+### new-api's channels and role keys
+
+The forwarder asks new-api for a role's model by the name `<role>@<provider>`, such as `miner@openrouter`, never by
+the model's own name (ADR 0011). Until #72's `ops/upgrade role` makes them, the person sets each one up in new-api's
+admin page:
+
+- a channel of the provider's type whose models are that one name, with a model redirect from it to the model the
+  provider serves, such as `{"miner@openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free"}`: the model that
+  `roles.<role>.providers` names in `config/assistant.json`, with its price in `prices`;
+- a price for the name in new-api's ratio settings, which a new-api in self-use mode doesn't ask for;
+- a token for the role alone, whose model limit names each of the role's `<role>@<provider>` names, with 4 weeks of
+  the role's budget as its quota (ADR 0011); a mail role's token goes in the `mail` group (ADR 0010).
+
+new-api's Playground, sent "hi" on each name, shows that the channel, the redirect and the price work. Then
+`ops/token newapi-key-<role>` refuses a key that new-api's `/models` doesn't let reach each of its role's names. At
+go-live (#85) both tokens were limited to the upstream model's name, and the registration role's slot held the miner
+key: the check then only counted models, so both passed, and every run failed on new-api's 403.
 
 ## The bot's user and the Docker helper
 

@@ -52,7 +52,7 @@
 |---|---|---|
 | `discord-bot-token` | Developer Portal 的 Bot 页面 | Discord 的 `/users/@me` |
 | `producthunt-token` | Product Hunt API v2 的开发者令牌 | 查询一个 Launch |
-| `newapi-key-<role>`，用于 `miner`、`registration`、`mail`、`question` 和 `checks` | new-api 为这个角色生成的密钥 | new-api 的 `/models` |
+| `newapi-key-<role>`，用于 `miner`、`registration`、`mail`、`question` 和 `checks` | new-api 为这个角色生成的密钥（见下文） | new-api 的 `/models`，其中必须列出这个角色请求的每个 `<role>@<provider>` |
 | `newapi-key-probe` | new-api 为每日探测生成的密钥 | new-api 的 `/models` |
 | `gmail-client-secret` | Google Cloud 的 Credentials 页面为桌面应用客户端下载的 JSON | Google 接受这个客户端，只拒绝一个编造的授权码 |
 | `gmail-refresh-token` | 在 Safari 里授权一次：登录 Signup mailbox 的账号，打开 `ops/token` 显示的链接，再把 Safari 打不开的那个地址粘贴回来 | 刷新一次，权限恰好是 `gmail.readonly` 和 `gmail.compose`，以及这个邮箱的地址 |
@@ -64,6 +64,16 @@
 deploy key 的私钥从不离开 VM（在 #71 上确定）：在询问 GitHub 期间，它待在凭据目录里面的一个目录里，即使 SSH 会话断开，这个目录也会被删除。试了五次 GitHub 仍然拒绝的密钥，什么也不会改变：从仓库里删掉它，再运行一次 `ops/token`。CPA 的 ChatGPT 登录，也就是粘贴那个打不开的 `localhost:1455` 地址，随 CPA 本身在 #72 里到来。
 
 机器人的单元只交付机器人现在读取的令牌：`discord-bot-token`、`producthunt-token`、`newapi-key-miner`、`newapi-key-registration`、`personal-database-deploy-key` 和 `healthchecks-ping-bot`。之后读取别的令牌的 ticket，会在 `ops/systemd/assistant.service` 里加上它的 `LoadCredential=` 一行：只要这个单元和机器人读取的名字不一致，`ops/test/token.test.ts` 就会失败。
+
+### new-api 的渠道和角色密钥
+
+forwarder 向 new-api 请求一个角色的模型时，用的名字是 `<role>@<provider>`，比如 `miner@openrouter`，从不用模型自己的名字（ADR 0011）。在 #72 的 `ops/upgrade role` 能创建它们之前，由这个人在 new-api 的管理页面里逐个设置：
+
+- 一个该 provider 类型的渠道，它的模型只有这一个名字，并带一条从这个名字到 provider 所服务模型的模型重定向，比如 `{"miner@openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free"}`：这个模型就是 `config/assistant.json` 里 `roles.<role>.providers` 写明的那个，它的价格在 `prices` 里；
+- 在 new-api 的倍率设置里给这个名字一个价格，处于自用模式的 new-api 不要求这一项；
+- 一个只属于这个角色的令牌，它的模型限制写明这个角色的每个 `<role>@<provider>` 名字，额度是这个角色 4 周的预算（ADR 0011）；mail 角色的令牌放在 `mail` 分组里（ADR 0010）。
+
+在 new-api 的 Playground 里对每个名字发一句 "hi"，就能看出渠道、重定向和价格都可用。之后，如果 new-api 的 `/models` 显示一个 key 访问不到它所属角色的每个名字，`ops/token newapi-key-<role>` 就会拒绝它。上线时（#85），两个令牌都被限制在上游模型的名字上，registration 角色的位置上放的还是 miner 的 key：当时的检查只数模型个数，所以两个都通过了，结果每次运行都因 new-api 的 403 而失败。
 
 ## 机器人的用户和 Docker 辅助程序
 

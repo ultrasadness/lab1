@@ -104,8 +104,21 @@ const TOKENS: Token[] = [
       check: async (value, { config }) => {
         const response = await request(`${config.gateway.baseUrl}/models`, { headers: { authorization: `Bearer ${value}` } });
         if (!response.ok) return refusedBy('new-api', response);
-        const body = (await response.json()) as { data?: unknown[] };
-        return { ok: true, note: `new-api lists ${body.data?.length ?? 0} models for it` };
+        const body = (await response.json()) as { data?: { id?: unknown }[] };
+        const listed = new Set((body.data ?? []).map((model) => model.id));
+        // The forwarder asks new-api for <role>@<provider> (ADR 0011), so a role's key must reach each such name its
+        // providers in the config give: a token limited to the upstream model's name, or another role's key, fails here
+        // rather than at the role's first run (#85). A role not brought up yet has no providers to reach.
+        const roles: Partial<Record<string, { providers: { name: string }[] }>> = config.roles;
+        const names = (roles[role]?.providers ?? []).map((provider) => `${role}@${provider.name}`);
+        const unreached = names.filter((name) => !listed.has(name));
+        if (unreached.length > 0) {
+          return {
+            ok: false,
+            why: `new-api doesn't let it reach ${unreached.join(', ')}, which the ${role} role asks for: in new-api, its token's model limit must name it, and the key must be that role's own`,
+          };
+        }
+        return { ok: true, note: names.length > 0 ? `new-api lets it reach ${names.join(', ')}` : `new-api lists ${listed.size} models for it` };
       },
     }),
   ),
