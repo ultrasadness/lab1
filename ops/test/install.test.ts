@@ -221,8 +221,11 @@ test('a first install puts everything in place, and a second changes nothing', a
   assert.match(first.out, /The bot waits on:\n  - the Personal database's checkout: run ops\/install --personal-database/);
   assert.match(first.out, /^ {2}- config\/assistant\.json: discord\.personUserId must be the person's Discord user id$/m);
   assert.match(first.out, /^ {2}- discord-bot-token: ops\/token discord-bot-token$/m);
-  // The alerts' ping URLs aren't the bot's to start with, but without them its alert can't go out.
-  assert.match(first.out, /^The alerts, when the bot or the backup gives up, wait on:\n {2}- healthchecks-ping-backup: ops\/token healthchecks-ping-backup\n {2}- healthchecks-ping-bot: ops\/token healthchecks-ping-bot$/m);
+  // The bot pings its own check, so it waits on that ping URL too; without the ping URLs, the alerts can't go out.
+  assert.match(
+    first.out,
+    /^ {2}- healthchecks-ping-bot: ops\/token healthchecks-ping-bot\nThe alerts, when the bot or the backup gives up, wait on:\n {2}- healthchecks-ping-backup: ops\/token healthchecks-ping-backup\n {2}- healthchecks-ping-bot: ops\/token healthchecks-ping-bot$/m,
+  );
 
   const second = await install(machine);
   assert.equal(second.code, 0, second.out);
@@ -305,7 +308,7 @@ test('the bot starts once its config and tokens are in place, and --deploy moves
   machine.land();
   await install(machine, '--personal-database', 'git@github.com:person/personal-database.git');
   deployKey(machine);
-  for (const name of ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration']) {
+  for (const name of ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'healthchecks-ping-bot']) {
     writeFileSync(join(machine.root, 'etc/assistant/credentials', name), 'dummy', { mode: 0o600 });
   }
   const started = await install(machine);

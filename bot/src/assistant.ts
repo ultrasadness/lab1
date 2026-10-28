@@ -10,6 +10,7 @@ import { DiscordGateway, popupField, type Interaction } from './discord/gateway.
 import { DiscordRest } from './discord/rest.ts';
 import { Dossiers } from './dossier/dossiers.ts';
 import { startForwarder } from './forwarder.ts';
+import { HealthPing, PING_MINUTES } from './health-ping.ts';
 import { createLog, errorText, stdoutSink, type Log, type LogEntry, type LogSink } from './log.ts';
 import { CORRECTION_FIELD, Corrections } from './miner/corrections.ts';
 import { Miner } from './miner/miner.ts';
@@ -40,6 +41,7 @@ const tokenFile = {
   productHunt: 'producthunt-token',
   roleKey: (role: Role) => `newapi-key-${role}`,
   deployKey: 'personal-database-deploy-key',
+  healthPing: 'healthchecks-ping-bot',
 };
 
 export async function startAssistant(options: {
@@ -66,6 +68,7 @@ export async function startAssistant(options: {
   const productHuntToken = token(tokenFile.productHunt);
   // ssh reads the deploy key from its file itself.
   const deployKey = tokenPath(tokenFile.deployKey);
+  const healthPingUrl = token(tokenFile.healthPing);
 
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
   const store = Store.open(join(config.dataDir, 'assistant.sqlite'), options.migrations);
@@ -248,6 +251,16 @@ export async function startAssistant(options: {
   const cancelLate = everyPacificDay(clock, config.miner.lateAt, () => {
     plainWork(miner.noteLate().catch((error: unknown) => log('miner.late-check-failed', { error: errorText(error) })));
   });
+  // The healthchecks.io ping, every 5 minutes while the bot is logged in to Discord and its store takes a write.
+  const healthPing = new HealthPing({ url: healthPingUrl, loggedIn: () => gateway.loggedIn, store, clock, log });
+  let cancelPing = () => {};
+  const armPing = () => {
+    cancelPing = inMinutes(clock, PING_MINUTES, () => {
+      plainWork(healthPing.ping());
+      armPing();
+    });
+  };
+  armPing();
   const whenIdle = async () => {
     for (;;) {
       await lane.whenIdle();
@@ -278,6 +291,7 @@ export async function startAssistant(options: {
         stopped = true;
         cancelDaily();
         cancelLate();
+        cancelPing();
         cancelRetry();
         cancelCorrectionsRetry();
         cancelWalkthroughsRetry();

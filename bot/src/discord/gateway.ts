@@ -53,12 +53,18 @@ export class DiscordGateway {
   #session: { id: string; resumeUrl: string } | undefined;
   #failures = 0;
   #stopped = false;
+  #loggedIn = false;
 
   constructor(options: { rest: DiscordRest; token: string; log: Log; onInteraction: (interaction: Interaction) => void }) {
     this.#rest = options.rest;
     this.#token = options.token;
     this.#log = options.log;
     this.#onInteraction = options.onInteraction;
+  }
+
+  /** Whether the bot is logged in: from Discord's READY or RESUMED until the connection drops. */
+  get loggedIn(): boolean {
+    return this.#loggedIn;
   }
 
   /** Connects in the background and stays connected, resuming the session after a drop. */
@@ -122,20 +128,25 @@ export class DiscordGateway {
         this.#send(socket, { op: 1, d: this.#seq });
         return;
       case 7:
-        socket.close(4000, 'reconnect requested');
+        this.#drop(socket, 'reconnect requested');
         return;
       case 9:
         if (!frame.d) this.#session = undefined;
-        socket.close(4000, 'invalid session');
+        this.#drop(socket, 'invalid session');
         return;
       case 0:
         if (frame.t === 'READY') {
           const ready = frame.d as { session_id: string; resume_gateway_url: string };
           this.#session = { id: ready.session_id, resumeUrl: ready.resume_gateway_url };
           this.#failures = 0;
+          this.#loggedIn = true;
           this.#log('discord.connected', {});
         }
-        if (frame.t === 'RESUMED') this.#failures = 0;
+        if (frame.t === 'RESUMED') {
+          this.#failures = 0;
+          this.#loggedIn = true;
+          this.#log('discord.resumed', {});
+        }
         if (frame.t === 'INTERACTION_CREATE') this.#onInteraction(frame.d as Interaction);
         return;
     }
@@ -144,15 +155,26 @@ export class DiscordGateway {
   #beat(socket: WebSocket): void {
     if (socket !== this.#socket) return;
     if (!this.#acked) {
-      socket.close(4000, 'no heartbeat ack');
+      this.#drop(socket, 'no heartbeat ack');
       return;
     }
     this.#acked = false;
     this.#send(socket, { op: 1, d: this.#seq });
   }
 
+  /**
+   * Closes the connection to reconnect. The bot is off Discord from here, though a connection gone half-open may take
+   * long to close.
+   */
+  #drop(socket: WebSocket, why: string): void {
+    this.#loggedIn = false;
+    this.#log('discord.dropped', { why });
+    socket.close(4000, why);
+  }
+
   #closed(socket: WebSocket, code: number): void {
     if (socket !== this.#socket) return;
+    this.#loggedIn = false;
     clearTimeout(this.#firstBeat);
     clearInterval(this.#heartbeat);
     if (this.#stopped) return;

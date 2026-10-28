@@ -168,6 +168,9 @@ export class FakeDiscord {
   /** The radio groups in each pop-up the bot opened, by the pop-up's custom_id, whose submissions carry them as such. */
   #radios = new Map<string, Set<string>>();
   #lost: { kind: 'post' | 'message'; remaining: number; forumId: string | undefined }[] = [];
+  #gatewayCut = false;
+  #resumes = 0;
+  #gatewayRefusals = 0;
 
   private constructor(token: string) {
     this.token = token;
@@ -260,6 +263,41 @@ export class FakeDiscord {
     }
     this.#lost = this.#lost.filter((l) => l.remaining > 0);
     return lost;
+  }
+
+  /** How many times the bot resumed its session on the gateway. */
+  get resumes(): number {
+    return this.#resumes;
+  }
+
+  /** How many times the gateway refused the bot while it was cut. */
+  get gatewayRefusals(): number {
+    return this.#gatewayRefusals;
+  }
+
+  /**
+   * The gateway asks the bot to reconnect, then stops reading from it until `releaseGateway`, as a connection gone
+   * half-open does: the bot's close goes unanswered, so the connection doesn't close.
+   */
+  hangGateway(): void {
+    for (const socket of this.#sockets) {
+      socket.send(JSON.stringify({ op: 7, d: null }));
+      socket.pause();
+    }
+  }
+
+  releaseGateway(): void {
+    for (const socket of this.#sockets) socket.resume();
+  }
+
+  /** The gateway drops the bot, and refuses each connection until `restoreGateway`, as in an outage of Discord's. */
+  cutGateway(): void {
+    this.#gatewayCut = true;
+    for (const socket of this.#sockets) socket.terminate();
+  }
+
+  restoreGateway(): void {
+    this.#gatewayCut = false;
   }
 
   /** Resolves once the bot has identified on the gateway. */
@@ -361,10 +399,22 @@ export class FakeDiscord {
   }
 
   #gateway(socket: WebSocket): void {
+    if (this.#gatewayCut) {
+      this.#gatewayRefusals += 1;
+      socket.terminate();
+      return;
+    }
     socket.send(JSON.stringify({ op: 10, d: { heartbeat_interval: 41_250 } }));
     socket.on('message', (raw) => {
       const frame = JSON.parse(String(raw)) as { op: number; d: Record<string, unknown> };
       if (frame.op === 1) socket.send(JSON.stringify({ op: 11 }));
+      if (frame.op === 6) {
+        if (frame.d.token !== this.token) return socket.close(4004, 'Authentication failed.');
+        this.#resumes += 1;
+        this.#sockets.add(socket);
+        this.#seq += 1;
+        socket.send(JSON.stringify({ op: 0, t: 'RESUMED', s: this.#seq, d: null }));
+      }
       if (frame.op === 2) {
         if (frame.d.token !== this.token) return socket.close(4004, 'Authentication failed.');
         this.identifies.push({ intents: Number(frame.d.intents) });

@@ -1,5 +1,6 @@
 // Seam 1: the Assistant's outside world. Starts the real bot, with real Pi and our extension as local processes,
-// against fakes for Discord, Product Hunt, the browser service and the model provider, on a clock the test moves.
+// against fakes for Discord, Product Hunt, the browser service, the model provider and healthchecks.io, on a clock the
+// test moves.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,6 +12,7 @@ import { FakeBrowser } from './fake-browser.ts';
 import { FakeClock } from './fake-clock.ts';
 import { FakeDiscord } from './fake-discord.ts';
 import { FakeGitRemote } from './fake-git-remote.ts';
+import { FakeHealthchecks } from './fake-healthchecks.ts';
 import { FakeModelProvider } from './fake-model.ts';
 import { FakeProductHunt } from './fake-product-hunt.ts';
 
@@ -48,6 +50,7 @@ export interface World {
   model: FakeModelProvider;
   /** GitHub, holding the person's Personal database repo. */
   git: FakeGitRemote;
+  healthchecks: FakeHealthchecks;
   /** Where the bot keeps its live store and raw inputs on the VM. */
   dataDir: string;
   /** Every line the bot logged, across restarts. */
@@ -117,6 +120,8 @@ export async function startWorld(options: {
   const productHunt = await FakeProductHunt.start({ token: TOKENS.productHunt });
   const browser = await FakeBrowser.start(join(dir, 'browser.sock'));
   const model = await FakeModelProvider.start({ apiKeys: [TOKENS.minerKey, TOKENS.registrationKey] });
+  const healthchecks = await FakeHealthchecks.start(clock);
+  writeFileSync(join(credentials, 'healthchecks-ping-bot'), `${healthchecks.pingUrl('bot')}\n`);
 
   const config: Config = {
     dataDir,
@@ -172,7 +177,7 @@ export async function startWorld(options: {
   const start = () =>
     startAssistant({ config, credentialsDir: credentials, clock, log: (entry) => logs.push(entry), migrations: options.migrations });
   const close = async () => {
-    await Promise.all([discord.close(), productHunt.close(), browser.close(), model.close()]);
+    await Promise.all([discord.close(), productHunt.close(), browser.close(), model.close(), healthchecks.close()]);
     rmSync(dir, { recursive: true, force: true });
   };
   let assistant: Assistant;
@@ -190,6 +195,7 @@ export async function startWorld(options: {
     browser,
     model,
     git,
+    healthchecks,
     dataDir,
     logs,
     assistant,

@@ -58,12 +58,12 @@
 | `gmail-refresh-token` | 在 Safari 里授权一次：登录 Signup mailbox 的账号，打开 `ops/token` 显示的链接，再把 Safari 打不开的那个地址粘贴回来 | 刷新一次，权限恰好是 `gmail.readonly` 和 `gmail.compose`，以及这个邮箱的地址 |
 | `bitwarden-api-key` | 机器人的 Bitwarden 账号的个人 API 密钥：先是它的 `client_id`，再是它的 `client_secret` | Bitwarden 用它让机器人登录 |
 | `bitwarden-master-password` | 机器人的 Bitwarden 账号 | `bw` 用它解锁密码库，等 #54 安装好 `bw` 之后 |
-| `healthchecks-ping-bot`, `-miner`, `-backup`, `-weekly` | healthchecks.io 上每个检查的 ping URL | 在这个检查上记一条日志事件，其他什么都不改 |
+| `healthchecks-ping-bot`, `-miner`, `-backup`, `-weekly` | healthchecks.io 上每个检查的 ping URL；机器人那个检查的周期是 5 分钟，宽限 10 分钟 | 在这个检查上记一条日志事件，其他什么都不改 |
 | `personal-database-deploy-key` | 在 VM 上生成：`ops/token` 显示公钥，把它加到仓库的 Deploy keys 里，勾上 "Allow write access"，然后它等你按回车 | 在机器人的 checkout 里通过这把密钥运行 `git ls-remote origin main`，再做一次什么都不推的推送，没有写权限的密钥会被 GitHub 拒绝 |
 
 deploy key 的私钥从不离开 VM（在 #71 上确定）：在询问 GitHub 期间，它待在凭据目录里面的一个目录里，即使 SSH 会话断开，这个目录也会被删除。试了五次 GitHub 仍然拒绝的密钥，什么也不会改变：从仓库里删掉它，再运行一次 `ops/token`。CPA 的 ChatGPT 登录，也就是粘贴那个打不开的 `localhost:1455` 地址，随 CPA 本身在 #72 里到来。
 
-机器人的单元只交付机器人现在读取的令牌：`discord-bot-token`、`producthunt-token`、`newapi-key-miner`、`newapi-key-registration` 和 `personal-database-deploy-key`。之后读取别的令牌的 ticket，会在 `ops/systemd/assistant.service` 里加上它的 `LoadCredential=` 一行：只要这个单元和机器人读取的名字不一致，`ops/test/token.test.ts` 就会失败。
+机器人的单元只交付机器人现在读取的令牌：`discord-bot-token`、`producthunt-token`、`newapi-key-miner`、`newapi-key-registration`、`personal-database-deploy-key` 和 `healthchecks-ping-bot`。之后读取别的令牌的 ticket，会在 `ops/systemd/assistant.service` 里加上它的 `LoadCredential=` 一行：只要这个单元和机器人读取的名字不一致，`ops/test/token.test.ts` 就会失败。
 
 ## 机器人的用户和 Docker 辅助程序
 
@@ -71,7 +71,7 @@ deploy key 的私钥从不离开 VM（在 #71 上确定）：在询问 GitHub �
 
 `ops/run-pi.ts` 是机器人的 `pi.command`：它向辅助程序请求这次运行，转发 stdin 和 stdout，以 Pi 的退出码退出，并把 Pi 的 stderr 的末尾写到它自己的 stderr。机器人这一侧关闭后，辅助程序结束 Pi 的 stdin，Pi 随之结束；10 秒后还在运行的，它的 `docker exec` 会被杀掉。杀掉 `docker exec` 并不会停止容器里的进程，但这样的 Pi 访问不到任何模型：机器人的这次运行一结束，forwarder 就忘掉这次运行的令牌。
 
-机器人的单元不让它看到 `/home`，除了 `/var/lib/assistant` 也不让它写任何地方。它停止 120 秒后重启，所以即使陷入崩溃循环，每天也只登录 Discord 720 次；一小时内 10 次启动失败后，它就停下，并由 `assistant-alert@bot.service` 把机器人在 healthchecks.io 上的检查标为失败，邮件于是立刻发出。
+机器人的单元不让它看到 `/home`，除了 `/var/lib/assistant` 也不让它写任何地方。机器人运行时每 5 分钟向它在 healthchecks.io 上的检查发一次 ping（`bot/README.md`），所以它一停下，邮件会在 15 分钟内发出。它停止 120 秒后重启，所以即使陷入崩溃循环，每天也只登录 Discord 720 次；一小时内 10 次启动失败后，它就停下，并由 `assistant-alert@bot.service` 把机器人的检查标为失败，邮件于是立刻发出。
 
 | 单元 | 做什么 |
 |---|---|
@@ -81,7 +81,7 @@ deploy key 的私钥从不离开 VM（在 #71 上确定）：在询问 GitHub �
 | `assistant-backup.timer`, `assistant-backup.service` | 备份，在太平洋时间 00:30 运行；某晚错过时，在开机时补上 |
 | `assistant-alert@.service` | 告警，用于 `bot` 或 `backup` |
 
-Miner 没有 timer：机器人自己在太平洋时间 01:00 安排它，机器人每次启动都会补上 VM 关机期间错过的日期（在 #71 上确定）。每周检查的 timer 随 #52 一起来，healthchecks.io 的 ping 随 #70 一起来。
+Miner 没有 timer：机器人自己在太平洋时间 01:00 安排它，机器人每次启动都会补上 VM 关机期间错过的日期（在 #71 上确定）。每周检查的 timer 随 #52 一起来，Miner、备份和每周检查的 healthchecks.io ping 随 #70 一起来。
 
 ## 备份
 
@@ -91,10 +91,13 @@ Miner 没有 timer：机器人自己在太平洋时间 01:00 安排它，机器�
 
 ```sh
 sudo systemctl stop assistant.service
+# A crash leaves the old store's write-ahead log behind, which SQLite would replay onto the restored store.
+sudo rm -f /var/lib/assistant/assistant.sqlite-wal /var/lib/assistant/assistant.sqlite-shm
 sudo install -o assistant -g assistant -m 600 /var/backups/assistant/<night>/assistant.sqlite /var/lib/assistant/assistant.sqlite
 sudo systemctl start assistant.service
 sudo docker stop new-api
-sudo docker exec -i postgres pg_restore --username root --dbname new-api --clean --if-exists < /var/backups/assistant/<night>/new-api.dump
+# Only root can read the backups, so root's shell opens the dump.
+sudo sh -c 'docker exec -i postgres pg_restore --username root --dbname new-api --clean --if-exists < /var/backups/assistant/<night>/new-api.dump'
 sudo docker start new-api
 ```
 

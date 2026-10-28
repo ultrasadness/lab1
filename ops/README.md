@@ -83,7 +83,7 @@ without writing it.
 | `gmail-refresh-token` | a consent in Safari: open the link `ops/token` shows, signed in to the Signup mailbox's account, then paste the address Safari can't load | a refresh, exactly `gmail.readonly` and `gmail.compose`, and the mailbox's address |
 | `bitwarden-api-key` | the bot's Bitwarden account's personal API key: its `client_id`, then its `client_secret` | Bitwarden logs the bot in with it |
 | `bitwarden-master-password` | the bot's Bitwarden account | `bw` unlocks the vault with it, once #54 installs `bw` |
-| `healthchecks-ping-bot`, `-miner`, `-backup`, `-weekly` | each check's ping URL on healthchecks.io | a log event on the check, which changes nothing else |
+| `healthchecks-ping-bot`, `-miner`, `-backup`, `-weekly` | each check's ping URL on healthchecks.io; the bot's check has a 5-minute period and 10 minutes' grace | a log event on the check, which changes nothing else |
 | `personal-database-deploy-key` | made on the VM: `ops/token` shows the public key to add to the repo's Deploy keys, with "Allow write access", then waits for Enter | `git ls-remote origin main` from the bot's checkout, through the key, and a push of nothing, which GitHub refuses a key added without write access |
 
 The deploy key's private half never leaves the VM (settled on #71): while GitHub is asked, it waits in a folder inside
@@ -92,7 +92,7 @@ changes nothing: remove it from the repo and run `ops/token` again. CPA's ChatGP
 `localhost:1455` address, comes with CPA itself in #72.
 
 The bot's unit hands over only the tokens the bot reads today: `discord-bot-token`, `producthunt-token`,
-`newapi-key-miner`, `newapi-key-registration` and `personal-database-deploy-key`. A later ticket that reads another
+`newapi-key-miner`, `newapi-key-registration`, `personal-database-deploy-key` and `healthchecks-ping-bot`. A later ticket that reads another
 adds its `LoadCredential=` line to `ops/systemd/assistant.service`: `ops/test/token.test.ts` fails while the unit and
 the names the bot reads differ.
 
@@ -111,9 +111,11 @@ which ends Pi; one still running 10 seconds later has its `docker exec` killed. 
 process inside the container, but such a Pi can't reach a model: the forwarder forgets the run's token once the bot's
 run ends.
 
-The bot's unit gives it no view of `/home` and nothing to write but `/var/lib/assistant`. It restarts 120 seconds
-after it stops, so even a crash loop stays at 720 Discord logins a day, and after 10 failed starts in an hour it stops
-and `assistant-alert@bot.service` signals the bot's healthchecks.io check as failed, so the email goes out at once.
+The bot's unit gives it no view of `/home` and nothing to write but `/var/lib/assistant`. While it runs, the bot pings
+its healthchecks.io check every 5 minutes (`bot/README.md`), so once it stops, the email goes out within 15 minutes.
+It restarts 120 seconds after it stops, so even a crash loop stays at 720 Discord logins a day, and after 10 failed
+starts in an hour it stops and `assistant-alert@bot.service` signals the bot's check as failed, so the email goes out
+at once.
 
 | Unit | What it does |
 |---|---|
@@ -124,8 +126,8 @@ and `assistant-alert@bot.service` signals the bot's healthchecks.io check as fai
 | `assistant-alert@.service` | The alert, for `bot` or `backup` |
 
 The Miner has no timer: the bot schedules it at 01:00 Pacific, and every start of the bot catches up a date missed
-while the VM was off (settled on #71). The weekly check's timer comes with #52, and the healthchecks.io pings with
-#70.
+while the VM was off (settled on #71). The weekly check's timer comes with #52, and the Miner's, the backup's and the
+weekly check's healthchecks.io pings with #70.
 
 ## The backup
 
@@ -138,10 +140,13 @@ To restore a night:
 
 ```sh
 sudo systemctl stop assistant.service
+# A crash leaves the old store's write-ahead log behind, which SQLite would replay onto the restored store.
+sudo rm -f /var/lib/assistant/assistant.sqlite-wal /var/lib/assistant/assistant.sqlite-shm
 sudo install -o assistant -g assistant -m 600 /var/backups/assistant/<night>/assistant.sqlite /var/lib/assistant/assistant.sqlite
 sudo systemctl start assistant.service
 sudo docker stop new-api
-sudo docker exec -i postgres pg_restore --username root --dbname new-api --clean --if-exists < /var/backups/assistant/<night>/new-api.dump
+# Only root can read the backups, so root's shell opens the dump.
+sudo sh -c 'docker exec -i postgres pg_restore --username root --dbname new-api --clean --if-exists < /var/backups/assistant/<night>/new-api.dump'
 sudo docker start new-api
 ```
 

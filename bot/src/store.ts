@@ -371,7 +371,15 @@ export interface Migration {
  * on. `SCHEMA` is always the latest version, which a new store gets whole. Each schema version that has shipped is kept
  * in `bot/test/fixtures/store-schemas/`, and `bot/README.md` says how to add one.
  */
-const MIGRATIONS: Migration[] = [];
+const MIGRATIONS: Migration[] = [
+  {
+    name: 'add ping_write, the row each healthchecks.io ping writes first, to show the store takes a write (#85)',
+    sql: `CREATE TABLE ping_write (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  written_at TEXT NOT NULL
+);`,
+  },
+];
 
 /** The latest schema, which a new store gets whole at the latest version. */
 const SCHEMA = `
@@ -632,6 +640,10 @@ CREATE TABLE IF NOT EXISTS personal_database_divergences (
   card_message_id TEXT,
   rejoined_at TEXT
 );
+CREATE TABLE IF NOT EXISTS ping_write (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  written_at TEXT NOT NULL
+);
 `;
 
 type Row = Record<string, SQLInputValue>;
@@ -856,6 +868,13 @@ export class Store {
       this.#db.exec('ROLLBACK');
       throw error;
     }
+  }
+
+  // ---------- The healthchecks.io ping ----------
+
+  /** Writes the time, as each healthchecks.io ping does first, to show the store takes a write. Throws if it can't. */
+  savePingWrite(at: string): void {
+    this.#db.prepare('INSERT INTO ping_write (id, written_at) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET written_at = excluded.written_at').run(at);
   }
 
   // ---------- The Miner dates the bot has taken on ----------

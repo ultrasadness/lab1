@@ -15,7 +15,7 @@ import { ROLES } from '../../bot/src/config.ts';
 
 const REPO = join(import.meta.dirname, '..', '..');
 const OPS_TOKEN = join(REPO, 'ops', 'token');
-const BOT_TOKENS = ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'personal-database-deploy-key'];
+const BOT_TOKENS = ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'personal-database-deploy-key', 'healthchecks-ping-bot'];
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose';
 
 interface Vm {
@@ -204,7 +204,7 @@ test("the bot isn't started while another of its tokens is missing, and the pers
   const ran = await opsToken(machine, ['newapi-key-miner'], [{ after: /Paste/, type: 'good-key' }]);
   assert.equal(ran.code, 0, ran.out);
   assert.match(ran.out, /new-api lists 1 models for it/);
-  assert.match(ran.out, /assistant\.service waits on: discord-bot-token, producthunt-token, newapi-key-registration, personal-database-deploy-key\./);
+  assert.match(ran.out, /assistant\.service waits on: discord-bot-token, producthunt-token, newapi-key-registration, personal-database-deploy-key, healthchecks-ping-bot\./);
   assert.equal(machine.systemctl(), '');
 });
 

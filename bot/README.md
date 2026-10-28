@@ -10,7 +10,7 @@ sorts each Correction into fix only, an Interest scope change or a Rule, and loa
 #53 puts a Walkthrough to the person for each open or waitlisted Product, whose Approval starts its Registration.
 #99 lets the config switch Walkthroughs off, and it ships with them off. #100 bounds the tries at a Dossier that
 can't be written. #98 gives the live store a schema version, and migrations the bot runs at start. #71 installs it on
-the VM as its own user (`ops/README.md`).
+the VM as its own user (`ops/README.md`), and #85 gives it its healthchecks.io ping.
 
 | Path | What it is |
 |---|---|
@@ -23,6 +23,7 @@ the VM as its own user (`ops/README.md`).
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
 | `bot/src/needs-you.ts` | Cards in the `#needs-you` text channel, each mentioning the person |
+| `bot/src/health-ping.ts` | The healthchecks.io ping, every 5 minutes while the bot is logged in to Discord and its store takes a write |
 | `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, each priced in notional dollars, and run records |
 | `bot/src/pi-runs.ts` | One `pi --mode rpc` process per run, capped on wall clock, turns and tokens |
 | `bot/src/store.ts` | The live store (SQLite), with its schema and migrations |
@@ -55,12 +56,13 @@ The hooks and CI that check each commit and push, and how to turn the hooks on i
 `docs/hooks-and-ci.md`. `npm test` also runs the ops scripts' tests, in `ops/test/` (`ops/README.md`).
 
 The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in-process, with real Pi and our extension
-as local processes, against fake Discord, Product Hunt, browser service and model provider servers, a fake GitHub
-holding the Personal database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
+as local processes, against fake Discord, Product Hunt, browser service, model provider and healthchecks.io servers, a
+fake GitHub holding the Personal database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
 `bot/test/harness/fake-ssh.ts` in place of ssh. It lets in only the deploy key, can refuse pushes, and takes the
 person's own commits and merges. Only the harness imports from `bot/src`: `npm test` fails any other file under
 `bot/test/` whose import names a file there (`scripts/bot-test-imports.test.ts`). `bot/test/store-schema.test.ts` also reads the
-live store's file with `node:sqlite`, as #98 asks of it.
+live store's file with `node:sqlite`, as #98 asks of it, and `bot/test/health-ping.test.ts` holds the store's write
+lock through it, to show a store that can't take a write.
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.
@@ -123,7 +125,8 @@ rows arrive.
 
 The bot reads `config/assistant.json` (or `$ASSISTANT_CONFIG`), and its tokens from `$CREDENTIALS_DIRECTORY`, as
 systemd's `LoadCredential=` hands them over: `discord-bot-token`, `producthunt-token`, one `newapi-key-<role>` per
-role, and `personal-database-deploy-key`, the Personal database repo's deploy key.
+role, `personal-database-deploy-key`, the Personal database repo's deploy key, and `healthchecks-ping-bot`, the ping
+URL of the bot's check on healthchecks.io.
 
 The bot's checkout of the Personal database sits at `personalDatabase.dir`: a clone of the person's repo with `main`
 checked out and its `origin` at the repo's ssh URL. The bot runs git in it with no git config but the checkout's own,
@@ -233,3 +236,10 @@ why and how many of its tries count, and a `dossier.stopped` line one that reach
 line names the commit a run's Rules were read at, the Rules by name, and about how many tokens they take. A
 `walkthrough.prepared` line names a Walkthrough's version and the run that prepared it, a `walkthrough.none` line why
 a Product gets none, and a `walkthrough.approved` line the Discord interaction an Approval came in.
+
+Every 5 minutes the bot pings its check on healthchecks.io, at the URL in `healthchecks-ping-bot`, but only while it
+is logged in to Discord and its store takes a write: it writes the time to the store first. A ping withheld gets a
+`health.ping-withheld` line saying why, and one healthchecks.io doesn't take a `health.ping-failed` line; neither is
+tried again before the next 5 minutes. The check has a 5-minute period and 10 minutes' grace, so 15 minutes without a
+ping sends the person an email that says only that the Assistant can't reach them on Discord (#26). The Miner's, the
+backup's and the weekly check's pings come with #70.

@@ -24,6 +24,7 @@ LoadCredential=producthunt-token:/etc/assistant/credentials/producthunt-token
 LoadCredential=newapi-key-miner:/etc/assistant/credentials/newapi-key-miner
 LoadCredential=newapi-key-registration:/etc/assistant/credentials/newapi-key-registration
 LoadCredential=personal-database-deploy-key:/etc/assistant/credentials/personal-database-deploy-key
+LoadCredential=healthchecks-ping-bot:/etc/assistant/credentials/healthchecks-ping-bot
 # No view of /home, and nothing to write but its own data: the live store, the raw inputs and the Personal
 # database's checkout.
 NoNewPrivileges=yes
