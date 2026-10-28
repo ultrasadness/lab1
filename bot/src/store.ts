@@ -10,6 +10,7 @@ import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
 import type { PageRead } from './browser.ts';
 import type { Dossier } from './dossier/dossier.ts';
+import { errorText } from './log.ts';
 import type { DayLine } from './miner/day-line.ts';
 import type { JudgmentRecord } from './miner/judging.ts';
 import type { RunCap } from './pi-runs.ts';
@@ -358,6 +359,21 @@ export interface StoredRegistration {
   shownAt: string | null;
 }
 
+/** A change to the schema of a store that earlier code left, run once, in order, when the store opens (#98). */
+export interface Migration {
+  /** What it changes, for the error that names it if it fails. */
+  name: string;
+  sql: string;
+}
+
+/**
+ * The schema's migrations, oldest first: the first takes a store from version 1, the baseline, to version 2, and so
+ * on. `SCHEMA` is always the latest version, which a new store gets whole. Each schema version that has shipped is kept
+ * in `bot/test/fixtures/store-schemas/`, and `bot/README.md` says how to add one.
+ */
+const MIGRATIONS: Migration[] = [];
+
+/** The latest schema, which a new store gets whole at the latest version. */
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS miner_cursor (
   id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -767,14 +783,63 @@ const minerRetryOf = (row: Row): MinerRetry => ({
 export class Store {
   #db: DatabaseSync;
 
-  private constructor(path: string) {
+  private constructor(path: string, migrations: Migration[]) {
     this.#db = new DatabaseSync(path);
-    this.#db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
-    this.#db.exec(SCHEMA);
+    try {
+      // Node turns foreign keys on by default. They stay off while migrations run, so a migration can rebuild a table
+      // that keys point at, and each migration checks them itself before it commits.
+      this.#db.exec('PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = OFF;');
+      this.#migrate(path, migrations);
+      this.#db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+    } catch (error) {
+      this.#db.close();
+      throw error;
+    }
   }
 
-  static open(path: string): Store {
-    return new Store(path);
+  /** Opens the store at `path`, a new one if the file is empty or missing, and brings it to the latest schema. */
+  static open(path: string, migrations = MIGRATIONS): Store {
+    return new Store(path, migrations);
+  }
+
+  /**
+   * Brings the store to the latest schema version, before anything reads or writes it. A store newer than the code is
+   * refused untouched, as #98 settled: code that knows only an older schema would fail at its first query of a table
+   * a migration changed.
+   */
+  #migrate(path: string, migrations: Migration[]): void {
+    const latest = 1 + migrations.length;
+    const recorded = Number(this.#db.prepare('PRAGMA user_version').get()!.user_version);
+    if (recorded > latest) {
+      throw new Error(
+        `The live store ${path} is at schema version ${recorded}, newer than this code, which knows up to version ${latest}. ` +
+          `Upgrade to code that knows version ${recorded} again, or restore the store from a backup made before it reached that version, losing the live state since.`,
+      );
+    }
+    if (recorded === 0 && !this.#db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table'").get()) {
+      this.#transaction(() => {
+        this.#db.exec(SCHEMA);
+        this.#db.exec(`PRAGMA user_version = ${latest}`);
+      });
+      return;
+    }
+    // Tables with no version recorded were left by code from before #98, whose schema is the baseline.
+    if (recorded === 0) this.#db.exec('PRAGMA user_version = 1');
+    for (let version = Math.max(recorded, 1); version < latest; version++) {
+      const migration = migrations[version - 1]!;
+      try {
+        this.#transaction(() => {
+          this.#db.exec(migration.sql);
+          const broken = this.#db.prepare('PRAGMA foreign_key_check').get();
+          if (broken) throw new Error(`it leaves a key of ${String(broken.table)} pointing at no row of ${String(broken.parent)}`);
+          this.#db.exec(`PRAGMA user_version = ${version + 1}`);
+        });
+      } catch (error) {
+        throw new Error(
+          `The migration to schema version ${version + 1} (${migration.name}) failed, so the live store ${path} stays at version ${version}: ${errorText(error)}`,
+        );
+      }
+    }
   }
 
   close(): void {

@@ -9,7 +9,7 @@ The spec is #41. Its first slice (#42) brought up the Miner's path from Product 
 sorts each Correction into fix only, an Interest scope change or a Rule, and loads each kept Rule into later runs, and
 #53 puts a Walkthrough to the person for each open or waitlisted Product, whose Approval starts its Registration.
 #99 lets the config switch Walkthroughs off, and it ships with them off. #100 bounds the tries at a Dossier that
-can't be written.
+can't be written. #98 gives the live store a schema version, and migrations the bot runs at start.
 
 | Path | What it is |
 |---|---|
@@ -24,7 +24,7 @@ can't be written.
 | `bot/src/needs-you.ts` | Cards in the `#needs-you` text channel, each mentioning the person |
 | `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, each priced in notional dollars, and run records |
 | `bot/src/pi-runs.ts` | One `pi --mode rpc` process per run, capped on wall clock, turns and tokens |
-| `bot/src/store.ts` | The live store (SQLite) |
+| `bot/src/store.ts` | The live store (SQLite), with its schema and migrations |
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 and Discord |
 | `pi/extension/` | Our Pi extension: the forwarder as provider, the run's Rules, and each run kind's record tool and prompt. It is copied alone into the Pi container, so it and `bot/src` import nothing from each other |
 | `pi/pi-run`, `pi/Dockerfile` | How a run starts, and the Pi container image |
@@ -56,7 +56,8 @@ as local processes, against fake Discord, Product Hunt, browser service and mode
 holding the Personal database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
 `bot/test/harness/fake-ssh.ts` in place of ssh. It lets in only the deploy key, can refuse pushes, and takes the
 person's own commits and merges. Only the harness imports from `bot/src`: `npm test` fails any other file under
-`bot/test/` whose import names a file there (`scripts/bot-test-imports.test.ts`).
+`bot/test/` whose import names a file there (`scripts/bot-test-imports.test.ts`). `bot/test/store-schema.test.ts` also reads the
+live store's file with `node:sqlite`, as #98 asks of it.
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.
@@ -84,6 +85,36 @@ API might have.
 ```sh
 CREDENTIALS_DIRECTORY=/path/to/credentials npm run capture:producthunt-schema
 ```
+
+## Change the live store's schema
+
+The live store, `assistant.sqlite` in `dataDir`, records its schema version in `PRAGMA user_version`. Version 1 is
+the schema from before #98. When the bot starts, before anything reads or writes the store, it gives a new store
+`SCHEMA` from `bot/src/store.ts` whole, at the latest version. On an older store it runs each migration after the
+store's version, in order, each in one transaction with its version. A store with tables but no version recorded is
+at version 1. A migration that fails, or that leaves a key pointing at no row, is undone: the store keeps its version,
+and the bot doesn't start, saying which migration failed. A store newer than the code is refused untouched, and the
+bot doesn't start either (settled by the person on #98). The error names both versions and the two ways out: upgrade
+to code that knows the store's version again, or restore the store from a nightly backup, losing the live state
+since. So rolling the bot back past a migration leaves it stopped.
+
+To change the schema, in one commit:
+
+1. Change `SCHEMA` to the new schema.
+2. Add a migration at the end of `MIGRATIONS`, beside it, that changes a store at the previous version to match:
+   `name` says what it changes, `sql` how. It runs inside its own transaction, so it opens none itself, and with
+   foreign keys off, so it can rebuild a table that keys point at, as in SQLite's
+   [steps for other changes](https://www.sqlite.org/lang_altertable.html#otheralter).
+3. Add the new version's fixture, `bot/test/fixtures/store-schemas/<version>.sql`, holding the new `SCHEMA`.
+
+`bot/test/store-schema.test.ts` builds a store from each fixture, starts the bot on it, and compares the store's
+tables, columns, indexes and keys with a new store's. So `npm test` fails on a `SCHEMA` change with no migration, a
+migration that misses part of one, or a version with no fixture. Once a migration or a fixture reaches `main`, it
+never changes, since a store may already be at its version, and `.githooks/pre-commit` refuses a commit that changes,
+deletes or renames a fixture `main` holds (settled by the person on #98). The test sees what SQLite's pragmas report,
+which leaves out `CHECK` constraints, a column's collation, a partial index's condition, a trigger's body, and rows:
+a migration that moves rows, as #53's new key for `sorts` would have on a live store, gets a test of its own that the
+rows arrive.
 
 ## Run
 

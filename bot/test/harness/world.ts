@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startAssistant, type Assistant, type LogEntry } from '../../src/assistant.ts';
 import type { Config } from '../../src/config.ts';
+import type { Migration } from '../../src/store.ts';
 import { FakeBrowser } from './fake-browser.ts';
 import { FakeClock } from './fake-clock.ts';
 import { FakeDiscord } from './fake-discord.ts';
@@ -77,11 +78,18 @@ export async function startWorld(options: {
   configure?: (config: Config) => void;
   /** Whether the Personal database starts with the person's Profile, `profile/profile.md`; it does unless this is false. */
   profile?: boolean;
+  /**
+   * Where the bot keeps its live store and raw inputs: a folder of the test's own, which outlives the world as the
+   * store outlives the bot on the VM. By default, one inside the world's own folder.
+   */
+  dataDir?: string;
+  /** The store's migrations, in place of its own, to try how the bot runs them. */
+  migrations?: Migration[];
 }): Promise<World> {
   const dir = mkdtempSync(join(tmpdir(), 'assistant-test-'));
   const credentials = join(dir, 'credentials');
   const personalDatabase = join(dir, 'personal-database');
-  const dataDir = join(dir, 'data');
+  const dataDir = options.dataDir ?? join(dir, 'data');
   for (const d of [credentials, dataDir, join(dir, 'pi-agent'), join(dir, 'pi-work'), join(dir, 'home')]) {
     mkdirSync(d, { recursive: true });
   }
@@ -161,7 +169,8 @@ export async function startWorld(options: {
   options.configure?.(config);
 
   const logs: LogEntry[] = [];
-  const start = () => startAssistant({ config, credentialsDir: credentials, clock, log: (entry) => logs.push(entry) });
+  const start = () =>
+    startAssistant({ config, credentialsDir: credentials, clock, log: (entry) => logs.push(entry), migrations: options.migrations });
   const close = async () => {
     await Promise.all([discord.close(), productHunt.close(), browser.close(), model.close()]);
     rmSync(dir, { recursive: true, force: true });

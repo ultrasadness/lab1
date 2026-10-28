@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，借助 Node 的类型剥离（type stripping）原样运行，自己没有任何 npm 依赖。它持有所有令牌，独自写入实时存储（live store），并发出所有对外调用。规格是 #41。它的第一个切片（#42）打通了 Miner 从 Product Hunt 到 Miner days 论坛的路径，#47 为每个达到或高于 Day's line 的 Launch 加上一份 Dossier，#48 让这个人可以对 Miner 的评判做 Correction，#49 把每个 Correction 分为只修正本项、Interest scope 的改动或 Rule，并把每条保留下来的 Rule 载入之后的运行，#53 为每个 open 或 waitlisted 的 Product 把一份 Walkthrough 交给这个人，它的 Approval 开启这个 Product 的 Registration。#99 让配置可以关掉 Walkthrough，发布时它们就是关着的。#100 给写不成的 Dossier 的尝试次数设了上限。
+Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，借助 Node 的类型剥离（type stripping）原样运行，自己没有任何 npm 依赖。它持有所有令牌，独自写入实时存储（live store），并发出所有对外调用。规格是 #41。它的第一个切片（#42）打通了 Miner 从 Product Hunt 到 Miner days 论坛的路径，#47 为每个达到或高于 Day's line 的 Launch 加上一份 Dossier，#48 让这个人可以对 Miner 的评判做 Correction，#49 把每个 Correction 分为只修正本项、Interest scope 的改动或 Rule，并把每条保留下来的 Rule 载入之后的运行，#53 为每个 open 或 waitlisted 的 Product 把一份 Walkthrough 交给这个人，它的 Approval 开启这个 Product 的 Registration。#99 让配置可以关掉 Walkthrough，发布时它们就是关着的。#100 给写不成的 Dossier 的尝试次数设了上限。#98 给实时存储加上 schema 版本号，以及机器人启动时运行的迁移（migration）。
 
 | 路径 | 是什么 |
 |---|---|
@@ -17,7 +17,7 @@ Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，�
 | `bot/src/needs-you.ts` | `#needs-you` 文字频道里的卡片，每张都提及这个人 |
 | `bot/src/forwarder.ts` | Pi 容器唯一的端点：带角色密钥的模型请求（每个都按名义美元计价），以及运行记录 |
 | `bot/src/pi-runs.ts` | 每次运行一个 `pi --mode rpc` 进程，按墙钟时间、轮数和 token 数设上限 |
-| `bot/src/store.ts` | 实时存储（SQLite） |
+| `bot/src/store.ts` | 实时存储（SQLite），以及它的 schema 和迁移 |
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 和 Discord |
 | `pi/extension/` | 我们的 Pi 扩展：把 forwarder 作为 provider、这次运行的 Rule，以及每种运行的记录工具和提示词。它被单独复制进 Pi 容器，所以它和 `bot/src` 互不导入 |
 | `pi/pi-run`, `pi/Dockerfile` | 一次运行如何启动，以及 Pi 容器镜像 |
@@ -39,7 +39,7 @@ node --test bot/test/miner-day.test.ts # one file
 
 每次提交和 push 要过的 hook 和 CI，以及在新的克隆里怎么打开 hook，见 `docs/hooks-and-ci.md`。
 
-机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在进程内运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt、浏览器服务和模型 provider 服务器、一个存放 Personal database 的假 GitHub，以及一个由测试拨动的时钟。假的 GitHub 是一个本地的裸仓库，git 通过代替 ssh 的 `bot/test/harness/fake-ssh.ts` 访问它。它只放行 deploy key，可以拒绝推送，也接受这个人自己的提交和合并。只有 harness 从 `bot/src` 导入：`bot/test/` 下其他任何文件的导入只要写出那里的某个文件，`npm test` 都会失败（`scripts/bot-test-imports.test.ts`）。
+机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在进程内运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt、浏览器服务和模型 provider 服务器、一个存放 Personal database 的假 GitHub，以及一个由测试拨动的时钟。假的 GitHub 是一个本地的裸仓库，git 通过代替 ssh 的 `bot/test/harness/fake-ssh.ts` 访问它。它只放行 deploy key，可以拒绝推送，也接受这个人自己的提交和合并。只有 harness 从 `bot/src` 导入：`bot/test/` 下其他任何文件的导入只要写出那里的某个文件，`npm test` 都会失败（`scripts/bot-test-imports.test.ts`）。`bot/test/store-schema.test.ts` 还会用 `node:sqlite` 直接读取实时存储的文件，这是 #98 对它的要求。
 
 时钟的一次跳跃（`advanceTo`）只在新的时间点把过期的定时器触发一次，和真实时钟一样。要测试重复的定时器，用 `stepThrough` 逐一走过它的每次触发。
 
@@ -52,6 +52,18 @@ node --test bot/test/miner-day.test.ts # one file
 ```sh
 CREDENTIALS_DIRECTORY=/path/to/credentials npm run capture:producthunt-schema
 ```
+
+## 修改实时存储的 schema
+
+实时存储即 `dataDir` 里的 `assistant.sqlite`，它把自己的 schema 版本号记在 `PRAGMA user_version` 里。版本 1 是 #98 之前的 schema。机器人启动时，在任何东西读写这个存储之前，会把 `bot/src/store.ts` 里的 `SCHEMA` 整个交给一个新的存储，并记为最新版本。对一个较旧的存储，它按顺序运行这个存储的版本之后的每个迁移，每个迁移和它的版本号放在同一个事务里。有表但没有记录版本号的存储算作版本 1。失败的迁移，或者留下指向不存在的行的键的迁移，会被撤销：存储保持原来的版本号，机器人不启动，并说明是哪个迁移失败了。比代码还新的存储会被原封不动地拒绝，机器人同样不启动（由这个人在 #98 上确定）。错误信息写明两个版本号，以及两条出路：再升级到认识这个存储的版本的代码，或者从每晚的备份恢复这个存储，备份之后的实时状态会丢掉。所以，把机器人回滚到某个迁移之前，会让它停着。
+
+要修改 schema，在一次提交里：
+
+1. 把 `SCHEMA` 改成新的 schema。
+2. 在它旁边的 `MIGRATIONS` 末尾加一个迁移，把处于上一个版本的存储改成和它一致：`name` 写明它改了什么，`sql` 写明怎么改。它在自己的事务里运行，所以它自己不开事务；它运行时外键是关着的，所以它可以重建一张被键指向的表，就像 SQLite 的[其他改动的步骤](https://www.sqlite.org/lang_altertable.html#otheralter)那样。
+3. 加上新版本的 fixture `bot/test/fixtures/store-schemas/<version>.sql`，内容是新的 `SCHEMA`。
+
+`bot/test/store-schema.test.ts` 用每个 fixture 建一个存储，在它上面启动机器人，再把这个存储的表、列、索引和键与一个新存储的相比较。所以，`SCHEMA` 改了却没有迁移、迁移漏了改动的一部分，或者某个版本没有 fixture，`npm test` 都会失败。一个迁移或 fixture 一旦进入 `main` 就不再修改，因为可能已经有存储处于它的版本；修改、删除或重命名 `main` 里已有的 fixture 的提交，会被 `.githooks/pre-commit` 拒绝（由这个人在 #98 上确定）。这个测试看到的是 SQLite 的 pragma 报告的内容，其中不包括 `CHECK` 约束、列的排序规则（collation）、partial index 的条件、trigger 的内容，以及行：一个搬动行的迁移，要另写一个测试，证明这些行都到了，比如 #53 给 `sorts` 换的新键，在一个实时存储上本来就会搬动行。
 
 ## 运行
 

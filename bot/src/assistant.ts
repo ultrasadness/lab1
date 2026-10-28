@@ -23,7 +23,7 @@ import { RawInputs } from './raw-inputs.ts';
 import { Proposals } from './rules/proposals.ts';
 import { loadRules } from './rules/rules.ts';
 import { correctionOf } from './rules/sorting.ts';
-import { Store } from './store.ts';
+import { Store, type Migration } from './store.ts';
 import { Walkthroughs } from './walkthrough/walkthroughs.ts';
 
 export type { LogEntry };
@@ -48,6 +48,8 @@ export async function startAssistant(options: {
   credentialsDir: string;
   clock: Clock;
   log?: LogSink;
+  /** The live store's migrations; its own unless a test gives others, to try how they run. */
+  migrations?: Migration[];
 }): Promise<Assistant> {
   const { config, clock } = options;
   const problems = checkConfig(config);
@@ -66,7 +68,7 @@ export async function startAssistant(options: {
   const deployKey = tokenPath(tokenFile.deployKey);
 
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
-  const store = Store.open(join(config.dataDir, 'assistant.sqlite'));
+  const store = Store.open(join(config.dataDir, 'assistant.sqlite'), options.migrations);
   const rawInputs = new RawInputs({ dir: join(config.dataDir, 'raw'), store, clock, keepDays: config.rawInputs.keepDays, log });
 
   const forwarder = await startForwarder({

@@ -1,7 +1,8 @@
 // The pre-commit hook's typecheck of the browser service (#89): browser/ is a package of its own, so the hook runs its
-// typecheck too, with its own dependencies, on the staged copy. Each test commits in a throwaway repo shaped like this
-// one: a root package and a browser/ package, each with a small typecheck. Their tsc is this repo's own, and browser/'s
-// dependencies hold a package the root's don't, which browser/'s code imports.
+// typecheck too, with its own dependencies, on the staged copy. And its hold on the live store's schema fixtures
+// (#98): a commit may add one, but not change, delete or rename one that main holds. Each test commits in a throwaway
+// repo shaped like this one: a root package and a browser/ package, each with a small typecheck. Their tsc is this
+// repo's own, and browser/'s dependencies hold a package the root's don't, which browser/'s code imports.
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -26,6 +27,8 @@ interface Repo {
   dir: string;
   /** Writes `content` to `file` in the checkout, making its directory; with `stage`, stages it too. */
   write(file: string, content: string, opts?: { stage?: boolean }): void;
+  /** Removes `file` from the checkout, staged. */
+  remove(file: string): void;
   /** Commits what is staged; says whether git committed, and what it printed. */
   commit(): { ok: boolean; stderr: string };
   /** A linked worktree of a new branch, with neither package's dependencies installed. */
@@ -79,6 +82,9 @@ function repo(t: TestContext): Repo {
         mkdirSync(dirname(join(dir, file)), { recursive: true });
         writeFileSync(join(dir, file), content);
         if (stage) must('add', file);
+      },
+      remove(file) {
+        must('rm', '-q', file);
       },
       commit() {
         const r = git('-c', hooks, 'commit', '-q', '--allow-empty', '-m', 'A change');
@@ -163,4 +169,37 @@ test('a commit in a worktree with no dependencies is refused, naming each packag
   const said = refused(wt);
   assert.ok(said.includes(`none are installed in:\n  ${wt.dir}\n  ${wt.dir}/browser\nRun npm ci in each`), said);
   assert.doesNotMatch(said, /ln -s/);
+});
+
+const FIXTURE = 'bot/test/fixtures/store-schemas/1.sql';
+const SCHEMA_1 = 'CREATE TABLE launches (post_id TEXT PRIMARY KEY);\n';
+
+test('a commit that changes or deletes a store-schema fixture main holds is refused, naming it', (t) => {
+  const r = repo(t);
+  r.write(FIXTURE, SCHEMA_1, { stage: true });
+  assert.equal(r.commit().ok, true, 'a new fixture is let through');
+
+  r.write(FIXTURE, 'CREATE TABLE launches (post_id TEXT PRIMARY KEY, rank INTEGER);\n', { stage: true });
+  const changed = refused(r);
+  assert.ok(changed.includes(`a store-schema fixture that main holds is changed, deleted or renamed, so the commit is refused:\n  ${FIXTURE}\n`), changed);
+  r.write(FIXTURE, SCHEMA_1, { stage: true });
+
+  r.remove(FIXTURE);
+  r.write('bot/test/fixtures/store-schemas/2.sql', SCHEMA_1, { stage: true });
+  const renamed = refused(r);
+  assert.ok(renamed.includes(`so the commit is refused:\n  ${FIXTURE}\n`), renamed);
+});
+
+test('a commit that adds the next store-schema fixture beside those main holds goes through, from a worktree too', (t) => {
+  const r = repo(t);
+  r.write(FIXTURE, SCHEMA_1, { stage: true });
+  assert.equal(r.commit().ok, true);
+  const wt = r.worktree();
+  installRootDependencies(wt.dir);
+  installBrowserDependencies(join(wt.dir, 'browser'));
+  wt.write('bot/test/fixtures/store-schemas/2.sql', 'CREATE TABLE launches (post_id TEXT PRIMARY KEY, rank INTEGER);\n', { stage: true });
+  // A fixture main holds, unchanged in the working copy's staged files, though changed and unstaged.
+  wt.write(FIXTURE, 'not staged');
+  const committed = wt.commit();
+  assert.equal(committed.ok, true, committed.stderr);
 });

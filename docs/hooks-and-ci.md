@@ -8,8 +8,9 @@ What checks each commit and push, for both packages: the root's (the bot, our Pi
 
 ## Hooks
 
-- **pre-commit** refuses a commit on any branch but `main` in the main checkout. Then it checks a copy of what is
-  staged: each package's typecheck, run with that package's own dependencies, then the doc-pair check
+- **pre-commit** refuses a commit on any branch but `main` in the main checkout, and a commit that changes, deletes
+  or renames a schema fixture of the live store that `main` holds (`bot/test/fixtures/store-schemas/`, #98). Then it
+  checks a copy of what is staged: each package's typecheck, run with that package's own dependencies, then the doc-pair check
   (`docs/agents/doc-pairs.md`). It refuses the commit when one fails. Without a package's dependencies, it refuses
   every commit and says how to install them. It runs no tests: the root's take about a minute, and the browser
   service's build an image.

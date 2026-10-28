@@ -25,6 +25,25 @@ EOF
   exit 1
 fi
 
+# A live store's schema fixture that main holds stays as it shipped (#98): a store may be at its version, and
+# bot/test/store-schema.test.ts tells a schema change with no migration only against the fixtures as they shipped. A
+# new fixture is let through. A fixture missing from what is staged, deleted or renamed, has no blob there.
+changed=
+if git rev-parse -q --verify 'main^{commit}' >/dev/null; then
+  for fixture in $(git ls-tree -r --name-only main -- bot/test/fixtures/store-schemas/); do
+    [ "$(git rev-parse -q --verify ":$fixture" || true)" = "$(git rev-parse "main:$fixture")" ] || changed="$changed
+  $fixture"
+  done
+fi
+if [ -n "$changed" ]; then
+  cat >&2 <<EOF
+pre-commit: a store-schema fixture that main holds is changed, deleted or renamed, so the commit is refused:$changed
+A live store may already be at its version (bot/README.md, "Change the live store's schema"). Put it back with
+git checkout main -- <fixture>, and make the change a migration with the next version's fixture instead.
+EOF
+  exit 1
+fi
+
 # The packages, as paths from the top: the root, for the bot and the scripts, and browser/, for the browser service.
 # Each one's typecheck runs with that package's own dependencies.
 set -- '' /browser

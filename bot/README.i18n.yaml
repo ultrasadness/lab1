@@ -1,9 +1,12 @@
 /the-bot:
-  en: 37da2611ed052f49
-  zh: 9ccea299dba1c967
+  en: 9a78347a813de7e9
+  zh: 90934c50ddc98884
 /the-bot/test:
-  en: 5965223f84c581ee
-  zh: 9f2d9c12a8f677fc
+  en: ca79639c24a1c0de
+  zh: 58650866a9847233
+/the-bot/change-the-live-stores-schema:
+  en: 05ad10361dbcaffd
+  zh: 19b1db13c118e696
 /the-bot/run:
   en: 7448de8e6b95c7b0
   zh: 772cc9e9657ddf69
