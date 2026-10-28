@@ -179,6 +179,9 @@ function usable(config: Record<string, any>): void {
 
 test('a first install puts everything in place, and a second changes nothing', async (t) => {
   const machine = await vm(t);
+  // A value not set yet, as the config held before go-live (#85).
+  machine.configure((config) => (config.discord.personUserId = 'set at go-live'));
+  machine.land();
   const first = await install(machine);
   assert.equal(first.code, 0, first.out);
   const main = git(machine.source, 'rev-parse', 'main');
