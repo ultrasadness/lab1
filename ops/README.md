@@ -13,7 +13,7 @@ person runs on the VM is in #85 and #73.
 | `ops/install` | The one install: safe to run again, and a second run changes nothing |
 | `ops/token`, `ops/token.ts` | The only way a token is obtained, replaced or checked |
 | `ops/backup` | The nightly backup of the live store and new-api |
-| `ops/firewall` | The browser container's host firewall: public internet only |
+| `ops/firewall` | The browser container's host firewall: public internet only; and Pi's way to the forwarder |
 | `ops/docker-helper.ts`, `ops/run-pi.ts` | The root-owned Docker helper, and the bot's side of it |
 | `ops/alert.ts` | The alert when the bot or the backup gives up |
 | `ops/systemd/` | The units `ops/install` puts in `/etc/systemd/system` |
@@ -161,6 +161,14 @@ still works: Docker's resolver forwards its queries from the host, not from the 
 throwaway container on the browser's network, and fails on any that comes out wrong. In #71 it was tried on a
 throwaway network: without the firewall, such a container reached the instance metadata, sshd, new-api's network and
 Tailscale's resolver; with it, only the public internet. `ops/firewall --dry-run` prints the rules.
+
+It also lets Pi's container reach the bot's forwarder. Pi runs on Docker's default bridge, `docker0`, and reaches the
+forwarder on that bridge's gateway, but Oracle's Ubuntu image ends the filter table's `INPUT` with a `REJECT` of all
+but ssh, http and https, which refused every Miner run at go-live (#85). So `apply` puts an `ACCEPT` for the
+forwarder's port, from `docker0` alone, at the top of `INPUT`, and `check` also tries the forwarder from a throwaway
+container on that bridge, which must reach it. There, as for every target, a refused connection counts as reached,
+since it got to the host. The forwarder's address in `ops/firewall` is the one in `config/assistant.json`:
+`ops/test/firewall.test.ts` fails while the two differ.
 
 ## Coding sessions
 

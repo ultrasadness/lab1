@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const FIREWALL = join(import.meta.dirname, '..', 'firewall');
@@ -35,10 +36,33 @@ test('apply puts each rule in once however often it runs, and remove takes every
   assert.doesNotMatch(after, /LAB1-BROWSER/);
 });
 
+test('apply lets Pi’s bridge reach the forwarder ahead of the host’s own INPUT rules, once, and remove takes it out', { skip: !namespaces && 'needs unprivileged network namespaces' }, () => {
+  // Oracle's Ubuntu image ends INPUT with a REJECT of all but ssh, http and https (found at go-live, #85).
+  const [before, after] = inNamespace(
+    'iptables -A INPUT -p tcp --dport 22 -j ACCEPT; iptables -A INPUT -j REJECT --reject-with icmp-host-prohibited; ' +
+      '"$FIREWALL" apply >/dev/null; "$FIREWALL" apply >/dev/null; iptables -S INPUT; echo ---; "$FIREWALL" remove >/dev/null; iptables -S INPUT',
+  ).split('---\n') as [string, string];
+  const { host, port } = forwarder();
+  assert.deepEqual(before.match(/^-A INPUT .*$/gm), [
+    `-A INPUT -d ${host}/32 -i docker0 -p tcp -m tcp --dport ${port} -j ACCEPT`,
+    '-A INPUT -p tcp -m tcp --dport 22 -j ACCEPT',
+    '-A INPUT -j REJECT --reject-with icmp-host-prohibited',
+  ]);
+  assert.deepEqual(after.match(/^-A INPUT .*$/gm), ['-A INPUT -p tcp -m tcp --dport 22 -j ACCEPT', '-A INPUT -j REJECT --reject-with icmp-host-prohibited']);
+});
+
 test('the dry run prints the rules for both families and changes nothing', () => {
   const r = spawnSync(FIREWALL, ['--dry-run'], { encoding: 'utf8', timeout: 10_000 });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^-A LAB1-BROWSER -d 169\.254\.0\.0\/16 -j DROP$/m);
   assert.match(r.stdout, /^-A LAB1-BROWSER -d fc00::\/7 -j DROP$/m);
   assert.equal(r.stdout.match(/^\*raw$/gm)?.length, 2);
+  const { host, port } = forwarder();
+  assert.match(r.stdout, new RegExp(`^-I INPUT 1 -i docker0 -d ${host} -p tcp --dport ${port} -j ACCEPT$`, 'm'));
 });
+
+/** The forwarder's address in the config, where Pi's container reaches the bot. */
+function forwarder(): { host: string; port: number } {
+  const config = JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', 'config', 'assistant.json'), 'utf8')) as { forwarder: { host: string; port: number } };
+  return config.forwarder;
+}

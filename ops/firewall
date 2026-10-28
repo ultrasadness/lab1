@@ -11,6 +11,11 @@
 # anything bound for tailscale0, ahead of DOCKER-USER. The container's DNS still works, since Docker's resolver
 # forwards its queries from the host, not from the bridge (tried on the VM in #71).
 #
+# It also lets Pi's container reach the bot's forwarder. Pi runs on Docker's default bridge, docker0, and reaches the
+# forwarder on that bridge's gateway, but Oracle's Ubuntu image ends the filter table's INPUT with a REJECT of all but
+# ssh, http and https, which refused it (found at go-live, #85). So the forwarder's port is let in from docker0 alone,
+# ahead of the image's rules.
+#
 #   ops/firewall apply       put the rules in place, or put them back as they should be
 #   ops/firewall remove      take them out
 #   ops/firewall --dry-run   print the rules, changing nothing
@@ -24,6 +29,10 @@ set -euo pipefail
 bridge=${BROWSER_BRIDGE:-br-lab1-browser}
 network=${BROWSER_NETWORK:-lab1_browser}
 chain=LAB1-BROWSER
+# The forwarder in config/assistant.json; ops/test/firewall.test.ts fails while the two differ.
+forwarder_host=172.17.0.1
+forwarder_port=8787
+forwarder_rule=(INPUT -i docker0 -d "$forwarder_host" -p tcp --dport "$forwarder_port" -j ACCEPT)
 blocked4=(0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.0.0.0/24 192.0.2.0/24
   192.168.0.0/16 198.18.0.0/15 198.51.100.0/24 203.0.113.0/24 224.0.0.0/4 240.0.0.0/4)
 blocked6=(::/128 ::1/128 ::ffff:0:0/96 64:ff9b::/96 100::/64 2001:db8::/32 fc00::/7 fe80::/10 fec0::/10 ff00::/8)
@@ -45,7 +54,8 @@ apply() {
     if [ $family = 4 ]; then rules "${blocked4[@]}"; else rules "${blocked6[@]}"; fi | "$tool-restore" --noflush
     "$tool" -t raw -C PREROUTING -i "$bridge" -j "$chain" >/dev/null 2>&1 || "$tool" -t raw -I PREROUTING 1 -i "$bridge" -j "$chain"
   done
-  echo "The firewall keeps $bridge on the public internet."
+  iptables -C "${forwarder_rule[@]}" >/dev/null 2>&1 || iptables -I "${forwarder_rule[0]}" 1 "${forwarder_rule[@]:1}"
+  echo "The firewall keeps $bridge on the public internet, and lets Pi's bridge reach the forwarder."
 }
 
 remove() {
@@ -56,16 +66,14 @@ remove() {
     "$tool" -t raw -F "$chain" 2>/dev/null || true
     "$tool" -t raw -X "$chain" 2>/dev/null || true
   done
-  echo "The firewall no longer limits $bridge."
+  while iptables -D "${forwarder_rule[@]}" 2>/dev/null; do :; done
+  echo "The firewall no longer limits $bridge, nor lets Pi's bridge reach the forwarder."
 }
 
-# Each target is an address and port the browser must not reach, and one it must. The host's own addresses come from
-# its routes: the one it reaches the internet from, and its address on the bridge.
-check() {
-  local host gateway
-  host=$(ip -4 route get 1.1.1.1 | sed -n 's/.* src \([0-9.]*\).*/\1/p')
-  gateway=$(docker network inspect --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}' "$network")
-  docker run --rm --network "$network" --cap-drop ALL --entrypoint node "${BROWSER_IMAGE:-lab1-browser:local}" -e '
+# reach_from NETWORK TARGETS tries each target, an address and port, from a throwaway container on NETWORK, and fails
+# on any that comes out other than its "public" says. A refused connection counts as reached: it got to the host.
+reach_from() {
+  docker run --rm --network "$1" --cap-drop ALL --entrypoint node "${BROWSER_IMAGE:-lab1-browser:local}" -e '
     const net = require("node:net");
     const targets = JSON.parse(process.argv[1]);
     const reach = ({ host, port }) => new Promise((resolve) => {
@@ -73,7 +81,7 @@ check() {
       const done = (ok) => { socket.destroy(); resolve(ok); };
       socket.once("connect", () => done(true));
       socket.once("timeout", () => done(false));
-      socket.once("error", () => done(false));
+      socket.once("error", (e) => done(e.code === "ECONNREFUSED"));
     });
     (async () => {
       let wrong = 0;
@@ -84,12 +92,22 @@ check() {
       }
       process.exit(wrong > 0 ? 1 : 0);
     })();
-  ' "$(cat <<EOF
+  ' "$2"
+}
+
+# Each target is an address and port the browser must not reach, and one it must; then the forwarder, which Pi's
+# bridge must reach. The host's own addresses come from its routes: the one it reaches the internet from, and its
+# address on the bridge.
+check() {
+  local host gateway wrong=0
+  host=$(ip -4 route get 1.1.1.1 | sed -n 's/.* src \([0-9.]*\).*/\1/p')
+  gateway=$(docker network inspect --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}' "$network")
+  reach_from "$network" "$(cat <<EOF
 [
   {"what": "Oracle's instance metadata", "host": "169.254.169.254", "port": 80, "public": false},
   {"what": "the host on its own address", "host": "$host", "port": 22, "public": false},
   {"what": "the host on the browser's bridge", "host": "$gateway", "port": 22, "public": false},
-  {"what": "the bot's forwarder", "host": "172.17.0.1", "port": 8787, "public": false},
+  {"what": "the bot's forwarder", "host": "$forwarder_host", "port": $forwarder_port, "public": false},
   {"what": "new-api's network", "host": "172.18.0.1", "port": 443, "public": false},
   {"what": "Tailscale's resolver", "host": "100.100.100.100", "port": 53, "public": false},
   {"what": "a private range", "host": "192.168.1.1", "port": 80, "public": false},
@@ -97,7 +115,9 @@ check() {
   {"what": "a public name, through Docker's DNS", "host": "example.com", "port": 443, "public": true}
 ]
 EOF
-)"
+)" || wrong=1
+  reach_from bridge "[{\"what\": \"the bot's forwarder, from Pi's bridge\", \"host\": \"$forwarder_host\", \"port\": $forwarder_port, \"public\": true}]" || wrong=1
+  return $wrong
 }
 
 case "${1:-}" in
@@ -108,6 +128,8 @@ case "${1:-}" in
     rules "${blocked4[@]}"
     echo "# IPv6 (ip6tables-restore --noflush), and the same jump:"
     rules "${blocked6[@]}"
+    echo "# Pi's bridge reaching the forwarder, at the top of the filter table's INPUT:"
+    echo "-I ${forwarder_rule[0]} 1 ${forwarder_rule[*]:1}"
     ;;
   check) check ;;
   *)

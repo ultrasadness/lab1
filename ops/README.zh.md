@@ -9,7 +9,7 @@
 | `ops/install` | 唯一的安装脚本：可以重复运行，第二次运行什么都不改 |
 | `ops/token`, `ops/token.ts` | 获取、更换或检查令牌的唯一途径 |
 | `ops/backup` | 实时存储和 new-api 的夜间备份 |
-| `ops/firewall` | 浏览器容器的主机防火墙：只能访问公共互联网 |
+| `ops/firewall` | 浏览器容器的主机防火墙：只能访问公共互联网；以及 Pi 通往 forwarder 的路 |
 | `ops/docker-helper.ts`, `ops/run-pi.ts` | 归 root 所有的 Docker 辅助程序，以及它在机器人这一侧的部分 |
 | `ops/alert.ts` | 机器人或备份放弃时发出的告警 |
 | `ops/systemd/` | `ops/install` 放进 `/etc/systemd/system` 的单元 |
@@ -106,6 +106,8 @@ sudo docker start new-api
 `ops/firewall apply` 丢弃浏览器容器发往公共互联网以外任何地方的每个包：私有地址段、Tailscale 的地址段、链路本地地址（其中包括 Oracle 的实例元数据）、主机自己的地址，以及 IPv6 的本地地址段。它在 raw 表里工作，排在 Docker 和 Tailscale 加的链之前。容器的 DNS 仍然可用：Docker 的解析器从主机转发查询，而不是从浏览器的网桥转发。
 
 `ops/firewall check` 需要 Docker，但不需要 root：它从浏览器网络上的一个临时容器去试每一类被封的地址和两个公共地址，任何一个结果不对它就失败。在 #71 里，它在一个临时网络上试过：没有防火墙时，这样的容器能访问实例元数据、sshd、new-api 的网络和 Tailscale 的解析器；有了防火墙，只能访问公共互联网。`ops/firewall --dry-run` 打印这些规则。
+
+它还让 Pi 的容器能访问机器人的 forwarder。Pi 运行在 Docker 的默认网桥 `docker0` 上，通过这个网桥的网关访问 forwarder，但 Oracle 的 Ubuntu 镜像在 filter 表的 `INPUT` 末尾用一条 `REJECT` 拒绝了 ssh、http 和 https 以外的一切，上线时（#85）每次 Miner 运行都因此被拒。所以 `apply` 在 `INPUT` 最前面放一条 `ACCEPT`，只放行从 `docker0` 到 forwarder 端口的流量；`check` 还会从这个网桥上的一个临时容器去试 forwarder，它必须能访问到。在那里，和每个目标一样，被拒绝的连接也算访问到了，因为它已经到达主机。`ops/firewall` 里 forwarder 的地址就是 `config/assistant.json` 里的那个：只要两者不一致，`ops/test/firewall.test.ts` 就会失败。
 
 ## 编码会话
 

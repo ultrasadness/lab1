@@ -1,5 +1,7 @@
-# The browser container's host firewall (ADR 0006): public internet only. It goes in before Docker starts, so the
-# browser, which Docker brings back at boot, never runs without it. See ops/firewall. Installed by ops/install.
+# The browser container's host firewall (ADR 0006): public internet only; and the way from Pi's bridge to the bot's
+# forwarder, through the INPUT rules Oracle's image ships. It goes in before Docker starts, so the browser, which Docker
+# brings back at boot, never runs without it, and after netfilter-persistent, which would flush the INPUT rule. See
+# ops/firewall. Installed by ops/install.
 [Unit]
 Description=Keep the Assistant's browser container on the public internet
 Before=docker.service
