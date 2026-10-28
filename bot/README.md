@@ -207,8 +207,8 @@ there. Its `pi.command` is `ops/run-pi.ts`, the bot's side of the Docker helper,
 `docker` group (ADR 0009). The only value a run passes into the container is the run's own token, which lets Pi reach
 the forwarder for that run alone and is never a key. `browser.socketPath` is the socket the compose project's browser
 service shares, and `gateway.baseUrl` reaches new-api on loopback, where new-api's compose project publishes it. The
-Discord ids and the providers' models stay `set at go-live` (#85): the bot won't start until a commit sets them and
-`ops/install --deploy` takes it to the VM. Elsewhere, `$ASSISTANT_CONFIG` names a config whose `pi.command` starts Pi
+Discord ids and the providers' models were set at go-live (#85); a change to them reaches the VM as a commit, then
+`ops/install --deploy`. Elsewhere, `$ASSISTANT_CONFIG` names a config whose `pi.command` starts Pi
 another way, such as `docker exec -i` into the `assistant-pi` container with the four `ASSISTANT_` variables.
 
 The run caps in `config/assistant.json` are starting values. The wall clocks were decided in #26, except those of the
@@ -221,9 +221,10 @@ provider's model has no price. ADR 0011 puts the prices in `ops/pins`; until it 
 request is counted at its provider's price, in notional dollars. `budgets.miner` is what a Miner date's runs may
 spend, Retries included, starting at $6. A run starts only while its date's spend is under the Miner budget, and
 finishes even when it goes over. Once the Miner budget is spent, the date's remaining runs wait and its 06:00 PT late
-line names the Miner budget; raising `budgets.miner` and restarting the bot lets them go on. The Miner provider's
-model is set at go-live (#85), with its price; `prices` already holds GPT-6.1 Sol's, the price the budgets were sized
-at (#39). `budgets.registration`, $20 to start, is what the registration role's runs may spend in a Pacific day,
+line names the Miner budget; raising `budgets.miner` and restarting the bot lets them go on. At go-live (#85) both
+roles' provider serves OpenRouter's free `nvidia/nemotron-3-ultra-550b-a55b:free`, priced at $0, so no budget holds a
+run, and what limits a runaway is OpenRouter's daily cap on free requests (settled by the person on #85). `prices`
+also keeps GPT-6.1 Sol's, the price the budgets were sized at (#39). `budgets.registration`, $20 to start, is what the registration role's runs may spend in a Pacific day,
 Dossier and Walkthrough runs among them; their spend is counted, but nothing holds a run to it until #69.
 
 The bot logs one JSON line per event to stdout. A `run.finished` line carries the run's role, providers, models, exact

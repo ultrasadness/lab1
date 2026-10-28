@@ -7,11 +7,11 @@
   },
   "discord": {
     "apiBaseUrl": "https://discord.com/api/v10",
-    "personUserId": "set at go-live",
-    "minerDaysForumId": "set at go-live",
-    "productsForumId": "set at go-live",
-    "statusChannelId": "set at go-live",
-    "needsYouChannelId": "set at go-live"
+    "personUserId": "1194561090911223818",
+    "minerDaysForumId": "1564934036172972062",
+    "productsForumId": "1564934160546660372",
+    "statusChannelId": "1564933750415040634",
+    "needsYouChannelId": "1564933319412678727"
   },
   "productHunt": {
     "apiUrl": "https://api.producthunt.com/v2/api/graphql"
@@ -27,10 +27,11 @@
     "baseUrl": "http://127.0.0.1:3000/v1"
   },
   "roles": {
-    "miner": { "providers": [{ "name": "openrouter", "model": "set at go-live" }] },
-    "registration": { "providers": [{ "name": "openrouter", "model": "set at go-live" }] }
+    "miner": { "providers": [{ "name": "openrouter", "model": "nvidia/nemotron-3-ultra-550b-a55b:free" }] },
+    "registration": { "providers": [{ "name": "openrouter", "model": "nvidia/nemotron-3-ultra-550b-a55b:free" }] }
   },
   "prices": {
+    "nvidia/nemotron-3-ultra-550b-a55b:free": { "input": 0, "cached": 0, "output": 0 },
     "openai/gpt-6.1-sol": { "input": 2.0, "cached": 0.1, "output": 10.0 }
   },
   "budgets": {
