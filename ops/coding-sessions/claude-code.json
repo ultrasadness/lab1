@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(//etc/assistant/**)",
+      "Edit(//etc/assistant/**)",
+      "Read(//run/credentials/**)",
+      "Edit(//run/credentials/**)",
+      "Read(//var/backups/assistant/**)",
+      "Edit(//var/backups/assistant/**)",
+      "Bash(*/etc/assistant*)",
+      "Bash(*/run/credentials*)",
+      "Bash(*/var/backups/assistant*)"
+    ]
+  },
+  "sandbox": {
+    "filesystem": {
+      "denyRead": ["/etc/assistant", "/run/credentials", "/var/backups/assistant"]
+    }
+  }
+}

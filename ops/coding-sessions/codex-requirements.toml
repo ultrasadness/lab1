@@ -1,0 +1,5 @@
+# Installed by lab1's ops/install (#71): no Codex session reads the Assistant's tokens (ADR 0009), the credentials
+# systemd hands its services, or the nightly backups, which hold new-api's provider keys. ops/install replaces this
+# file only while this first line is in it.
+[permissions.filesystem]
+deny_read = ["/etc/assistant", "/run/credentials", "/var/backups/assistant"]

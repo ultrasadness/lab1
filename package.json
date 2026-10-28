@@ -2,14 +2,14 @@
   "name": "lab1-assistant",
   "private": true,
   "type": "module",
-  "description": "The growing personal Assistant: the bot, our Pi extension, the doc-pair check and their tests.",
+  "description": "The growing personal Assistant: the bot, our Pi extension, the VM's ops scripts, the doc-pair check and their tests.",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
     "start": "node bot/src/main.ts",
     "typecheck": "tsc -p .",
-    "test": "node --test ${TEST_SHARD:+--test-shard=$TEST_SHARD} --test-timeout=60000 --test-force-exit \"bot/test/**/*.test.ts\" \"scripts/**/*.test.ts\"",
+    "test": "node --test ${TEST_SHARD:+--test-shard=$TEST_SHARD} --test-timeout=60000 --test-force-exit \"bot/test/**/*.test.ts\" \"ops/test/**/*.test.ts\" \"scripts/**/*.test.ts\"",
     "check:docs": "node scripts/check-docs.ts",
     "capture:producthunt-schema": "node scripts/capture-producthunt-schema.ts",
     "ticket": "node scripts/ticket.ts"

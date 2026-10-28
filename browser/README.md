@@ -52,14 +52,20 @@ The pre-commit hook runs this typecheck on the staged files, with the dependenci
 
 ## Run
 
-`compose.yaml` needs two settings, which the install on the VM (#71) provides:
+On the VM the service runs in the project of the root `compose.yaml`, beside Pi, on a bridge with a fixed name,
+`br-lab1-browser`, and `ops/install` starts it there (`ops/README.md`). `compose.yaml` here needs two settings,
+which `ops/install` provides:
 
 - `BROWSER_SOCKET_DIR`: a directory owned by the bot's user and group, mode `2770`, so the socket inside it
   takes the bot's group;
 - `BROWSER_SOCKET_GID`: the bot's group id, which the container joins to create the socket there.
 
+Compose reads the seccomp profile from the project's directory, so a project elsewhere, such as the root
+`compose.yaml`'s, also sets `BROWSER_SECCOMP_PROFILE` to `seccomp_profile.json`'s absolute path.
+
 ```sh
 BROWSER_SOCKET_DIR=/run/lab1-browser BROWSER_SOCKET_GID=$(getent group assistant | cut -d: -f3) docker compose up -d --build
 ```
 
-The host firewall rules that keep its egress to the public internet are also #71's.
+`ops/firewall` keeps its egress to the public internet: from its bridge, nothing private, link-local or on the host
+is reachable (`ops/README.md`).

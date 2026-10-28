@@ -1,0 +1,11 @@
+# The nightly backup, before the Miner's 01:00 PT start. A night missed while the VM was off is backed up at boot.
+# Installed by ops/install.
+[Unit]
+Description=Back up the Assistant nightly
+
+[Timer]
+OnCalendar=*-*-* 00:30:00 America/Los_Angeles
+Persistent=true
+
+[Install]
+WantedBy=timers.target

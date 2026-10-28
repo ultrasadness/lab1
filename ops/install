@@ -1,0 +1,434 @@
+#!/usr/bin/env bash
+# Installs the Assistant on the VM (#71), from the main checkout of lab1: `sudo ops/install`. It is safe to run again:
+# each step looks at what is in place and changes only what differs, and a second run changes nothing.
+#
+#   ops/install [--personal-database <ssh URL>]   install, or put back whatever differs
+#   ops/install --deploy                         also move the bot's checkout to main, and restart what it runs
+#   ops/install --dry-run [<option>…]            say what would change, changing nothing; it needs no root
+#
+# It puts in place:
+#   - Node for the bot, at the version below, checked against nodejs.org's SHA-256, in /opt/assistant/node;
+#   - sqlite3, for the nightly backup;
+#   - the `assistant` system user: no sudo, no `docker` group, no view of /home (ADR 0009);
+#   - /etc/assistant/credentials for ops/token, and /var/backups/assistant, both root's alone;
+#   - the bot's own checkout of lab1 at /opt/assistant/lab1, root's and only readable to the bot (ADR 0008);
+#   - GitHub's published host keys, for the bot's ssh;
+#   - the bot's checkout of the Personal database, once its ssh URL is given, with main checked out once the deploy
+#     key works;
+#   - the systemd units in ops/systemd, and the browser service's socket folder at each boot;
+#   - Claude Code's and Codex's settings that keep coding sessions out of the credentials (ops/coding-sessions);
+#   - the firewall, and then the compose project of Pi and the browser (compose.yaml);
+#   - the bot, started once every token it reads is in place.
+#
+# Until #72 brings `ops/upgrade`, `--deploy` is how a commit reaches the running Assistant (settled on #71): it takes
+# the main checkout's `main`, only while that is `origin/main`, whose CI the pre-push hook has seen pass.
+#
+# With OPS_ROOT set (the tests), every fixed path is taken under it, the system's commands come from PATH, and
+# ownership is recorded in $OPS_ROOT/owners instead of set.
+set -euo pipefail
+umask 022
+
+root=${OPS_ROOT:-}
+here=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+node_version=24.22.0
+declare -A node_sha256=(
+  [arm64]=fef00bb4d36e1c50104a9775a10359beee98f162b4104dd12472c75065c6a143
+  [x64]=cc2f601cee82d9a5a233302fe307abc600727035fd7d2c3a3571755989e95008
+)
+checkout=$root/opt/assistant/lab1
+credentials=$root/etc/assistant/credentials
+units=$root/etc/systemd/system
+home=$root/var/lib/assistant
+
+dry_run=false
+deploy=false
+personal_database=
+while [ $# -gt 0 ]; do
+  case $1 in
+    --dry-run) dry_run=true ;;
+    --deploy) deploy=true ;;
+    --personal-database)
+      personal_database=${2:?--personal-database takes the repo\'s ssh URL, such as git@github.com:<owner>/<repo>.git}
+      shift
+      ;;
+    *)
+      echo 'usage: ops/install [--dry-run] [--deploy] [--personal-database <ssh URL>]' >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+if [ -z "$root" ] && ! $dry_run && [ "$(id -u)" != 0 ]; then
+  echo 'ops/install runs as root: sudo ops/install' >&2
+  exit 1
+fi
+
+changes=0
+problems=()
+waiting=()
+# Makes one change, or in a dry run only says it would: `change "<what it does>" <command>…`. It runs as a command
+# of its own or in an `if` body, since under `||`, `&&` or an `if` condition bash ignores a failure inside it; the one
+# change made in a condition, check_out_pd, chains its own steps with `&&`.
+change() {
+  local what=$1
+  shift
+  changes=$((changes + 1))
+  if $dry_run; then
+    echo "Would $what."
+  else
+    echo "${what^}."
+    "$@"
+  fi
+}
+problem() {
+  echo "Problem: $1" >&2
+  problems+=("$1")
+}
+
+# Ownership: real files have owners; under OPS_ROOT the tests' runs record them in a file instead.
+owner_of() {
+  if [ -n "$root" ]; then
+    awk -v p="$1" -F'\t' '$1 == p { o = $2 } END { print o }' "$root/owners" 2>/dev/null
+  else
+    stat -c '%U:%G' "$1"
+  fi
+}
+set_owner() {
+  local recursive=
+  if [ "$1" = -R ]; then
+    recursive=-R
+    shift
+  fi
+  if [ -n "$root" ]; then
+    printf '%s\t%s\n' "$2" "$1" >> "$root/owners"
+  else
+    chown $recursive "$1" "$2"
+  fi
+}
+
+# A folder with its owner and mode.
+folder() {
+  local path=$1 owner=$2 mode=$3
+  if [ ! -d "$path" ]; then
+    change "create $path ($owner, $mode)" make_folder "$path" "$owner" "$mode"
+  elif [ "$(owner_of "$path")" != "$owner" ] || [ "$(stat -c '%a' "$path")" != "${mode#0}" ]; then
+    change "give $path to $owner with mode $mode" make_folder "$path" "$owner" "$mode"
+  fi
+}
+make_folder() {
+  mkdir -p "$1"
+  set_owner "$2" "$1"
+  chmod "$3" "$1"
+}
+
+# A file copied from the bot's checkout, root's unless named otherwise. `wrote` says whether it was written.
+file() {
+  local from=$1 to=$2 mode=$3 owner=${4:-root:root}
+  wrote=false
+  if [ ! -f "$to" ] || ! cmp -s "$from" "$to" || [ "$(stat -c '%a' "$to")" != "${mode#0}" ] || [ "$(owner_of "$to")" != "$owner" ]; then
+    change "write $to" put_file "$from" "$to" "$mode" "$owner"
+    wrote=true
+  fi
+}
+put_file() {
+  mkdir -p "$(dirname "$2")"
+  install -m "$3" "$1" "$2.new"
+  set_owner "$4" "$2.new"
+  mv "$2.new" "$2"
+  # Under OPS_ROOT the owner was recorded for the temporary name.
+  [ -z "$root" ] || printf '%s\t%s\n' "$2" "$4" >> "$root/owners"
+}
+
+# Git as the main checkout's reader: root may read a checkout another user owns, as safe.directory says.
+source_git() {
+  local config status=0
+  config=$(mktemp)
+  printf '[safe]\n\tdirectory = %s\n\tdirectory = %s/.git\n' "$source" "$source" > "$config"
+  GIT_CONFIG_GLOBAL=$config git "$@" || status=$?
+  rm -f "$config"
+  return $status
+}
+
+# --- Where the code comes from ----------------------------------------------------------------------------------
+source=$(dirname "$(git -c safe.directory='*' -C "$here" rev-parse --path-format=absolute --git-common-dir)")
+if [ "$source" = "$checkout" ]; then
+  echo "Run ops/install from the main checkout of lab1, such as sudo ~/lab1/ops/install, not from the bot's own." >&2
+  exit 1
+fi
+# As root it runs only what main holds, since coding sessions work in the checkout it runs from (settled on #71). A dry
+# run may try changes not yet committed.
+if ! $dry_run; then
+  repo=$(dirname "$here")
+  differs=$(git -c safe.directory='*' -C "$repo" diff --name-only main -- ops; git -c safe.directory='*' -C "$repo" ls-files --others --exclude-standard -- ops)
+  if [ -n "$differs" ]; then
+    echo "ops/install runs only what main holds, and in $repo these differ from it:" >&2
+    printf '  %s\n' $differs >&2
+    echo "Commit and land them, or put them back; ops/install --dry-run runs them as they are." >&2
+    exit 1
+  fi
+fi
+# The commit main and origin/main name in the main checkout, or why it can't be deployed.
+deployable() {
+  local main origin
+  main=$(source_git -C "$source" rev-parse --verify -q refs/heads/main) || { echo "the main checkout at $source has no main branch"; return 1; }
+  origin=$(source_git -C "$source" rev-parse --verify -q refs/remotes/origin/main) || { echo "the main checkout at $source has no origin/main"; return 1; }
+  if [ "$main" != "$origin" ]; then
+    echo "main ($main) isn't origin/main ($origin): land it and push it first, so its CI has passed"
+    return 1
+  fi
+  echo "$main"
+}
+
+# --- Node, for the bot and the ops scripts -----------------------------------------------------------------------
+case $(uname -m) in
+  aarch64) arch=arm64 ;;
+  x86_64) arch=x64 ;;
+  *) echo "ops/install knows Node's build for aarch64 and x86_64, not $(uname -m)" >&2; exit 1 ;;
+esac
+node_dir=$root/opt/assistant/node-v$node_version-linux-$arch
+install_node() {
+  local tarball
+  tarball=$(mktemp)
+  curl -fsSL --max-time 600 "https://nodejs.org/dist/v$node_version/node-v$node_version-linux-$arch.tar.xz" -o "$tarball"
+  echo "${node_sha256[$arch]}  $tarball" | sha256sum -c --quiet
+  mkdir -p "$root/opt/assistant"
+  tar -xJf "$tarball" -C "$root/opt/assistant" --no-same-owner
+  rm -f "$tarball"
+}
+folder "$root/opt/assistant" root:root 755
+if [ ! -x "$node_dir/bin/node" ]; then
+  change "download Node $node_version for linux-$arch and check its SHA-256" install_node
+fi
+if [ "$(readlink "$root/opt/assistant/node" 2>/dev/null)" != "node-v$node_version-linux-$arch" ]; then
+  change "point $root/opt/assistant/node at Node $node_version" ln -sfn "node-v$node_version-linux-$arch" "$root/opt/assistant/node"
+fi
+node=$node_dir/bin/node
+[ -x "$node" ] || node=node
+if ! command -v "$node" >/dev/null; then
+  # Only a dry run gets here: an install has just put Node in place.
+  echo "The rest reads the config with Node, which isn't installed yet: run the dry run without sudo, where your Node is." >&2
+  exit 1
+fi
+
+install_sqlite3() {
+  apt-get update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends sqlite3
+}
+if ! command -v sqlite3 >/dev/null; then
+  change 'install sqlite3, for the nightly backup' install_sqlite3
+fi
+
+# --- The assistant user -----------------------------------------------------------------------------------------
+if ! getent passwd assistant >/dev/null; then
+  change 'create the assistant system user' useradd --system --user-group --home-dir /var/lib/assistant --no-create-home --shell /usr/sbin/nologin assistant
+fi
+if getent passwd assistant >/dev/null; then
+  # Its own group alone: no `docker`, no `sudo`, and none that opens someone's home.
+  for group in $(id -nG assistant); do
+    if [ "$group" != assistant ]; then
+      change "take the assistant user out of the $group group" gpasswd -d assistant "$group"
+    fi
+  done
+  if ! sudo -l -U assistant 2>&1 | grep -q 'not allowed to run sudo'; then
+    problem 'sudo lets the assistant user run something: remove its rule from /etc/sudoers.d'
+  fi
+fi
+# Coding sessions run as ubuntu (ADR 0009), and nothing in its home is the bot's to see.
+if [ -d "$root/home/ubuntu" ] && [ $((0$(stat -c '%a' "$root/home/ubuntu") % 8)) != 0 ]; then
+  change "close $root/home/ubuntu to other users" chmod o-rwx "$root/home/ubuntu"
+fi
+
+folder "$home" assistant:assistant 700
+folder "$home/.ssh" assistant:assistant 700
+file "$here/github-known-hosts" "$home/.ssh/known_hosts" 644 assistant:assistant
+folder "$root/etc/assistant" root:root 755
+folder "$credentials" root:root 700
+folder "$root/var/backups/assistant" root:root 700
+
+# --- The bot's checkout of lab1 ---------------------------------------------------------------------------------
+clone_checkout() {
+  source_git clone --quiet --no-hardlinks "$source" "$checkout"
+  git -C "$checkout" checkout --quiet --detach "$1"
+  chmod -R go-w "$checkout"
+  set_owner -R root:root "$checkout"
+}
+deploy_checkout() {
+  source_git -C "$checkout" fetch --quiet origin main
+  git -C "$checkout" checkout --quiet --detach "$1"
+  chmod -R go-w "$checkout"
+  set_owner -R root:root "$checkout"
+}
+if [ ! -d "$checkout/.git" ]; then
+  if commit=$(deployable); then
+    change "clone lab1 at $commit into $checkout" clone_checkout "$commit"
+  else
+    echo "Can't install the bot's checkout: $commit" >&2
+    exit 1
+  fi
+elif $deploy; then
+  if ! commit=$(deployable); then
+    echo "Can't deploy: $commit" >&2
+    exit 1
+  fi
+  running=$(git -C "$checkout" rev-parse HEAD)
+  if [ "$running" != "$commit" ]; then
+    if ! source_git -C "$source" merge-base --is-ancestor "$running" "$commit"; then
+      echo "Can't deploy: $commit doesn't descend from the running $running" >&2
+      exit 1
+    fi
+    change "move $checkout from $running to $commit" deploy_checkout "$commit"
+  fi
+fi
+# A dry run before the first clone reads this script's own checkout.
+files=$checkout
+[ -d "$files/ops" ] || files=$(dirname "$here")
+if [ -d "$checkout/.git" ] && [ -n "$(git -C "$checkout" status --porcelain 2>/dev/null)" ]; then
+  problem "$checkout has changes git didn't make: the running Assistant changes only through ops/install --deploy"
+fi
+
+# --- The Personal database's checkout ---------------------------------------------------------------------------
+# A value of the bot's config, such as personalDatabase.dir; a list comes out as words.
+config() {
+  "$node" -e 'const v = process.argv[2].split(".").reduce((v, k) => v[k], JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")));
+    console.log(Array.isArray(v) ? v.join(" ") : v)' "$files/config/assistant.json" "$1"
+}
+pd=$root$(config personalDatabase.dir)
+# Git as the bot runs it: no git config of the machine's, and GitHub through the deploy key, giving up on a GitHub that
+# stops answering. pd_git runs it in the checkout.
+pd_ssh="$(config personalDatabase.ssh) -i $credentials/personal-database-deploy-key -o IdentitiesOnly=yes -o BatchMode=yes -o UserKnownHostsFile=$home/.ssh/known_hosts -o StrictHostKeyChecking=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=2"
+github_git() {
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND=$pd_ssh git "$@"
+}
+pd_git() {
+  GIT_DIR=$pd/.git GIT_WORK_TREE=$pd github_git "$@"
+}
+make_pd() {
+  mkdir -p "$pd"
+  git init --quiet -b main "$pd"
+  pd_git remote add origin "$personal_database"
+  set_owner -R assistant:assistant "$pd"
+}
+check_out_pd() {
+  pd_git fetch --quiet origin '+refs/heads/main:refs/remotes/origin/main' &&
+    pd_git checkout --quiet -B main refs/remotes/origin/main &&
+    pd_git branch --quiet --set-upstream-to=origin/main main &&
+    set_owner -R assistant:assistant "$pd"
+}
+if [ ! -d "$pd/.git" ]; then
+  if [ -n "$personal_database" ]; then
+    change "make $pd a checkout of $personal_database" make_pd
+  else
+    waiting+=("the Personal database's checkout: run ops/install --personal-database git@github.com:<owner>/<repo>.git")
+  fi
+elif [ -n "$personal_database" ] && [ "$(pd_git remote get-url origin)" != "$personal_database" ]; then
+  problem "$pd's origin is $(pd_git remote get-url origin), not $personal_database"
+fi
+if [ -d "$pd/.git" ] || { $dry_run && [ -n "$personal_database" ]; }; then
+  if ! pd_git rev-parse --verify -q HEAD >/dev/null 2>&1; then
+    if [ -e "$credentials/personal-database-deploy-key" ]; then
+      if $dry_run; then
+        # The dry run still asks GitHub, through the deploy key, what it would check out.
+        url=${personal_database:-$(pd_git remote get-url origin)}
+        if listed=$(github_git ls-remote "$url" refs/heads/main 2>&1); then
+          echo "GitHub lets the deploy key fetch $url: main is at ${listed:0:12}."
+        else
+          problem "GitHub refuses the deploy key for $url: ${listed##*$'\n'}"
+        fi
+      fi
+      if ! change "check out the Personal database's main in $pd, through the deploy key" check_out_pd; then
+        problem "GitHub refused the deploy key, or the repo has no main: try ops/token --check personal-database-deploy-key"
+      fi
+    else
+      waiting+=("the Personal database's main, checked out once the deploy key is in place: ops/token personal-database-deploy-key, then ops/install again")
+    fi
+  fi
+fi
+
+# --- The systemd units, and the browser service's socket folder ----------------------------------------------------
+socket_dir=$root$(dirname "$(config browser.socketPath)")
+units_changed=false
+for unit in "$files"/ops/systemd/*; do
+  file "$unit" "$units/$(basename "$unit")" 644
+  if $wrote; then units_changed=true; fi
+done
+tmpfiles=$(mktemp)
+printf 'd %s 2770 assistant assistant -\n' "${socket_dir#"$root"}" > "$tmpfiles"
+file "$tmpfiles" "$root/etc/tmpfiles.d/assistant.conf" 644
+rm -f "$tmpfiles"
+if [ ! -d "$socket_dir" ] || [ "$(owner_of "$socket_dir")" != assistant:assistant ] || [ "$(stat -c '%a' "$socket_dir")" != 2770 ]; then
+  change "make the browser service's socket folder, $socket_dir" systemd-tmpfiles --create "$root/etc/tmpfiles.d/assistant.conf"
+fi
+if $units_changed; then change 'reload systemd' systemctl daemon-reload; fi
+
+# --- Coding sessions -----------------------------------------------------------------------------------------------
+file "$files/ops/coding-sessions/claude-code.json" "$root/etc/claude-code/managed-settings.d/assistant.json" 644
+codex=$root/etc/codex/requirements.toml
+if [ -f "$codex" ] && ! head -1 "$codex" | grep -q "^# Installed by lab1's ops/install"; then
+  problem "$codex holds requirements ops/install didn't write: add ops/coding-sessions/codex-requirements.toml's deny_read to it by hand"
+else
+  file "$files/ops/coding-sessions/codex-requirements.toml" "$codex" 644
+fi
+
+# --- Services -----------------------------------------------------------------------------------------------------
+enable() {
+  if [ "$(systemctl is-enabled "$1" 2>/dev/null)" != enabled ]; then change "enable $1" systemctl enable --quiet "$1"; fi
+}
+start() {
+  if ! systemctl is-active --quiet "$1"; then change "start $1" systemctl start "$1"; fi
+}
+for unit in assistant-firewall.service assistant-docker.socket assistant-backup.timer assistant.service; do enable "$unit"; done
+start assistant-docker.socket
+start assistant-backup.timer
+# The firewall goes in before the browser container runs, and is put back on each deploy.
+start assistant-firewall.service
+if $deploy; then change 'put the firewall back as ops/firewall says' systemctl restart assistant-firewall.service; fi
+
+compose() {
+  BROWSER_SOCKET_DIR=${socket_dir#"$root"} BROWSER_SOCKET_GID=$(getent group assistant | cut -d: -f3) \
+    BROWSER_SECCOMP_PROFILE=$checkout/browser/seccomp_profile.json \
+    docker compose --project-name lab1 --file "$checkout/compose.yaml" "$@"
+}
+running=$(compose ps --status running --services 2>/dev/null | sort | tr '\n' ' ' || true)
+if $deploy || [ "$running" != 'browser pi ' ]; then
+  change 'build and start the compose project: Pi and the browser' compose up --detach --build --quiet-pull
+fi
+
+# The bot starts once its config is usable, every token it reads is in place, and its Personal database is checked
+# out. The config's values marked `set at go-live` change through a commit, then ops/install --deploy.
+while IFS= read -r line; do
+  [ -z "$line" ] || waiting+=("config/assistant.json: $line")
+done < <("$node" --input-type=module -e 'const { loadConfig, checkConfig } = await import(process.argv[1]);
+  console.log(checkConfig(loadConfig(process.argv[2])).join("\n"))' "$files/bot/src/config.ts" "$files/config/assistant.json")
+for name in $(sed -n 's|^LoadCredential=[^:]*:/etc/assistant/credentials/||p' "$files/ops/systemd/assistant.service"); do
+  [ -e "$credentials/$name" ] || waiting+=("$name: ops/token $name")
+done
+# Each unit that alerts when it gives up names its check in OnFailure=, and the alert reads that check's ping URL.
+alerts=()
+for check in $(sed -n 's/^OnFailure=assistant-alert@\(.*\)\.service$/\1/p' "$files"/ops/systemd/*.service | sort -u); do
+  [ -e "$credentials/healthchecks-ping-$check" ] || alerts+=("healthchecks-ping-$check: ops/token healthchecks-ping-$check")
+done
+if [ ${#waiting[@]} -eq 0 ]; then
+  if ! systemctl is-active --quiet assistant.service; then
+    change 'start the bot' sh -c 'systemctl reset-failed assistant.service; systemctl start assistant.service'
+  elif $deploy || $units_changed; then
+    change 'restart the bot' systemctl restart assistant.service
+  fi
+fi
+
+gateway=$(config gateway.baseUrl)
+if ! curl -fsS --max-time 5 -o /dev/null "${gateway%/v1}/api/status" 2>/dev/null; then
+  problem "new-api doesn't answer at ${gateway%/v1}: publish its port on loopback in its compose project, as \"127.0.0.1:3000:3000\""
+fi
+
+# --- What's left ---------------------------------------------------------------------------------------------------
+[ -d "$checkout/.git" ] && echo "The bot runs lab1 at $(git -C "$checkout" rev-parse --short HEAD)."
+[ $changes -gt 0 ] || echo 'Nothing to change.'
+if [ ${#waiting[@]} -gt 0 ]; then
+  echo 'The bot waits on:'
+  printf '  - %s\n' "${waiting[@]}"
+fi
+if [ ${#alerts[@]} -gt 0 ]; then
+  echo 'The alerts, when the bot or the backup gives up, wait on:'
+  printf '  - %s\n' "${alerts[@]}"
+fi
+[ ${#problems[@]} -eq 0 ] || exit 1

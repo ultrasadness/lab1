@@ -2,8 +2,8 @@
 
 English | [中文](hooks-and-ci.zh.md)
 
-What checks each commit and push, for both packages: the root's (the bot, our Pi extension and the scripts) and
-`browser/`'s (the browser service). In a fresh clone, turn on the hooks in `.githooks/` once with
+What checks each commit and push, for both packages: the root's (the bot, our Pi extension, the VM's ops scripts and
+the scripts) and `browser/`'s (the browser service). In a fresh clone, turn on the hooks in `.githooks/` once with
 `git config core.hooksPath .githooks`.
 
 ## Hooks

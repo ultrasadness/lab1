@@ -1,0 +1,11 @@
+# The nightly backup (#26): the live store and new-api's database, into a folder only root reads. See ops/backup.
+# Installed by ops/install.
+[Unit]
+Description=Back up the Assistant's live store and new-api
+After=docker.service
+OnFailure=assistant-alert@backup.service
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/opt/assistant/lab1/ops/backup

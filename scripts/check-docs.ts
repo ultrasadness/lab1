@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { checkDocs } from './doc-pairs.ts';
 
 /** The paired docs, each named by its English side, and `docs/adr/`, where every ADR is a pair. */
-const PAIRS = ['CONTEXT.md', 'bot/README.md', 'browser/README.md', 'docs/hooks-and-ci.md', 'docs/adr/'];
+const PAIRS = ['CONTEXT.md', 'bot/README.md', 'browser/README.md', 'ops/README.md', 'docs/hooks-and-ci.md', 'docs/adr/'];
 
 /**
  * The docs with no Chinese side, each a file or a directory covering everything under it: agent instructions, test

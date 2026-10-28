@@ -1,0 +1,12 @@
+# The alert when a unit gives up (#26): it signals that unit's healthchecks.io check as failed, so the person's email
+# goes out at once instead of after the check's grace. The instance names the check: `bot` or `backup`, read from
+# healthchecks-ping-<instance>. The email says only what the check is named; no content goes with it.
+# Installed by ops/install.
+[Unit]
+Description=Alert the person that the Assistant's %i stopped
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+LoadCredential=ping:/etc/assistant/credentials/healthchecks-ping-%i
+ExecStart=/opt/assistant/node/bin/node /opt/assistant/lab1/ops/alert.ts %i

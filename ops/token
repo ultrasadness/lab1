@@ -1,0 +1,6 @@
+#!/bin/sh
+# Obtains, replaces or checks a token (ADR 0009): `sudo ops/token <name>`. See ops/token.ts and ops/README.md.
+here=$(dirname "$(readlink -f "$0")")
+node=/opt/assistant/node/bin/node
+[ -x "$node" ] || node=node
+exec "$node" "$here/token.ts" "$@"

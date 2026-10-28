@@ -1,0 +1,14 @@
+# The browser container's host firewall (ADR 0006): public internet only. It goes in before Docker starts, so the
+# browser, which Docker brings back at boot, never runs without it. See ops/firewall. Installed by ops/install.
+[Unit]
+Description=Keep the Assistant's browser container on the public internet
+Before=docker.service
+After=netfilter-persistent.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/assistant/lab1/ops/firewall apply
+
+[Install]
+WantedBy=multi-user.target

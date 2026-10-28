@@ -40,13 +40,15 @@ pre-commit hook 用这里安装的依赖，对暂存的文件运行这里的类�
 
 ## 运行
 
-`compose.yaml` 需要两个设置，由 VM 上的安装（#71）提供：
+在 VM 上，这个服务运行在根目录 `compose.yaml` 的项目里，和 Pi 在一起，挂在一个名字固定的网桥 `br-lab1-browser` 上，由 `ops/install` 在那里启动它（`ops/README.md`）。这里的 `compose.yaml` 需要两个设置，由 `ops/install` 提供：
 
 - `BROWSER_SOCKET_DIR`：一个属于机器人的用户和组、权限为 `2770` 的目录，这样其中的套接字会归属机器人的组；
 - `BROWSER_SOCKET_GID`：机器人的组 id，容器加入这个组，才能在那里创建套接字。
+
+Compose 从项目所在的目录读取 seccomp 配置文件，所以放在别处的项目，比如根目录 `compose.yaml` 的项目，还要把 `BROWSER_SECCOMP_PROFILE` 设为 `seccomp_profile.json` 的绝对路径。
 
 ```sh
 BROWSER_SOCKET_DIR=/run/lab1-browser BROWSER_SOCKET_GID=$(getent group assistant | cut -d: -f3) docker compose up -d --build
 ```
 
-让它的出站流量只能去往公共互联网的主机防火墙规则，同样由 #71 负责。
+`ops/firewall` 让它的出站流量只能去往公共互联网：从它的网桥出发，任何私有地址、链路本地地址或主机上的东西都访问不到（`ops/README.md`）。

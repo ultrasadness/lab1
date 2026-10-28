@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，借助 Node 的类型剥离（type stripping）原样运行，自己没有任何 npm 依赖。它持有所有令牌，独自写入实时存储（live store），并发出所有对外调用。规格是 #41。它的第一个切片（#42）打通了 Miner 从 Product Hunt 到 Miner days 论坛的路径，#47 为每个达到或高于 Day's line 的 Launch 加上一份 Dossier，#48 让这个人可以对 Miner 的评判做 Correction，#49 把每个 Correction 分为只修正本项、Interest scope 的改动或 Rule，并把每条保留下来的 Rule 载入之后的运行，#53 为每个 open 或 waitlisted 的 Product 把一份 Walkthrough 交给这个人，它的 Approval 开启这个 Product 的 Registration。#99 让配置可以关掉 Walkthrough，发布时它们就是关着的。#100 给写不成的 Dossier 的尝试次数设了上限。#98 给实时存储加上 schema 版本号，以及机器人启动时运行的迁移（migration）。
+Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，借助 Node 的类型剥离（type stripping）原样运行，自己没有任何 npm 依赖。它持有所有令牌，独自写入实时存储（live store），并发出所有对外调用。规格是 #41。它的第一个切片（#42）打通了 Miner 从 Product Hunt 到 Miner days 论坛的路径，#47 为每个达到或高于 Day's line 的 Launch 加上一份 Dossier，#48 让这个人可以对 Miner 的评判做 Correction，#49 把每个 Correction 分为只修正本项、Interest scope 的改动或 Rule，并把每条保留下来的 Rule 载入之后的运行，#53 为每个 open 或 waitlisted 的 Product 把一份 Walkthrough 交给这个人，它的 Approval 开启这个 Product 的 Registration。#99 让配置可以关掉 Walkthrough，发布时它们就是关着的。#100 给写不成的 Dossier 的尝试次数设了上限。#98 给实时存储加上 schema 版本号，以及机器人启动时运行的迁移（migration）。#71 把它安装到 VM 上，以它自己的用户运行（`ops/README.md`）。
 
 | 路径 | 是什么 |
 |---|---|
@@ -21,7 +21,8 @@ Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，�
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 和 Discord |
 | `pi/extension/` | 我们的 Pi 扩展：把 forwarder 作为 provider、这次运行的 Rule，以及每种运行的记录工具和提示词。它被单独复制进 Pi 容器，所以它和 `bot/src` 互不导入 |
 | `pi/pi-run`, `pi/Dockerfile` | 一次运行如何启动，以及 Pi 容器镜像 |
-| `config/assistant.json` | 设置，只通过 `ops/upgrade` 修改 |
+| `config/assistant.json` | 设置，只通过 `ops/upgrade` 修改；在 #72 带来它之前，通过一次提交和 `ops/install --deploy` 修改 |
+| `ops/`, `compose.yaml` | VM 上的安装、令牌、夜间备份和浏览器防火墙，Docker 辅助程序，以及 Pi 和浏览器服务的 compose 项目（`ops/README.md`） |
 
 Pi 自己的文档随它的包一起发布，`npm ci` 运行之后位于 `node_modules/@earendil-works/pi-coding-agent/docs/`：`rpc.md` 讲每次运行使用的 RPC 模式，`json.md` 讲事件流，`message-types.md` 讲事件流里的消息，`settings.md` 讲 Pi 的 `settings.json`，包括它的重试退避。
 
@@ -37,7 +38,7 @@ node --test bot/test/miner-day.test.ts # one file
 
 `npm test` 给每个测试 60 秒。超时的测试会失败；即使它留下了没关闭的服务器或定时器，整个运行也照样结束（`--test-force-exit`）。设了 `TEST_SHARD` 时，比如 `TEST_SHARD=2/3`，它只运行测试文件里的这一个分片，和 CI 一样。
 
-每次提交和 push 要过的 hook 和 CI，以及在新的克隆里怎么打开 hook，见 `docs/hooks-and-ci.md`。
+每次提交和 push 要过的 hook 和 CI，以及在新的克隆里怎么打开 hook，见 `docs/hooks-and-ci.md`。`npm test` 也运行 `ops/test/` 里运维脚本的测试（`ops/README.md`）。
 
 机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在进程内运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt、浏览器服务和模型 provider 服务器、一个存放 Personal database 的假 GitHub，以及一个由测试拨动的时钟。假的 GitHub 是一个本地的裸仓库，git 通过代替 ssh 的 `bot/test/harness/fake-ssh.ts` 访问它。它只放行 deploy key，可以拒绝推送，也接受这个人自己的提交和合并。只有 harness 从 `bot/src` 导入：`bot/test/` 下其他任何文件的导入只要写出那里的某个文件，`npm test` 都会失败（`scripts/bot-test-imports.test.ts`）。`bot/test/store-schema.test.ts` 还会用 `node:sqlite` 直接读取实时存储的文件，这是 #98 对它的要求。
 
@@ -84,11 +85,10 @@ Dossier 发到 Products 论坛 `discord.productsForumId`，论坛标签由这个
 Walkthrough 打开时，一个 open 或 waitlisted 的 Product 的帖子发出后，机器人再实时读一次它的注册页：它的落地页链接到的那一页，落地页没有链接到注册页时就读落地页本身。一次 registration 角色的运行根据这次读取、Dossier 和 Profile 准备 Walkthrough。它的卡片发到 `#needs-you`，每个版本的副本发到 Product 的帖子里，Dossier 的 Register 一行写明 Walkthrough 处在哪里。注册页上有银行卡字段，或者运行指出了一道什么都过不去的 Wall，就没有 Walkthrough，Register 写明原因。Edit 在同一张卡片上产生新版本，Correct 由另一次运行产生一张新卡片，Dismiss 结束它。没人回应的 Walkthrough 在 14 天后过期，带 **Prepare again**。Approve 记下 Approval 并开启 Registration：通常以 *queued* 开启，Product 的条款禁止机器人创建账号时以 *handed off* 开启；两种情况都在帖子里发一条静默的状态消息，并在 `registration.md` 里写一行。填写表单是 #56 的事，状态消息上的 **Stop** 也随它接通。
 
 ```sh
-docker build -f pi/Dockerfile -t assistant-pi .
-npm start
+sudo ops/install   # on the VM, from the main checkout: ops/README.md
 ```
 
-在 VM 上的安装（它自己的用户、Docker 辅助程序、systemd 单元）是 #71。它还会设置 `config/assistant.json` 留空的部分：各个 Discord id、浏览器服务的套接字、如何在回环地址上访问 new-api，以及代替 `docker exec` 的辅助程序。在那之前，配置里的 `pi.command` 直接运行 `docker exec`，而 ADR 0009 不允许装好的机器人这样做：`assistant` 用户不在 `docker` 组里，只能通过辅助程序访问 Docker。它传进容器的唯一值是每次运行自己的令牌，这个令牌只让 Pi 为这一次运行访问 forwarder，而且从来不是密钥。
+在 VM 上，`ops/install` 把机器人作为 `assistant.service` 运行：以 `assistant` 用户的身份，从它自己位于 `/opt/assistant/lab1` 的 lab1 checkout 运行，令牌来自 `/etc/assistant/credentials`。`config/assistant.json` 为这样的运行做了设置。它的 `pi.command` 是 `ops/run-pi.ts`，即 Docker 辅助程序在机器人这一侧的部分，因为 `assistant` 用户不在 `docker` 组里（ADR 0009）。一次运行传进容器的唯一值是这次运行自己的令牌，这个令牌只让 Pi 为这一次运行访问 forwarder，而且从来不是密钥。`browser.socketPath` 是 compose 项目里的浏览器服务共享出来的套接字，`gateway.baseUrl` 在回环地址上访问 new-api，new-api 的 compose 项目把它发布在那里。各个 Discord id 和各个 provider 的模型仍然是 `set at go-live`（#85）：在一次提交设置它们、并由 `ops/install --deploy` 把这次提交带到 VM 上之前，机器人不会启动。在别处运行时，用 `$ASSISTANT_CONFIG` 指定一个配置，让它的 `pi.command` 用别的方式启动 Pi，比如带着那四个 `ASSISTANT_` 变量 `docker exec -i` 进 `assistant-pi` 容器。
 
 `config/assistant.json` 里的运行上限是初始值。墙钟时间上限在 #26 中确定，Dossier 运行和 Correction 分类运行的除外；它们和轮数、token 上限都是初步估计，要根据 `run.finished` 日志行再调。
 

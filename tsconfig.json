@@ -16,5 +16,5 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["bot/src", "bot/test", "pi/extension", "scripts", ".claude/hooks"]
+  "include": ["bot/src", "bot/test", "pi/extension", "ops", "scripts", ".claude/hooks"]
 }

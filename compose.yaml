@@ -1,0 +1,34 @@
+# The Assistant's containers on the VM (#26): Pi and the browser service in one compose project, each brought back by
+# Docker after a crash or a reboot unless stopped by hand. ops/install starts it from the bot's own checkout, with
+# BROWSER_SOCKET_DIR and BROWSER_SOCKET_GID set as browser/README.md says, and BROWSER_SECCOMP_PROFILE naming
+# browser/seccomp_profile.json by its absolute path, since Compose reads it from this file's directory.
+name: lab1
+
+services:
+  # The Pi container (ADR 0001): it holds no token, and the bot starts each run in it through the Docker helper
+  # (ops/docker-helper.ts). It sits on Docker's default bridge, where the bot's forwarder listens on the gateway.
+  pi:
+    build:
+      context: .
+      dockerfile: pi/Dockerfile
+    image: assistant-pi:local
+    container_name: assistant-pi
+    init: true
+    restart: unless-stopped
+    network_mode: bridge
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  # The browser service, as browser/compose.yaml defines and hardens it, on a bridge with a fixed name: the host
+  # firewall (ops/firewall) gives that bridge public internet only.
+  browser:
+    extends:
+      file: browser/compose.yaml
+      service: browser
+    restart: unless-stopped
+
+networks:
+  browser:
+    driver_opts:
+      com.docker.network.bridge.name: br-lab1-browser

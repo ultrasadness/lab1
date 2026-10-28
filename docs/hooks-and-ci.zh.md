@@ -2,7 +2,7 @@
 
 [English](hooks-and-ci.md) | 中文
 
-每次提交和 push 要过哪些检查，两个 package 都在内：根目录的（机器人、我们的 Pi 扩展和脚本）和 `browser/` 的（浏览器服务）。在新的克隆里，用 `git config core.hooksPath .githooks` 打开一次 `.githooks/` 里的 hook。
+每次提交和 push 要过哪些检查，两个 package 都在内：根目录的（机器人、我们的 Pi 扩展、VM 上的运维脚本和脚本）和 `browser/` 的（浏览器服务）。在新的克隆里，用 `git config core.hooksPath .githooks` 打开一次 `.githooks/` 里的 hook。
 
 ## Hook
 

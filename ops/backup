@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# The nightly backup (#26, ADR 0008): a `sqlite3 .backup` of the live store and a `pg_dump` of new-api's database,
+# into /var/backups/assistant/<Pacific date>/, keeping the 7 latest nights. new-api's dump holds the plans' provider
+# keys, so the folder is root's alone (mode 700, each file 600). Tokens are never backed up: they stay in
+# /etc/assistant/credentials. assistant-backup.timer runs it each night, and ops/README.md says how to restore.
+#
+#   ops/backup             back up now
+#   ops/backup --dry-run   say what would be backed up, and whether its parts are there, changing nothing
+#
+# With OPS_ROOT set (the tests), every path is taken under it.
+set -euo pipefail
+
+root=${OPS_ROOT:-}
+store=$root/var/lib/assistant/assistant.sqlite
+backups=$root/var/backups/assistant
+keep=7
+# new-api's Postgres, in new-api's own compose project: its container, role and database.
+newapi_container=postgres
+newapi_user=root
+newapi_database=new-api
+
+case "${1:-}" in
+  --dry-run)
+    echo "Would back up the live store, $store ($([ -e "$store" ] && echo there || echo 'not there yet')), with $(command -v sqlite3 >/dev/null && echo sqlite3 || echo 'sqlite3, which is not installed')."
+    running=$(docker inspect --format '{{.State.Running}}' "$newapi_container" 2>/dev/null || echo unknown)
+    echo "Would back up new-api's database, $newapi_database, with pg_dump in the $newapi_container container (running: $running)."
+    echo "Would write them to $backups/$(TZ=America/Los_Angeles date +%F)/ and keep the $keep latest nights."
+    exit 0
+    ;;
+  '') ;;
+  *)
+    echo 'usage: ops/backup [--dry-run]' >&2
+    exit 2
+    ;;
+esac
+if [ -z "$root" ] && [ "$(id -u)" != 0 ]; then
+  echo 'ops/backup runs as root: sudo ops/backup' >&2
+  exit 1
+fi
+
+umask 077
+mkdir -p "$backups"
+chmod 700 "$backups"
+night=$(TZ=America/Los_Angeles date +%F)
+# Each night is written whole beside the others, and replaces that night's earlier backup only once it is complete.
+partial=$(mktemp -d "$backups/.partial-XXXXXX")
+trap 'rm -rf "$partial"' EXIT
+
+if [ -e "$store" ]; then
+  timeout 600 sqlite3 "$store" '.timeout 60000' ".backup '$partial/assistant.sqlite'"
+else
+  echo "There is no live store at $store yet, so only new-api is backed up."
+fi
+timeout 600 docker exec "$newapi_container" pg_dump --username "$newapi_user" --format custom "$newapi_database" > "$partial/new-api.dump"
+
+rm -rf "${backups:?}/$night"
+mv "$partial" "$backups/$night"
+trap - EXIT
+find "$backups" -maxdepth 1 -name '????-??-??' -type d | sort | head -n -"$keep" | xargs -r rm -rf --
+echo "Backed up to $backups/$night; kept the $keep latest nights."

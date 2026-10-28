@@ -17,7 +17,7 @@
     "apiUrl": "https://api.producthunt.com/v2/api/graphql"
   },
   "browser": {
-    "socketPath": "set at go-live"
+    "socketPath": "/run/lab1-browser/browser.sock"
   },
   "walkthroughs": {
     "on": false
@@ -42,11 +42,8 @@
     "port": 8787
   },
   "pi": {
-    "command": [
-      "docker", "exec", "-i",
-      "-e", "ASSISTANT_ROLE", "-e", "ASSISTANT_RUN_KIND", "-e", "ASSISTANT_RUN_TOKEN", "-e", "ASSISTANT_BOT_URL",
-      "assistant-pi", "pi-run"
-    ],
+    "command": ["node", "ops/run-pi.ts"],
+    "cwd": "..",
     "env": {}
   },
   "miner": {

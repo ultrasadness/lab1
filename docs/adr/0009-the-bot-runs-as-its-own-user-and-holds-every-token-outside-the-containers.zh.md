@@ -40,9 +40,9 @@ Assistant 使用的每个密钥和令牌都是 Secret，没有一个放在容器
   - **路由和预算**：forwarder 还为每个请求挑选 provider，并按花费预算放行每次运行（[ADR 0011](./0011-the-forwarder-picks-each-requests-provider-and-holds-the-spending-budgets.zh.md)）。收到 new-api 的 401 时，要先对照密钥的剩余配额核实，才能把密钥报告为失效。
   - **公共网关**：Assistant 的流量从不经过 Caddy。`na.pot.dpdns.org` 仍然公开，供这个人的其他用途使用，而泄露的 Assistant 密钥在外部毫无用处。new-api 保留它的用量日志，内容日志关闭。
 - **`ops/token <name>` 是获取或更换令牌的唯一途径。** 这个人在 VM 上运行它，从 iPhone 上经 Tailscale 用 SSH 应用连接。它会：
-  1. 不回显地读取值，或者读取 Gmail 或 CPA 登录之后粘贴进来的那个打不开的 `127.0.0.1` 或 `localhost:1455` 地址；
-  2. 写入凭据文件；
-  3. 用一次无害的调用检查令牌；
+  1. 不回显地读取值，或者读取 Gmail 或 CPA 登录之后粘贴进来的那个打不开的 `127.0.0.1` 或 `localhost:1455` 地址。Personal database 的 deploy key 则改为在 VM 上生成，这样它的私钥从不离开 VM（[#71](https://github.com/ultrasadness/lab1/issues/71)）；
+  2. 用一次无害的调用检查令牌，这样检查不通过的值什么也不会改变；
+  3. 写入凭据文件；
   4. 重启使用它的服务。
 
   这些命令合在一起，就是重建 VM 的操作手册。

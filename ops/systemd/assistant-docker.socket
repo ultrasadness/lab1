@@ -1,0 +1,16 @@
+# The Docker helper's socket (ADR 0009). The bot's user has no `docker` group: its group may connect here, and each
+# connection starts one assistant-docker@.service as root, which offers exactly two commands (ops/docker-helper.ts).
+# Installed by ops/install.
+[Unit]
+Description=The Assistant's Docker helper
+
+[Socket]
+ListenStream=/run/assistant-docker.sock
+SocketUser=root
+SocketGroup=assistant
+SocketMode=0660
+Accept=yes
+MaxConnections=16
+
+[Install]
+WantedBy=sockets.target

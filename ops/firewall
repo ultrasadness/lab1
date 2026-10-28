@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# The browser container's host firewall (ADR 0006): from its bridge, br-lab1-browser (compose.yaml), only the public
+# internet is reachable. Each packet the container sends is dropped in the raw table, before routing and before any
+# other rule, when it is bound for:
+#   - the private ranges, and the other IPv4 ranges that aren't public;
+#   - Tailscale's range, 100.64.0.0/10 (its IPv6 range is inside fc00::/7);
+#   - link-local addresses, Oracle's instance metadata at 169.254.169.254 among them;
+#   - any of the host's own addresses, so none of its services is reachable: sshd, Caddy, the bot's forwarder;
+#   - IPv6's loopback, link-local, unique-local, site-local and multicast ranges.
+# The raw table comes first whatever order Docker and Tailscale give their own chains: Tailscale's ts-forward accepts
+# anything bound for tailscale0, ahead of DOCKER-USER. The container's DNS still works, since Docker's resolver
+# forwards its queries from the host, not from the bridge (tried on the VM in #71).
+#
+#   ops/firewall apply       put the rules in place, or put them back as they should be
+#   ops/firewall remove      take them out
+#   ops/firewall --dry-run   print the rules, changing nothing
+#   ops/firewall check       from a throwaway container on the browser's network, try each kind of blocked address
+#                            and one public one; it needs Docker, not root
+#
+# BROWSER_BRIDGE, BROWSER_NETWORK and BROWSER_IMAGE name another bridge, network and image with Node, as a trial on a
+# throwaway network does.
+set -euo pipefail
+
+bridge=${BROWSER_BRIDGE:-br-lab1-browser}
+network=${BROWSER_NETWORK:-lab1_browser}
+chain=LAB1-BROWSER
+blocked4=(0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.0.0.0/24 192.0.2.0/24
+  192.168.0.0/16 198.18.0.0/15 198.51.100.0/24 203.0.113.0/24 224.0.0.0/4 240.0.0.0/4)
+blocked6=(::/128 ::1/128 ::ffff:0:0/96 64:ff9b::/96 100::/64 2001:db8::/32 fc00::/7 fe80::/10 fec0::/10 ff00::/8)
+
+# The rules for one family, as iptables-restore reads them. Declaring the chain empties it, so applying twice leaves
+# one copy of each rule.
+rules() {
+  local -n blocked=$1
+  echo '*raw'
+  echo ":$chain - [0:0]"
+  for range in "${blocked[@]}"; do echo "-A $chain -d $range -j DROP"; done
+  echo "-A $chain -m addrtype --dst-type LOCAL -j DROP"
+  echo 'COMMIT'
+}
+
+apply() {
+  local family tool
+  for family in 4 6; do
+    tool=$([ $family = 4 ] && echo iptables || echo ip6tables)
+    rules "blocked$family" | "$tool-restore" --noflush
+    "$tool" -t raw -C PREROUTING -i "$bridge" -j "$chain" >/dev/null 2>&1 || "$tool" -t raw -I PREROUTING 1 -i "$bridge" -j "$chain"
+  done
+  echo "The firewall keeps $bridge on the public internet."
+}
+
+remove() {
+  local family tool
+  for family in 4 6; do
+    tool=$([ $family = 4 ] && echo iptables || echo ip6tables)
+    while "$tool" -t raw -D PREROUTING -i "$bridge" -j "$chain" 2>/dev/null; do :; done
+    "$tool" -t raw -F "$chain" 2>/dev/null || true
+    "$tool" -t raw -X "$chain" 2>/dev/null || true
+  done
+  echo "The firewall no longer limits $bridge."
+}
+
+# Each target is an address and port the browser must not reach, and one it must. The host's own addresses come from
+# its routes: the one it reaches the internet from, and its address on the bridge.
+check() {
+  local host gateway
+  host=$(ip -4 route get 1.1.1.1 | sed -n 's/.* src \([0-9.]*\).*/\1/p')
+  gateway=$(docker network inspect --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}' "$network")
+  docker run --rm --network "$network" --cap-drop ALL --entrypoint node "${BROWSER_IMAGE:-lab1-browser:local}" -e '
+    const net = require("node:net");
+    const targets = JSON.parse(process.argv[1]);
+    const reach = ({ host, port }) => new Promise((resolve) => {
+      const socket = net.connect({ host, port, timeout: 3000 });
+      const done = (ok) => { socket.destroy(); resolve(ok); };
+      socket.once("connect", () => done(true));
+      socket.once("timeout", () => done(false));
+      socket.once("error", () => done(false));
+    });
+    (async () => {
+      let wrong = 0;
+      for (const target of targets) {
+        const reached = await reach(target);
+        if (reached !== target.public) wrong++;
+        console.log(`${reached === target.public ? "ok   " : "WRONG"} ${target.what} (${target.host}:${target.port}): ${reached ? "reached" : "blocked"}`);
+      }
+      process.exit(wrong > 0 ? 1 : 0);
+    })();
+  ' "$(cat <<EOF
+[
+  {"what": "Oracle's instance metadata", "host": "169.254.169.254", "port": 80, "public": false},
+  {"what": "the host on its own address", "host": "$host", "port": 22, "public": false},
+  {"what": "the host on the browser's bridge", "host": "$gateway", "port": 22, "public": false},
+  {"what": "the bot's forwarder", "host": "172.17.0.1", "port": 8787, "public": false},
+  {"what": "new-api's network", "host": "172.18.0.1", "port": 443, "public": false},
+  {"what": "Tailscale's resolver", "host": "100.100.100.100", "port": 53, "public": false},
+  {"what": "a private range", "host": "192.168.1.1", "port": 80, "public": false},
+  {"what": "the public internet", "host": "1.1.1.1", "port": 443, "public": true},
+  {"what": "a public name, through Docker's DNS", "host": "example.com", "port": 443, "public": true}
+]
+EOF
+)"
+}
+
+case "${1:-}" in
+  apply) apply ;;
+  remove) remove ;;
+  --dry-run)
+    echo "# For $bridge, IPv4 (iptables-restore --noflush), then a jump to $chain at the top of the raw table's PREROUTING:"
+    rules blocked4
+    echo "# IPv6 (ip6tables-restore --noflush), and the same jump:"
+    rules blocked6
+    ;;
+  check) check ;;
+  *)
+    echo 'usage: ops/firewall apply | remove | --dry-run | check' >&2
+    exit 2
+    ;;
+esac

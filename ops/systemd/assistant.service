@@ -1,0 +1,43 @@
+# The bot (ADR 0009): the `assistant` user, from its own checkout of lab1 (ADR 0008), with each token it reads handed
+# over through LoadCredential=. Restarts are paced as #26 decided: even a crash loop stays at 720 Discord logins a
+# day, under the 1000 that reset the token, and after 10 failed starts in an hour the unit stops and alerts.
+# Installed by ops/install.
+[Unit]
+Description=The Assistant's bot
+After=docker.service network-online.target assistant-docker.socket
+Wants=network-online.target assistant-docker.socket
+StartLimitIntervalSec=1h
+StartLimitBurst=10
+OnFailure=assistant-alert@bot.service
+
+[Service]
+User=assistant
+Group=assistant
+WorkingDirectory=/opt/assistant/lab1
+Environment=PATH=/opt/assistant/node/bin:/usr/bin:/bin
+ExecStart=/opt/assistant/node/bin/node bot/src/main.ts
+Restart=always
+RestartSec=120
+# Each token the bot reads, by the name it reads it under. A token not yet in place stops the unit from starting.
+LoadCredential=discord-bot-token:/etc/assistant/credentials/discord-bot-token
+LoadCredential=producthunt-token:/etc/assistant/credentials/producthunt-token
+LoadCredential=newapi-key-miner:/etc/assistant/credentials/newapi-key-miner
+LoadCredential=newapi-key-registration:/etc/assistant/credentials/newapi-key-registration
+LoadCredential=personal-database-deploy-key:/etc/assistant/credentials/personal-database-deploy-key
+# No view of /home, and nothing to write but its own data: the live store, the raw inputs and the Personal
+# database's checkout.
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/assistant
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -9,7 +9,8 @@ The spec is #41. Its first slice (#42) brought up the Miner's path from Product 
 sorts each Correction into fix only, an Interest scope change or a Rule, and loads each kept Rule into later runs, and
 #53 puts a Walkthrough to the person for each open or waitlisted Product, whose Approval starts its Registration.
 #99 lets the config switch Walkthroughs off, and it ships with them off. #100 bounds the tries at a Dossier that
-can't be written. #98 gives the live store a schema version, and migrations the bot runs at start.
+can't be written. #98 gives the live store a schema version, and migrations the bot runs at start. #71 installs it on
+the VM as its own user (`ops/README.md`).
 
 | Path | What it is |
 |---|---|
@@ -28,7 +29,8 @@ can't be written. #98 gives the live store a schema version, and migrations the 
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 and Discord |
 | `pi/extension/` | Our Pi extension: the forwarder as provider, the run's Rules, and each run kind's record tool and prompt. It is copied alone into the Pi container, so it and `bot/src` import nothing from each other |
 | `pi/pi-run`, `pi/Dockerfile` | How a run starts, and the Pi container image |
-| `config/assistant.json` | Settings, changed only through `ops/upgrade` |
+| `config/assistant.json` | Settings, changed only through `ops/upgrade`; until #72 brings it, through a commit and `ops/install --deploy` |
+| `ops/`, `compose.yaml` | The VM's install, tokens, nightly backup and browser firewall, the Docker helper, and the compose project of Pi and the browser service (`ops/README.md`) |
 
 Pi's own docs ship in its package, at `node_modules/@earendil-works/pi-coding-agent/docs/` once `npm ci` has run:
 `rpc.md` for the RPC mode each run uses, `json.md` for the event stream, `message-types.md` for the messages in it,
@@ -49,7 +51,7 @@ server or timer open (`--test-force-exit`). With `TEST_SHARD` set, such as `TEST
 of the test files, as CI does.
 
 The hooks and CI that check each commit and push, and how to turn the hooks on in a fresh clone, are in
-`docs/hooks-and-ci.md`.
+`docs/hooks-and-ci.md`. `npm test` also runs the ops scripts' tests, in `ops/test/` (`ops/README.md`).
 
 The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in-process, with real Pi and our extension
 as local processes, against fake Discord, Product Hunt, browser service and model provider servers, a fake GitHub
@@ -192,16 +194,18 @@ off* when the Product's terms ban accounts made by a bot, with a silent status m
 `registration.md`. Filling the form is #56's, and **Stop** on the status message is wired with it.
 
 ```sh
-docker build -f pi/Dockerfile -t assistant-pi .
-npm start
+sudo ops/install   # on the VM, from the main checkout: ops/README.md
 ```
 
-The install on the VM (its own user, the Docker helper, systemd units) is #71. It also sets what
-`config/assistant.json` leaves open: the Discord ids, the browser service's socket, how new-api is reached on
-loopback, and the helper in place of `docker exec`. Until then the config's `pi.command` runs `docker exec` directly, which ADR 0009 rules out
-for the installed bot: the `assistant` user has no `docker` group and reaches Docker only through the helper. The
-only value it passes into the container is each run's own token, which lets Pi reach the forwarder for that run
-alone and is never a key.
+On the VM, `ops/install` runs the bot as `assistant.service`: as the `assistant` user, from its own checkout of lab1
+at `/opt/assistant/lab1`, with its tokens from `/etc/assistant/credentials`. `config/assistant.json` is set for it
+there. Its `pi.command` is `ops/run-pi.ts`, the bot's side of the Docker helper, since the `assistant` user has no
+`docker` group (ADR 0009). The only value a run passes into the container is the run's own token, which lets Pi reach
+the forwarder for that run alone and is never a key. `browser.socketPath` is the socket the compose project's browser
+service shares, and `gateway.baseUrl` reaches new-api on loopback, where new-api's compose project publishes it. The
+Discord ids and the providers' models stay `set at go-live` (#85): the bot won't start until a commit sets them and
+`ops/install --deploy` takes it to the VM. Elsewhere, `$ASSISTANT_CONFIG` names a config whose `pi.command` starts Pi
+another way, such as `docker exec -i` into the `assistant-pi` container with the four `ASSISTANT_` variables.
 
 The run caps in `config/assistant.json` are starting values. The wall clocks were decided in #26, except those of the
 Dossier run and a Correction's sorting run; they and the turn and token caps are first guesses, to tune from the

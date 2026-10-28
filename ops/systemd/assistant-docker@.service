@@ -1,0 +1,18 @@
+# One connection to the Docker helper: the connection is the helper's stdin, and its own messages go to the journal.
+# Installed by ops/install.
+[Unit]
+Description=The Assistant's Docker helper, for one request
+CollectMode=inactive-or-failed
+
+[Service]
+ExecStart=/opt/assistant/node/bin/node /opt/assistant/lab1/ops/docker-helper.ts
+StandardInput=socket
+StandardOutput=journal
+StandardError=journal
+Environment=PATH=/usr/bin:/bin
+# The docker client reads no config of root's.
+Environment=DOCKER_CONFIG=/nonexistent
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+PrivateTmp=yes

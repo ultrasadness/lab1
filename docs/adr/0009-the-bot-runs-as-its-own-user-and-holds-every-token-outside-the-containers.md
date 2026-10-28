@@ -40,9 +40,9 @@ Every key and token the Assistant uses is a Secret, and none sits in a container
   - **Routing and budgets:** the forwarder also picks each request's provider and admits each run against a spending budget ([ADR 0011](./0011-the-forwarder-picks-each-requests-provider-and-holds-the-spending-budgets.md)). A 401 from new-api is checked against the key's remaining quota before the key is reported dead.
   - **The public gateway:** the Assistant's traffic never passes through Caddy. `na.pot.dpdns.org` stays public for the person's other uses, and a leaked Assistant key is useless from outside. new-api keeps its usage logs, with content logging off.
 - **`ops/token <name>` is the only way a token is obtained or replaced.** The person runs it on the VM, from the iPhone through an SSH app over Tailscale. It:
-  1. reads the value without echo, or the failed `127.0.0.1` or `localhost:1455` address pasted after the Gmail or CPA login;
-  2. writes the credential file;
-  3. checks the token with a harmless call;
+  1. reads the value without echo, or the failed `127.0.0.1` or `localhost:1455` address pasted after the Gmail or CPA login. The Personal database's deploy key is made on the VM instead, so its private half never leaves it ([#71](https://github.com/ultrasadness/lab1/issues/71));
+  2. checks the token with a harmless call, so a value that fails changes nothing;
+  3. writes the credential file;
   4. restarts the service that uses it.
 
   Together, these commands are the runbook for rebuilding the VM.
