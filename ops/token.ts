@@ -353,7 +353,8 @@ async function makeDeployKey(input: Input, context: Context): Promise<string | {
 /**
  * The deploy key as the bot uses it, from its checkout: `git ls-remote origin main` reads through it, and a push of
  * nothing proves it may write (settled on #71). That push is what `git push` sends when it has nothing to push: one
- * flush to GitHub's receiving end, which refuses a read-only key there.
+ * flush to GitHub's receiving end, which refuses a read-only key there. As git does, it waits for GitHub's refs first:
+ * GitHub ends a session whose input comes before them, even for a key that may write (#85).
  */
 async function checkDeployKey(config: Config, key: string): Promise<Checked> {
   const missing = checkoutMissing(config);
@@ -369,7 +370,11 @@ async function checkDeployKey(config: Config, key: string): Promise<Checked> {
   const main = listed.stdout.match(/^([0-9a-f]{40})\trefs\/heads\/main$/m)?.[1];
   const origin = sshTarget((await git(config, ['remote', 'get-url', 'origin'])).stdout.trim());
   if (!origin) return { ok: false, why: "the checkout's origin is not an ssh URL such as git@github.com:<owner>/<repo>.git" };
-  const pushed = await run(ssh[0]!, [...ssh.slice(1), ...origin.port, origin.host, `git-receive-pack '${origin.path}'`], process.env, '0000');
+  const pushed = await run(ssh[0]!, [...ssh.slice(1), ...origin.port, origin.host, `git-receive-pack '${origin.path}'`], process.env, {
+    // The refs end with a flush-pkt.
+    after: /0000$/,
+    send: '0000',
+  });
   if (!pushed.ok) {
     return { ok: false, why: `GitHub lets the key read but not push (${pushed.stderr.trim().split('\n')[0] ?? ''}): delete it from the repo's Deploy keys and add it again with "Allow write access" ticked` };
   }
@@ -417,21 +422,33 @@ async function refusedBy(who: string, response: Response): Promise<Checked> {
 
 /**
  * Runs a command to its end, or kills it after a minute: the command and whatever it started, such as the ssh git runs,
- * which can hold the command's pipes after it is gone.
+ * which can hold the command's pipes after it is gone. Its input is written at once, or once its output matches `after`.
  */
-function run(command: string, args: string[], env: NodeJS.ProcessEnv = process.env, input?: string): Promise<{ ok: boolean; stdout: string; stderr: string }> {
+function run(
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env,
+  input?: string | { after: RegExp; send: string },
+): Promise<{ ok: boolean; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const child = spawn(command, args, { env, stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'], detached: true });
     let stdout = '';
     let stderr = '';
+    let waiting = typeof input === 'object' ? input : undefined;
     const killer = setTimeout(() => {
       stderr = `killed after ${COMMAND_TIMEOUT_MS / 1000} seconds\n${stderr}`;
       kill(child);
     }, COMMAND_TIMEOUT_MS);
-    child.stdout!.on('data', (chunk: Buffer) => (stdout += chunk.toString('utf8')));
+    child.stdout!.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8');
+      if (waiting?.after.test(stdout)) {
+        child.stdin?.end(waiting.send);
+        waiting = undefined;
+      }
+    });
     child.stderr!.on('data', (chunk: Buffer) => (stderr += chunk.toString('utf8')));
     child.stdin?.on('error', () => {});
-    child.stdin?.end(input);
+    if (typeof input === 'string') child.stdin?.end(input);
     child.once('error', (e) => (stderr += e.message));
     child.once('close', (code) => {
       clearTimeout(killer);
