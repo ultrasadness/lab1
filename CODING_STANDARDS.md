@@ -176,6 +176,26 @@ Chinese sides with all six fixed.
 - each changed `.zh.md` section, read against the same section of its English side;
 - each recurring word, compared with its rendering for the same sense in the other Chinese sides.
 
+## A rule a doc states comes with its check
+
+When a diff writes a rule into a doc about what a commit, a file or a test may do, a check that fails on a breach
+comes with it, and the doc names the check. A rule whose breach takes judgement to tell, as a translation's fidelity
+does, stays with review.
+
+**Why it matters:** a rule only a doc states holds only while each later session reads that doc. In #98,
+`bot/README.md` said a schema fixture on `main` never changes, and nothing else did: a commit that changed `SCHEMA`
+and edited `bot/test/fixtures/store-schemas/1.sql` with it passed `npm test`, leaving a store at version 1 with no
+migration. The Spec reviewer raised it, and `4726d33` landed `.githooks/pre-commit` refusing a commit that changes a
+fixture `main` holds. In #83, `33648b1` had turned the doc pairs' written rules into failures of `npm run check:docs`
+the same way.
+
+**In a diff, look for:**
+
+- a sentence the diff adds to a doc saying what a commit, file, path or test may or must do ("never changes",
+  "always", "only");
+- for each one, the test, hook or `check:docs` rule that fails on a breach; with none, whether a breach is a pattern
+  a check could find.
+
 ## A new check is tried on everything it judges
 
 A diff that adds or widens a check, a hook or a rule that refuses input shows what it says about each case the repo

@@ -6,7 +6,7 @@
 
 ## Hook
 
-- **pre-commit**：在主 checkout 里，它拒绝 `main` 以外任何分支上的提交；它也拒绝修改、删除或重命名 `main` 里已有的实时存储 schema fixture（`bot/test/fixtures/store-schemas/`，#98）的提交。然后它检查暂存内容的一份副本：每个 package 的类型检查（用这个 package 自己的依赖运行），然后是文档配对检查（`docs/agents/doc-pairs.md`）。任何一项没通过，它就拒绝提交。某个 package 没装依赖时，它拒绝每一次提交，并说明怎么安装。它不运行任何测试：根目录的测试要跑一分钟左右，浏览器服务的测试要构建镜像。
+- **pre-commit**：在主 checkout 里，它拒绝 `main` 以外任何分支上的提交；它也拒绝修改、删除或重命名 `main` 里已有的实时存储 schema fixture（`bot/test/fixtures/store-schemas/`，#98）的提交。然后它检查暂存内容的一份副本：每个 package 的类型检查（用这个 package 自己的依赖运行），然后是文档配对检查（`docs/agents/doc-pairs.md`）。任何一项没通过，它就拒绝提交。某个 package 没装依赖时，它拒绝每一次提交，并说明怎么安装。它不运行任何测试：根目录的测试在 #98 里跑了 8 分钟，浏览器服务的测试要构建镜像。
 - **post-checkout**：`git worktree add` 刚建好一个 worktree 时，它在里面为每个 package 运行 `npm ci`，能从 npm 的缓存装就从缓存装，让类型检查有它们的依赖。它是安装依赖，而不是用符号链接接上主 checkout 的 `node_modules`：通过这样的链接运行 `npm ci` 或 `npm uninstall`，会改动主 checkout 自己的依赖。安装失败时，它会说明，worktree 照样建好。
 - **commit-msg**：提交消息里在 GitHub 关闭关键字后面跟着 issue 引用时，比如 `Closes #88`，即使两者之间隔着一个换行或一个空行，它也拒绝这条消息：提交一到 `main`，GitHub 就会关闭这个 issue，而 ticket 要在落地之后手动关闭（`docs/agents/issue-tracker.md` 里的 **Close**）。改为把引用写成 `(#88)`。
 - **pre-push**：它拒绝把 `main` 移到某个提交的 push，除非 GitHub Actions 已经在这个提交上运行过，并且每次运行都通过：GitHub Free 不给私有仓库提供分支保护，所以服务器那边没有什么会拒绝它。这个 hook 通过 `gh` 向 GitHub 查询，所以 `gh` 必须已经登录。

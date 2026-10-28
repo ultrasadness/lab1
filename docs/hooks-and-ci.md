@@ -10,10 +10,10 @@ What checks each commit and push, for both packages: the root's (the bot, our Pi
 
 - **pre-commit** refuses a commit on any branch but `main` in the main checkout, and a commit that changes, deletes
   or renames a schema fixture of the live store that `main` holds (`bot/test/fixtures/store-schemas/`, #98). Then it
-  checks a copy of what is staged: each package's typecheck, run with that package's own dependencies, then the doc-pair check
-  (`docs/agents/doc-pairs.md`). It refuses the commit when one fails. Without a package's dependencies, it refuses
-  every commit and says how to install them. It runs no tests: the root's take about a minute, and the browser
-  service's build an image.
+  checks a copy of what is staged: each package's typecheck, run with that package's own dependencies, then the
+  doc-pair check (`docs/agents/doc-pairs.md`). It refuses the commit when one fails. Without a package's
+  dependencies, it refuses every commit and says how to install them. It runs no tests: the root's took 8 minutes in
+  #98, and the browser service's build an image.
 - **post-checkout** runs `npm ci` for each package in a worktree that `git worktree add` has just made, from npm's
   cache where it can, so the typechecks have their dependencies. It installs them rather than linking the main
   checkout's `node_modules`: `npm ci` or `npm uninstall` through such a link would change the main checkout's own.
