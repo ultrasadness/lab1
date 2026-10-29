@@ -16,7 +16,7 @@
 | `Dockerfile`, `compose.yaml`, `seccomp_profile.json` | 按 digest 固定的镜像，以及容器的加固设置 |
 | `chrome-policies.json` | 托管策略：在任何上下文里都不保存密码、不自动填充、不下载、不弹权限请求 |
 
-固定版本的地方：`Dockerfile` 里 Playwright 镜像的 digest，以及 `package.json` 里 `playwright-core`（与镜像一致）和 `@duckduckgo/autoconsent` 的确切版本，两者都只通过 `ops/upgrade` 更新。
+固定版本的地方：`Dockerfile` 里 Node 运行时和 Playwright 镜像的 digest，以及 `package.json` 里 `playwright-core`（与 Playwright 镜像一致）和 `@duckduckgo/autoconsent` 的确切版本，只通过 `ops/upgrade` 更新。修补后的 Node 二进制替换 Playwright 镜像里的 `/usr/bin/node`，`/usr/local/bin/node` 指向它，因此绝对路径和 PATH 都使用它，Chromium 不变。在 #72 实现 `ops/upgrade` 之前，按 `ops/README.md` 所述通过 `ops/install --deploy` 部署这些固定版本。
 
 ## 套接字 API
 

@@ -19,8 +19,11 @@ Dossiers and Walkthroughs use to read Product pages before any Approval.
 | `Dockerfile`, `compose.yaml`, `seccomp_profile.json` | The image, pinned by digest, and the container's hardening |
 | `chrome-policies.json` | Managed policies: no password saving, autofill, downloads or permission prompts in any context |
 
-The pins: the Playwright image's digest in `Dockerfile`, and exact versions of `playwright-core` (matching the
-image) and `@duckduckgo/autoconsent` in `package.json`, both updated only through `ops/upgrade`.
+The pins: the Node runtime and Playwright images' digests in `Dockerfile`, and exact versions of `playwright-core`
+(matching the Playwright image) and `@duckduckgo/autoconsent` in `package.json`, updated only through `ops/upgrade`.
+The patched Node binary replaces the Playwright image's Node at `/usr/bin/node`, with `/usr/local/bin/node` pointing
+to it, so both absolute paths and PATH use it without changing Chromium. Until #72 brings `ops/upgrade`, deploy
+these pins through `ops/install --deploy` as `ops/README.md` describes.
 
 ## The socket API
 

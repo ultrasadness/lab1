@@ -29,7 +29,7 @@
 
 `ops/install` 会放好下面这些，每一样都先检查再修改：
 
-- 供机器人和运维脚本使用的 Node 24.22.0，对照 nodejs.org 公布的 SHA-256 校验，放在 `/opt/assistant/node`；
+- 供机器人和运维脚本使用的 Node 24.22.2，对照 nodejs.org 公布的 SHA-256 校验，放在 `/opt/assistant/node`；
 - `sqlite3`，供备份使用；
 - `assistant` 系统用户，除了它自己的组以外不在任何组里：没有 `sudo`，没有 `docker`，`/home/ubuntu` 也不向它开放；
 - `/etc/assistant/credentials` 和 `/var/backups/assistant`，只归 root 所有（权限 700）；

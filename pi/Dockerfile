@@ -1,7 +1,9 @@
 # The Pi container (ADR 0001): pinned Pi and our extension, nothing else. It holds no token. Its only model
 # endpoint is the bot's forwarder, and the bot starts each run in it with `docker exec … pi-run`.
 # Build from the repo root: docker build -f pi/Dockerfile -t assistant-pi .
-FROM node:24.22.0-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
+FROM node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c
+
+RUN test "$(node --version)" = v24.22.1
 
 WORKDIR /opt/assistant
 # Pi at the exact versions package-lock.json pins. The bot's own code needs no npm package, so Pi is the only one.

@@ -4,6 +4,22 @@ import fs from 'node:fs';
 import { test } from 'node:test';
 import { browser, containerId, inBrowserContainer, run, socketPath } from './harness.ts';
 
+test('PATH and the running browser service use the patched Node binary', async () => {
+  const { code, out } = await inBrowserContainer('sh', '-c',
+    'command -v node; node --version; /usr/bin/node --version; readlink -f /usr/local/bin/node');
+  assert.equal(code, 0, out);
+  assert.deepEqual(out.trim().split('\n'), ['/usr/local/bin/node', 'v24.22.1', 'v24.22.1', '/usr/bin/node']);
+
+  const processes = await inBrowserContainer('ps', '-eo', 'pid,args');
+  assert.equal(processes.code, 0, processes.out);
+  const service = processes.out.split('\n').find((line) => /^\s*\d+\s+node src\/main\.ts\s*$/.test(line));
+  assert.ok(service, `no browser service process in:\n${processes.out}`);
+  const pid = service.trim().split(/\s+/)[0];
+  const executable = await inBrowserContainer('readlink', `/proc/${pid}/exe`);
+  assert.equal(executable.code, 0, executable.out);
+  assert.equal(executable.out.trim(), '/usr/bin/node');
+});
+
 test('Chrome for Testing runs headed under Xvfb, with its sandbox', async () => {
   const { out } = await inBrowserContainer('ps', '-eo', 'user:16,args');
   const chrome = out.split('\n').filter((line) => /\/chrome-linux[^ ]*\/chrome /.test(line));

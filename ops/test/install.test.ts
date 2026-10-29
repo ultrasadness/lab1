@@ -5,12 +5,12 @@
 import { test, before, after, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 const REPO = join(import.meta.dirname, '..', '..');
-const NODE_DIR = `opt/assistant/node-v24.22.0-linux-${process.arch === 'arm64' ? 'arm64' : 'x64'}`;
+const NODE_DIR = `opt/assistant/node-v24.22.2-linux-${process.arch === 'arm64' ? 'arm64' : 'x64'}`;
 const GIT_ENV = { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 'Person', GIT_AUTHOR_EMAIL: 'p@example.com', GIT_COMMITTER_NAME: 'Person', GIT_COMMITTER_EMAIL: 'p@example.com' };
 
 function git(cwd: string, ...args: string[]): string {
@@ -234,6 +234,26 @@ test('a first install puts everything in place, and a second changes nothing', a
   assert.equal(second.code, 0, second.out);
   assert.match(second.out, /^Nothing to change\.$/m);
   assert.equal(machine.log().slice(log.length).match(/^(systemctl (enable|start|restart|daemon-reload)|docker compose .* up|systemd-tmpfiles|apt-get).*$/gm), null, machine.log().slice(log.length));
+});
+
+test('install replaces the vulnerable dedicated Node link, and another install keeps the patched one', async (t) => {
+  const machine = await vm(t);
+  const old = `node-v24.22.0-linux-${process.arch === 'arm64' ? 'arm64' : 'x64'}`;
+  const link = join(machine.root, 'opt/assistant/node');
+  mkdirSync(join(machine.root, 'opt/assistant', old, 'bin'), { recursive: true });
+  symlinkSync(process.execPath, join(machine.root, 'opt/assistant', old, 'bin/node'));
+  symlinkSync(old, link);
+
+  const first = await install(machine);
+  assert.equal(first.code, 0, first.out);
+  assert.match(first.out, /Point .*\/opt\/assistant\/node at Node 24\.22\.2\./);
+  assert.equal(readlinkSync(link), NODE_DIR.slice('opt/assistant/'.length));
+  assert.ok(existsSync(join(machine.root, 'opt/assistant', old, 'bin/node')), 'the old runtime is left alone');
+
+  const second = await install(machine);
+  assert.equal(second.code, 0, second.out);
+  assert.match(second.out, /^Nothing to change\.$/m);
+  assert.equal(readlinkSync(link), NODE_DIR.slice('opt/assistant/'.length));
 });
 
 test('the dry run says what it would do, and changes nothing', async (t) => {
