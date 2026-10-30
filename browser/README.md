@@ -78,6 +78,7 @@ npm ci
 npm run typecheck
 npm test                         # every test; builds the image first
 KEEP_BROWSER=1 npm test          # leaves the containers up afterwards
+npm run test:file -- test/page-check.test.ts   # one file, or several; builds the image first
 npm run smoke                    # the fill smoke test alone
 ```
 
@@ -87,6 +88,9 @@ beside a server of local test pages (`test/pages/`) that answers for every host 
 form a session posts and each verification link it opens, which the tests read as what the Product received. The
 test compose file also shortens a session's 24 hours without a request to 15 s, and its 60-second action limit to
 20 s (`SESSION_ACTION_LIMIT_MS`), so the tests see both close a session. The whole run takes about 4 minutes.
+
+On CI's runner a page's timers can run about a second late, which no local run has shown: see "Plain code judges a
+page that has held still" in `CODING_STANDARDS.md` before a test asserts on a page script's reaction.
 
 The fill smoke test (`test/smoke.test.ts`) fills the local test form through the fixed actions, presses it by plain
 code, and checks that the test server received exactly the approved values. It is the browser image's upgrade gate

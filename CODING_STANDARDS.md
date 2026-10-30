@@ -140,6 +140,27 @@ messages.
   input came near the limit or took the fallback;
 - a fallback the diff adds, such as a shorter text, a retry or a default, that no test shows running.
 
+## Plain code judges a page that has held still
+
+When plain code reads a page to decide whether to act on it after a session has acted on it, as the page check does
+before a press, it reads the page once the page has stopped changing, within a time limit. A read that follows such
+a decision, such as the screenshot and fingerprint a failed check leads to, reads the page that decision waited for.
+
+**Why it matters:** a page's script may react to a fill on a timer of its own, as a debounced field does, and a busy
+machine runs those timers late. Only a machine slow enough shows the race, so no test can be counted on to catch it.
+In #55, a test page changed a custom list's choice 0 ms after it was made. Locally the page check saw the change and
+failed, as the test asked. On CI's runner the timer ran about a second late, so the check read the page first and
+passed, and the test failed there on two commits in a row. Neither of #55's reviewers raised it. `8ba9f48` made the
+page check read until the page has held still for 1.5 s, or for at most 5 s, and moved the test page's change to
+500 ms, so that the test needs the wait on any machine.
+
+**In a diff, look for:**
+
+- a read that decides whether to act on a page, such as a check before a press, made right after an action on the
+  page with no wait for it to hold still;
+- a test that asserts on a page script's reaction to an action, on a timer or a debounce, through a read that
+  doesn't wait for it.
+
 ## A doc that describes changed behaviour changes with it
 
 When a diff changes what the code does, each sentence of a README or doc that describes the old behaviour changes in

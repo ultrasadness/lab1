@@ -39,10 +39,13 @@ npm ci
 npm run typecheck
 npm test                         # every test; builds the image first
 KEEP_BROWSER=1 npm test          # leaves the containers up afterwards
+npm run test:file -- test/page-check.test.ts   # one file, or several; builds the image first
 npm run smoke                    # the fill smoke test alone
 ```
 
 这些测试就是浏览器 seam（seam 2）：它们通过套接字驱动真实镜像里的真实 Chromium，容器由 `compose.yaml` 启动，带着它全部的加固设置。`test/compose.test.yaml` 把它放进一个没有互联网的网络，旁边是一个本地测试页面服务器（`test/pages/`），测试里出现的每个主机都由它应答。这个服务器把会话提交的每个表单、打开的每个验证链接都记进日志，测试把它读作 Product 收到的东西。测试用的 compose 文件还把会话“24 小时没有请求”的时限缩短为 15 秒，把 60 秒的动作上限缩短为 20 秒（`SESSION_ACTION_LIMIT_MS`），这样测试能看到两者各自关闭会话。整套测试约需 4 分钟。
+
+在 CI 的 runner 上，页面的定时器可能晚大约一秒才运行，本地运行从来没出现过这种情况：测试要对页面脚本的反应作断言之前，先看 `CODING_STANDARDS.md` 里的“Plain code judges a page that has held still”。
 
 填表冒烟测试（`test/smoke.test.ts`）通过固定动作填写本地测试表单，由普通代码按下提交，再检查测试服务器收到的恰好是批准的值。它是浏览器镜像的升级门禁（ADR 0006），等 #72 建好 `ops/upgrade` 后由它运行。
 

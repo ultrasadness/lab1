@@ -10,6 +10,7 @@
     "start": "node src/main.ts",
     "typecheck": "tsc -p .",
     "test": "node --test --test-concurrency=1 --test-timeout=120000 --test-global-setup=test/global-setup.ts \"test/**/*.test.ts\"",
+    "test:file": "node --test --test-concurrency=1 --test-timeout=120000 --test-global-setup=test/global-setup.ts",
     "smoke": "node --test --test-timeout=120000 --test-global-setup=test/global-setup.ts test/smoke.test.ts"
   },
   "dependencies": {
