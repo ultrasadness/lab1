@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Check your details · Acme Notes</title>
+</head>
+<body>
+<h1>Check your details</h1>
+<form action="/api/session/echo" method="post">
+  <p><label>Full name <input name="name"></label></p>
+  <p><label>Password <input type="password" name="password"></label></p>
+  <p><label>Code from your email <input name="code" inputmode="numeric"></label></p>
+  <button type="submit">Continue</button>
+</form>
+<p id="echo"></p>
+<p><a id="again" href="/session/echo">Check again</a> <a id="again-form" href="/session/echo">Check again as a form would</a></p>
+<script>
+  // Shows what was typed, as a careless page might: in its text, its title and a link.
+  const echo = () => {
+    const values = [...document.querySelectorAll('input')].map((i) => `${i.name}=${i.value}`);
+    document.getElementById('echo').textContent = `You typed ${values.join(', ')}`;
+    document.title = `${values.join(' ')} · Acme Notes`;
+    document.getElementById('again').href = `/session/echo?${[...document.querySelectorAll('input')].map((i) => `${i.name}=${encodeURIComponent(i.value)}`).join('&')}`;
+    document.getElementById('again-form').href = `/session/echo?${new URLSearchParams([...document.querySelectorAll('input')].map((i) => [i.name, i.value]))}`;
+  };
+  document.addEventListener('input', echo);
+  // A page reached through the link shows what it carried.
+  if (location.search) document.getElementById('echo').textContent = `You sent ${decodeURIComponent(location.search.slice(1))}`;
+</script>
+</body>
+</html>

@@ -14,6 +14,7 @@ test("the service failing is an error, not a page that can't be read", async () 
     read: async () => {
       throw new Error('the browser went away');
     },
+    sessions: { paths: new Set(), handle: async () => assert.fail('no session in this test') },
   });
   try {
     await assert.rejects(new BrowserClient(socketPath).read('http://acme.test/signup'), /HTTP 500: the browser went away/);

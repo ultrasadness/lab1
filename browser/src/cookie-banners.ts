@@ -47,6 +47,25 @@ interface ScriptState {
   heard: number;
 }
 
+type Listener = (frame: Frame, m: Record<string, unknown>) => Promise<void>;
+
+// A page takes its binding once, for every document it loads, and a session's page rejects cookies before each
+// snapshot: each call listens through the page's slot while it runs.
+const slots = new WeakMap<Page, { listener: Listener | null }>();
+
+async function listen(page: Page, listener: Listener) {
+  let slot = slots.get(page);
+  if (!slot) {
+    const created = { listener: null as Listener | null };
+    slots.set(page, created);
+    slot = created;
+    await page.exposeBinding('autoconsentSendMessage', async ({ frame }: { frame: Frame }, msg: unknown) => {
+      if (msg && typeof msg === 'object') await created.listener?.(frame, msg as Record<string, unknown>);
+    });
+  }
+  slot.listener = listener;
+}
+
 export async function rejectCookies(page: Page): Promise<CookieBanner | null> {
   const scripts = new Map<Frame, ScriptState>();
   let manager: string | null = null;
@@ -55,9 +74,7 @@ export async function rejectCookies(page: Page): Promise<CookieBanner | null> {
   let navigating: Request | null = null;
   let navigated = 0;
 
-  await page.exposeBinding('autoconsentSendMessage', async ({ frame }: { frame: Frame }, msg: unknown) => {
-    if (!msg || typeof msg !== 'object') return;
-    const m = msg as Record<string, unknown>;
+  await listen(page, async (frame, m) => {
     if (m.type === 'init') {
       const rules = { compact: filterCompactRules(compactRules, { url: frame.url(), mainFrame: frame === page.mainFrame() }) };
       await frame
@@ -115,6 +132,7 @@ export async function rejectCookies(page: Page): Promise<CookieBanner | null> {
     };
     while (!settled() && Date.now() - start < LIMIT_MS && !page.isClosed()) await new Promise((r) => setTimeout(r, 100));
   } finally {
+    slots.get(page)!.listener = null;
     page.off('request', onRequest);
     page.off('requestfailed', onRequestFailed);
     page.off('framenavigated', onNavigated);

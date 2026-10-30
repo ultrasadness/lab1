@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Review your details · Acme Notes</title>
+</head>
+<body>
+<h1>Review your details</h1>
+<p>Sam Example, sam+acme@gmail.com</p>
+<!-- A step that shows nothing to fill: what earlier steps filled travels in hidden inputs. -->
+<form action="/api/session/review" method="post">
+  <input type="hidden" name="email" value="sam+acme@gmail.com">
+  <input type="hidden" name="step" value="review">
+  <button type="submit">Join waitlist</button>
+</form>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign up · Acme Notes</title>
+<style>
+  /* Fixed places, so a test can read the screenshot's pixels at each. */
+  body { margin: 0; background: #fff; font: 16px sans-serif; }
+  input, button { position: absolute; left: 40px; width: 300px; height: 40px; box-sizing: border-box; border: 1px solid #ccc; background: #fff; color: #000; }
+  [name=name] { top: 100px; }
+  [name=password] { top: 180px; }
+  [name=code] { top: 260px; }
+  button { top: 340px; width: 200px; }
+</style>
+</head>
+<body>
+<form action="/api/session/shot" method="post">
+  <input name="name" aria-label="Full name">
+  <input type="password" name="password" aria-label="Password">
+  <input name="code" aria-label="Code from your email">
+  <button type="submit">Create account</button>
+</form>
+</body>
+</html>

@@ -1,12 +1,23 @@
 // HTTP over the Unix socket. The bot is the only client, so the server only routes and parses.
 import fs from 'node:fs';
 import http from 'node:http';
-import type { Health, ReadOutcome } from './api.ts';
+import type { Health, ReadOutcome, RefusalKind, SessionOutcome } from './api.ts';
 
 export interface Handlers {
   health(): Health;
   read(url: unknown): Promise<ReadOutcome>;
+  /** A Registration's session: its paths, and the answer to a POST on one. */
+  sessions: { paths: ReadonlySet<string>; handle(path: string, body: Record<string, unknown> | null): Promise<SessionOutcome> };
 }
+
+const REFUSAL_STATUS: Partial<Record<RefusalKind, number>> = {
+  'bad-request': 400,
+  'unknown-session': 404,
+  full: 429,
+  'load-failed': 502,
+  download: 502,
+  timeout: 504,
+};
 
 const MAX_BODY = 16 * 1024;
 
@@ -19,6 +30,14 @@ export async function listen(socketPath: string, handlers: Handlers): Promise<ht
         const outcome = await handlers.read(body?.url);
         if (outcome.ok) return send(res, 200, outcome.page);
         return send(res, outcome.error.kind === 'bad-url' ? 400 : 502, { error: outcome.error });
+      }
+      if (req.method === 'POST' && req.url && handlers.sessions.paths.has(req.url)) {
+        const outcome = await handlers.sessions.handle(req.url, await readJson(req));
+        if (outcome.ok) {
+          const { ok: _, ...answer } = outcome;
+          return send(res, 200, answer);
+        }
+        return send(res, REFUSAL_STATUS[outcome.error.kind] ?? 409, { error: outcome.error });
       }
       send(res, 404, { error: { kind: 'not-found', message: `${req.method} ${req.url}` } });
     } catch (e) {

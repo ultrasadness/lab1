@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Join · Fern Boards</title>
+<style>
+  [role=checkbox], [role=switch], [role=combobox] { display: inline-block; min-width: 120px; padding: 4px; border: 1px solid #888; cursor: pointer; }
+  [role=listbox] { border: 1px solid #888; width: 200px; }
+  [role=option] { padding: 4px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>Join Fern Boards</h1>
+<form action="/api/session/custom" method="post">
+  <p><span id="news-label">Send me news</span> <span role="checkbox" aria-checked="false" aria-labelledby="news-label" tabindex="0"></span></p>
+  <p><span id="dark-label">Dark mode</span> <span role="switch" aria-checked="true" aria-labelledby="dark-label" tabindex="0"></span></p>
+  <p><span id="country-label">Country</span> <span role="combobox" aria-labelledby="country-label" aria-expanded="false" aria-controls="countries" tabindex="0"></span></p>
+  <div role="listbox" id="countries" hidden>
+    <div role="option">Portugal</div>
+    <div role="option">Spain</div>
+  </div>
+  <p><label>Nickname <input name="nickname"></label></p>
+  <p><label><input type="radio" value="beta"> Join the beta</label></p>
+  <!-- A styled box: the native one is hidden, and its label shows. -->
+  <p><label><input type="checkbox" name="digest" style="position: absolute; width: 0; height: 0; opacity: 0"> Weekly digest</label></p>
+  <button type="submit">Join</button>
+</form>
+<p id="state"></p>
+<script>
+  const show = () => {
+    const on = (role) => document.querySelector(`[role=${role}]`).getAttribute('aria-checked');
+    const digest = document.querySelector('[name=digest]').checked;
+    const beta = document.querySelector('[value=beta]').checked;
+    document.getElementById('state').textContent = `News: ${on('checkbox')}. Dark mode: ${on('switch')}. Country: ${document.querySelector('[role=combobox]').textContent || 'none'}. Digest: ${digest}. Beta: ${beta}.`;
+  };
+  for (const box of document.querySelectorAll('[role=checkbox], [role=switch]')) {
+    box.addEventListener('click', () => {
+      box.setAttribute('aria-checked', String(box.getAttribute('aria-checked') !== 'true'));
+      show();
+    });
+  }
+  const combobox = document.querySelector('[role=combobox]');
+  const listbox = document.getElementById('countries');
+  combobox.addEventListener('click', () => (listbox.hidden = false));
+  for (const option of listbox.querySelectorAll('[role=option]')) {
+    option.addEventListener('click', () => {
+      combobox.textContent = option.textContent;
+      listbox.hidden = true;
+      // As a page's debounced script might, half a second after the choice.
+      if (location.search.includes('switch-country')) setTimeout(() => (combobox.textContent = `${option.textContent} (mainland)`), 500);
+      show();
+    });
+  }
+  document.querySelector('[name=digest]').addEventListener('change', show);
+  document.querySelector('[value=beta]').addEventListener('change', show);
+  show();
+</script>
+</body>
+</html>

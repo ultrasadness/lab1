@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-运行在自己的加固容器里的 Playwright（ADR 0006），借助 Node 的类型剥离原样运行。它唯一的客户端是机器人，通过 Unix 套接字连接：它不监听任何端口，网络也是它独有的，所以 Pi 容器访问不到它。这个切片（#43）搭起了容器，以及只读的 `read(url)`：Dossier 和 Walkthrough 在任何 Approval 之前用它读取 Product 的页面。
+运行在自己的加固容器里的 Playwright（ADR 0006），借助 Node 的类型剥离原样运行。它唯一的客户端是机器人，通过 Unix 套接字连接：它不监听任何端口，网络也是它独有的，所以 Pi 容器访问不到它。#43 搭起了容器，以及只读的 `read(url)`：Dossier 和 Walkthrough 在任何 Approval 之前用它读取 Product 的页面。#55 加上了 Registration 的会话：填表运行经由机器人可以使用的固定动作，以及普通代码的页面检查、按下按钮和按引用填写。在 #56 填写 Registration 之前，机器人只使用 `read(url)`。
 
 | 路径 | 是什么 |
 |---|---|
@@ -10,7 +10,9 @@
 | `src/client.ts` | 机器人这一侧的套接字 |
 | `src/main.ts` | 启动 Xvfb、一个有界面的 Chrome for Testing（没有沙箱就拒绝启动）和套接字 |
 | `src/reader.ts` | `read(url)`：在一个用完即弃的内存上下文里打开一个页面 |
-| `src/snapshot.ts`, `src/redact.ts` | 一次读取能看到页面的哪些内容，以及去掉看起来随机的字符串 |
+| `src/sessions.ts` | Registration 的会话：数量上限、驱动者和关闭时机，固定动作，以及普通代码的动作 |
+| `src/page-check.ts` | 页面检查的规则，只针对指定按钮提交的那个表单 |
+| `src/snapshot.ts`, `src/redact.ts` | 一次读取或一个会话能看到页面的哪些内容，以及去掉填进会话的每个 Secret 和看起来随机的字符串 |
 | `src/cookie-banners.ts` | 每次快照之前，以拒绝（opt-out）模式运行 autoconsent |
 | `src/walls.ts` | 银行卡字段，以及加载时的机器人检测或插页 |
 | `Dockerfile`, `compose.yaml`, `seccomp_profile.json` | 按 digest 固定的镜像，以及容器的加固设置 |
@@ -24,6 +26,11 @@
 
 - `GET /health`：浏览器的版本和 autoconsent 的版本。服务只以有界面模式运行，并启用 Chromium 的沙箱：没有沙箱时，它在启动时就退出。
 - `POST /read`，请求体为 `{ "url": "https://…" }`：返回一个 `PageRead`（`src/api.ts`），或者返回 `{ "error": { "kind", "message" } }`：URL 不是普通的 http 或 https 时状态码为 400；页面加载不了、是一个下载、或耗时超过 60 秒时为 502。`snapshot` 是模型可以看到的部分：其中每个字符串里看起来随机的字符串都换成了 `[random]`。其余部分（确切的最终 URL 和主机、状态码、支付字段、机器人检测和 cookie 横幅）只给普通代码用。
+- `POST /session/open`，请求体为 `{ "registration", "url", "domains" }`：一个 Registration 的会话，即一个属于它自己的内存上下文，在 Walkthrough 的起始 URL 打开，返回 `{ "session" }`。同时最多打开 5 个（429，`full`），每个 Registration 一个（409，`already-open`），起始页面加载不了时不会打开（502）。会话在以下时候关闭：收到 `POST /session/close`、一个动作耗时超过 60 秒、打开验证链接之后，或者 24 小时内没有任何针对它的请求（`SESSION_IDLE_LIMIT_MS`）：机器人自己的 24 小时规则会先关掉它，所以这一条兜住的是机器人丢掉的会话。
+- `POST /session/drive`，请求体为 `{ "session", "driver" }`：现在由谁驱动这个会话，`none`、`fill-run`、`plain-code` 或 `person`。每个动作的路径写明它需要的驱动者；这个人在 Takeover 中驱动时，其他任何一方都不能动作。把这个人填的字段显示为 `[person]`、并让页面检查接受它们，随 #60 的 Takeover 一起实现。
+- `POST /fill-run/…`：填表运行经由机器人可以使用的固定动作，除非顶层页面位于会话的某个域名上，否则每一个都会被拒绝（`off-domain`）。`snapshot` 先拒绝 cookie 横幅。它只按填入字段的东西显示字段（字段的 Walkthrough 键、`[password]` 或 `[code]`），从不显示字段的值，并按确切值删去填进会话的每个 Secret，再删去看起来随机的字符串。它给出的 ref（`f1`、`b1`、`l1`）指明其他动作所用的字段、提交控件和链接，只显示一个按钮的表单也包括在内。`fill` 接受一个 Walkthrough 键和机器人提供的批准值；`fill-secret` 接受机器人按引用提供的 `password` 或 `code`；`choose` 接受一个选项的标签，或 `ticked`、`left unticked`，并且只点击角色为 combobox、option、checkbox、radio 或 switch 的元素；`open` 加载链接的 URL 而不是点击它，而且只限会话的域名。
+- `POST /plain-code/…`：普通代码自己的动作。`snapshot` 与填表运行的相同。`check` 就是页面检查：给出指定按钮、批准的注册主机、批准的条款 URL 和 Signup identity 的两个地址，它回答哪条规则在哪个字段上失败。它等页面保持不变 1.5 秒之后才判断，最多等到请求之后 5 秒，因为页面的脚本可能还在对最后一次填写作出反应。`fingerprint` 对 URL、表单结构和各字段的值取哈希。`screenshot` 遮住每个按引用填入的字段，还可以标出一个按钮的轮廓并标记字段。`press` 只在检查通过、且按钮可见、可用、位于会话的域名上、是那个包含每个仍显示着的已填字段的表单唯一的提交控件时才动作，所以页面已经隐藏的前一步不算。点击开始之后才失败的，回答里带 `uncertain`，并算作已经按下（ADR 0007）。`fill-code` 按引用填入邮件里的验证码，`open-link` 打开验证链接，然后关闭会话。
+- 银行卡字段（`cc-*` autocomplete 值）无论要求什么都会被拒绝（`payment-field`），支付服务商的 frame 从不出现在快照里。拒绝的格式是 `{ "error": { "kind", "message" } }`，种类见 `src/api.ts`；被检查拒绝的按下请求在 `check` 里带上检查结果。
 
 ## 测试
 
@@ -32,9 +39,12 @@ npm ci
 npm run typecheck
 npm test                         # every test; builds the image first
 KEEP_BROWSER=1 npm test          # leaves the containers up afterwards
+npm run smoke                    # the fill smoke test alone
 ```
 
-这些测试就是浏览器 seam（seam 2）：它们通过套接字驱动真实镜像里的真实 Chromium，容器由 `compose.yaml` 启动，带着它全部的加固设置。`test/compose.test.yaml` 把它放进一个没有互联网的网络，旁边是一个本地测试页面服务器（`test/pages/`），测试里出现的每个主机都由它应答。
+这些测试就是浏览器 seam（seam 2）：它们通过套接字驱动真实镜像里的真实 Chromium，容器由 `compose.yaml` 启动，带着它全部的加固设置。`test/compose.test.yaml` 把它放进一个没有互联网的网络，旁边是一个本地测试页面服务器（`test/pages/`），测试里出现的每个主机都由它应答。这个服务器把会话提交的每个表单、打开的每个验证链接都记进日志，测试把它读作 Product 收到的东西。测试用的 compose 文件还把会话“24 小时没有请求”的时限缩短为 15 秒，把 60 秒的动作上限缩短为 20 秒（`SESSION_ACTION_LIMIT_MS`），这样测试能看到两者各自关闭会话。整套测试约需 4 分钟。
+
+填表冒烟测试（`test/smoke.test.ts`）通过固定动作填写本地测试表单，由普通代码按下提交，再检查测试服务器收到的恰好是批准的值。它是浏览器镜像的升级门禁（ADR 0006），等 #72 建好 `ops/upgrade` 后由它运行。
 
 pre-commit hook 用这里安装的依赖，对暂存的文件运行这里的类型检查；CI 在一个单独的 workflow 里运行 `npm ci`、类型检查和测试（`docs/hooks-and-ci.md`）。
 

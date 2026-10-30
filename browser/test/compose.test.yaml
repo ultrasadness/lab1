@@ -5,6 +5,9 @@ services:
     image: lab1-browser:test
     environment:
       READ_LIMIT_MS: 20000
+      # In place of 24 hours and 60 s, so a test can see a session close.
+      SESSION_IDLE_LIMIT_MS: 15000
+      SESSION_ACTION_LIMIT_MS: 20000
 
   pages:
     image: lab1-browser:test

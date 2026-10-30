@@ -1,8 +1,10 @@
 // Local test pages for the browser seam harness. Each route is keyed by host and path; HTML lives beside this file.
+// What a session sends a Product, each form posted and each verification link opened, is logged as a `received` line,
+// which tests read from the container's log.
 import fs from 'node:fs';
 import http from 'node:http';
 
-type Route = (res: http.ServerResponse) => void;
+type Route = (res: http.ServerResponse, req: http.IncomingMessage) => void;
 
 const page = (file: string, status = 200, headers: Record<string, string> = {}): Route => (res) => {
   res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', ...headers });
@@ -16,7 +18,23 @@ const redirect = (location: string): Route => (res) => {
   res.writeHead(302, { location });
   res.end();
 };
-const slow = (route: Route, ms: number): Route => (res) => setTimeout(() => route(res), ms);
+const slow = (route: Route, ms: number): Route => (res, req) => setTimeout(() => route(res, req), ms);
+const received = (req: http.IncomingMessage, body: string) =>
+  console.log(`received ${JSON.stringify({ host: (req.headers.host ?? '').split(':')[0], method: req.method, url: req.url, body })}`);
+const verified: Route = (res, req) => {
+  received(req, '');
+  page('session/verified.html')(res, req);
+};
+// Any form posted to /api/… on any host.
+const submitted = (req: http.IncomingMessage, res: http.ServerResponse) => {
+  let body = '';
+  req.setEncoding('utf8');
+  req.on('data', (chunk: string) => (body += chunk));
+  req.on('end', () => {
+    received(req, body);
+    page('session/received.html')(res, req);
+  });
+};
 
 const routes: Record<string, Route> = {
   'acme.test/signup': page('signup.html'),
@@ -39,13 +57,25 @@ const routes: Record<string, Route> = {
   'acme.test/checkout': page('checkout.html'),
   'checkoutshopper-live.adyen.com/checkoutshopper/securedfields/card.html': page('card-frame.html'),
   'checkoutshopper-live.adyen.com/newsletter': page('provider-newsletter.html'),
+  'acme.test/session/signup': page('session/signup.html'),
+  'acme.test/session/remember': page('session/remember.html'),
+  'acme.test/session/echo': page('session/echo.html'),
+  'acme.test/session/card': page('session/card.html'),
+  'acme.test/session/custom': page('session/custom.html'),
+  'acme.test/session/verify': page('session/verify.html'),
+  'acme.test/session/verified': verified,
+  'acme.test/session/shot': page('session/shot.html'),
+  'accounts.authvendor.test/session/steps': page('session/steps.html'),
+  'acme.test/session/review': page('session/review.html'),
 };
 
 http
   .createServer((req, res) => {
     const host = (req.headers.host ?? '').split(':')[0];
-    const route = routes[`${host}${new URL(req.url ?? '/', 'http://x').pathname}`];
-    if (route) return route(res);
+    const path = new URL(req.url ?? '/', 'http://x').pathname;
+    if (req.method === 'POST' && path.startsWith('/api/')) return submitted(req, res);
+    const route = routes[`${host}${path}`];
+    if (route) return route(res, req);
     res.writeHead(404, { 'content-type': 'text/html' });
     res.end('<h1>Not found</h1>');
   })

@@ -5,6 +5,7 @@ import { chromium, type Browser } from 'playwright-core';
 import { autoconsentVersion } from './cookie-banners.ts';
 import { createReader, VIEWPORT } from './reader.ts';
 import { listen } from './server.ts';
+import { createSessions } from './sessions.ts';
 
 const SOCKET_PATH = process.env.SOCKET_PATH ?? '/run/browser/browser.sock';
 const DISPLAY = ':99';
@@ -60,14 +61,19 @@ browser.on('disconnected', () => stopping || fail('the browser went away'));
 log(`Chrome for Testing ${browser.version()}, headed, sandbox on`);
 
 const reader = createReader(browser);
+const sessions = createSessions(browser);
 const server = await listen(SOCKET_PATH, {
   health: () => ({ browser: browser.version(), autoconsent: autoconsentVersion }),
   read: reader.read,
+  sessions,
 });
 log(`listening on ${SOCKET_PATH}`);
 
 process.on('SIGTERM', () => {
   stopping = true;
   server.close();
-  browser.close().finally(() => process.exit(0));
+  sessions
+    .closeAll()
+    .then(() => browser.close())
+    .finally(() => process.exit(0));
 });

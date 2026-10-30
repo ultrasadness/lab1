@@ -8,12 +8,15 @@ import { botCheckOn, hasPaymentFields } from './walls.ts';
 
 // A common desktop size (ADR 0006).
 export const VIEWPORT = { width: 1280, height: 800 };
+// Every context's: no downloads, and no service worker that would outlive a page.
+export const CONTEXT_OPTIONS = { acceptDownloads: false, viewport: VIEWPORT, serviceWorkers: 'block' } as const;
 // Long enough for the slowest page that still loads; a page that hangs its renderer is cut off here.
 const READ_LIMIT_MS = Number(process.env.READ_LIMIT_MS ?? 60_000);
 
 const failure = (kind: ReadFailureKind, message: string): ReadOutcome => ({ ok: false, error: { kind, message } });
 
-function targetOf(url: unknown): URL | null {
+/** A URL a page may be loaded from: plain http or https, with no username or password. */
+export function targetOf(url: unknown): URL | null {
   if (typeof url !== 'string' || url.length > 8192) return null;
   try {
     const target = new URL(url);
@@ -29,7 +32,7 @@ export function createReader(browser: Browser) {
       const target = targetOf(url);
       if (!target) return failure('bad-url', 'read takes an http or https URL with no username or password');
 
-      const context = await browser.newContext({ acceptDownloads: false, viewport: VIEWPORT, serviceWorkers: 'block' });
+      const context = await browser.newContext(CONTEXT_OPTIONS);
       // The answer comes at the limit whatever the read is waiting on; closing the context then ends the rest of it.
       let timer: ReturnType<typeof setTimeout> | undefined;
       const tooLong = new Promise<ReadOutcome>((resolve) => {
@@ -45,37 +48,60 @@ export function createReader(browser: Browser) {
   };
 }
 
-async function readIn(context: BrowserContext, target: URL): Promise<ReadOutcome> {
-  const page = await context.newPage();
-  // The last document the top frame got, so a script redirect after load counts too.
+export type Loaded =
+  | {
+      ok: true;
+      /** The last document the top frame got, so a script redirect after load counts too, until stop() is called. */
+      response(): Response | null;
+      stop(): void;
+    }
+  | { ok: false; kind: Exclude<ReadFailureKind, 'bad-url'>; message: string };
+
+/** Loads a URL in the page's top frame and lets it settle. */
+export async function loadPage(page: Page, target: URL): Promise<Loaded> {
   let response: Response | null = null;
   let download = false;
-  page.on('response', (r) => {
+  const onResponse = (r: Response) => {
     if (!r.request().isNavigationRequest() || r.frame() !== page.mainFrame()) return;
     response = r;
     if (/^\s*attachment/i.test(r.headers()['content-disposition'] ?? '')) download = true;
-  });
-  page.on('download', () => (download = true));
+  };
+  const onDownload = () => (download = true);
+  const stop = () => {
+    page.off('response', onResponse);
+    page.off('download', onDownload);
+  };
+  page.on('response', onResponse);
+  page.on('download', onDownload);
   try {
     await page.goto(target.href, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   } catch (e) {
-    if (download) return failure('download', 'the URL is a download, and downloads are off');
+    stop();
+    if (download) return { ok: false, kind: 'download', message: 'the URL is a download, and downloads are off' };
     const message = (e instanceof Error ? e.message : String(e)).split('\n')[0]!;
-    return failure(/Timeout/i.test(message) ? 'timeout' : 'load-failed', message);
+    return { ok: false, kind: /Timeout/i.test(message) ? 'timeout' : 'load-failed', message };
   }
   await page.waitForLoadState('load', { timeout: 10_000 }).catch(() => {});
   await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
+  return { ok: true, response: () => response, stop };
+}
+
+async function readIn(context: BrowserContext, target: URL): Promise<ReadOutcome> {
+  const page = await context.newPage();
+  const loaded = await loadPage(page, target);
+  if (!loaded.ok) return failure(loaded.kind, loaded.message);
   const cookieBanner = await rejectCookies(page);
 
-  const snapshot = redactAll(await inLatestDocument(page, () => page.evaluate(takeSnapshot)));
+  const snapshot = redactAll(await inLatestDocument(page, async () => (await page.evaluate(takeSnapshot, null)).snapshot));
   const finalUrl = page.url();
+  const response = loaded.response();
   return {
     ok: true,
     page: {
       snapshot,
       finalUrl,
       finalHost: new URL(finalUrl).hostname,
-      status: (response as Response | null)?.status() ?? null,
+      status: response?.status() ?? null,
       paymentFields: await hasPaymentFields(page),
       botCheck: await botCheckOn(page, response),
       cookieBanner,

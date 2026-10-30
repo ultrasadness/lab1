@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Create your account · AuthVendor</title>
+</head>
+<body>
+<h1>Create your account</h1>
+<!-- Both steps live in one document: Continue hides the first and shows the second. -->
+<form id="email-step" action="/api/session/steps/email" method="post">
+  <p><label>Email address <input type="email" name="email" required></label></p>
+  <button type="submit">Continue</button>
+</form>
+<form id="details-step" action="/api/session/steps" method="post" hidden>
+  <p><label>Full name <input name="name" required></label></p>
+  <p><label>Password <input type="password" name="password" required></label></p>
+  <button type="submit">Create account</button>
+</form>
+<script>
+  document.getElementById('email-step').addEventListener('submit', (event) => {
+    event.preventDefault();
+    event.target.hidden = true;
+    document.getElementById('details-step').hidden = false;
+  });
+</script>
+</body>
+</html>

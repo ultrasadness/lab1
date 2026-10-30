@@ -33,7 +33,7 @@ The browser that fills Registrations runs in its own long-lived container, owned
 - **A fill run** is a Pi process started with no built-in tools, no MCP, no codemode and no session. It sees only the approved Walkthrough, the Rules in Registration scope and the snapshot. Its only output is the structured `finish` result, whose reason comes from a fixed list; any short note reaches Discord in a code block.
 - **Plain code presses a button only when both hold:**
   - the page passes the page check from [ADR 0005](./0005-plain-code-submits-a-registration-after-a-page-check.md);
-  - the named element is visible, enabled, on the Walkthrough's domain, and the only native submit control of the form holding every field filled on that page.
+  - the named element is visible, enabled, on the Walkthrough's domain, and the only native submit control of the form holding every field filled on that page. A field filled on an earlier step that the page has since hidden, in the same document, doesn't count (decided in [Drive a Registration session in the browser service](https://github.com/ultrasadness/lab1/issues/55)).
 
   Otherwise the person taps Submit on a screenshot with the named button outlined. There is one fill run per page, and after 5 pages the Registration goes to the person.
 - **No raw field value reaches a model.**
@@ -44,9 +44,10 @@ The browser that fills Registrations runs in its own long-lived container, owned
 - **Sessions:** one isolated browser context per Registration, in memory only, never on disk or in git. A session has one driver at a time: a fill run, plain code, or the person in a Takeover. It closes:
   - at any outcome;
   - right after plain code opens the verification link;
-  - after 24 hours without progress.
+  - after 24 hours without progress, which is 24 hours with no request on the session: the bot's own 24-hour rules close it first, so this close catches a session the bot lost;
+  - when an action in it takes longer than 60 s, since its page hangs.
 
-  At most 5 are open at once.
+  At most 5 are open at once. The last two closes were decided in [Drive a Registration session in the browser service](https://github.com/ultrasadness/lab1/issues/55).
 - **Product sites** (for Dossiers) are read through a read-only `read(url)` in a throwaway context, with the same snapshot redaction. So is each signup page when its Walkthrough is prepared, before any Approval. The read gives the Walkthrough its fields, signup URL and host, and the walls visible when the page loads. Injected text can still skew a Dossier or a Skip, which its citations let the person check.
 - **The container:**
   - Playwright's arm64 image pinned by digest, running Chrome for Testing headed under Xvfb as the non-root `pwuser`, with Playwright's seccomp profile so Chromium's sandbox is on. The service refuses to start without the sandbox.

@@ -1,6 +1,21 @@
 // The bot's side of the socket.
 import http from 'node:http';
-import type { Health, PageRead, ReadFailure, ReadOutcome } from './api.ts';
+import type {
+  CheckRequest,
+  Driver,
+  Health,
+  PageCheck,
+  PageRead,
+  Press,
+  ReadFailure,
+  ReadOutcome,
+  Refusal,
+  Screenshot,
+  SecretKind,
+  SessionOpen,
+  SessionOutcome,
+  SessionSnapshot,
+} from './api.ts';
 
 export class BrowserClient {
   readonly socketPath: string;
@@ -22,6 +37,87 @@ export class BrowserClient {
     const error = (body as { error?: ReadFailure } | null)?.error;
     // 400 and 502 are a page that can't be read; any other answer is the service failing.
     if ((status !== 400 && status !== 502) || !error) throw new Error(`browser service read: HTTP ${status}${error ? `: ${error.message}` : ''}`);
+    return { ok: false, error };
+  }
+
+  // A Registration's session. A refusal is an answer; any other failure is the service failing.
+
+  openSession(open: SessionOpen): Promise<SessionOutcome<{ session: string }>> {
+    return this.session('/session/open', open);
+  }
+
+  closeSession(session: string): Promise<SessionOutcome> {
+    return this.session('/session/close', { session });
+  }
+
+  drive(session: string, driver: Driver): Promise<SessionOutcome> {
+    return this.session('/session/drive', { session, driver });
+  }
+
+  // The fixed actions a fill run may use, through the bot.
+
+  snapshot(session: string): Promise<SessionOutcome<SessionSnapshot>> {
+    return this.session('/fill-run/snapshot', { session });
+  }
+
+  /** Fills a field with the approved value the bot supplies for the Walkthrough key. */
+  fill(session: string, field: string, key: string, value: string): Promise<SessionOutcome> {
+    return this.session('/fill-run/fill', { session, field, key, value });
+  }
+
+  fillSecret(session: string, field: string, secret: SecretKind, value: string): Promise<SessionOutcome> {
+    return this.session('/fill-run/fill-secret', { session, field, secret, value });
+  }
+
+  /** Picks an option by its label, or sets a box to `ticked` or `left unticked`. */
+  choose(session: string, field: string, key: string, value: string): Promise<SessionOutcome> {
+    return this.session('/fill-run/choose', { session, field, key, value });
+  }
+
+  /** Loads a link's URL. */
+  open(session: string, link: string): Promise<SessionOutcome> {
+    return this.session('/fill-run/open', { session, link });
+  }
+
+  // Plain code's.
+
+  /** The same snapshot as a fill run's, for plain code's own use; it too replaces the session's refs. */
+  plainSnapshot(session: string): Promise<SessionOutcome<SessionSnapshot>> {
+    return this.session('/plain-code/snapshot', { session });
+  }
+
+  check(session: string, request: CheckRequest): Promise<SessionOutcome<PageCheck>> {
+    return this.session('/plain-code/check', { session, ...request });
+  }
+
+  fingerprint(session: string): Promise<SessionOutcome<{ fingerprint: string }>> {
+    return this.session('/plain-code/fingerprint', { session });
+  }
+
+  screenshot(session: string, marks: { outline?: string; mark?: string[] } = {}): Promise<SessionOutcome<Screenshot>> {
+    return this.session('/plain-code/screenshot', { session, ...marks });
+  }
+
+  press(session: string, request: CheckRequest): Promise<SessionOutcome<Press>> {
+    return this.session('/plain-code/press', { session, ...request });
+  }
+
+  /** Fills an emailed code by reference. */
+  fillCode(session: string, field: string, value: string): Promise<SessionOutcome> {
+    return this.session('/plain-code/fill-code', { session, field, value });
+  }
+
+  /** Opens a verification link by reference; the session closes once it has loaded. */
+  openLink(session: string, url: string): Promise<SessionOutcome> {
+    return this.session('/plain-code/open-link', { session, url });
+  }
+
+  private async session<T extends object>(path: string, payload: object): Promise<SessionOutcome<T>> {
+    const { status, body } = await this.request('POST', path, payload);
+    if (status === 200) return { ok: true, ...(body as T) };
+    const error = (body as { error?: Refusal } | null)?.error;
+    if (status >= 500 && status !== 502 && status !== 504) throw new Error(`browser service ${path}: HTTP ${status}${error ? `: ${error.message}` : ''}`);
+    if (!error) throw new Error(`browser service ${path}: HTTP ${status} with no reason`);
     return { ok: false, error };
   }
 

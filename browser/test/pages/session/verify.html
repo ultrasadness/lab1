@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Verify your email · Acme Notes</title>
+</head>
+<body>
+<h1>Check your inbox</h1>
+<p>We sent a 6-digit code to your email.</p>
+<form action="/api/session/verify" method="post">
+  <p><label>Code from your email <input name="code" autocomplete="one-time-code" inputmode="numeric" required></label></p>
+  <button type="submit">Verify</button>
+</form>
+</body>
+</html>

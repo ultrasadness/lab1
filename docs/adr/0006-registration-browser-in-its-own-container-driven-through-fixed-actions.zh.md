@@ -33,7 +33,7 @@
 - **填表运行**是一个启动时不带内置工具、不带 MCP、不带 codemode、也没有会话的 Pi 进程。它只看得到已批准的 Walkthrough、Registration 范围内的 Rule 和快照。它唯一的输出是结构化的 `finish` 结果，其原因来自一个固定列表；任何简短备注都以代码块的形式到达 Discord。
 - **普通代码只在以下两条都成立时才按下按钮**：
   - 页面通过 [ADR 0005](./0005-plain-code-submits-a-registration-after-a-page-check.zh.md) 中的页面检查；
-  - 指定的元素可见、可用、位于 Walkthrough 的域名上，并且是包含该页所有已填字段的那个表单唯一的原生提交控件。
+  - 指定的元素可见、可用、位于 Walkthrough 的域名上，并且是包含该页所有已填字段的那个表单唯一的原生提交控件。在同一个 document 里、页面后来已经隐藏的前一步上填的字段不算（在 [在浏览器服务中驱动一个 Registration 会话](https://github.com/ultrasadness/lab1/issues/55) 中决定）。
 
   否则由这个人在一张标出了指定按钮轮廓的截图上点按 Submit。每页一次填表运行，超过 5 页后，这个 Registration 交给这个人。
 - **任何原始字段值都不会到达模型。**
@@ -44,9 +44,10 @@
 - **会话**：每个 Registration 一个隔离的浏览器上下文，只在内存里，从不落盘，也不进 git。一个会话同一时间只有一个驱动者：填表运行、普通代码，或在 Takeover 中的这个人。它在以下时候关闭：
   - 有了任何结果时；
   - 普通代码打开验证链接之后立即关闭；
-  - 24 小时没有进展之后。
+  - 24 小时没有进展之后，也就是 24 小时内没有任何针对这个会话的请求：机器人自己的 24 小时规则会先关掉它，所以这一条兜住的是机器人丢掉的会话；
+  - 其中某个动作耗时超过 60 秒时，因为它的页面卡死了。
 
-  同时最多开着 5 个。
+  同时最多开着 5 个。最后两种关闭在 [在浏览器服务中驱动一个 Registration 会话](https://github.com/ultrasadness/lab1/issues/55) 中决定。
 - **Product 网站**（为 Dossier 而读）通过一个用完即弃的上下文里的只读 `read(url)` 读取，快照脱敏方式相同。每个注册页面在准备它的 Walkthrough 时（在任何 Approval 之前）也是这样读取的。这次读取给 Walkthrough 提供字段、注册 URL 和主机，以及页面加载时就能看到的 Wall。注入的文本仍可能让 Dossier 或 Skip 产生偏差，而它们的引用让这个人能够核查。
 - **容器**：
   - 按 digest 固定的 Playwright arm64 镜像，以非 root 的 `pwuser` 身份在 Xvfb 下有界面地运行 Chrome for Testing，并使用 Playwright 的 seccomp 配置，让 Chromium 的沙箱开启。没有沙箱时，服务拒绝启动。

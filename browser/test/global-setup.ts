@@ -31,6 +31,7 @@ export async function globalSetup() {
   }
   process.env.BROWSER_TEST_SOCKET = socketPath;
   process.env.BROWSER_TEST_CONTAINER = (await compose(env, 'ps', '-q', 'browser')).trim();
+  process.env.BROWSER_TEST_PAGES = (await compose(env, 'ps', '-q', 'pages')).trim();
 }
 
 export async function globalTeardown() {

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Remember · Acme Notes</title>
+</head>
+<body>
+<h1>What this browser remembers</h1>
+<p id="before"></p>
+<p><a href="/session/remember">Visit again</a> <a href="/consent-known">Our cookies</a></p>
+<script>
+  // Shows what the context kept from an earlier visit, then keeps this visit's marker.
+  const marker = new URLSearchParams(location.search).get('marker');
+  document.getElementById('before').textContent = `Remembered: ${localStorage.getItem('marker') ?? 'nothing'}, cookie ${document.cookie || 'none'}`;
+  if (marker) {
+    localStorage.setItem('marker', marker);
+    document.cookie = `marker=${marker}; max-age=86400`;
+  }
+</script>
+</body>
+</html>

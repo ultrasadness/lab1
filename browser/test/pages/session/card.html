@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Start your trial · Cobalt CRM</title>
+</head>
+<body>
+<h1>Start your 14-day trial</h1>
+<form action="/api/session/trial" method="post">
+  <p><label>Full name <input name="name" autocomplete="name"></label></p>
+  <p><label>Card number <input name="card" autocomplete="cc-number" inputmode="numeric"></label></p>
+  <p><label>Expiry month
+    <select name="month" autocomplete="cc-exp-month">
+      <option value="">Month</option>
+      <option value="01">01</option>
+      <option value="02">02</option>
+    </select></label></p>
+  <iframe src="http://checkoutshopper-live.adyen.com/checkoutshopper/securedfields/card.html" title="Iframe for card number" style="width: 400px; height: 44px; border: 0"></iframe>
+  <button type="submit">Start trial</button>
+</form>
+</body>
+</html>

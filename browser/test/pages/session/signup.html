@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign up · Acme Notes</title>
+</head>
+<body>
+<header><a href="/session/pricing" onclick="event.preventDefault(); location.href = '/session/remember?clicked'">Pricing</a> <a href="http://elsewhere.test/about">About us</a> <a href="#plans">Plans</a></header>
+<h1>Create your Acme Notes account</h1>
+<form id="signup" action="/api/session/signup" method="post">
+  <input type="hidden" name="csrf">
+  <p><label>Full name <input name="name" autocomplete="name" required></label></p>
+  <p><label>Email <input type="email" name="email" autocomplete="email" required></label></p>
+  <p><label>Password <input type="password" name="password" autocomplete="new-password" required></label></p>
+  <p><label>Your role
+    <select name="role">
+      <option value="">Choose one</option>
+      <option value="dev">Developer</option>
+      <option value="pm">Product manager</option>
+    </select></label></p>
+  <fieldset id="plans"><legend>Plan</legend>
+    <label><input type="radio" name="plan" value="free"> Free</label>
+    <label><input type="radio" name="plan" value="team"> Team</label>
+  </fieldset>
+  <p id="team" hidden><label>Team name <input name="team"></label></p>
+  <p><label><input type="checkbox" name="tips"> Email me tips</label></p>
+  <p><label><input type="checkbox" name="terms" required> I agree to the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a></label></p>
+  <button type="submit">Create account</button>
+</form>
+<p><label>Referral code <input name="referral" form="signup"></label></p>
+<footer>
+  <form action="/api/session/newsletter" method="post">
+    <label>Newsletter email <input type="email" name="newsletter" value="news@acme.test"></label>
+    <label><input type="checkbox" name="weekly" checked> Weekly</label>
+    <button type="submit">Subscribe</button>
+  </form>
+</footer>
+<script>
+  // Each flag in the query makes the page behave as some real pages do.
+  const flags = new URLSearchParams(location.search);
+  const field = (name) => document.querySelector(`[name="${name}"]`);
+  const button = document.querySelector('#signup button');
+  // A new token on each load, as a server would give. crypto.randomUUID() needs https.
+  field('csrf').value = Math.random().toString(36).slice(2);
+  // Choosing Team asks for the team's name.
+  for (const radio of document.querySelectorAll('[name=plan]')) {
+    radio.addEventListener('change', () => (document.getElementById('team').hidden = radio.value !== 'team'));
+  }
+  if (flags.has('preset-role')) field('role').value = 'dev';
+  if (flags.has('preticked')) field('tips').checked = true;
+  if (flags.has('preticked-terms')) field('terms').checked = true;
+  if (flags.has('referral')) field('referral').value = 'FRIEND10';
+  if (flags.has('strip-plus')) field('email').addEventListener('input', () => setTimeout(() => (field('email').value = field('email').value.replace(/\+[^@]*/, '')), 0));
+  if (flags.has('uppercase-name')) field('name').addEventListener('input', () => setTimeout(() => (field('name').value = field('name').value.toUpperCase()), 0));
+  if (flags.has('two-submits')) button.insertAdjacentHTML('afterend', ' <button type="submit" name="sso">Sign up with SSO</button>');
+  if (flags.has('disable-button')) field('terms').addEventListener('change', () => (button.disabled = true));
+  if (flags.has('hide-button')) field('terms').addEventListener('change', () => (button.style.display = 'none'));
+  if (flags.has('overlay')) {
+    field('terms').addEventListener('change', () => document.body.insertAdjacentHTML('beforeend', '<div style="position: fixed; inset: 0; background: rgb(0 0 0 / 50%)">Please wait</div>'));
+  }
+  if (flags.has('late-field')) setTimeout(() => document.querySelector('#team').insertAdjacentHTML('afterend', '<p><label>Company <input name="company"></label></p>'), 8000);
+</script>
+</body>
+</html>
