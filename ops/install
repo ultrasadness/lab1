@@ -200,8 +200,11 @@ folder "$root/opt/assistant" root:root 755
 if [ ! -x "$node_dir/bin/node" ]; then
   change "download Node $node_version for linux-$arch and check its SHA-256" install_node
 fi
+# A bot already running keeps the Node it started with, so moving the link restarts it, below.
+node_moved=false
 if [ "$(readlink "$root/opt/assistant/node" 2>/dev/null)" != "node-v$node_version-linux-$arch" ]; then
   change "point $root/opt/assistant/node at Node $node_version" ln -sfn "node-v$node_version-linux-$arch" "$root/opt/assistant/node"
+  node_moved=true
 fi
 node=$node_dir/bin/node
 [ -x "$node" ] || node=node
@@ -411,7 +414,7 @@ done < <(sed -n 's/^OnFailure=assistant-alert@\(.*\)\.service$/\1/p' "$files"/op
 if [ ${#waiting[@]} -eq 0 ]; then
   if ! systemctl is-active --quiet assistant.service; then
     change 'start the bot' sh -c 'systemctl reset-failed assistant.service; systemctl start assistant.service'
-  elif $deploy || $units_changed; then
+  elif $deploy || $units_changed || $node_moved; then
     change 'restart the bot' systemctl restart assistant.service
   fi
 fi

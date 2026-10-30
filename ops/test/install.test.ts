@@ -177,6 +177,18 @@ function usable(config: Record<string, any>): void {
   for (const role of ['miner', 'registration']) config.roles[role].providers[0].model = 'openai/gpt-6.1-sol';
 }
 
+/** Installs with a usable config, the Personal database and every token the bot reads, so the bot starts. */
+async function startBot(machine: Vm): Promise<Ran> {
+  machine.configure(usable);
+  machine.land();
+  await install(machine, '--personal-database', 'git@github.com:person/personal-database.git');
+  deployKey(machine);
+  for (const name of ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'healthchecks-ping-bot']) {
+    writeFileSync(join(machine.root, 'etc/assistant/credentials', name), 'dummy', { mode: 0o600 });
+  }
+  return install(machine);
+}
+
 test('a first install puts everything in place, and a second changes nothing', async (t) => {
   const machine = await vm(t);
   // A value not set yet, as the config held before go-live (#85).
@@ -236,18 +248,24 @@ test('a first install puts everything in place, and a second changes nothing', a
   assert.equal(machine.log().slice(log.length).match(/^(systemctl (enable|start|restart|daemon-reload)|docker compose .* up|systemd-tmpfiles|apt-get).*$/gm), null, machine.log().slice(log.length));
 });
 
-test('install replaces the vulnerable dedicated Node link, and another install keeps the patched one', async (t) => {
+test('install replaces the vulnerable dedicated Node link and restarts the running bot onto it, and another install keeps the patched one', async (t) => {
   const machine = await vm(t);
+  const started = await startBot(machine);
+  assert.match(started.out, /^Start the bot\.$/m);
+  // The bot runs on the Node it started with: here 24.22.0, before this one landed.
   const old = `node-v24.22.0-linux-${process.arch === 'arm64' ? 'arm64' : 'x64'}`;
   const link = join(machine.root, 'opt/assistant/node');
   mkdirSync(join(machine.root, 'opt/assistant', old, 'bin'), { recursive: true });
   symlinkSync(process.execPath, join(machine.root, 'opt/assistant', old, 'bin/node'));
+  rmSync(link);
   symlinkSync(old, link);
+  const before = machine.log().length;
 
   const first = await install(machine);
   assert.equal(first.code, 0, first.out);
   assert.match(first.out, /Point .*\/opt\/assistant\/node at Node 24\.22\.2\./);
   assert.equal(readlinkSync(link), NODE_DIR.slice('opt/assistant/'.length));
+  assert.match(machine.log().slice(before), /^systemctl restart assistant\.service$/m);
   assert.ok(existsSync(join(machine.root, 'opt/assistant', old, 'bin/node')), 'the old runtime is left alone');
 
   const second = await install(machine);
@@ -327,14 +345,7 @@ test('a deploy key GitHub refuses leaves the checkout as it was, and says so', a
 
 test('the bot starts once its config and tokens are in place, and --deploy moves it to the landed main', async (t) => {
   const machine = await vm(t);
-  machine.configure(usable);
-  machine.land();
-  await install(machine, '--personal-database', 'git@github.com:person/personal-database.git');
-  deployKey(machine);
-  for (const name of ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'healthchecks-ping-bot']) {
-    writeFileSync(join(machine.root, 'etc/assistant/credentials', name), 'dummy', { mode: 0o600 });
-  }
-  const started = await install(machine);
+  const started = await startBot(machine);
   assert.equal(started.code, 0, started.out);
   assert.match(started.out, /^Start the bot\.$/m);
   assert.doesNotMatch(started.out, /The bot waits on/);

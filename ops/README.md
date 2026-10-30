@@ -38,7 +38,8 @@ Run everything from the main checkout of lab1, on `main`:
 
 `ops/install` puts in place, checking each before it changes it:
 
-- Node 24.22.2 for the bot and the ops scripts, checked against nodejs.org's SHA-256, in `/opt/assistant/node`;
+- Node 24.22.2 for the bot and the ops scripts, checked against nodejs.org's SHA-256, in `/opt/assistant/node`, with
+  a running bot restarted onto it when that link moves;
 - `sqlite3`, for the backup;
 - the `assistant` system user, in no group but its own: no `sudo`, no `docker`, and `/home/ubuntu` closed to it;
 - `/etc/assistant/credentials` and `/var/backups/assistant`, root's alone (mode 700);
