@@ -266,8 +266,14 @@ export class Dossiers {
     const readAt = this.#clock.now();
     const read = await this.#browser.read(launch.website);
     if (!read.ok) return { problem: `its landing page won't load (${read.error})` };
-    // Product Hunt's website is read only through the redirect; one that leads back there is no landing page.
-    if (onRootDomain(read.page.finalHost, 'producthunt.com')) return { problem: 'its website redirect leads back to Product Hunt' };
+    // Product Hunt's website is read only through the redirect; one that leads back there is no landing page. A bot
+    // check there, such as the Cloudflare challenge the VM's browser met on 2026-10-31 (#85), is named instead,
+    // since behind it the redirect may still lead to a landing page.
+    if (onRootDomain(read.page.finalHost, 'producthunt.com')) {
+      const { botCheck } = read.page;
+      if (!botCheck) return { problem: 'its website redirect leads back to Product Hunt' };
+      return { problem: `its website redirect stops at a bot check${botCheck === 'unknown' ? '' : ` (${botCheck})`} on Product Hunt` };
+    }
     const root = rootDomain(read.page.finalHost);
     if (!root) return { problem: 'its landing page has no host' };
     this.#keep(root, launch.website, read.page, readAt);

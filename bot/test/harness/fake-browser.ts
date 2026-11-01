@@ -1,7 +1,8 @@
 // A fake browser service on a Unix socket, answering `read(url)` as the real one does (browser/src/api.ts). Each
 // Launch's website redirect leads to a page set for it, or to a plain landing page of its own on a `.example` site,
-// with a pricing link and a signup link to pages of their own. Tests set pages, redirects and failures per URL, and
-// read which URLs the bot asked for.
+// with a pricing link and a signup link to pages of their own. A page set at the redirect's own URL keeps the read
+// there, as Product Hunt's Cloudflare challenge did on the VM (#85). Tests set pages, redirects and failures per URL,
+// and read which URLs the bot asked for.
 import http from 'node:http';
 import { rmSync } from 'node:fs';
 
@@ -40,6 +41,8 @@ export interface FakePage {
   forms?: FakeForm[];
   botCheck?: string | null;
   paymentFields?: boolean;
+  /** The final document's HTTP status, 200 unless set. */
+  status?: number;
 }
 
 export type FakeReadFailure = { kind: 'load-failed' | 'timeout' | 'download'; message: string };
@@ -104,6 +107,7 @@ export class FakeBrowser {
   #resolve(url: string): string {
     const to = this.#redirects.get(url);
     if (to) return this.#resolve(to);
+    if (this.#pages.has(url)) return url;
     const launch = url.match(REDIRECT);
     return launch ? `https://p${launch[1]}.example/` : url;
   }
@@ -153,7 +157,7 @@ export class FakeBrowser {
       snapshot: { url: page.url, title: page.title, text: page.text, forms: page.forms ?? [], links: page.links ?? [] },
       finalUrl: page.url,
       finalHost: new URL(page.url).hostname,
-      status: 200,
+      status: page.status ?? 200,
       paymentFields: page.paymentFields ?? false,
       botCheck: page.botCheck ?? null,
       cookieBanner: null,

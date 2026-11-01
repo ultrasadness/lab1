@@ -64,6 +64,41 @@ test('a Dossier run that hits its cap doesn’t hold the day’s list, which goe
   assert.match(line.text, /· Dossier · fit 8 · [^→]*$/, 'its line links no post');
 });
 
+test('a website redirect that stops on Product Hunt names why: the bot check there, or Product Hunt itself', async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' }); // 00:30 PDT
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  world.model.onlyDossiers([CODEMIND.postId, GUILDS]);
+  // As on the VM on 2026-10-31 (#85): Cloudflare challenges the redirect itself, so the read stays on it.
+  const challenge = { url: websiteOf(CODEMIND.postId), title: 'Just a moment...', text: 'Performing security verification', status: 403 };
+  world.browser.page({ ...challenge, botCheck: 'Cloudflare challenge' });
+  world.browser.redirect(websiteOf(GUILDS), 'https://www.producthunt.com/');
+  world.browser.page({ url: 'https://www.producthunt.com/', title: 'Product Hunt', text: 'The best new products in tech.' });
+  const notWritten = () => {
+    const day = world.discord.forumPosts(MINER_DAYS_FORUM).find((p) => p.title.startsWith('Mon Oct 12'))!;
+    return day.messages[0]!.text.split('\n').filter((l) => l.startsWith('**Not written:** '));
+  };
+
+  await world.advanceTo('2026-10-12T08:00:00Z'); // 01:00 PDT
+
+  assert.equal(world.model.dossierRuns.length, 0, 'neither gets a Dossier run');
+  assert.deepEqual(world.discord.forumPosts(PRODUCTS_FORUM), []);
+  assert.deepEqual(notWritten(), [
+    '**Not written:** guilds.run, because its website redirect leads back to Product Hunt',
+    '**Not written:** Codemind, because its website redirect stops at a bot check (Cloudflare challenge) on Product Hunt',
+  ]);
+
+  // A bot check the browser service names but the bot doesn't know reads as one with no name.
+  world.browser.page({ ...challenge, botCheck: 'Some new vendor' });
+  await world.advanceTo('2026-10-13T08:00:00Z'); // the next 01:00 PDT start tries both again
+
+  assert.equal(world.model.dossierRuns.length, 0);
+  assert.deepEqual(notWritten(), [
+    '**Not written:** guilds.run, because its website redirect leads back to Product Hunt',
+    '**Not written:** Codemind, because its website redirect stops at a bot check on Product Hunt',
+  ]);
+});
+
 test('a Dossier whose run keeps hitting its cap is tried once a day, never at the 30-minute passes, and stops at the limit, across a restart', async (t) => {
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' }); // 00:30 PDT
   t.after(() => world.stop());
