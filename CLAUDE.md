@@ -24,6 +24,8 @@ it checked, or says that none covers the diff.
 
 The Spec prompt asks for each case the spec's wording reaches that neither the spec nor the questions settled on it
 weighed, as a question for the person rather than a defect, and the Spec report names each one or says it found none.
+It also lets the Spec reviewer try a case it doubts in a scratch copy of the worktree, stopping only the processes it
+started, by pid.
 
 ## Branches
 

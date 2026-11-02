@@ -1,7 +1,8 @@
 // The pre-commit hook's typecheck of the browser service (#89): browser/ is a package of its own, so the hook runs its
 // typecheck too, with its own dependencies, on the staged copy. And its hold on the live store's schema fixtures
 // (#98): a commit may add one, but not change, delete or rename one that main holds. And its shell check (#71 retro):
-// a staged shell script that shellcheck refuses refuses the commit. Each test commits in a throwaway
+// a staged shell script that shellcheck refuses refuses the commit. And its source checks (#96 retro): a staged file
+// that `npm run check:source` refuses refuses the commit. Each test commits in a throwaway
 // repo shaped like this one: a root package and a browser/ package, each with a small typecheck. Their tsc is this
 // repo's own, and browser/'s dependencies hold a package the root's don't, which browser/'s code imports.
 import { test, type TestContext } from 'node:test';
@@ -108,7 +109,13 @@ function repo(t: TestContext): Repo {
   r.write('package.json', JSON.stringify({
     private: true,
     type: 'module',
-    scripts: { typecheck: 'tsc -p .', 'check:docs': 'true', 'check:shell': `node ${CHECK_SHELL}` },
+    scripts: {
+      typecheck: 'tsc -p .',
+      'check:docs': 'true',
+      'check:shell': `node ${CHECK_SHELL}`,
+      // Stands for the real check, whose files this throwaway repo doesn't hold: it refuses one staged file.
+      'check:source': 'test ! -e src/refused-by-a-source-check.ts',
+    },
   }), { stage: true });
   r.write('tsconfig.json', TSCONFIG, { stage: true });
   r.write('src/index.ts', 'export const n: number = 1;\n', { stage: true });
@@ -188,6 +195,16 @@ test('a staged shell script that fails shellcheck refuses the commit, and one fi
 
 const FIXTURE = 'bot/test/fixtures/store-schemas/1.sql';
 const SCHEMA_1 = 'CREATE TABLE launches (post_id TEXT PRIMARY KEY);\n';
+
+test('a staged file a source check refuses refuses the commit, and it runs on the staged copy alone', (t) => {
+  const r = repo(t);
+  // Unstaged, it doesn't count.
+  r.write('src/refused-by-a-source-check.ts', 'export const a = 1;\n');
+  assert.equal(r.commit().ok, true);
+
+  r.write('src/refused-by-a-source-check.ts', 'export const a = 1;\n', { stage: true });
+  assert.match(refused(r), /a source check failed, so the commit is refused/);
+});
 
 test('a commit that changes or deletes a store-schema fixture main holds is refused, naming it', (t) => {
   const r = repo(t);

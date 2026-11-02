@@ -6,8 +6,9 @@
 
 ## Hook
 
-- **pre-commit**：在主 checkout 里，它拒绝 `main` 以外任何分支上的提交；它也拒绝修改、删除或重命名 `main` 里已有的实时存储 schema fixture（`bot/test/fixtures/store-schemas/`，#98）的提交。然后它检查暂存内容的一份副本：每个 package 的类型检查（用这个 package 自己的依赖运行），然后是文档配对检查（`docs/agents/doc-pairs.md`），然后是 shell 检查，即对第一行是 sh 或 bash shebang 的每个文件运行 shellcheck（`npm run check:shell`，`scripts/check-shell.ts`）。任何一项没通过，它就拒绝提交。某个 package 没装依赖，或者没装 shellcheck 时，它拒绝每一次提交，并说明怎么安装。它不运行任何测试：根目录的测试在 #98 里跑了 8 分钟，浏览器服务的测试要构建镜像。
+- **pre-commit**：在主 checkout 里，它拒绝 `main` 以外任何分支上的提交；它也拒绝修改、删除或重命名 `main` 里已有的实时存储 schema fixture（`bot/test/fixtures/store-schemas/`，#98）的提交。然后它检查暂存内容的一份副本：每个 package 的类型检查（用这个 package 自己的依赖运行），然后是文档配对检查（`docs/agents/doc-pairs.md`），然后是 shell 检查，即对第一行是 sh 或 bash shebang 的每个文件运行 shellcheck（`npm run check:shell`，`scripts/check-shell.ts`），然后是源码检查，即那四个把源码当作文本读取、不到一秒就跑完的测试（`npm run check:source`）。任何一项没通过，它就拒绝提交。某个 package 没装依赖，或者没装 shellcheck 时，它拒绝每一次提交，并说明怎么安装。它不运行其他测试：根目录的测试在 #98 里跑了 8 分钟，浏览器服务的测试要构建镜像。
 - **post-checkout**：`git worktree add` 刚建好一个 worktree 时，它在里面为每个 package 运行 `npm ci`，能从 npm 的缓存装就从缓存装，让类型检查有它们的依赖。它是安装依赖，而不是用符号链接接上主 checkout 的 `node_modules`：通过这样的链接运行 `npm ci` 或 `npm uninstall`，会改动主 checkout 自己的依赖。安装失败时，它会说明，worktree 照样建好。
+- **post-merge**：一次合并（包括快进）改动了某个 package 的 `package-lock.json` 时，它为这个 package 运行 `npm ci`，这样 ticket 落地之后，主 checkout 仍然能跑类型检查和测试。#78 改动了这个 lock，到 #96 的复盘时，主 checkout 里仍然没有 `graphql`，它的类型检查和测试都因此失败。安装失败时，它会说明，合并照样有效。
 - **commit-msg**：提交消息里在 GitHub 关闭关键字后面跟着 issue 引用时，比如 `Closes #88`，即使两者之间隔着一个换行或一个空行，它也拒绝这条消息：提交一到 `main`，GitHub 就会关闭这个 issue，而 ticket 要在落地之后手动关闭（`docs/agents/issue-tracker.md` 里的 **Close**）。改为把引用写成 `(#88)`。
 - **pre-push**：它拒绝把 `main` 移到某个提交的 push，除非 GitHub Actions 已经在这个提交上运行过，并且每次运行都通过：GitHub Free 不给私有仓库提供分支保护，所以服务器那边没有什么会拒绝它。这个 hook 通过 `gh` 向 GitHub 查询，所以 `gh` 必须已经登录。
 
@@ -32,7 +33,7 @@ GitHub Actions 在每次 push 和 pull request 时运行两个 workflow，所以
 
 根目录的 `npm test` 运行这些 hook 和检查的测试：
 
-- `scripts/pre-commit.test.ts`、`scripts/post-checkout.test.ts` 和 `scripts/commit-msg.test.ts` 在一个用完即弃的仓库里提交，或者添加一个 worktree。`scripts/pre-push.test.ts` 从这样一个仓库 push，用的是一个需要 `jq` 的假 `gh`。
+- `scripts/pre-commit.test.ts`、`scripts/post-checkout.test.ts` 和 `scripts/commit-msg.test.ts` 在一个用完即弃的仓库里提交、合并，或者添加一个 worktree。`scripts/pre-push.test.ts` 从这样一个仓库 push，用的是一个需要 `jq` 的假 `gh`。
 - `scripts/reply-language.test.ts`、`scripts/note-language.test.ts` 和 `scripts/review-committed.test.ts` 像会话那样运行每个 Claude Code hook，用的是一份用完即弃的会话记录或一个用完即弃的仓库。`scripts/slowest-tests.test.ts` 在一次运行的输出上运行 CI 摘要。
 - `scripts/doc-pairs.test.ts` 在用完即弃的文档对上运行文档配对检查，`scripts/check-shell.test.ts` 在用完即弃的目录上运行 shell 检查。
 - `scripts/bounded-waits.test.ts`：某个 `spawnSync`、`execSync` 或 `execFileSync` 调用自己的参数里没有 `timeout` 时，它就失败：同步的子进程会阻塞事件循环，所以别的定时器都结束不了它（`CODING_STANDARDS.md` 里的 **Every wait has a bound**）。

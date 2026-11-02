@@ -1,9 +1,9 @@
 #!/bin/sh
 # Runs before each commit once `git config core.hooksPath .githooks` turns it on (docs/hooks-and-ci.md). It keeps the
 # main checkout on main, as CLAUDE.md asks, and refuses a commit whose staged files fail the bot's typecheck or the
-# browser service's, leave a doc pair out of step (docs/agents/doc-pairs.md), or hold a shell script that fails the
-# shell check (scripts/check-shell.ts). The browser service's tests build an image, so they are left to CI
-# (.github/workflows/browser.yml).
+# browser service's, leave a doc pair out of step (docs/agents/doc-pairs.md), hold a shell script that fails the
+# shell check (scripts/check-shell.ts), or fail the tests that read the source as text (npm run check:source). The
+# browser service's tests build an image, so they are left to CI (.github/workflows/browser.yml).
 set -eu
 
 # Git runs a hook at the top of the working tree. A linked worktree has a git dir of its own; the main checkout
@@ -80,5 +80,9 @@ if ! (cd "$staged" && npm run --silent check:docs) >&2; then
 fi
 if ! (cd "$staged" && npm run --silent check:shell) >&2; then
   echo "pre-commit: a shell script fails shellcheck, so the commit is refused. Fix what it names above, then commit again." >&2
+  exit 1
+fi
+if ! (cd "$staged" && npm run --silent check:source) >&2; then
+  echo "pre-commit: a source check failed, so the commit is refused. Fix what it names above, then commit again." >&2
   exit 1
 fi

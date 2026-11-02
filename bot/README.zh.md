@@ -34,6 +34,7 @@ npm ci
 npm run typecheck
 npm run check:docs                     # the doc pairs
 npm run check:shell                    # shellcheck over the shell scripts
+npm run check:source                   # the tests that read the source as text
 npm test                               # every test
 node --test bot/test/miner-day.test.ts # one file
 ```

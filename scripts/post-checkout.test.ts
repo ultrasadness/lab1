@@ -1,15 +1,17 @@
 // The post-checkout hook (from the retro on #89): `git worktree add` installs each package's dependencies in the new
 // worktree with npm ci, so the pre-commit hook's typechecks can run there, and links nothing to the main checkout's.
-// Each test adds a worktree to a throwaway repo shaped like this one: a root package and a browser/ package, each
-// depending on a package of its own in the repo (`file:`), so npm ci needs no network.
+// And the post-merge hook (from the retro on #96): a merge that changes a package-lock.json installs that package's
+// dependencies, so landing a ticket leaves the main checkout able to typecheck and test.
+// Each test adds a worktree to, or merges in, a throwaway repo shaped like this one: a root package and a browser/
+// package, each depending on a package of its own in the repo (`file:`), so npm ci needs no network.
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-const HOOK = join(import.meta.dirname, '..', '.githooks', 'post-checkout');
+const HOOKS = join(import.meta.dirname, '..', '.githooks');
 
 interface Repo {
   /** The main checkout's top directory. */
@@ -18,6 +20,8 @@ interface Repo {
   branch(branch: string, files: Record<string, string>): void;
   /** Adds a worktree with `git worktree add`, of a new branch or of `branch`; says what git printed, and where. */
   worktree(branch?: string): { dir: string; ok: boolean; stderr: string };
+  /** Merges `branch` into the main checkout with a fast-forward; says what git printed. */
+  merge(branch: string): { ok: boolean; stderr: string };
   /** Runs git in `dir` with the hooks on, and asserts it succeeded. */
   must(dir: string, ...args: string[]): void;
 }
@@ -48,14 +52,14 @@ function under(dir: string, files: Record<string, string>): Record<string, strin
 }
 
 /**
- * A throwaway repo whose main checkout holds both packages, with no dependencies installed. Its checkouts run the
- * post-checkout hook alone.
+ * A throwaway repo whose main checkout holds both packages, with no dependencies installed. Its checkouts and merges
+ * run the post-checkout and post-merge hooks alone.
  */
 function repo(t: TestContext): Repo {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'post-checkout-')));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, 'hooks'));
-  symlinkSync(HOOK, join(root, 'hooks', 'post-checkout'));
+  for (const hook of ['post-checkout', 'post-merge']) symlinkSync(join(HOOKS, hook), join(root, 'hooks', hook));
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     GIT_CONFIG_GLOBAL: '/dev/null',
@@ -100,6 +104,10 @@ function repo(t: TestContext): Repo {
       const dir = join(root, `worktree-${++worktrees}`);
       const r = git(main, 'worktree', 'add', '-q', dir, ...(branch ? [branch] : ['-b', `ticket-${worktrees}`]));
       return { dir, ok: r.status === 0, stderr: r.stderr };
+    },
+    merge(branch) {
+      const r = git(main, 'merge', '-q', '--ff-only', branch);
+      return { ok: r.status === 0, stderr: r.stderr };
     },
     must,
   };
@@ -167,4 +175,45 @@ test('a clone installs nothing', (t) => {
   r.must(dirname(r.main), 'clone', '-q', r.main, clone);
   assert.equal(existsSync(join(clone, 'package.json')), true);
   assert.equal(existsSync(join(clone, 'node_modules')), false);
+});
+
+test('a fast-forward that changes a package-lock.json installs that package\'s dependencies, and no other\'s', (t) => {
+  const r = repo(t);
+  r.branch('upgrade', under('browser', manifests('browser', ['dep', 'extra'])));
+  const merged = r.merge('upgrade');
+  assert.equal(merged.ok, true, merged.stderr);
+  installed(join(r.main, 'browser'), 'dep', 'extra');
+  assert.equal(existsSync(join(r.main, 'node_modules')), false);
+});
+
+test('a fast-forward that changes the root\'s package-lock.json installs the root\'s dependencies', (t) => {
+  const r = repo(t);
+  r.branch('upgrade', manifests('root', ['dep', 'extra']));
+  const merged = r.merge('upgrade');
+  assert.equal(merged.ok, true, merged.stderr);
+  installed(r.main, 'dep', 'extra');
+  assert.equal(existsSync(join(r.main, 'browser', 'node_modules')), false);
+});
+
+test('a merge that changes no package-lock.json installs nothing', (t) => {
+  const r = repo(t);
+  r.branch('docs', { 'notes.md': 'A note.\n' });
+  const merged = r.merge('docs');
+  assert.equal(merged.ok, true, merged.stderr);
+  assert.equal(existsSync(join(r.main, 'notes.md')), true);
+  assert.equal(existsSync(join(r.main, 'node_modules')), false);
+  assert.equal(existsSync(join(r.main, 'browser', 'node_modules')), false);
+});
+
+test('a failed install after a merge says to run npm ci there again, and the merge stands', (t) => {
+  const r = repo(t);
+  // A package.json naming a dependency its changed package-lock.json doesn't hold, which npm ci refuses.
+  r.branch('out-of-step', {
+    'browser/package-lock.json': manifests('browser', ['dep', 'extra'])['package-lock.json']!,
+    'browser/package.json': JSON.stringify({ name: 'browser', dependencies: { gone: '1.0.0' } }),
+  });
+  const merged = r.merge('out-of-step');
+  assert.equal(merged.ok, true, merged.stderr);
+  assert.ok(merged.stderr.includes(`npm ci failed in ${r.main}/browser, as above`), merged.stderr);
+  assert.ok(readFileSync(join(r.main, 'browser', 'package.json'), 'utf8').includes('gone'), 'the merge stands');
 });

@@ -12,13 +12,18 @@ the scripts) and `browser/`'s (the browser service). In a fresh clone, turn on t
   or renames a schema fixture of the live store that `main` holds (`bot/test/fixtures/store-schemas/`, #98). Then it
   checks a copy of what is staged: each package's typecheck, run with that package's own dependencies, then the
   doc-pair check (`docs/agents/doc-pairs.md`), then the shell check, shellcheck over every file whose first line is a
-  sh or bash shebang (`npm run check:shell`, `scripts/check-shell.ts`). It refuses the commit when one fails. Without
-  a package's dependencies, or without shellcheck, it refuses every commit and says how to install them. It runs no tests: the root's took 8 minutes in
+  sh or bash shebang (`npm run check:shell`, `scripts/check-shell.ts`), then the source checks, the four tests that
+  read the source as text and take under a second (`npm run check:source`). It refuses the commit when one fails. Without
+  a package's dependencies, or without shellcheck, it refuses every commit and says how to install them. It runs no other tests: the root's took 8 minutes in
   #98, and the browser service's build an image.
 - **post-checkout** runs `npm ci` for each package in a worktree that `git worktree add` has just made, from npm's
   cache where it can, so the typechecks have their dependencies. It installs them rather than linking the main
   checkout's `node_modules`: `npm ci` or `npm uninstall` through such a link would change the main checkout's own.
   When an install fails, it says so, and the worktree is made anyway.
+- **post-merge** runs `npm ci` for each package whose `package-lock.json` a merge changed, a fast-forward included, so
+  landing a ticket leaves the main checkout able to typecheck and test. #78 changed the lock, and by the #96 retro the
+  main checkout still lacked `graphql`, which failed its typecheck and its tests. When an install fails, it says so,
+  and the merge stands.
 - **commit-msg** refuses a message with a GitHub closing keyword before an issue reference, such as `Closes #88`,
   even with a line break or a blank line between them: GitHub would close the issue as soon as the commit reaches
   `main`, but a ticket closes by hand once it has landed (**Close** in `docs/agents/issue-tracker.md`). Write the
@@ -68,8 +73,8 @@ bot's result:
 
 The root's `npm test` runs the tests of the hooks and checks:
 
-- `scripts/pre-commit.test.ts`, `scripts/post-checkout.test.ts` and `scripts/commit-msg.test.ts` commit, or add a
-  worktree, in a throwaway repo. `scripts/pre-push.test.ts` pushes from one, with a fake `gh` that needs `jq`.
+- `scripts/pre-commit.test.ts`, `scripts/post-checkout.test.ts` and `scripts/commit-msg.test.ts` commit, merge or add
+  a worktree in a throwaway repo. `scripts/pre-push.test.ts` pushes from one, with a fake `gh` that needs `jq`.
 - `scripts/reply-language.test.ts`, `scripts/note-language.test.ts` and `scripts/review-committed.test.ts` run each
   Claude Code hook as a session would, on a throwaway transcript or repo. `scripts/slowest-tests.test.ts` runs the CI summary on a run's output.
 - `scripts/doc-pairs.test.ts` runs the doc-pair check on throwaway pairs, and `scripts/check-shell.test.ts` the shell

@@ -1,0 +1,18 @@
+#!/bin/sh
+# Runs after each merge, a fast-forward included, once `git config core.hooksPath .githooks` turns it on
+# (docs/hooks-and-ci.md). When a merge changes a package's package-lock.json, it installs that package's dependencies
+# with npm ci, from npm's cache where it can, so landing a ticket leaves the main checkout able to typecheck and test.
+set -eu
+
+# The packages are the pre-commit hook's, as paths from the top. Git runs this at the top of the working tree.
+for package in '' /browser; do
+  lock="${package#/}${package:+/}package-lock.json"
+  [ -f "$lock" ] || continue
+  if git diff --quiet ORIG_HEAD HEAD -- "$lock"; then
+    continue
+  fi
+  # npm's error, if any, is printed above; the merge has already happened.
+  if ! (cd "$PWD$package" && timeout 300 npm ci --prefer-offline --no-audit --no-fund --loglevel=error) >&2; then
+    echo "post-merge: npm ci failed in $PWD$package, as above. Run it there again once that is fixed." >&2
+  fi
+done

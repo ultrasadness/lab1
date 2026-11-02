@@ -128,19 +128,24 @@ A test of the bot asserts on what something outside the bot sees, such as the pe
 the browser, git, healthchecks.io or the model provider, or on a line of the bot's log, in glossary terms. It never
 inspects internal tables or function calls. It may assert on a model request as the provider receives it, never on how
 the bot builds it, and on any log line as the bot writes it to stdout, where `world.logs` takes stdout's place in the
-harness. Only `bot/test/store-schema.test.ts` reads the store's tables, because #98 asks it to.
+harness. Only `bot/test/store-schema.test.ts` reads the store's tables, because #98 asks it to. A test may compare the
+store's files byte for byte to show that nothing wrote to them, as `bot/test/kill.test.ts` does, since that reads
+nothing they hold.
 
 **Why it matters:** a rule a review can't read gets argued again on each ticket. In #42, a review flagged the test of
 Maker comments under #41's wording ("never inspects internal tables, function calls or prompts"), and the test stayed.
 `ff338bd` added three more that read what the fake provider received, and `b03ecbf` tightened one of them. #45's
 Standards reviewer had to be told that asserting on log lines and on model requests was established practice: no doc a
-review reads said so, and #41, which a review doesn't read, still said the opposite about prompts.
+review reads said so, and #41, which a review doesn't read, still said the opposite about prompts. In #96, a Standards
+reviewer read `kill.test.ts`'s comparison of the store's files as a way round this rule, since it passes
+`scripts/bot-test-store.test.ts` only by not naming `node:sqlite`. It shows the ticket's "no store write" and reads no
+table, and `9d595f0` landed it.
 
 **In a diff, look for:**
 
 - a test that opens the live store's SQLite file: `npm test` fails a file under `bot/test/` that names `node:sqlite`
   (`scripts/bot-test-store.test.ts`), so look for a file added to that check's list, a listed test that starts reading
-  tables, or a way round it, such as the `sqlite3` command;
+  tables, or a way round it, such as the `sqlite3` command or parsing the file's bytes;
 - a test that rebuilds a prompt the way the bot does instead of reading the request the fake provider received;
 - a log line added only so a test can read internal state: the sign to narrow this rule to the events `bot/README.md`
   documents, the fallback the person named on #92;
