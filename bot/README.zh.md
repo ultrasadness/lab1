@@ -42,9 +42,11 @@ node --test bot/test/miner-day.test.ts # one file
 
 每次提交和 push 要过的 hook 和 CI，以及在新的克隆里怎么打开 hook，见 `docs/hooks-and-ci.md`。`npm test` 也运行 `ops/test/` 里运维脚本的测试（`ops/README.md`）。
 
-机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在进程内运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt、浏览器服务、模型 provider 和 healthchecks.io 服务器、一个存放 Personal database 的假 GitHub，以及一个由测试拨动的时钟。假的 GitHub 是一个本地的裸仓库，git 通过代替 ssh 的 `bot/test/harness/fake-ssh.ts` 访问它。它只放行 deploy key，可以拒绝推送，也接受这个人自己的提交和合并。只有 harness 从 `bot/src` 导入：`bot/test/` 下其他任何文件的导入只要写出那里的某个文件，`npm test` 都会失败（`scripts/bot-test-imports.test.ts`）。`bot/test/store-schema.test.ts` 还会用 `node:sqlite` 直接读取实时存储的文件，这是 #98 对它的要求；`bot/test/health-ping.test.ts` 也通过它占住实时存储的写锁，以此模拟一个写不进的实时存储。`bot/test/` 下其他任何文件只要写出 `node:sqlite`，`npm test` 都会失败（`scripts/bot-test-store.test.ts`）。测试还可以断言什么，见 `CODING_STANDARDS.md` 的 **What a test asserts on**。
+机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在它独占的 worker 线程里运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt、浏览器服务、模型 provider 和 healthchecks.io 服务器、一个存放 Personal database 的假 GitHub，以及一个由测试拨动的时钟。假的 GitHub 是一个本地的裸仓库，git 通过代替 ssh 的 `bot/test/harness/fake-ssh.ts` 访问它。它只放行 deploy key，可以拒绝或扣住推送，也接受这个人自己的提交和合并。只有 harness 从 `bot/src` 导入：`bot/test/` 下其他任何文件的导入只要写出那里的某个文件，`npm test` 都会失败（`scripts/bot-test-imports.test.ts`）。`bot/test/store-schema.test.ts` 还会用 `node:sqlite` 直接读取实时存储的文件，这是 #98 对它的要求；`bot/test/health-ping.test.ts` 也通过它占住实时存储的写锁，以此模拟一个写不进的实时存储。`bot/test/` 下其他任何文件只要写出 `node:sqlite`，`npm test` 都会失败（`scripts/bot-test-store.test.ts`）。测试还可以断言什么，见 `CODING_STANDARDS.md` 的 **What a test asserts on**。
 
 时钟的一次跳跃（`advanceTo`）只在新的时间点把过期的定时器触发一次，和真实时钟一样。要测试重复的定时器，用 `stepThrough` 逐一走过它的每次触发。
+
+`world.restart()` 和 `world.outage()` 走机器人自己的停止流程，它会等每个任务和每项普通代码工作做完，所以用它们，测试没法让机器人停在同一项工作的两步之间。`world.kill()` 可以。它终止机器人的线程，并杀掉机器人启动的每个运行和 git 命令，机器人的停止流程不会运行。旧的机器人再也不会有任何动作，不管假服务怎么回答、时钟怎么走；之后 `restart` 或 `outage` 在同一个实时存储、数据目录和 Personal database checkout 上启动一个新的机器人。测试通过外部世界选择停在哪里，绝不伸进 `bot/src`：它让一个假服务收下请求且永不回答，用 `world.model.hold` 或 `world.git.holdPushes`，等到假服务收到请求，再杀掉机器人。被扣住的请求在关掉扣留之后仍然被扣住，所以新机器人的请求会得到回答。旁边没有对外调用的位置，用这种办法到不了。杀掉和 VM 上的崩溃有两点不同。实时存储的句柄会干净地关闭，所以没有测试走到 SQLite 对预写日志（write-ahead log）的恢复，而下一个机器人读到的提交都一样。另外，机器人启动的东西会立刻结束，而在 VM 上，git 命令先收到 systemd 发的 SIGTERM，容器里的 Pi 则通过 stdin 被告知结束，并且再也连不上模型（`ops/README.md`）。机器人为什么运行在线程里，见 #96。
 
 假的浏览器服务在一个 Unix 套接字上回答 `read(url)` 和 `redirect(url)`。每个 Launch 的网站跳转都通向 `.example` 上一个属于它自己的普通站点，带一个价格页和一个注册页，除非测试从 `bot/test/harness/dossier-fixtures.ts` 提供某个真实 Product 的页面。HEAD 回答 403，除非测试设定了它的回答。
 

@@ -1,13 +1,14 @@
-// Seam 1: the Assistant's outside world. Starts the real bot, with real Pi and our extension as local processes,
-// against fakes for Discord, Product Hunt, the browser service, the model provider and healthchecks.io, on a clock the
-// test moves.
+// Seam 1: the Assistant's outside world. Starts the real bot in a thread of its own, with real Pi and our extension as
+// local processes, against fakes for Discord, Product Hunt, the browser service, the model provider and healthchecks.io,
+// on a clock the test moves.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startAssistant, type Assistant, type LogEntry } from '../../src/assistant.ts';
+import type { Assistant, LogEntry } from '../../src/assistant.ts';
 import type { Config } from '../../src/config.ts';
 import type { Migration } from '../../src/store.ts';
+import { botProcessesRunning, BotThread } from './bot-thread.ts';
 import { FakeBrowser } from './fake-browser.ts';
 import { FakeClock } from './fake-clock.ts';
 import { FakeDiscord } from './fake-discord.ts';
@@ -42,6 +43,9 @@ export const PROFILE = readFileSync(new URL('../fixtures/profile.md', import.met
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 
+/** The worlds now up in this test's process. */
+let worldsUp = 0;
+
 export interface World {
   clock: FakeClock;
   discord: FakeDiscord;
@@ -53,9 +57,11 @@ export interface World {
   healthchecks: FakeHealthchecks;
   /** Where the bot keeps its live store and raw inputs on the VM. */
   dataDir: string;
-  /** Every line the bot logged, across restarts. */
-  logs: LogEntry[];
-  assistant: Assistant;
+  /** The bot's checkout of the Personal database. */
+  checkout: string;
+  /** Every line the bot logged, across restarts. Read it through the world each time, to have the latest. */
+  readonly logs: LogEntry[];
+  readonly assistant: Assistant;
   /** Moves the clock, then waits for the background work that starts. */
   advanceTo(when: string): Promise<void>;
   /**
@@ -70,6 +76,13 @@ export interface World {
    * config changed by `upgrade` if one is given, as `ops/upgrade` would.
    */
   outage(until: string, upgrade?: (config: Config) => void): Promise<void>;
+  /**
+   * Ends the bot where it stands, with no stop, as a crash does, and each run and git command it started. It never acts
+   * again, whatever a fake answers or the clock does. No bot is up until `restart` or `outage` starts a fresh one.
+   */
+  kill(): Promise<void>;
+  /** How many runs and git commands the bot started are still running, with what they started. */
+  processesRunning(): number;
   stop(): Promise<void>;
 }
 
@@ -174,20 +187,30 @@ export async function startWorld(options: {
   options.configure?.(config);
 
   const logs: LogEntry[] = [];
-  const start = () =>
-    startAssistant({ config, credentialsDir: credentials, clock, log: (entry) => logs.push(entry), migrations: options.migrations });
+  const start = async () => {
+    const started = await BotThread.start({
+      config,
+      credentialsDir: credentials,
+      now: clock.now().toISOString(),
+      migrations: options.migrations,
+      logTo: logs,
+    });
+    clock.onMove = (when) => started.moveClock(when);
+    return started;
+  };
   const close = async () => {
     await Promise.all([discord.close(), productHunt.close(), browser.close(), model.close(), healthchecks.close()]);
     rmSync(dir, { recursive: true, force: true });
   };
-  let assistant: Assistant;
+  let bot: BotThread;
   try {
-    assistant = await start();
+    bot = await start();
   } catch (error) {
     await close();
     throw error;
   }
 
+  worldsUp += 1;
   const world: World = {
     clock,
     discord,
@@ -197,11 +220,17 @@ export async function startWorld(options: {
     git,
     healthchecks,
     dataDir,
-    logs,
-    assistant,
+    checkout: personalDatabase,
+    get logs() {
+      bot.takeLogs();
+      return logs;
+    },
+    get assistant() {
+      return bot;
+    },
     async advanceTo(when) {
       clock.advanceTo(when);
-      await world.assistant.whenIdle();
+      await bot.whenIdle();
     },
     async stepThrough(until, everyMinutes) {
       if (!(everyMinutes > 0)) throw new Error(`Can't step through time every ${everyMinutes} minutes`);
@@ -213,19 +242,26 @@ export async function startWorld(options: {
       await world.advanceTo(until);
     },
     async restart() {
-      await world.assistant.stop();
-      world.assistant = await start();
-      await world.assistant.whenIdle();
+      await bot.stop();
+      bot = await start();
+      await bot.whenIdle();
     },
     async outage(until, upgrade) {
-      await world.assistant.stop();
+      await bot.stop();
       clock.advanceTo(until);
       upgrade?.(config);
-      world.assistant = await start();
-      await world.assistant.whenIdle();
+      bot = await start();
+      await bot.whenIdle();
     },
+    async kill() {
+      // A kill ends every process the test's process has started as a bot would, so a second world's would go with it.
+      if (worldsUp > 1) throw new Error(`Can't kill a bot with ${worldsUp} worlds up in one test's process`);
+      await bot.kill();
+    },
+    processesRunning: botProcessesRunning,
     async stop() {
-      await world.assistant.stop();
+      await bot.stop();
+      worldsUp -= 1;
       await close();
     },
   };

@@ -55,10 +55,10 @@ of the test files, as CI does.
 The hooks and CI that check each commit and push, and how to turn the hooks on in a fresh clone, are in
 `docs/hooks-and-ci.md`. `npm test` also runs the ops scripts' tests, in `ops/test/` (`ops/README.md`).
 
-The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in-process, with real Pi and our extension
-as local processes, against fake Discord, Product Hunt, browser service, model provider and healthchecks.io servers, a
-fake GitHub holding the Personal database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
-`bot/test/harness/fake-ssh.ts` in place of ssh. It lets in only the deploy key, can refuse pushes, and takes the
+The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in a worker thread of its own, with real Pi
+and our extension as local processes, against fake Discord, Product Hunt, browser service, model provider and
+healthchecks.io servers, a fake GitHub holding the Personal database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
+`bot/test/harness/fake-ssh.ts` in place of ssh. It lets in only the deploy key, can refuse or hold pushes, and takes the
 person's own commits and merges. Only the harness imports from `bot/src`: `npm test` fails any other file under
 `bot/test/` whose import names a file there (`scripts/bot-test-imports.test.ts`). `bot/test/store-schema.test.ts` also reads the
 live store's file with `node:sqlite`, as #98 asks of it, and `bot/test/health-ping.test.ts` holds the store's write
@@ -68,6 +68,20 @@ lock through it, to show a store that can't take a write. `npm test` fails any o
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.
+
+`world.restart()` and `world.outage()` go through the bot's own stop, which waits for every job and piece of
+plain-code work to finish, so no test can stop the bot between two steps of one piece of work with them. `world.kill()`
+can. It terminates the bot's thread and kills each run and git command the bot started, and the bot's stop never runs.
+The old bot never acts again, whatever a fake answers
+or the clock does, and `restart` or `outage` then starts a fresh one on the same live store, data dir and Personal
+database checkout. A test chooses the point through the outside world, never by reaching into `bot/src`: it has a fake
+take a request and never answer, with `world.model.hold` or `world.git.holdPushes`, waits until the fake has it, and
+kills the bot. A request held stays held once the hold is off, so the fresh bot's requests get answered. A point with
+no outside call beside it can't be reached this way. A kill differs from a crash on the VM in two ways. The store's
+handle closes cleanly, so no test exercises SQLite's recovery of its write-ahead log, and the next bot reads the same
+commits either way. And what the bot started ends at once, where on the VM a git command gets SIGTERM first, from
+systemd, and Pi, in its container, is told to end through its stdin and can no longer reach a model
+(`ops/README.md`). #96 says why the bot runs in a thread.
 
 The fake browser service answers `read(url)` and `redirect(url)` on a Unix socket. Each Launch's website redirect leads
 to a plain site of its own on `.example`, with a pricing page and a signup page, unless a test serves a real Product's

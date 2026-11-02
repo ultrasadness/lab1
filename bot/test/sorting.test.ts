@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { INTEREST_SCOPE, MINER_DAYS_FORUM, NEEDS_YOU, PERSON, type World } from './harness/world.ts';
 import { opensJudgingRun, opensRun, said, sorted } from './harness/fake-model.ts';
 import { fixtureDay } from './harness/fake-product-hunt.ts';
-import { correct, dayPosted, lineOf, rejudges } from './harness/miner-day.ts';
+import { correct, dayPosted, lineOf, rejudges, until } from './harness/miner-day.ts';
 import { EPHEMERAL, popupOf, updateOf, type InteractionReply, type SeenMessage } from './harness/fake-discord.ts';
 
 const ph = (slug: string) => `https://www.producthunt.com/posts/${slug}`;
@@ -487,6 +487,60 @@ test('a kept Rule whose card Discord can’t edit yet is shown in git at once, a
   await world.restart();
   assert.match(world.discord.cards(NEEDS_YOU)[0]!.text, /^✓ Rule kept · \*\*Waitlist isn't open signup\*\* · Miner · /);
   assert.deepEqual(world.git.subjects('main').filter((s) => s.startsWith('Rule kept')), [`Rule kept: ${WAITLIST.name} (Miner)`], 'kept once');
+});
+
+test('a Keep the bot is killed in, once its Rule file is queued, is done at the next start: one commit, and nothing says Not kept', async (t) => {
+  const { world, card } = await ruleProposed(t);
+  const path = 'rules/miner/waitlist-isnt-open-signup.md';
+  // GitHub takes the push of the Rule's commit and never answers, so the bot stands between queuing the file and
+  // shrinking the card.
+  world.git.holdPushes = true;
+
+  await tapCard(world, card, 'Keep');
+  await until(() => world.git.connections().some((c) => c.held));
+  world.git.holdPushes = false;
+  await world.kill();
+
+  assert.equal(world.git.file(path), undefined, 'GitHub doesn’t hold the Rule yet');
+  assert.ok(world.discord.cards(NEEDS_YOU)[0]!.text.endsWith('\n-# Keeping…'), 'the card still says it is being kept');
+
+  await world.restart();
+
+  assert.ok(world.git.file(path)!.includes(WAITLIST.statement), 'GitHub holds the Rule');
+  assert.deepEqual(world.git.subjects('main').filter((s) => s.startsWith('Rule kept')), [`Rule kept: ${WAITLIST.name} (Miner)`], 'in one commit');
+  const [shrunk, ...others] = world.discord.cards(NEEDS_YOU);
+  assert.match(shrunk!.text, /^✓ Rule kept · \*\*Waitlist isn't open signup\*\* · Miner · /);
+  assert.deepEqual(others, []);
+  assert.deepEqual(world.logs.filter((l) => l.event === 'proposal.not-kept'), [], 'nothing says Not kept');
+  assert.ok(!world.git.file('days/2026-10-12.md')!.includes('Not kept'));
+  assert.deepEqual(world.discord.refused, []);
+});
+
+test('a proposal’s card Discord refuses outright goes out at the Corrections’ next try, once', async (t) => {
+  const world = await dayPosted(t);
+  await world.advanceTo('2026-10-12T16:15:00Z'); // 09:15 PDT
+  rejudges(world, ANCHER, { fit: 4, notAProduct: false, reason: 'knowledge workspace you can only join a waitlist for' });
+  world.model.sort = () => sorted('rule', { rule: { ...WAITLIST, scope: 'miner', amends: false } });
+  world.discord.refuseNextMessage(NEEDS_YOU);
+
+  await correct(world, 'Ancher 2.0', 'You can only join a waitlist for it. A waitlist is no open signup, so it is further off.');
+  await world.assistant.whenIdle();
+
+  assert.deepEqual(world.discord.refused.map((r) => r.path), [`/channels/${NEEDS_YOU}/messages`], 'Discord refused the card');
+  assert.deepEqual(world.discord.cards(NEEDS_YOU), []);
+  assert.ok(world.logs.some((l) => l.event === 'correction.unsorted'), 'the sort’s work is left to do');
+
+  await world.advanceTo('2026-10-12T16:45:00Z'); // the Corrections' next try, 30 minutes on
+
+  const [card, ...others] = world.discord.cards(NEEDS_YOU);
+  assert.ok(card!.text.includes(WAITLIST.statement), 'the card went out');
+  assert.deepEqual(others, []);
+  assert.equal(world.model.sortingRuns.length, 1, 'from the sort already made');
+
+  await world.advanceTo('2026-10-12T17:15:00Z');
+  await world.restart();
+  assert.equal(world.discord.cards(NEEDS_YOU).length, 1, 'once');
+  assert.equal(world.discord.refused.length, 1);
 });
 
 test('an Interest scope change too long to show on one card is turned back, and the Correction stays fix only', async (t) => {

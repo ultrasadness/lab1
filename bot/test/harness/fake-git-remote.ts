@@ -1,5 +1,6 @@
 // A fake GitHub holding the person's Personal database repo: a local bare repo that git reaches through `fake-ssh.ts`.
-// Tests read what GitHub holds, have it refuse pushes, and commit and merge on it as the person would from GitHub.
+// Tests read what GitHub holds, have it refuse or hold pushes, and commit and merge on it as the person would from
+// GitHub.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -21,12 +22,16 @@ export interface FakeSshConnection {
   /** Whether the connection came with the deploy key. */
   deployKey: boolean;
   refused: boolean;
+  /** Whether GitHub took the connection and never answered it. */
+  held: boolean;
 }
 
 export const STATE_FILE = 'state.json';
 export const CONNECTIONS_FILE = 'connections.jsonl';
 /** While this file is in the state dir, GitHub refuses every push. */
 export const REFUSE_PUSHES_FILE = 'refuse-pushes';
+/** While this file is in the state dir, GitHub takes every connection for a push and never answers. */
+export const HOLD_PUSHES_FILE = 'hold-pushes';
 
 export class FakeGitRemote {
   /** The repo's URL, as the bot's checkout names its origin. */
@@ -108,6 +113,17 @@ export class FakeGitRemote {
   set refusePushes(refuse: boolean) {
     const flag = join(this.#state, REFUSE_PUSHES_FILE);
     if (refuse) writeFileSync(flag, '');
+    else rmSync(flag, { force: true });
+  }
+
+  /**
+   * While true, GitHub takes each connection for a push and never answers it, before any of the push arrives. This is a
+   * test's way to stop the bot at a push, as `FakeModelProvider.hold` is at a model request, and no trial on GitHub stands
+   * behind it. A push held stays held once this is false again, so a test can let the next ones through.
+   */
+  set holdPushes(hold: boolean) {
+    const flag = join(this.#state, HOLD_PUSHES_FILE);
+    if (hold) writeFileSync(flag, '');
     else rmSync(flag, { force: true });
   }
 

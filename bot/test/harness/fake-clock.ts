@@ -9,6 +9,8 @@ interface Timer {
 export class FakeClock implements Clock {
   #now: number;
   #timers = new Set<Timer>();
+  /** Called after each move, with the new time. */
+  onMove: (when: string) => void = () => {};
 
   constructor(start: string) {
     this.#now = Date.parse(start);
@@ -34,5 +36,6 @@ export class FakeClock implements Clock {
       this.#timers.delete(timer);
       timer.fn();
     }
+    this.onMove(when);
   }
 }

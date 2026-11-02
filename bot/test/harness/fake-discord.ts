@@ -143,6 +143,8 @@ export class FakeDiscord {
   readonly applicationId = '300000000000000001';
   readonly botUserId = '300000000000000002';
   readonly guildId = '400000000000000001';
+  /** Every REST call the bot made, as its method and path, oldest first. */
+  readonly calls: string[] = [];
   /** Every IDENTIFY the bot sent, with its intents. */
   readonly identifies: { intents: number }[] = [];
   /** Requests Discord refused, with the reason it gave. */
@@ -168,6 +170,8 @@ export class FakeDiscord {
   /** The radio groups in each pop-up the bot opened, by the pop-up's custom_id, whose submissions carry them as such. */
   #radios = new Map<string, Set<string>>();
   #lost: { kind: 'post' | 'message'; remaining: number; forumId: string | undefined }[] = [];
+  /** The text channels whose next message Discord refuses. */
+  #refusingNext = new Set<string>();
   #gatewayCut = false;
   #resumes = 0;
   #gatewayRefusals = 0;
@@ -248,6 +252,15 @@ export class FakeDiscord {
    */
   loseReply(kind: 'post' | 'message', nth = 1, forumId?: string): void {
     this.#lost.push({ kind, remaining: nth, forumId });
+  }
+
+  /**
+   * Discord refuses the next message sent to this text channel outright, with the 400 this fake answers any message it
+   * refuses, so it surely doesn't take it. #29 saw real Discord refuse a message over its limits, though not which 4xx;
+   * the bot takes any 4xx alike (`refused` in `bot/src/discord/rest.ts`).
+   */
+  refuseNextMessage(channelId: string): void {
+    this.#refusingNext.add(channelId);
   }
 
   /** Archives a post, as a forum does once it has been inactive for its auto-archive time. */
@@ -444,6 +457,7 @@ export class FakeDiscord {
     let raw = '';
     for await (const chunk of req) raw += chunk;
     const path = (req.url ?? '').replace(/^\/api\/v10/, '');
+    this.calls.push(`${req.method} ${path}`);
     const reply = (status: number, body?: unknown) => {
       res.writeHead(status, { 'content-type': 'application/json' });
       res.end(body === undefined ? undefined : JSON.stringify(body));
@@ -588,6 +602,7 @@ export class FakeDiscord {
       const body = JSON.parse(raw) as MessagePayload;
       const problem = this.#cardChannels.has(match[1]!) ? checkMessage(body) : checkPlainMessage(body);
       if (problem) return refuse(problem);
+      if (this.#refusingNext.delete(match[1]!)) return refuse('the test has Discord refuse this message');
       const id = this.#id();
       this.#textChannels.get(match[1]!)!.push({ id, channelId: match[1]!, payload: body });
       if (this.#replyLost('message', match[1]!)) return void res.socket?.destroy();
