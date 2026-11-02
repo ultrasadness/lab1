@@ -57,7 +57,9 @@ bot's result:
   tests. The tests run in three shards, each a job of its own (`TEST_SHARD`, which `npm test` passes to `node --test`
   as `--test-shard`), and the first job runs the typecheck, the doc-pair check and the shell check too. In #53 the one job took 11.5 of its
   15 minutes. Each job's summary lists its slowest tests and its total (`scripts/slowest-tests.ts`), so a test nearing
-  its 60 seconds, or a shard its 15 minutes, shows before it fails.
+  its 60 seconds, or a shard its 15 minutes, shows before it fails. A full `npm test` on the VM took 9.4 minutes in #92,
+  close to the 10 minutes a session's foreground command gets. A session runs it in the background, and for a diff of
+  docs and one check's test, runs that test and leaves the rest to the branch's CI.
 - **Browser** (`.github/workflows/browser.yml`): `npm ci`, the typecheck and the tests in `browser/`. The tests build
   the image and start it through Docker Compose. The runner is amd64, so they test the pinned digest's amd64 image,
   where the VM runs its arm64 one.

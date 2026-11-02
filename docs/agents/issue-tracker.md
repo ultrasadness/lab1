@@ -10,6 +10,14 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
   opens with a `## Parent` section naming that issue, and is linked as its sub-issue, so that **Read an issue** on the
   ticket prints the parent:
   `gh api --method POST repos/{owner}/{repo}/issues/<parent>/sub_issues -F sub_issue_id="$(gh api repos/{owner}/{repo}/issues/<child> --jq .id)"`.
+- **A change to a decision goes where it is checked:** a rule a review checks to `CODING_STANDARDS.md`, a design decision
+  to a new ADR under `docs/adr/`, and new behaviour to a ticket and its tests. #41 stays as the plan of 2026-10-17, so a
+  ticket's criteria name one of those three. The person settled this on #92 on 2026-10-21, and it stayed on #92 alone:
+  #101, opened on 2026-11-01, asked to amend #41 first, and #41 was amended.
+- **A ticket that writes a rule** tries it on what the repo holds, and names each case it reaches. #92's rule, on what a
+  test asserts on, was tried on the twelve tests it named. A grep of `bot/test` found it also reached healthchecks.io's
+  pings, the raw input files and whether a run's processes are alive, and the person had to settle those in the middle
+  of the work.
 - **A ticket that settles a question by trying it** says what to build for each result the trial can give, not only
   the expected ones. #91's criteria covered GitHub closing an issue on one of two split forms, or on neither. It closed
   on both, and two of the criteria then asked for opposite things.

@@ -5,7 +5,9 @@ whatever a check can catch belongs in the typecheck, the tests or `npm run check
 
 Each **Why it matters** tells what happened, in the past tense, and names the commit that settled it, as in
 "`ff338bd` made stopping signal the run's whole process group": a later change to that code adds a story of its own
-rather than making this one false.
+rather than making this one false. A story is checked against the commits it names, with `git log -S` on the test or
+line it's about, as well as against the ticket that tells it. #92's ticket said `b03ecbf` kept four prompt tests, where
+`ff338bd` had added three of them and `b03ecbf` tightened one, and only a reviewer told to check it found that.
 
 ## Every wait has a bound
 
@@ -248,7 +250,8 @@ A diff that adds or widens a check, a hook or a rule that refuses input shows wh
 already holds: every commit message in the history for a commit-msg hook, every doc for a doc check, every file for a
 code check. Each refusal there is either a real fault, which the diff fixes too where it can, or a false positive the
 check is narrowed to let through. When telling them apart turns on how another system behaves, such as what makes
-GitHub close an issue, the diff tries that system before it narrows the check.
+GitHub close an issue, the diff tries that system before it narrows the check. A new standard in this file is such a
+rule: the diff shows what it says about each case it reaches.
 
 **Why it matters:** a check's tests hold the cases its author thought of, and the repo holds the ones nobody did. In
 #90, the first commit-msg hook read a closing keyword that ends one line with an issue reference that opens the next,
@@ -257,10 +260,13 @@ opens with `#76's`. A spec reviewer found it only by running the hook over all 5
 false positive without trying GitHub, and `4b2a9b3` landed the hook reading one line at a time. #91 then tried GitHub,
 which closed an issue across a line break and across a blank line alike, so 7310714 would have closed #76 had #76
 still been open. `938e307` made the hook read across lines again, with 7310714's message among those its tests
-refuse.
+refuse. In #92, a standard on what a test asserts on was tried on the twelve tests its ticket named. A grep of `bot/test`
+found others it reached, such as the tests of healthchecks.io's pings, and the person made its list an open one before
+`ad0a5c5` landed it.
 
 **In a diff, look for:**
 
+- a new standard in this file: search the repo for what it reaches, and read each case it would flag;
 - a new or widened hook, check script or enforced rule: run it over the history, docs or code it applies to, and
   read each refusal;
 - a pattern wider than the spec asked for (spanning lines, an optional part, a looser boundary), since the cases the
