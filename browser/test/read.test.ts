@@ -229,3 +229,33 @@ test('a page that never lets go times out at the read limit, and reads go on', a
 
   assert.equal((await browser().read('http://acme.test/signup')).ok, true);
 });
+
+test('a HEAD says where a redirect points, and follows nothing', async () => {
+  const pointing = await browser().redirect('http://acme.test/register');
+  assert.deepEqual(pointing, {
+    ok: true,
+    redirect: { status: 302, location: 'http://accounts.authvendor.test/sign-up?redirect_url=http%3A%2F%2Facme.test%2Fwelcome' },
+  });
+
+  const plain = await browser().redirect('http://acme.test/signup');
+  assert.deepEqual(plain, { ok: true, redirect: { status: 200, location: null } });
+});
+
+test("a HEAD that can't be sent is a failure, and an address that isn't plain http or https is refused", async () => {
+  const unreachable = await browser().redirect('http://no-such-host.test/');
+  assert.equal(unreachable.ok, false);
+  assert.equal(!unreachable.ok && unreachable.error.kind, 'load-failed');
+
+  const refused = await browser().redirect('file:///etc/passwd');
+  assert.equal(!refused.ok && refused.error.kind, 'bad-url');
+});
+
+test("a HEAD's relative Location comes back absolute, and one that isn't plain http or https comes back as none", async () => {
+  assert.deepEqual(await browser().redirect('http://acme.test/redirect-relative'), { ok: true, redirect: { status: 302, location: 'http://acme.test/signup' } });
+  assert.deepEqual(await browser().redirect('http://acme.test/redirect-file'), { ok: true, redirect: { status: 302, location: null } });
+});
+
+test('a HEAD with no answer ends at its limit', async () => {
+  const silent = await browser().redirect('http://acme.test/no-answer');
+  assert.equal(!silent.ok && silent.error.kind, 'timeout');
+});

@@ -19,7 +19,7 @@ the VM as its own user (`ops/README.md`), and #85 gives it its healthchecks.io p
 | `bot/src/rules/` | Rules: each run's Rule files, its prompt's Rules section and the Rule budget; a Correction's sorting run; and the cards of proposed Rules and Interest scope changes, with Keep, Edit and Discard |
 | `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, the Product's folder in the Personal database, and the tries at one that can't be written |
 | `bot/src/walkthrough/` | Walkthroughs: the read of the signup page, its run's prompt and record, the card in `#needs-you` and its copy in the Product's post, Edit, Correct, Dismiss, the 14-day lapse and Prepare again, the Approval that starts the Registration, where the Product stands, and `registration.md` |
-| `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)` over its Unix socket, and the root domain a Product is keyed by |
+| `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)` and `redirect(url)` over its Unix socket, and the root domain a Product is keyed by |
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
 | `bot/src/needs-you.ts` | Cards in the `#needs-you` text channel, each mentioning the person |
@@ -67,9 +67,9 @@ lock through it, to show a store that can't take a write.
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.
 
-The fake browser service answers `read(url)` on a Unix socket. Each Launch's website redirect leads to a plain site of
-its own on `.example`, with a pricing page and a signup page, unless a test serves a real Product's pages from
-`bot/test/harness/dossier-fixtures.ts`.
+The fake browser service answers `read(url)` and `redirect(url)` on a Unix socket. Each Launch's website redirect leads
+to a plain site of its own on `.example`, with a pricing page and a signup page, unless a test serves a real Product's
+pages from `bot/test/harness/dossier-fixtures.ts`. A HEAD answers 403 unless a test sets its answer.
 
 Each Pi run takes about half a second of CPU, and a Miner day makes one for each of its Dossiers beside its judging
 runs, and, as the harness starts the bot with Walkthroughs on, one more for each open or waitlisted Product's
@@ -161,7 +161,10 @@ finds a tag by its name, so only the names matter, and for now applies *no accou
 Walkthrough waits on the person; *Registering*, or *handed off*, once one is approved; and *Skipped* to the post of a
 Dossier a Correction withdraws. A Dossier reads its Product's pages through the browser service's socket at
 `browser.socketPath` (`browser/README.md`), and each read is kept for 90 days under `pages/`, beside the other raw
-inputs.
+inputs. When a read of its Launch's website redirect stops at a bot check on Product Hunt, a HEAD of that redirect may
+give the landing page's address, which logs `dossier.redirect-head`. One that doesn't logs `dossier.redirect-unread` with
+what it answered, and the try ends naming the bot check: lines of it on every Launch mean Product Hunt has closed this
+route, which #102 waits on.
 
 A Dossier that can't be written doesn't hold its day's list (settled by the person on #100). The list goes out once each
 of its Dossiers is posted or has failed in that pass, and its summary names each one not written, with why. A try fails

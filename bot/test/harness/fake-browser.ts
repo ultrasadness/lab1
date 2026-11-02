@@ -1,8 +1,9 @@
 // A fake browser service on a Unix socket, answering `read(url)` as the real one does (browser/src/api.ts). Each
 // Launch's website redirect leads to a page set for it, or to a plain landing page of its own on a `.example` site,
 // with a pricing link and a signup link to pages of their own. A page set at the redirect's own URL keeps the read
-// there, as Product Hunt's Cloudflare challenge did on the VM (#85). Tests set pages, redirects and failures per URL,
-// and read which URLs the bot asked for.
+// there, as Product Hunt's Cloudflare challenge did on the VM (#85). A HEAD answers what a test sets, as the real one
+// answered 301 with the landing page in #101's trial on 2026-11-02. Unset, it answers 403, which stands for Product Hunt
+// closing that route: no trial has seen it, and #102 waits on it. Tests set pages, redirects, HEAD answers and failures per URL, and read which URLs the bot asked for.
 import http from 'node:http';
 import { rmSync } from 'node:fs';
 
@@ -47,6 +48,12 @@ export interface FakePage {
 
 export type FakeReadFailure = { kind: 'load-failed' | 'timeout' | 'download'; message: string };
 
+/** What a HEAD of a URL answers. */
+export interface FakeHead {
+  status: number;
+  location: string | null;
+}
+
 const REDIRECT = /^https:\/\/www\.producthunt\.com\/r\/p\/(\d+)$/;
 
 /** A form with one email field and a submit button, as a plain signup page has. */
@@ -63,10 +70,13 @@ export class FakeBrowser {
   readonly socketPath: string;
   /** Every URL the bot asked to read, in order. */
   readonly reads: string[] = [];
+  /** Every URL the bot asked for a HEAD of, in order. */
+  readonly heads: string[] = [];
   #server: http.Server;
   #pages = new Map<string, FakePage>();
   #redirects = new Map<string, string>();
   #failures = new Map<string, FakeReadFailure>();
+  #headAnswers = new Map<string, FakeHead | FakeReadFailure>();
   /** While true, the service answers nothing, as when its container is down. */
   down = false;
 
@@ -87,8 +97,9 @@ export class FakeBrowser {
     await new Promise<void>((resolve) => this.#server.close(() => resolve()));
   }
 
-  /** Serves a page at its URL. */
+  /** Serves a page at its URL, in place of any redirect set from there. */
   page(page: FakePage): void {
+    this.#redirects.delete(page.url);
     this.#pages.set(page.url, page);
   }
 
@@ -101,6 +112,11 @@ export class FakeBrowser {
   fail(url: string, failure: FakeReadFailure | undefined): void {
     if (failure) this.#failures.set(url, failure);
     else this.#failures.delete(url);
+  }
+
+  /** A HEAD of this URL answers so, or fails. */
+  head(url: string, answer: FakeHead | FakeReadFailure): void {
+    this.#headAnswers.set(url, answer);
   }
 
   /** Where a read of `url` ends, after redirects. */
@@ -140,6 +156,13 @@ export class FakeBrowser {
       res.writeHead(status, { 'content-type': 'application/json' });
       res.end(JSON.stringify(body));
     };
+    if (req.method === 'POST' && req.url === '/redirect') {
+      const url = (JSON.parse(raw) as { url?: unknown }).url;
+      if (typeof url !== 'string') return send(400, { error: { kind: 'bad-url', message: 'redirect takes an http or https URL' } });
+      this.heads.push(url);
+      const answer = this.#headAnswers.get(url) ?? { status: 403, location: null };
+      return 'kind' in answer ? send(502, { error: answer }) : send(200, answer);
+    }
     if (req.method !== 'POST' || req.url !== '/read') return send(404, { error: { kind: 'not-found', message: `${req.method} ${req.url}` } });
     const url = (JSON.parse(raw) as { url?: unknown }).url;
     if (typeof url !== 'string' || !/^https?:\/\//.test(url)) {

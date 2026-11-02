@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-运行在自己的加固容器里的 Playwright（ADR 0006），借助 Node 的类型剥离原样运行。它唯一的客户端是机器人，通过 Unix 套接字连接：它不监听任何端口，网络也是它独有的，所以 Pi 容器访问不到它。#43 搭起了容器，以及只读的 `read(url)`：Dossier 和 Walkthrough 在任何 Approval 之前用它读取 Product 的页面。#55 加上了 Registration 的会话：填表运行经由机器人可以使用的固定动作，以及普通代码的页面检查、按下按钮和按引用填写。在 #56 填写 Registration 之前，机器人只使用 `read(url)`。
+运行在自己的加固容器里的 Playwright（ADR 0006），借助 Node 的类型剥离原样运行。它唯一的客户端是机器人，通过 Unix 套接字连接：它不监听任何端口，网络也是它独有的，所以 Pi 容器访问不到它。#43 搭起了容器，以及只读的 `read(url)`：Dossier 和 Walkthrough 在任何 Approval 之前用它读取 Product 的页面。#55 加上了 Registration 的会话：填表运行经由机器人可以使用的固定动作，以及普通代码的页面检查、按下按钮和按引用填写。在 #56 填写 Registration 之前，机器人只使用 `read(url)` 和 #101 加上的 `redirect(url)`。
 
 | 路径 | 是什么 |
 |---|---|
@@ -10,6 +10,7 @@
 | `src/client.ts` | 机器人这一侧的套接字 |
 | `src/main.ts` | 启动 Xvfb、一个有界面的 Chrome for Testing（没有沙箱就拒绝启动）和套接字 |
 | `src/reader.ts` | `read(url)`：在一个用完即弃的内存上下文里打开一个页面 |
+| `src/redirect.ts` | `redirect(url)`：用一个不跟随跳转的 HEAD 得知 URL 指向哪里 |
 | `src/sessions.ts` | Registration 的会话：数量上限、驱动者和关闭时机，固定动作，以及普通代码的动作 |
 | `src/page-check.ts` | 页面检查的规则，只针对指定按钮提交的那个表单 |
 | `src/snapshot.ts`, `src/redact.ts` | 一次读取或一个会话能看到页面的哪些内容，以及去掉填进会话的每个 Secret 和看起来随机的字符串 |
@@ -26,6 +27,7 @@
 
 - `GET /health`：浏览器的版本和 autoconsent 的版本。服务只以有界面模式运行，并启用 Chromium 的沙箱：没有沙箱时，它在启动时就退出。
 - `POST /read`，请求体为 `{ "url": "https://…" }`：返回一个 `PageRead`（`src/api.ts`），或者返回 `{ "error": { "kind", "message" } }`：URL 不是普通的 http 或 https 时状态码为 400；页面加载不了、是一个下载、或耗时超过 60 秒时为 502。`snapshot` 是模型可以看到的部分：其中每个字符串里看起来随机的字符串都换成了 `[random]`。其余部分（确切的最终 URL 和主机、状态码、支付字段、机器人检测和 cookie 横幅）只给普通代码用。
+- `POST /redirect`，请求体为 `{ "url": "https://…" }`：从服务的网络对这个 URL 发一个 HEAD，不用浏览器，也不跟随任何跳转，回答 `{ "status", "location" }`。`location` 是 3xx 回答指向的绝对 URL，其他情况下为 null。错误和 `/read` 相同，最多耗时 30 秒。机器人只对 Product Hunt 的跳转发送它，而且是在读取这个跳转停在机器人检测上之后（#101）。
 - `POST /session/open`，请求体为 `{ "registration", "url", "domains" }`：一个 Registration 的会话，即一个属于它自己的内存上下文，在 Walkthrough 的起始 URL 打开，返回 `{ "session" }`。同时最多打开 5 个（429，`full`），每个 Registration 一个（409，`already-open`），起始页面加载不了时不会打开（502）。会话在以下时候关闭：收到 `POST /session/close`、一个动作耗时超过 60 秒、打开验证链接之后，或者 24 小时内没有任何针对它的请求（`SESSION_IDLE_LIMIT_MS`）：机器人自己的 24 小时规则会先关掉它，所以这一条兜住的是机器人丢掉的会话。
 - `POST /session/drive`，请求体为 `{ "session", "driver" }`：现在由谁驱动这个会话，`none`、`fill-run`、`plain-code` 或 `person`。每个动作的路径写明它需要的驱动者；这个人在 Takeover 中驱动时，其他任何一方都不能动作。把这个人填的字段显示为 `[person]`、并让页面检查接受它们，随 #60 的 Takeover 一起实现。
 - `POST /fill-run/…`：填表运行经由机器人可以使用的固定动作，除非顶层页面位于会话的某个域名上，否则每一个都会被拒绝（`off-domain`）。`snapshot` 先拒绝 cookie 横幅。它只按填入字段的东西显示字段（字段的 Walkthrough 键、`[password]` 或 `[code]`），从不显示字段的值，并按确切值删去填进会话的每个 Secret，再删去看起来随机的字符串。它给出的 ref（`f1`、`b1`、`l1`）指明其他动作所用的字段、提交控件和链接，只显示一个按钮的表单也包括在内。`fill` 接受一个 Walkthrough 键和机器人提供的批准值；`fill-secret` 接受机器人按引用提供的 `password` 或 `code`；`choose` 接受一个选项的标签，或 `ticked`、`left unticked`，并且只点击角色为 combobox、option、checkbox、radio 或 switch 的元素；`open` 加载链接的 URL 而不是点击它，而且只限会话的域名。

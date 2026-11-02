@@ -11,7 +11,7 @@ Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，�
 | `bot/src/rules/` | Rule：每次运行的 Rule 文件、它提示词里的 Rule 一节和 Rule budget；Correction 的分类运行；以及提议的 Rule 和 Interest scope 改动的卡片，带 Keep、Edit 和 Discard |
 | `bot/src/dossier/` | Dossier：每份读取的页面、它那次运行的提示词和记录、控制在 Discord 4,000 字符以内的卡片、它的 Product 帖子、Personal database 里这个 Product 的文件夹，以及对写不成的 Dossier 的尝试 |
 | `bot/src/walkthrough/` | Walkthrough：对注册页的读取、它那次运行的提示词和记录、`#needs-you` 里的卡片和它在 Product 帖子里的副本、Edit、Correct、Dismiss、14 天过期和 Prepare again、开启 Registration 的 Approval、Product 所处的位置，以及 `registration.md` |
-| `bot/src/browser.ts`, `bot/src/root-domain.ts` | 经由 Unix 套接字调用浏览器服务的 `read(url)`，以及用作 Product 键的根域名 |
+| `bot/src/browser.ts`, `bot/src/root-domain.ts` | 经由 Unix 套接字调用浏览器服务的 `read(url)` 和 `redirect(url)`，以及用作 Product 键的根域名 |
 | `bot/src/personal-database.ts` | Personal database 的写入者：一把锁管住快进、写入、提交和推送，以及历史分叉时的卡片（ADR 0012） |
 | `bot/src/status.ts` | `#status` 文字频道里的静默消息 |
 | `bot/src/needs-you.ts` | `#needs-you` 文字频道里的卡片，每张都提及这个人 |
@@ -46,7 +46,7 @@ node --test bot/test/miner-day.test.ts # one file
 
 时钟的一次跳跃（`advanceTo`）只在新的时间点把过期的定时器触发一次，和真实时钟一样。要测试重复的定时器，用 `stepThrough` 逐一走过它的每次触发。
 
-假的浏览器服务在一个 Unix 套接字上回答 `read(url)`。每个 Launch 的网站跳转都通向 `.example` 上一个属于它自己的普通站点，带一个价格页和一个注册页，除非测试从 `bot/test/harness/dossier-fixtures.ts` 提供某个真实 Product 的页面。
+假的浏览器服务在一个 Unix 套接字上回答 `read(url)` 和 `redirect(url)`。每个 Launch 的网站跳转都通向 `.example` 上一个属于它自己的普通站点，带一个价格页和一个注册页，除非测试从 `bot/test/harness/dossier-fixtures.ts` 提供某个真实 Product 的页面。HEAD 回答 403，除非测试设定了它的回答。
 
 每次 Pi 运行大约要半秒 CPU，一个 Miner 日除了评判运行，还要为它的每份 Dossier 各跑一次，再为每个 open 或 waitlisted 的 Product 的 Walkthrough 各跑一次（harness 启动机器人时 Walkthrough 是打开的），所以 fixture 日的 Dossier 会让每个发出一天的测试都付出代价。不是测 Dossier 的测试，用 `world.model.onlyDossiers(postIds)` 把它那一天的 Dossier 限制在需要的几份：其他每个 Launch 都会被评判在 Day's line 以下。
 
@@ -78,7 +78,7 @@ CREDENTIALS_DIRECTORY=/path/to/credentials npm run capture:producthunt-schema
 
 每次运行从这个 checkout 的最后一次提交载入它的 Rule（ADR 0002）：`rules/all/` 里的每个文件，以及它自己作用范围的文件夹 `miner`、`dossier`、`registration` 或 `mail` 里的每个文件，即 `rules/<scope>/<slug>.md`。我们的扩展在这次运行开始前向 forwarder 要来这些 Rule，把每一条完整地放进这次运行的系统提示词，所以拿不到 Rule 的运行不会开始。一条记录写明它用了哪些 Rule，写了这次运行没有载入的 Rule 的记录会被机器人退回。一个 Correction 的 Launch 重新评判之后，一次 Miner 角色的运行为这个 Correction 分类。当天的文件写明分类的结果，因 Hard limit 被拒（declined）的 Correction 还会在每日帖子里它那个 Launch 的那一行上写明。Walkthrough 的 Correction 也这样分类，由一次载入 Walkthrough/Registration Rule 的 registration 角色运行来做，它的 Product 的 `registration.md` 写明分类的结果。提议的 Rule、对一条已保留 Rule 的修订，或 Interest scope 的改动，会作为紫色卡片发到 `#needs-you`。Keep 会在写入锁下提交这个 Rule 文件或 `profile/interest-scope.md`，除非自提议以来 git 里它要替换的内容变了，或者这条 Rule 会让它那些运行的 Rule 超出 Rule budget，即 `rules.budgetTokens`（约 4,000 个 token，按四个字符一个 token 计）。这时卡片写明原因，并保持打开。
 
-Dossier 发到 Products 论坛 `discord.productsForumId`，论坛标签由这个人创建：*Walkthrough*、*Registering*、*Needs you*、*registered*、*waitlisted*、*handed off*、*abandoned*、*no account* 和 *Skipped*。机器人按名字找标签，所以只有名字要紧；目前它打 *no account*；Walkthrough 等着这个人时打 *Walkthrough*；Walkthrough 被批准后打 *Registering* 或 *handed off*；并给被一次 Correction 撤回的 Dossier 的帖子打 *Skipped*。Dossier 通过位于 `browser.socketPath` 的浏览器服务套接字（`browser/README.md`）读取它的 Product 的页面，每次读取都在 `pages/` 下和其他原始输入放在一起，保留 90 天。
+Dossier 发到 Products 论坛 `discord.productsForumId`，论坛标签由这个人创建：*Walkthrough*、*Registering*、*Needs you*、*registered*、*waitlisted*、*handed off*、*abandoned*、*no account* 和 *Skipped*。机器人按名字找标签，所以只有名字要紧；目前它打 *no account*；Walkthrough 等着这个人时打 *Walkthrough*；Walkthrough 被批准后打 *Registering* 或 *handed off*；并给被一次 Correction 撤回的 Dossier 的帖子打 *Skipped*。Dossier 通过位于 `browser.socketPath` 的浏览器服务套接字（`browser/README.md`）读取它的 Product 的页面，每次读取都在 `pages/` 下和其他原始输入放在一起，保留 90 天。当对 Launch 网站跳转的读取停在 Product Hunt 的机器人检测上时，对这个跳转发一个 HEAD 可能得到落地页的地址，这时记录 `dossier.redirect-head`。得不到时，记录 `dossier.redirect-unread` 和它的回答，这次尝试以机器人检测为原因结束：如果每个 Launch 都出现这行日志，就说明 Product Hunt 关掉了这条路，#102 等的就是这个。
 
 写不成的 Dossier 不会拖住它那天的列表（由这个人在 #100 上确定）。这一轮里，列表的每份 Dossier 都已发出或已失败后，列表就发出，它的摘要写明每份没写成的 Dossier，以及原因。一次尝试失败，是指 Product 的落地页打不开，或者它的 Dossier 运行失败、触到上限或没有记录 Dossier。每份没写成的 Dossier 每天再试一次，时间是太平洋时间 01:00 Miner 开始时，或者那之后机器人第一次启动时，Fit 高的先试，Fit 相同时 Launch 早的先试。一次 Correction 要的 Dossier 在尝试失败后也加入它们，那个 Correction 不等它就完成。一个 Launch 最多有 `dossiers.tries` 次以没写成 Dossier 告终的尝试，初始值为 3，记在实时存储里，跨轮次、跨重启、跨两条路径累计。Assistant 自己停掉的运行（比如关机时）或被崩溃打断的运行不算，运行开始前它自己出的错也不算，比如连不上浏览器服务：这种错仍会拖住列表，Miner 每 30 分钟再试一次。因为 Pi 容器宕了或所有 provider 都失败而失败的运行，和其他失败的运行一样算一次。到了次数上限就不再开始新的尝试，`#status` 里会有一行静默消息，写明是哪份 Dossier，以及它最后一次尝试为什么失败。之后某次尝试写成的 Dossier 像其他 Dossier 一样发出，它那天的列表随后也会链接它。通过 `ops/upgrade` 调高 `dossiers.tries`，机器人就会再试这样的 Dossier，不管它有多旧，比如在一次宕机让一些 Dossier 停下之后。
 

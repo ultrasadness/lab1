@@ -18,6 +18,7 @@
   - 它的实时视图在一个可聚焦的 `<div>` 上接收按键，而不是在文本框上，所以 iOS 从不弹出键盘。它也没有触摸处理，所以点按只能通过 iOS 模拟出的鼠标事件到达页面。这个人无法可靠地输入或选择任何东西。
   - 它列出每个已绑定的浏览器，所以同时进行两个 Takeover 时，两个会话都会显示出来。它那种只显示一个上下文的视图，只以桌面应用窗口的形式存在，不在任何端口上提供。
   - 它没有认证。
+- **用反检测浏览器 Camoufox 取代 Chrome for Testing**：在 [当浏览器读取停在机器人检测上时，用 HEAD 读取 Product Hunt 的跳转](https://github.com/ultrasadness/lab1/issues/101) 中用默认配置试过一次，它和 Chrome for Testing 一样停在 Product Hunt 的 challenge 上。规格排除了这类浏览器，而且补丁节奏会跟着 Camoufox 的发布走。如果那条路被关掉，由 [如果 Product Hunt 关掉对其跳转的 HEAD，再评估让浏览器服务使用 Camoufox](https://github.com/ultrasadness/lab1/issues/102) 重新考虑。
 
 ## 后果
 
@@ -48,7 +49,7 @@
   - 其中某个动作耗时超过 60 秒时，因为它的页面卡死了。
 
   同时最多开着 5 个。最后两种关闭在 [在浏览器服务中驱动一个 Registration 会话](https://github.com/ultrasadness/lab1/issues/55) 中决定。
-- **Product 网站**（为 Dossier 而读）通过一个用完即弃的上下文里的只读 `read(url)` 读取，快照脱敏方式相同。每个注册页面在准备它的 Walkthrough 时（在任何 Approval 之前）也是这样读取的。这次读取给 Walkthrough 提供字段、注册 URL 和主机，以及页面加载时就能看到的 Wall。注入的文本仍可能让 Dossier 或 Skip 产生偏差，而它们的引用让这个人能够核查。
+- **Product 网站**（为 Dossier 而读）通过一个用完即弃的上下文里的只读 `read(url)` 读取，快照脱敏方式相同。每个注册页面在准备它的 Walkthrough 时（在任何 Approval 之前）也是这样读取的。这次读取给 Walkthrough 提供字段、注册 URL 和主机，以及页面加载时就能看到的 Wall。注入的文本仍可能让 Dossier 或 Skip 产生偏差，而它们的引用让这个人能够核查。有一个请求不是读取：当对 Product Hunt 跳转的读取停在机器人检测上时，普通代码从服务的网络对这个 URL 发一个 HEAD，不跟随任何跳转，再像读取其他页面一样读取得到的地址（在 [当浏览器读取停在机器人检测上时，用 HEAD 读取 Product Hunt 的跳转](https://github.com/ultrasadness/lab1/issues/101) 中决定）。
 - **容器**：
   - 按 digest 固定的 Playwright arm64 镜像，以非 root 的 `pwuser` 身份在 Xvfb 下有界面地运行 Chrome for Testing，并使用 Playwright 的 seccomp 配置，让 Chromium 的沙箱开启。没有沙箱时，服务拒绝启动。
   - 除 `SYS_CHROOT` 外去掉所有 capability；Chromium 的命名空间沙箱需要它：没有它，沙箱的 zygote 进程在启动时就会退出。另外还有 `no-new-privileges`。

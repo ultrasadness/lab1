@@ -7,7 +7,7 @@ client is the bot, through a Unix socket: it listens on no port, and its network
 container can't reach it. #43 brought up the container and the read-only `read(url)` that Dossiers and
 Walkthroughs use to read Product pages before any Approval. #55 adds a Registration's session: the fixed actions a
 fill run may use through the bot, and plain code's page check, press and fills by reference. Until #56 fills a
-Registration, the bot uses only `read(url)`.
+Registration, the bot uses only `read(url)` and `redirect(url)`, which #101 added.
 
 | Path | What it is |
 |---|---|
@@ -15,6 +15,7 @@ Registration, the bot uses only `read(url)`.
 | `src/client.ts` | The bot's side of the socket |
 | `src/main.ts` | Starts Xvfb, one headed Chrome for Testing (refusing to start without its sandbox) and the socket |
 | `src/reader.ts` | `read(url)`: one page in a throwaway in-memory context |
+| `src/redirect.ts` | `redirect(url)`: where a URL points, from a HEAD that follows nothing |
 | `src/sessions.ts` | A Registration's sessions: their limit, drivers and closes, the fixed actions, and plain code's actions |
 | `src/page-check.ts` | The page check's rules, judged on the form the named button submits |
 | `src/snapshot.ts`, `src/redact.ts` | What a read or a session sees of a page, and the removal of each Secret filled into a session and of random-looking strings |
@@ -40,6 +41,10 @@ HTTP with JSON bodies, on the socket at `$SOCKET_PATH`.
   longer than 60 s. `snapshot` is what a model may see: every string in it has random-looking strings replaced
   by `[random]`. The rest (the exact final URL and host, status, payment fields, bot check and cookie banner)
   is for plain code.
+- `POST /redirect` with `{ "url": "https://…" }`: a HEAD of the URL from the service's network, with no browser and
+  nothing followed, answering `{ "status", "location" }`. `location` is where a 3xx answer points, as an absolute URL,
+  and otherwise null. The errors are `/read`'s, and it takes at most 30 s. The bot sends it only for Product Hunt's
+  redirect, after a read of that redirect stops at a bot check (#101).
 - `POST /session/open` with `{ "registration", "url", "domains" }`: a Registration's session, an in-memory context of
   its own, opened at the Walkthrough's start URL, answering `{ "session" }`. At most 5 are open at once (429, `full`),
   one per Registration (409, `already-open`), and a start page that won't load opens none (502). A session closes on

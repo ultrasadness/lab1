@@ -99,6 +99,135 @@ test('a website redirect that stops on Product Hunt names why: the bot check the
   ]);
 });
 
+test('a Launch whose redirect stops at a bot check gets its Dossier through a HEAD of the redirect, and its date links it', async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' }); // 00:30 PDT
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  world.model.onlyDossiers([CODEMIND.postId]);
+  serveProduct(world, CODEMIND);
+  // As on the VM on 2026-11-02 (#101): a read of the redirect is challenged, and a HEAD of it answers 301.
+  const redirect = websiteOf(CODEMIND.postId);
+  world.browser.page({ url: redirect, title: 'Just a moment...', text: 'Performing security verification', status: 403, botCheck: 'Cloudflare challenge' });
+  world.browser.head(redirect, { status: 301, location: CODEMIND.landing.url });
+
+  await world.advanceTo('2026-10-12T08:00:00Z'); // 01:00 PDT
+
+  assert.deepEqual(world.browser.heads, [redirect]);
+  assert.deepEqual(world.browser.reads.slice(0, 2), [redirect, CODEMIND.landing.url], 'the read that was challenged, then the landing page');
+  const posts = world.discord.forumPosts(PRODUCTS_FORUM);
+  assert.equal(posts.length, 1, 'the Dossier is posted');
+  const day = world.discord.forumPosts(MINER_DAYS_FORUM).find((p) => p.title.startsWith('Mon Oct 12'))!;
+  assert.ok(day.messages[0]!.text.split('\n').includes(`**Dossiers:** <#${posts[0]!.id}>`), day.messages[0]!.text);
+  assert.ok(!day.messages[0]!.text.includes('**Not written:**'), day.messages[0]!.text);
+  assert.deepEqual(
+    world.logs.filter((l) => l.event === 'dossier.redirect-head').map((l) => [l.postId, l.status, l.location]),
+    [[CODEMIND.postId, 301, CODEMIND.landing.url]],
+    'the log says the Dossier came this way',
+  );
+});
+
+test('a read with no bot check on Product Hunt, and a read that reaches the landing page, send no HEAD', async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' }); // 00:30 PDT
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  world.model.onlyDossiers([CODEMIND.postId, GUILDS]);
+  serveProduct(world, CODEMIND);
+  world.browser.redirect(websiteOf(GUILDS), 'https://www.producthunt.com/');
+  world.browser.page({ url: 'https://www.producthunt.com/', title: 'Product Hunt', text: 'The best new products in tech.' });
+
+  await world.advanceTo('2026-10-12T08:00:00Z'); // 01:00 PDT
+
+  assert.ok(world.browser.reads.includes(websiteOf(CODEMIND.postId)), 'a read reached the landing page');
+  assert.ok(world.browser.reads.includes(websiteOf(GUILDS)), 'a read ended on Product Hunt with no bot check');
+  assert.deepEqual(world.browser.heads, []);
+});
+
+test("a HEAD's address that won't load, or that ends on Product Hunt, ends the try naming why", async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' }); // 00:30 PDT
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  world.model.onlyDossiers([CODEMIND.postId]);
+  const redirect = websiteOf(CODEMIND.postId);
+  const address = 'https://codemindhq.dev/?ref=producthunt';
+  world.browser.page({ url: redirect, title: 'Just a moment...', text: 'Performing security verification', status: 403, botCheck: 'Cloudflare challenge' });
+  world.browser.head(redirect, { status: 301, location: address });
+  world.browser.fail(address, { kind: 'timeout', message: 'the page took over 30 seconds' });
+  const notWritten = () =>
+    world.discord.forumPosts(MINER_DAYS_FORUM).find((p) => p.title.startsWith('Mon Oct 12'))!.messages[0]!.text.split('\n').filter((l) => l.startsWith('**Not written:** '));
+
+  await world.advanceTo('2026-10-12T08:00:00Z'); // 01:00 PDT
+  assert.deepEqual(notWritten(), ["**Not written:** Codemind, because its landing page won't load (timeout: the page took over 30 seconds)"]);
+
+  // The address itself lands on Product Hunt's check, so the read kept is no landing page.
+  world.browser.fail(address, undefined);
+  world.browser.redirect(address, redirect);
+  await world.advanceTo('2026-10-13T08:00:00Z');
+  assert.deepEqual(notWritten(), ['**Not written:** Codemind, because its website redirect stops at a bot check (Cloudflare challenge) on Product Hunt']);
+  assert.deepEqual(world.discord.forumPosts(PRODUCTS_FORUM), []);
+});
+
+test("a website that isn't Product Hunt's redirect gets no HEAD, even at a bot check", async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' }); // 00:30 PDT
+  t.after(() => world.stop());
+  const page = 'https://www.producthunt.com/posts/codemind';
+  world.productHunt.addFeatured(
+    fixtureDay('2026-10-12').map((post) => (post.id === CODEMIND.postId ? { ...post, website: page } : post)),
+    '2026-10-12T07:01:00Z',
+  );
+  world.model.onlyDossiers([CODEMIND.postId]);
+  world.browser.page({ url: page, title: 'Just a moment...', text: 'Performing security verification', status: 403, botCheck: 'Cloudflare challenge' });
+  world.browser.head(page, { status: 301, location: CODEMIND.landing.url });
+
+  await world.advanceTo('2026-10-12T08:00:00Z'); // 01:00 PDT
+
+  assert.deepEqual(world.browser.heads, []);
+  assert.deepEqual(world.discord.forumPosts(PRODUCTS_FORUM), []);
+  assert.ok(world.logs.some((l) => l.event === 'dossier.redirect-unread' && l.website === page));
+});
+
+test('a HEAD that gives no address off Product Hunt ends the try as not written, and counts toward the limit', async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' }); // 00:30 PDT
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  world.model.onlyDossiers([CODEMIND.postId]);
+  const redirect = websiteOf(CODEMIND.postId);
+  world.browser.page({ url: redirect, title: 'Just a moment...', text: 'Performing security verification', status: 403, botCheck: 'Cloudflare challenge' });
+  const STOPPED = '**Not written:** Codemind, because its website redirect stops at a bot check (Cloudflare challenge) on Product Hunt';
+  const notWritten = (title: string) =>
+    world.discord.forumPosts(MINER_DAYS_FORUM).find((p) => p.title.startsWith(title))!.messages[0]!.text.split('\n').filter((l) => l.startsWith('**Not written:** '));
+
+  // Challenged too: the fake's HEAD answers 403 unless a test sets it.
+  await world.advanceTo('2026-10-12T08:00:00Z'); // 01:00 PDT
+  assert.deepEqual(notWritten('Mon Oct 12'), [STOPPED]);
+
+  // Its answer points back at Product Hunt: never read as a landing page.
+  world.browser.head(redirect, { status: 301, location: 'https://www.producthunt.com/posts/codemind' });
+  await world.advanceTo('2026-10-13T08:00:00Z');
+  assert.deepEqual(notWritten('Mon Oct 12'), [STOPPED]);
+
+  // The HEAD itself fails, as when the network is down: the third try, the limit in the harness's config.
+  world.browser.head(redirect, { kind: 'load-failed', message: 'fetch failed' });
+  await world.advanceTo('2026-10-14T08:00:00Z');
+  assert.deepEqual(notWritten('Mon Oct 12'), [STOPPED]);
+  assert.deepEqual(world.browser.heads, [redirect, redirect, redirect]);
+  assert.deepEqual(
+    world.logs.filter((l) => l.event === 'dossier.redirect-unread').map((l) => [l.status, l.location, l.error]),
+    [
+      [403, null, undefined],
+      [301, 'https://www.producthunt.com/posts/codemind', undefined],
+      [undefined, undefined, 'load-failed: fetch failed'],
+    ],
+    'the log says what each HEAD answered, which is how to see that Product Hunt has closed this route',
+  );
+  assert.deepEqual(world.browser.reads.filter((url) => url.includes('producthunt.com/posts/')), [], 'an address on Product Hunt is not read');
+  assert.deepEqual(world.discord.forumPosts(PRODUCTS_FORUM), []);
+  assert.ok(world.discord.textMessages(STATUS).some((l) => l.content.includes('Codemind')), '#status hears it stopped at the limit');
+
+  // Stopped at the limit: the next start sends no HEAD.
+  await world.advanceTo('2026-10-15T08:00:00Z');
+  assert.equal(world.browser.heads.length, 3);
+});
+
 test('a Dossier whose run keeps hitting its cap is tried once a day, never at the 30-minute passes, and stops at the limit, across a restart', async (t) => {
   const world = await startWorld({ now: '2026-10-12T07:30:00Z' }); // 00:30 PDT
   t.after(() => world.stop());

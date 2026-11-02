@@ -27,8 +27,8 @@ const parsed = (href: string) => {
     return undefined;
   }
 };
-const hostOf = (href: string) => parsed(href)?.hostname ?? '';
-const pathOf = (href: string) => parsed(href)?.pathname ?? '';
+export const hostOf = (href: string) => parsed(href)?.hostname ?? '';
+export const pathOf = (href: string) => parsed(href)?.pathname ?? '';
 
 const samePage = (a: string, b: string) => a.replace(/[#?].*$/, '').replace(/\/$/, '') === b.replace(/[#?].*$/, '').replace(/\/$/, '');
 

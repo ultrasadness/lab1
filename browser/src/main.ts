@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { chromium, type Browser } from 'playwright-core';
 import { autoconsentVersion } from './cookie-banners.ts';
 import { createReader, VIEWPORT } from './reader.ts';
+import { redirectOf } from './redirect.ts';
 import { listen } from './server.ts';
 import { createSessions } from './sessions.ts';
 
@@ -65,6 +66,7 @@ const sessions = createSessions(browser);
 const server = await listen(SOCKET_PATH, {
   health: () => ({ browser: browser.version(), autoconsent: autoconsentVersion }),
   read: reader.read,
+  redirect: redirectOf,
   sessions,
 });
 log(`listening on ${SOCKET_PATH}`);

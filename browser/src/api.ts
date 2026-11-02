@@ -100,6 +100,15 @@ export interface ReadFailure {
 
 export type ReadOutcome = { ok: true; page: PageRead } | { ok: false; error: ReadFailure };
 
+/** What a HEAD of a URL answered, with nothing followed. */
+export interface RedirectAnswer {
+  status: number;
+  /** Where a 3xx answer points, as an absolute URL, or null for any other answer or one with no usable address. */
+  location: string | null;
+}
+
+export type RedirectOutcome = { ok: true; redirect: RedirectAnswer } | { ok: false; error: ReadFailure };
+
 // A Registration's session (ADR 0006): one in-memory context per Registration, at most 5 at once. The path of each
 // action names the driver it needs: /fill-run/… for the fixed actions a fill run may use, /plain-code/… for plain code's.
 

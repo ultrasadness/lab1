@@ -18,6 +18,7 @@ The browser that fills Registrations runs in its own long-lived container, owned
   - Its live view takes keys on a focusable `<div>`, not a text field, so iOS never shows a keyboard. It has no touch handlers either, so taps reach the page only through the mouse events iOS fakes. The person couldn't reliably type or select anything.
   - It lists every bound browser, so two Takeovers at once show both sessions. Its one-context view exists only as a desktop app window, not on a port.
   - It has no authentication.
+- **Camoufox, an anti-detection browser, in place of Chrome for Testing:** tried once with its defaults in [Read Product Hunt's redirect with a HEAD when the browser's read stops at a bot check](https://github.com/ultrasadness/lab1/issues/101), where it stayed on Product Hunt's challenge as Chrome for Testing did. The spec rules such browsers out, and patching would follow Camoufox's releases. [Weigh Camoufox for the browser service if Product Hunt closes the HEAD of its redirect](https://github.com/ultrasadness/lab1/issues/102) takes it up again if that route closes.
 
 ## Consequences
 
@@ -48,7 +49,7 @@ The browser that fills Registrations runs in its own long-lived container, owned
   - when an action in it takes longer than 60 s, since its page hangs.
 
   At most 5 are open at once. The last two closes were decided in [Drive a Registration session in the browser service](https://github.com/ultrasadness/lab1/issues/55).
-- **Product sites** (for Dossiers) are read through a read-only `read(url)` in a throwaway context, with the same snapshot redaction. So is each signup page when its Walkthrough is prepared, before any Approval. The read gives the Walkthrough its fields, signup URL and host, and the walls visible when the page loads. Injected text can still skew a Dossier or a Skip, which its citations let the person check.
+- **Product sites** (for Dossiers) are read through a read-only `read(url)` in a throwaway context, with the same snapshot redaction. So is each signup page when its Walkthrough is prepared, before any Approval. The read gives the Walkthrough its fields, signup URL and host, and the walls visible when the page loads. Injected text can still skew a Dossier or a Skip, which its citations let the person check. One request isn't a read: when a read of Product Hunt's redirect stops at a bot check, plain code sends a HEAD of that URL from the service's network, follows nothing, and reads the address it gets like any other page (decided in [Read Product Hunt's redirect with a HEAD when the browser's read stops at a bot check](https://github.com/ultrasadness/lab1/issues/101)).
 - **The container:**
   - Playwright's arm64 image pinned by digest, running Chrome for Testing headed under Xvfb as the non-root `pwuser`, with Playwright's seccomp profile so Chromium's sandbox is on. The service refuses to start without the sandbox.
   - All capabilities dropped except `SYS_CHROOT`, which Chromium's namespace sandbox needs: without it the sandbox's zygote dies at launch. Also `no-new-privileges`.

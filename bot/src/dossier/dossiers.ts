@@ -32,7 +32,7 @@ import { standingOf } from '../walkthrough/standing.ts';
 import { dossierCard, overBy, postTitle } from './card.ts';
 import { readDossier, SOURCE_KEYS, type Dossier, type DossierRecord, type SourceKey } from './dossier.ts';
 import { dossierPath, newProductFiles } from './files.ts';
-import { citedUrl, pricingLink, signupLink } from './pages.ts';
+import { citedUrl, hostOf, pathOf, pricingLink, signupLink } from './pages.ts';
 import { dossierPrompt, type PageInput, type Read } from './prompt.ts';
 
 /** A Launch at or above its date's line. */
@@ -60,6 +60,17 @@ type Tried = { product: Product } | { unwritten: string } | 'stopped';
 
 /** The landing page read, and the root domain it is on. */
 type Landing = Read & { rootDomain: string };
+
+const onProductHunt = (host: string) => onRootDomain(host, 'producthunt.com');
+
+/** Product Hunt's redirect, the only URL a HEAD is sent to (#41). */
+const isProductHuntRedirect = (url: string) => onProductHunt(hostOf(url)) && pathOf(url).startsWith('/r/');
+
+/** Why a read that ended on Product Hunt is no landing page. */
+function stoppedOnProductHunt({ botCheck }: PageRead): string {
+  if (!botCheck) return 'its website redirect leads back to Product Hunt';
+  return `its website redirect stops at a bot check${botCheck === 'unknown' ? '' : ` (${botCheck})`} on Product Hunt`;
+}
 
 export class Dossiers {
   #config: Config;
@@ -263,21 +274,50 @@ export class Dossiers {
 
   /** The landing page the Launch's website redirect leads to, and the root domain it is on. */
   async #readLanding(launch: Launch): Promise<Landing | { problem: string }> {
-    const readAt = this.#clock.now();
-    const read = await this.#browser.read(launch.website);
-    if (!read.ok) return { problem: `its landing page won't load (${read.error})` };
+    const read = await this.#readTowardLanding(launch.website);
+    if ('problem' in read) return read;
+    if (!onProductHunt(read.page.finalHost)) return this.#landingAt(launch.website, read);
     // Product Hunt's website is read only through the redirect; one that leads back there is no landing page. A bot
-    // check there, such as the Cloudflare challenge the VM's browser met on 2026-10-31 (#85), is named instead,
-    // since behind it the redirect may still lead to a landing page.
-    if (onRootDomain(read.page.finalHost, 'producthunt.com')) {
-      const { botCheck } = read.page;
-      if (!botCheck) return { problem: 'its website redirect leads back to Product Hunt' };
-      return { problem: `its website redirect stops at a bot check${botCheck === 'unknown' ? '' : ` (${botCheck})`} on Product Hunt` };
+    // check there, such as the Cloudflare challenge the VM's browser met from 2026-10-31 (#85), is named instead,
+    // since behind it the redirect may still lead to a landing page: a HEAD of it still says where, as #41 allows.
+    if (!read.page.botCheck) return { problem: stoppedOnProductHunt(read.page) };
+    const address = await this.#addressPastBotCheck(launch);
+    if (!address) return { problem: stoppedOnProductHunt(read.page) };
+    const landing = await this.#readTowardLanding(address);
+    if ('problem' in landing) return landing;
+    if (onProductHunt(landing.page.finalHost)) return { problem: stoppedOnProductHunt(landing.page) };
+    return this.#landingAt(address, landing);
+  }
+
+  /** A read on the way to the landing page, or why it won't load. */
+  async #readTowardLanding(url: string): Promise<Read | { problem: string }> {
+    const readAt = this.#clock.now();
+    const read = await this.#browser.read(url);
+    return read.ok ? { page: read.page, readAt } : { problem: `its landing page won't load (${read.error})` };
+  }
+
+  /** Where a HEAD of the Launch's redirect points, unless that is nowhere or back on Product Hunt. It logs either way. */
+  async #addressPastBotCheck(launch: Launch): Promise<string | null> {
+    const { postId, website } = launch;
+    if (!isProductHuntRedirect(website)) {
+      this.#log('dossier.redirect-unread', { postId, website, why: "not Product Hunt's redirect, so no HEAD was sent" });
+      return null;
     }
+    const head = await this.#browser.redirect(website);
+    if (head.ok && head.location && !onProductHunt(hostOf(head.location))) {
+      this.#log('dossier.redirect-head', { postId, status: head.status, location: head.location });
+      return head.location;
+    }
+    this.#log('dossier.redirect-unread', { postId, ...(head.ok ? { status: head.status, location: head.location } : { error: head.error }) });
+    return null;
+  }
+
+  /** A read as the Launch's landing page, kept under the root domain it is on. */
+  #landingAt(url: string, read: Read): Landing | { problem: string } {
     const root = rootDomain(read.page.finalHost);
     if (!root) return { problem: 'its landing page has no host' };
-    this.#keep(root, launch.website, read.page, readAt);
-    return { page: read.page, readAt, rootDomain: root };
+    this.#keep(root, url, read.page, read.readAt);
+    return { ...read, rootDomain: root };
   }
 
   /** Reads a page the landing page links to; one that won't load is left out, saying why. */

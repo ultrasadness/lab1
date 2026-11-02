@@ -1,11 +1,12 @@
 // HTTP over the Unix socket. The bot is the only client, so the server only routes and parses.
 import fs from 'node:fs';
 import http from 'node:http';
-import type { Health, ReadOutcome, RefusalKind, SessionOutcome } from './api.ts';
+import type { Health, ReadOutcome, RedirectOutcome, RefusalKind, SessionOutcome } from './api.ts';
 
 export interface Handlers {
   health(): Health;
   read(url: unknown): Promise<ReadOutcome>;
+  redirect(url: unknown): Promise<RedirectOutcome>;
   /** A Registration's session: its paths, and the answer to a POST on one. */
   sessions: { paths: ReadonlySet<string>; handle(path: string, body: Record<string, unknown> | null): Promise<SessionOutcome> };
 }
@@ -29,6 +30,12 @@ export async function listen(socketPath: string, handlers: Handlers): Promise<ht
         const body = await readJson(req);
         const outcome = await handlers.read(body?.url);
         if (outcome.ok) return send(res, 200, outcome.page);
+        return send(res, outcome.error.kind === 'bad-url' ? 400 : 502, { error: outcome.error });
+      }
+      if (req.method === 'POST' && req.url === '/redirect') {
+        const body = await readJson(req);
+        const outcome = await handlers.redirect(body?.url);
+        if (outcome.ok) return send(res, 200, outcome.redirect);
         return send(res, outcome.error.kind === 'bad-url' ? 400 : 502, { error: outcome.error });
       }
       if (req.method === 'POST' && req.url && handlers.sessions.paths.has(req.url)) {

@@ -9,6 +9,8 @@ import type {
   Press,
   ReadFailure,
   ReadOutcome,
+  RedirectAnswer,
+  RedirectOutcome,
   Refusal,
   Screenshot,
   SecretKind,
@@ -37,6 +39,15 @@ export class BrowserClient {
     const error = (body as { error?: ReadFailure } | null)?.error;
     // 400 and 502 are a page that can't be read; any other answer is the service failing.
     if ((status !== 400 && status !== 502) || !error) throw new Error(`browser service read: HTTP ${status}${error ? `: ${error.message}` : ''}`);
+    return { ok: false, error };
+  }
+
+  /** Sends a HEAD of a URL and follows nothing. A request that fails is a failure, not an exception. */
+  async redirect(url: string): Promise<RedirectOutcome> {
+    const { status, body } = await this.request('POST', '/redirect', { url });
+    if (status === 200) return { ok: true, redirect: body as RedirectAnswer };
+    const error = (body as { error?: ReadFailure } | null)?.error;
+    if ((status !== 400 && status !== 502) || !error) throw new Error(`browser service redirect: HTTP ${status}${error ? `: ${error.message}` : ''}`);
     return { ok: false, error };
   }
 

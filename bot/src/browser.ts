@@ -61,6 +61,9 @@ export type ReadOutcome = { ok: true; page: PageRead } | { ok: false; error: str
 /** How long one read may take, the service's own 60-second limit included, before the bot stops waiting. */
 const READ_TIMEOUT_MS = 120_000;
 
+/** What a HEAD of a URL answered: its status, and where it points as an absolute URL, or null when it points nowhere. */
+export type RedirectOutcome = { ok: true; status: number; location: string | null } | { ok: false; error: string };
+
 export class BrowserService {
   #socketPath: string;
 
@@ -78,9 +81,23 @@ export class BrowserService {
       const page = pageReadOf(body);
       return page ? { ok: true, page } : { ok: false, error: "the browser service's answer isn't a page read" };
     }
-    const error = (body as { error?: { kind?: unknown; message?: unknown } } | null)?.error;
-    if (status === 400 || status === 502) return { ok: false, error: `${String(error?.kind ?? 'failed')}: ${String(error?.message ?? 'no reason given')}` };
-    throw new Error(`The browser service answered ${status}${error?.message ? `: ${String(error.message)}` : ''}`);
+    return failedAnswer(status, body);
+  }
+
+  /**
+   * Sends a HEAD of Product Hunt's redirect, and follows nothing: what comes back is where it points, or why it says
+   * nothing. A request that fails is a failed answer; a service that can't be reached throws, as a read does.
+   */
+  async redirect(url: string): Promise<RedirectOutcome> {
+    const { status, body } = await this.#request('/redirect', { url });
+    if (status === 200) {
+      const answer = body as { status?: unknown; location?: unknown } | null;
+      if (typeof answer?.status !== 'number' || (answer.location !== null && !isString(answer.location))) {
+        return { ok: false, error: "the browser service's answer isn't a redirect" };
+      }
+      return { ok: true, status: answer.status, location: answer.location };
+    }
+    return failedAnswer(status, body);
   }
 
   #request(path: string, payload: unknown): Promise<{ status: number; body: unknown }> {
@@ -116,6 +133,13 @@ export class BrowserService {
       req.end(data);
     });
   }
+}
+
+/** A 400 or 502 is a request that can't be answered; any other answer is the service failing, and throws. */
+function failedAnswer(status: number, body: unknown): { ok: false; error: string } {
+  const error = (body as { error?: { kind?: unknown; message?: unknown } } | null)?.error;
+  if (status === 400 || status === 502) return { ok: false, error: `${String(error?.kind ?? 'failed')}: ${String(error?.message ?? 'no reason given')}` };
+  throw new Error(`The browser service answered ${status}${error?.message ? `: ${String(error.message)}` : ''}`);
 }
 
 const isString = (value: unknown): value is string => typeof value === 'string';
