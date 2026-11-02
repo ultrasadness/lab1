@@ -81,3 +81,6 @@ The root's `npm test` runs the tests of the hooks and checks:
 - `scripts/bot-test-imports.test.ts` fails on a file under `bot/test/`, outside `bot/test/harness/`, that imports a
   file under `bot/src`: a test reaches the bot only through the harness (`bot/README.md`), and one that imports from
   `bot/src` asserts on how the bot builds something.
+- `scripts/bot-test-store.test.ts` fails on a file under `bot/test/` that names `node:sqlite`, apart from
+  `bot/test/store-schema.test.ts` and `bot/test/health-ping.test.ts`: a test of the bot doesn't open the live store
+  (**What a test asserts on** in `CODING_STANDARDS.md`).

@@ -1,5 +1,5 @@
-// A test reaches the bot only through the harness in bot/test/harness/ (#41's first Testing Decisions bullet, as #77
-// amended it), checked here where it is mechanical (#93). A test that imports from bot/src, such as judgingPrompt
+// A test reaches the bot only through the harness in bot/test/harness/ (bot/README.md), checked here where it is
+// mechanical (#93). A test that imports from bot/src, such as judgingPrompt
 // from bot/src/miner/judging.ts, asserts on how the bot builds something. This reads each TypeScript file under
 // bot/test as text, a helper beside the tests as well as a test, and fails on an import, static, for its side effects
 // or with import(), whose quoted path or file: URL resolves to a file under bot/src. The harness's own files may import

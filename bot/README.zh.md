@@ -42,7 +42,7 @@ node --test bot/test/miner-day.test.ts # one file
 
 每次提交和 push 要过的 hook 和 CI，以及在新的克隆里怎么打开 hook，见 `docs/hooks-and-ci.md`。`npm test` 也运行 `ops/test/` 里运维脚本的测试（`ops/README.md`）。
 
-机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在进程内运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt、浏览器服务、模型 provider 和 healthchecks.io 服务器、一个存放 Personal database 的假 GitHub，以及一个由测试拨动的时钟。假的 GitHub 是一个本地的裸仓库，git 通过代替 ssh 的 `bot/test/harness/fake-ssh.ts` 访问它。它只放行 deploy key，可以拒绝推送，也接受这个人自己的提交和合并。只有 harness 从 `bot/src` 导入：`bot/test/` 下其他任何文件的导入只要写出那里的某个文件，`npm test` 都会失败（`scripts/bot-test-imports.test.ts`）。`bot/test/store-schema.test.ts` 还会用 `node:sqlite` 直接读取实时存储的文件，这是 #98 对它的要求；`bot/test/health-ping.test.ts` 也通过它占住实时存储的写锁，以此模拟一个写不进的实时存储。
+机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在进程内运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt、浏览器服务、模型 provider 和 healthchecks.io 服务器、一个存放 Personal database 的假 GitHub，以及一个由测试拨动的时钟。假的 GitHub 是一个本地的裸仓库，git 通过代替 ssh 的 `bot/test/harness/fake-ssh.ts` 访问它。它只放行 deploy key，可以拒绝推送，也接受这个人自己的提交和合并。只有 harness 从 `bot/src` 导入：`bot/test/` 下其他任何文件的导入只要写出那里的某个文件，`npm test` 都会失败（`scripts/bot-test-imports.test.ts`）。`bot/test/store-schema.test.ts` 还会用 `node:sqlite` 直接读取实时存储的文件，这是 #98 对它的要求；`bot/test/health-ping.test.ts` 也通过它占住实时存储的写锁，以此模拟一个写不进的实时存储。`bot/test/` 下其他任何文件只要写出 `node:sqlite`，`npm test` 都会失败（`scripts/bot-test-store.test.ts`）。测试还可以断言什么，见 `CODING_STANDARDS.md` 的 **What a test asserts on**。
 
 时钟的一次跳跃（`advanceTo`）只在新的时间点把过期的定时器触发一次，和真实时钟一样。要测试重复的定时器，用 `stepThrough` 逐一走过它的每次触发。
 

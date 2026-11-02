@@ -62,7 +62,9 @@ fake GitHub holding the Personal database, and a clock the test moves. The fake 
 person's own commits and merges. Only the harness imports from `bot/src`: `npm test` fails any other file under
 `bot/test/` whose import names a file there (`scripts/bot-test-imports.test.ts`). `bot/test/store-schema.test.ts` also reads the
 live store's file with `node:sqlite`, as #98 asks of it, and `bot/test/health-ping.test.ts` holds the store's write
-lock through it, to show a store that can't take a write.
+lock through it, to show a store that can't take a write. `npm test` fails any other file under `bot/test/` that names
+`node:sqlite` (`scripts/bot-test-store.test.ts`). What else a test may assert on is **What a test asserts on** in
+`CODING_STANDARDS.md`.
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.
