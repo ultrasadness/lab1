@@ -12,7 +12,7 @@ Registration, the bot uses only `read(url)` and `redirect(url)`, which #101 adde
 | Path | What it is |
 |---|---|
 | `src/api.ts` | The socket API's types: what the bot sends and gets back |
-| `src/client.ts` | The bot's side of the socket |
+| `src/client.ts` | The browser tests' client for the socket. The bot imports nothing from `browser/`, so its own side is `bot/src/browser.ts` |
 | `src/main.ts` | Starts Xvfb, one headed Chrome for Testing (refusing to start without its sandbox) and the socket |
 | `src/reader.ts` | `read(url)`: one page in a throwaway in-memory context |
 | `src/redirect.ts` | `redirect(url)`: where a URL points, from a HEAD that follows nothing |
@@ -123,3 +123,10 @@ BROWSER_SOCKET_DIR=/run/lab1-browser BROWSER_SOCKET_GID=$(getent group assistant
 
 `ops/firewall` keeps its egress to the public internet: from its bridge, nothing private, link-local or on the host
 is reachable (`ops/README.md`).
+
+To try one read on the live service by hand, the person runs this on the VM, with `!` in an agent's session. The socket
+takes only the bot's group, so an agent's own shell can't reach it. `/redirect` takes the same body.
+
+```sh
+sudo curl -s --max-time 90 --unix-socket /run/lab1-browser/browser.sock -H 'content-type: application/json' -d '{"url":"https://example.com/"}' http://localhost/read | jq '{finalHost, status, botCheck, error}'
+```

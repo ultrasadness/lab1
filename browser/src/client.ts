@@ -1,4 +1,4 @@
-// The bot's side of the socket.
+// The browser tests' client for the socket. The bot imports nothing from browser/, so its own side is bot/src/browser.ts.
 import http from 'node:http';
 import type {
   CheckRequest,

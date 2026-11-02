@@ -7,7 +7,7 @@
 | 路径 | 是什么 |
 |---|---|
 | `src/api.ts` | 套接字 API 的类型：机器人发送什么、收到什么 |
-| `src/client.ts` | 机器人这一侧的套接字 |
+| `src/client.ts` | 浏览器测试用的套接字客户端。机器人不从 `browser/` 导入任何东西，所以它自己这一侧写在 `bot/src/browser.ts` |
 | `src/main.ts` | 启动 Xvfb、一个有界面的 Chrome for Testing（没有沙箱就拒绝启动）和套接字 |
 | `src/reader.ts` | `read(url)`：在一个用完即弃的内存上下文里打开一个页面 |
 | `src/redirect.ts` | `redirect(url)`：用一个不跟随跳转的 HEAD 得知 URL 指向哪里 |
@@ -67,3 +67,9 @@ BROWSER_SOCKET_DIR=/run/lab1-browser BROWSER_SOCKET_GID=$(getent group assistant
 ```
 
 `ops/firewall` 让它的出站流量只能去往公共互联网：从它的网桥出发，任何私有地址、链路本地地址或主机上的东西都访问不到（`ops/README.md`）。
+
+要在线上服务上手动试一次读取，由这个人在 VM 上运行下面这行，在 agent 的 session 里用 `!`。套接字只接受机器人的组，所以 agent 自己的 shell 连不上它。`/redirect` 接受同样的请求体。
+
+```sh
+sudo curl -s --max-time 90 --unix-socket /run/lab1-browser/browser.sock -H 'content-type: application/json' -d '{"url":"https://example.com/"}' http://localhost/read | jq '{finalHost, status, botCheck, error}'
+```
