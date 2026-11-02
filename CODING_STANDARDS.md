@@ -215,19 +215,24 @@ the bot applies *Skipped* too.
 ## A Chinese side says what its English side says
 
 In each section of a doc pair that a diff changes, the Chinese side changes, drops or adds no meaning. A word that
-recurs across the docs in one sense keeps the rendering the other `.zh.md` sides already use for that sense (`门禁`
-for an `ops/upgrade` gate, `填表运行` for fill run, `台账` for ledger).
+recurs across the docs in one sense keeps the rendering the other `.zh.md` sides already use for that sense:
+`npm run check:docs` holds the phrases in its table of renderings (`docs/agents/doc-pairs.md`), and review the rest.
 
-**Why it matters:** `npm run check:docs` checks a pair's shape and that someone recorded it, not what the Chinese side
-says, and the person reads the Chinese side. In #83, a spec reviewer found six such faults in the ADRs' Chinese
-sides, but only because its prompt asked it to read three of them in full. One: ADR 0009's "checked against the key's
-remaining quota before the key is reported dead" became "check, then report it dead". `1bfe5c3` landed the ADRs'
-Chinese sides with all six fixed.
+**Why it matters:** `npm run check:docs` checks a pair's shape, that someone recorded it and the table's renderings,
+not what the Chinese side says, and the person reads the Chinese side. In #83, a spec reviewer found six such faults
+in the ADRs' Chinese sides, but only because its prompt asked it to read three of them in full. One: ADR 0009's
+"checked against the key's remaining quota before the key is reported dead" became "check, then report it dead".
+`1bfe5c3` landed the ADRs' Chinese sides with all six fixed. In #49, `bot/README.zh.md` rendered "plain code" as
+`纯代码`. Only the Standards review caught it, `4e3e5cf` landed that side with `普通代码`, and #97 moved such lookups into
+the check.
 
 **In a diff, look for:**
 
 - each changed `.zh.md` section, read against the same section of its English side;
-- each recurring word, compared with its rendering for the same sense in the other Chinese sides.
+- each recurring word the table of renderings doesn't hold, compared with its rendering for the same sense in the
+  other Chinese sides;
+- wording an entry's `except` lets through that really uses the phrase in the table's sense, and a second rendering
+  beside the table's in one section: the check sees neither.
 
 ## A rule a doc states comes with its check
 

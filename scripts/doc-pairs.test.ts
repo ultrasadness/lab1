@@ -1,13 +1,13 @@
 // The doc-pair check (#82): each paired doc's English and Chinese sides stay in step through the pair's record,
 // and mirror each other's headings, code blocks, list items, inline code and language links. A Chinese side links
-// to other pairs' Chinese sides and to headings that exist, and keeps each paragraph's Chinese text on one line.
-// Every other doc is listed as unpaired.
+// to other pairs' Chinese sides and to headings that exist, keeps each paragraph's Chinese text on one line, and holds
+// the rendering of each phrase of the table its English side uses. Every other doc is listed as unpaired.
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { checkDocs } from './doc-pairs.ts';
+import { checkDocs, type Rendering } from './doc-pairs.ts';
 
 const EN = `# Guide
 
@@ -345,6 +345,88 @@ test('given the unpaired docs, the check fails every other doc that is not a pai
 
   write(root, 'guide.md', EN);
   assert.equal(checkDocs([], root, ['guide.md'], ['AGENTS.md', 'deps/', 'notes/']).output, '1 doc pair in step.\n');
+});
+
+/** The check on a repo whose one pair, guide.md, was recorded at `en` and `zh`, holding `renderings`. */
+function rendered(t: TestContext, en: string, zh: string, renderings: Rendering[]): ReturnType<typeof checkDocs> {
+  return checkDocs([], recorded(t, en, zh), ['guide.md'], [], renderings);
+}
+
+test('a section whose English side uses a phrase of the table fails without its rendering, naming all four', (t) => {
+  const en = EN.replace('Start it like this.', 'Plain code starts it.');
+  const table = [{ en: 'plain code', zh: '普通代码' }];
+
+  const present = rendered(t, en, ZH.replace('这样启动。', '由普通代码启动。'), table);
+  assert.equal(present.ok, true, present.output);
+
+  const missing = rendered(t, en, ZH.replace('这样启动。', '由纯代码启动。'), table);
+  assert.equal(missing.ok, false);
+  assert.match(missing.output, /^guide\.md is out of step with guide\.zh\.md:\n {2}\/guide\/run: "plain code" in guide\.md must be rendered 普通代码 in guide\.zh\.md\n/);
+});
+
+test('a phrase of the table on the Chinese side alone holds nothing to its rendering', (t) => {
+  const table = [{ en: 'plain code', zh: '普通代码' }];
+  for (const zh of ['由 plain code 启动。', '由普通代码启动。']) {
+    const check = rendered(t, EN, ZH.replace('这样启动。', zh), table);
+    assert.equal(check.ok, true, check.output);
+  }
+});
+
+test('a phrase of the table matches whole words, in any case, in the plural and across a wrapped line', (t) => {
+  const table = [{ en: 'fill run', zh: '填表运行' }];
+  const outputFor = (text: string, entries = table) => rendered(t, EN.replace('Start it like this.', text), ZH, entries).output;
+
+  for (const text of ['A fill run starts.', 'Fill runs start.', "A fill run's start.", 'One fill\nrun starts.', 'Fill-run work starts.']) {
+    assert.match(outputFor(text), /\/guide\/run: "fill run" in guide\.md must be rendered 填表运行 in guide\.zh\.md/, text);
+  }
+  for (const text of ['A refill run starts.', 'A fill running starts.']) {
+    assert.doesNotMatch(outputFor(text), /must be rendered/, text);
+  }
+
+  const hyphenated = [{ en: 'fast-forward', zh: '快进' }];
+  for (const text of ['A fast-forward lands.', 'A fast forward lands.']) {
+    assert.match(outputFor(text, hyphenated), /"fast-forward" in guide\.md must be rendered 快进/, text);
+  }
+});
+
+test('inline code, code blocks and link URLs neither use a phrase of the table nor give its rendering', (t) => {
+  const table = [{ en: 'fill run', zh: '填表运行' }];
+  const out = 'Start `POST /fill-run/x` from [the guide](fill-run.md).\n\n```sh\nfill run\n```';
+  const zhOut = '从[指南](fill-run.md)启动 `POST /fill-run/x`。\n\n```sh\nfill run\n```';
+  const left = rendered(t, EN.replace('Start it like this.', out), ZH.replace('这样启动。', zhOut), table);
+  assert.equal(left.ok, true, left.output);
+
+  const only = '`填表运行` 从[指南](填表运行.md)启动。\n\n```sh\n填表运行\n```';
+  const en = 'A fill run starts `填表运行` from [the guide](填表运行.md).\n\n```sh\n填表运行\n```';
+  const unrendered = rendered(t, EN.replace('Start it like this.', en), ZH.replace('这样启动。', only), table);
+  assert.match(unrendered.output, /"fill run" in guide\.md must be rendered 填表运行/);
+});
+
+test('an entry narrowed by the wording of another sense lets that wording through, and no other use of the phrase', (t) => {
+  const table = [
+    { en: 'gate', zh: '门禁', except: ['a gate between runs'] },
+    { en: 'bot check', zh: '机器人检测', except: ['the bot checks'] },
+  ];
+  const outputFor = (text: string) => rendered(t, EN.replace('Start it like this.', text), ZH, table).output;
+
+  assert.doesNotMatch(outputFor('An Approval is a gate\nbetween runs.'), /must be rendered/);
+  assert.match(outputFor('An Approval is a gate between runs. The gate passes.'), /\/guide\/run: "gate" in guide\.md must be rendered 门禁 in guide\.zh\.md/);
+
+  assert.doesNotMatch(outputFor('The bot checks the images.'), /must be rendered/);
+  assert.match(outputFor('Bot checks stop it.'), /"bot check" in guide\.md must be rendered 机器人检测/);
+});
+
+test('with headings out of line no section lines up, so only the headings are named, and --list holds the table', (t) => {
+  const en = EN.replace('Start it like this.', 'Plain code starts it.');
+  const table = [{ en: 'plain code', zh: '普通代码' }];
+  const root = recorded(t, en, ZH);
+  const list = checkDocs(['--list'], root, ['guide.md'], [], table);
+  assert.equal(list.output, 'guide.md  out of step\n');
+
+  write(root, 'guide.zh.md', ZH.replace('## 运行', '运行'));
+  const output = checkDocs([], root, ['guide.md'], [], table).output;
+  assert.match(output, /has no heading to match it/);
+  assert.doesNotMatch(output, /must be rendered/);
 });
 
 test('--list prints each pair state and never fails, and a check that passes says how many pairs are in step', (t) => {

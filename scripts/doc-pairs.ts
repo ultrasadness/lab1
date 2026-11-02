@@ -3,7 +3,8 @@
 // left out; the check recomputes them and names each section that changed since the pair was last recorded. It also
 // fails a Chinese side that links to another pair's English side or to an anchor no heading has, or that breaks a line
 // between two Chinese characters (#83). Given the docs that stay unpaired, it fails every doc on neither list, so
-// whether a new doc gets a Chinese side goes to the person.
+// whether a new doc gets a Chinese side goes to the person. Given a table of renderings, it fails a section whose
+// English side uses a phrase of the table and whose Chinese side lacks the phrase's one rendering (#97).
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, normalize } from 'node:path';
@@ -41,6 +42,14 @@ interface Entry {
   zh: string;
 }
 
+/** A word or phrase the English sides use in one sense, and the one Chinese rendering it takes in them. */
+export interface Rendering {
+  en: string;
+  zh: string;
+  /** Wording that uses the phrase in another sense, which the entry lets through. */
+  except?: string[];
+}
+
 type Result = { ok: boolean; output: string };
 
 const USAGE = `Usage: npm run check:docs [-- --list | -- --write <pair>...]
@@ -52,13 +61,14 @@ const USAGE = `Usage: npm run check:docs [-- --list | -- --write <pair>...]
 /**
  * What `npm run check:docs` does with `args`, for the `pairs` under `root`. Each is named by its English side, or is
  * a directory ending in `/` whose every English doc is a pair. Given the `unpaired` docs, each a file or a directory
- * ending in `/` that covers everything under it, the check also fails every other doc under `root`.
+ * ending in `/` that covers everything under it, the check also fails every other doc under `root`. The `renderings`
+ * are the table each section is held to.
  */
-export function checkDocs(args: string[], root: string, pairs: string[], unpaired?: string[]): Result {
+export function checkDocs(args: string[], root: string, pairs: string[], unpaired?: string[], renderings: Rendering[] = []): Result {
   const [flag, ...names] = args;
   const all = pairs.flatMap((entry) => englishDocs(root, entry)).map(pairOf);
-  if (flag === undefined) return checkAll(root, all, unpaired);
-  if (flag === '--list' && names.length === 0) return { ok: true, output: list(root, all) };
+  if (flag === undefined) return checkAll(root, all, unpaired, renderings);
+  if (flag === '--list' && names.length === 0) return { ok: true, output: list(root, all, renderings) };
   if (flag === '--write' && names.length > 0) return write(root, all, names);
   return { ok: false, output: USAGE };
 }
@@ -76,14 +86,14 @@ function pairOf(en: string): Pair {
   return { en, zh: en.replace(/\.md$/, '.zh.md'), record: en.replace(/\.md$/, '.i18n.yaml') };
 }
 
-function checkAll(root: string, pairs: Pair[], unpaired: string[] | undefined): Result {
+function checkAll(root: string, pairs: Pair[], unpaired: string[] | undefined, renderings: Rendering[]): Result {
   const strays = (unpaired ? unlisted(root, pairs, unpaired) : []).map(
     (doc) =>
       `${doc} is neither a doc pair nor an unpaired doc. Whether it gets a Chinese side is the person's call: ask them, ` +
       'then add it to PAIRS in scripts/check-docs.ts and write its Chinese side, or add it to UNPAIRED there.',
   );
   const failed = pairs.flatMap((pair) => {
-    const problems = check(root, pair, pairs);
+    const problems = check(root, pair, pairs, renderings);
     if (problems.length === 0) return [];
     return [
       lines([
@@ -117,12 +127,12 @@ function docsUnder(root: string, dir: string, listed: Set<string>): string[] {
   });
 }
 
-function list(root: string, pairs: Pair[]): string {
+function list(root: string, pairs: Pair[], renderings: Rendering[]): string {
   const width = Math.max(...pairs.map((pair) => pair.en.length)) + 2;
   return lines(
     pairs.map((pair) => {
       const gone = absent(root, [pair.en, pair.zh, pair.record]);
-      const state = gone.length > 0 ? `missing ${and(gone)}` : check(root, pair, pairs).length > 0 ? 'out of step' : 'in step';
+      const state = gone.length > 0 ? `missing ${and(gone)}` : check(root, pair, pairs, renderings).length > 0 ? 'out of step' : 'in step';
       return pair.en.padEnd(width) + state;
     }),
   );
@@ -153,12 +163,12 @@ function unrecordable(root: string, pair: Pair): string[] {
 }
 
 /** One line per problem, naming its section or link; none when the pair is in step with the other `pairs`. */
-function check(root: string, pair: Pair, pairs: Pair[]): string[] {
+function check(root: string, pair: Pair, pairs: Pair[], renderings: Rendering[]): string[] {
   const gone = absent(root, [pair.en, pair.zh, pair.record]);
   if (gone.includes(pair.en) || gone.includes(pair.zh)) return [areMissing(gone)];
   const doc = sides(root, pair);
   const problems = [...unmirrored(doc), ...englishLinks(doc, pairs), ...brokenAnchors(root, doc), ...brokenLines(doc)];
-  return misaligned(doc).length > 0 ? problems : [...problems, ...unrecorded(root, doc)];
+  return misaligned(doc).length > 0 ? problems : [...problems, ...unrendered(doc, renderings), ...unrecorded(root, doc)];
 }
 
 /** Where the two sides don't mirror each other's structure. */
@@ -215,8 +225,7 @@ function chineseTargets({ pair, zh }: Sides): string[] {
 
 /** The targets of a text's inline links and link reference definitions, inline code left out. */
 function targets(text: string): string[] {
-  const prose = text.replace(/`[^`]*`/g, '');
-  return [...prose.matchAll(/\]\(\s*<?([^\s)>]+)|(?:^|\s)\[[^\]]+\]:\s*<?([^\s>]+)/g)].map((m) => (m[1] ?? m[2])!);
+  return [...withoutInlineCode(text).matchAll(/\]\(\s*<?([^\s)>]+)|(?:^|\s)\[[^\]]+\]:\s*<?([^\s>]+)/g)].map((m) => (m[1] ?? m[2])!);
 }
 
 /** The path from the root that a link to `target` in `file` leads to; none for a URL or an anchor alone. */
@@ -302,6 +311,35 @@ function parts(section: Block[]): Map<string, number> {
     for (const part of [...code, ...urls]) out.set(part, (out.get(part) ?? 0) + 1);
   }
   return out;
+}
+
+/** Each section whose English side uses a phrase of the table and whose Chinese side lacks its rendering. */
+function unrendered({ pair, en, zh, keys }: Sides, renderings: Rendering[]): string[] {
+  return en.flatMap((section, i) => {
+    const [ours, theirs] = [wordsOf(section), wordsOf(zh[i] ?? [])];
+    return renderings
+      .filter((entry) => uses(ours, entry) && !theirs.includes(entry.zh))
+      .map((entry) => `${keys[i]}: "${entry.en}" in ${pair.en} must be rendered ${entry.zh} in ${pair.zh}`);
+  });
+}
+
+/**
+ * Whether `text`, past the entry's other senses, holds its phrase as whole words, in any case, hyphenated or not, in
+ * the singular or the plural.
+ */
+function uses(text: string, { en, except = [] }: Rendering): boolean {
+  const rest = except.reduce((left, wording) => left.replace(new RegExp(RegExp.escape(wording), 'gi'), ''), text);
+  return new RegExp(`\\b${en.split(/[ -]/).map(RegExp.escape).join('[ -]')}s?\\b`, 'i').test(rest);
+}
+
+/** What a section says in words: its text, past inline code and the URLs its links point at. */
+function wordsOf(section: Block[]): string {
+  const text = withoutInlineCode(sectionText(section));
+  return targets(text).reduce((rest, target) => rest.replace(target, ''), text);
+}
+
+function withoutInlineCode(text: string): string {
+  return text.replace(/`[^`]*`/g, '');
 }
 
 /** Each section whose text on either side changed since the pair was recorded. */
@@ -432,8 +470,12 @@ function hashed(block: Block): boolean {
 }
 
 function hash(section: Block[]): string {
-  const text = section.filter(hashed).map((b) => b.text).join('\n');
-  return createHash('sha256').update(text).digest('hex').slice(0, 16);
+  return createHash('sha256').update(sectionText(section)).digest('hex').slice(0, 16);
+}
+
+/** A section's text, code blocks left out. */
+function sectionText(section: Block[]): string {
+  return section.filter(hashed).map((b) => b.text).join('\n');
 }
 
 /** `/` for the text before the first heading, then each heading's path of slugs; a repeated path gets `~2`, `~3`. */

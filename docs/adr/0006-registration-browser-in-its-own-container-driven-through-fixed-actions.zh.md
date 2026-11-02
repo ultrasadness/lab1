@@ -1,8 +1,8 @@
-# Registration 浏览器运行在自己的容器里，模型只能通过固定的动作驱动它
+# Registration 浏览器运行在自己的容器里，模型只能通过固定动作驱动它
 
 [English](0006-registration-browser-in-its-own-container-driven-through-fixed-actions.md) | 中文
 
-填写 Registration 的浏览器运行在它自己的长期容器里，由我们的一个小型浏览器服务（TypeScript 和 Playwright）掌管。机器人是这个服务唯一的客户端，通过 Unix 套接字连接，所以 Pi 只能通过机器人的窄接口接触浏览器。模型从不自由地点击或输入。它只有一组固定的动作：拍快照、用一个以 Walkthrough 键指定的已批准值填写字段、按引用填入 Secret、选择一个已批准的选项、打开 Walkthrough 域名上的链接，以及结束。注册页面和 Product 网站都是不可信的文本，而任何一次点击都可能运行页面的 JavaScript，所以“不做会发送数据的点击”无法逐个元素地强制执行。防御在于：读取页面的运行几乎什么都做不了，而每一次按下都由普通代码完成。在 [Registration 浏览器在哪里运行，如何防止页面文本操纵 Assistant？](https://github.com/ultrasadness/lab1/issues/18) 中决定。
+填写 Registration 的浏览器运行在它自己的长期容器里，由我们的一个小型浏览器服务（TypeScript 和 Playwright）掌管。机器人是这个服务唯一的客户端，通过 Unix 套接字连接，所以 Pi 只能通过机器人的窄接口接触浏览器。模型从不自由地点击或输入。它只有一组固定动作：拍快照、用一个以 Walkthrough 键指定的已批准值填写字段、按引用填入 Secret、选择一个已批准的选项、打开 Walkthrough 域名上的链接，以及结束。注册页面和 Product 网站都是不可信的文本，而任何一次点击都可能运行页面的 JavaScript，所以“不做会发送数据的点击”无法逐个元素地强制执行。防御在于：读取页面的运行几乎什么都做不了，而每一次按下都由普通代码完成。在 [Registration 浏览器在哪里运行，如何防止页面文本操纵 Assistant？](https://github.com/ultrasadness/lab1/issues/18) 中决定。
 
 ## 考虑过的方案
 
