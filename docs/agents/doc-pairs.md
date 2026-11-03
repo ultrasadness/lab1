@@ -14,8 +14,8 @@ A commit that edits either side of a pair updates the other side in the same com
 3. Patch only those sections of the other side, against the edited side's diff, so the rest of the translation
    stays as it was reviewed.
 4. Run `npm run check:docs -- --write foo.md` to re-record the pair. The record's diff is your confirmation that
-   both sides say the same thing. A green check means only that someone confirmed the pair at these contents and that
-   it holds the table's renderings; the translation's quality is review's job.
+   both sides say the same thing. A green check means someone confirmed the pair at these contents, and that its shape
+   and the table's renderings hold; what the translation says is review's job.
 
 ## Writing a heading or a code block
 
