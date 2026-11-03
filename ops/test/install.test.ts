@@ -31,6 +31,7 @@ esac`,
   gpasswd: `grep -vx "$3" "$F/groups" > "$F/groups.new"; mv "$F/groups.new" "$F/groups"`,
   sudo: `if [ -f "$F/sudoers" ]; then echo "User assistant may run the following commands"; else echo "User assistant is not allowed to run sudo on vm."; fi`,
   'apt-get': `echo "apt-get $*" >> "$F/log"; case "$*" in *install*) printf '#!/bin/sh\\n' > "$(dirname "$0")/sqlite3"; chmod +x "$(dirname "$0")/sqlite3" ;; esac`,
+  npm: `echo "npm $* in $PWD" >> "$F/log"; mkdir -p node_modules/.bin; printf '#!/bin/sh\\n' > node_modules/.bin/bw; chmod +x node_modules/.bin/bw`,
   systemctl: `echo "systemctl $*" >> "$F/log"
 case $1 in
   is-enabled) grep -qx "$2" "$F/enabled" 2>/dev/null && echo enabled || { echo disabled; exit 1; } ;;
@@ -183,7 +184,7 @@ async function startBot(machine: Vm): Promise<Ran> {
   machine.land();
   await install(machine, '--personal-database', 'git@github.com:person/personal-database.git');
   deployKey(machine);
-  for (const name of ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'healthchecks-ping-bot']) {
+  for (const name of ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'healthchecks-ping-bot', 'bitwarden-api-key', 'bitwarden-master-password']) {
     writeFileSync(join(machine.root, 'etc/assistant/credentials', name), 'dummy', { mode: 0o600 });
   }
   return install(machine);
@@ -239,7 +240,7 @@ test('a first install puts everything in place, and a second changes nothing', a
   // The bot pings its own check, so it waits on that ping URL too; without the ping URLs, the alerts can't go out.
   assert.match(
     first.out,
-    /^ {2}- healthchecks-ping-bot: ops\/token healthchecks-ping-bot\nThe alerts, when the bot or the backup gives up, wait on:\n {2}- healthchecks-ping-backup: ops\/token healthchecks-ping-backup\n {2}- healthchecks-ping-bot: ops\/token healthchecks-ping-bot$/m,
+    /^ {2}- healthchecks-ping-bot: ops\/token healthchecks-ping-bot\n {2}- bitwarden-api-key: ops\/token bitwarden-api-key\n {2}- bitwarden-master-password: ops\/token bitwarden-master-password\nThe alerts, when the bot or the backup gives up, wait on:\n {2}- healthchecks-ping-backup: ops\/token healthchecks-ping-backup\n {2}- healthchecks-ping-bot: ops\/token healthchecks-ping-bot$/m,
   );
 
   const second = await install(machine);
@@ -272,6 +273,39 @@ test('install replaces the vulnerable dedicated Node link and restarts the runni
   assert.equal(second.code, 0, second.out);
   assert.match(second.out, /^Nothing to change\.$/m);
   assert.equal(readlinkSync(link), NODE_DIR.slice('opt/assistant/'.length));
+});
+
+test('bw goes in as ops/bitwarden pins it, where the config runs it from, and again only when its pin moves', async (t) => {
+  const machine = await vm(t);
+  const bwDir = join(machine.root, 'opt/assistant/bw');
+  const pinned = JSON.parse(readFileSync(join(machine.source, 'ops/bitwarden/package.json'), 'utf8')) as { dependencies: Record<string, string> };
+  assert.match(pinned.dependencies['@bitwarden/cli']!, /^\d+\.\d+\.\d+$/, 'an exact version');
+  assert.ok(existsSync(join(machine.source, 'ops/bitwarden/package-lock.json')), 'every package it pulls in is pinned by its hash');
+  const config = JSON.parse(readFileSync(join(machine.source, 'config/assistant.json'), 'utf8')) as { bitwarden: { command: string[] } };
+  assert.deepEqual(config.bitwarden.command, ['/opt/assistant/bw/node_modules/.bin/bw']);
+
+  const dry = await install(machine, '--dry-run');
+  assert.match(dry.out, /^Would install bw as ops\/bitwarden pins it, in .*\/opt\/assistant\/bw\.$/m);
+  assert.ok(!existsSync(bwDir), 'a dry run changes nothing');
+
+  const first = await install(machine);
+  assert.equal(first.code, 0, first.out);
+  assert.match(machine.log(), new RegExp(`^npm ci --ignore-scripts --omit=dev --no-audit --no-fund --loglevel=error in ${bwDir}$`, 'm'));
+  assert.equal(readFileSync(join(bwDir, 'package-lock.json'), 'utf8'), readFileSync(join(machine.source, 'ops/bitwarden/package-lock.json'), 'utf8'));
+  assert.equal(mode(bwDir), '755', 'the bot’s user can run it');
+  assert.equal(mode(join(bwDir, 'node_modules/.bin/bw')), '755');
+
+  const installs = () => machine.log().split('\n').filter((line) => line.startsWith('npm ci')).length;
+  await install(machine);
+  assert.equal(installs(), 1, 'a second run changes nothing');
+
+  // A new pin lands like any code, and the next run installs it.
+  writeFileSync(join(machine.source, 'ops/bitwarden/package-lock.json'), '{"lockfileVersion":3,"moved":true}\n');
+  git(machine.source, 'commit', '-q', '-am', 'Move the pin');
+  machine.land();
+  const deployed = await install(machine, '--deploy');
+  assert.equal(deployed.code, 0, deployed.out);
+  assert.equal(installs(), 2);
 });
 
 test('the dry run says what it would do, and changes nothing', async (t) => {

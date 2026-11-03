@@ -9,6 +9,7 @@ import type { Assistant, LogEntry } from '../../src/assistant.ts';
 import type { Config } from '../../src/config.ts';
 import type { Migration } from '../../src/store.ts';
 import { botProcessesRunning, BotThread } from './bot-thread.ts';
+import { FakeBitwarden } from './fake-bitwarden.ts';
 import { FakeBrowser } from './fake-browser.ts';
 import { FakeClock } from './fake-clock.ts';
 import { FakeDiscord } from './fake-discord.ts';
@@ -31,6 +32,10 @@ export const TOKENS = {
   minerKey: 'new-api-key-miner-test',
   registrationKey: 'new-api-key-registration-test',
   deployKey: '-----BEGIN OPENSSH PRIVATE KEY-----\nthe Personal database deploy key\n-----END OPENSSH PRIVATE KEY-----\n',
+  bitwardenClientId: 'user.0b1c2d3e-0000-4000-8000-000000000001',
+  bitwardenClientSecret: 'bitwarden-client-secret-test',
+  /** With characters a URL and JSON each carry differently, as a master password may have. */
+  bitwardenMasterPassword: 'correct "horse"/battery+staple!',
 };
 
 /** The Signup mailbox's address (ADR 0003). */
@@ -51,6 +56,8 @@ export interface World {
   discord: FakeDiscord;
   productHunt: FakeProductHunt;
   browser: FakeBrowser;
+  /** The Password vault, as `bw` reaches it. */
+  bitwarden: FakeBitwarden;
   model: FakeModelProvider;
   /** GitHub, holding the person's Personal database repo. */
   git: FakeGitRemote;
@@ -77,7 +84,7 @@ export interface World {
    */
   outage(until: string, upgrade?: (config: Config) => void): Promise<void>;
   /**
-   * Ends the bot where it stands, with no stop, as a crash does, and each run and git command it started. It never acts
+   * Ends the bot where it stands, with no stop, as a crash does, and each run, git command and `bw` command it started. It never acts
    * again, whatever a fake answers or the clock does. No bot is up until `restart` or `outage` starts a fresh one.
    */
   kill(): Promise<void>;
@@ -101,6 +108,8 @@ export async function startWorld(options: {
   dataDir?: string;
   /** The store's migrations, in place of its own, to try how the bot runs them. */
   migrations?: Migration[];
+  /** What the bot's `bitwarden-api-key` token file holds, in place of its good key. */
+  bitwardenApiKey?: string;
 }): Promise<World> {
   const dir = mkdtempSync(join(tmpdir(), 'assistant-test-'));
   const credentials = join(dir, 'credentials');
@@ -114,6 +123,13 @@ export async function startWorld(options: {
   writeFileSync(join(credentials, 'newapi-key-miner'), `${TOKENS.minerKey}\n`);
   writeFileSync(join(credentials, 'newapi-key-registration'), `${TOKENS.registrationKey}\n`);
   writeFileSync(join(credentials, 'personal-database-deploy-key'), TOKENS.deployKey, { mode: 0o600 });
+  writeFileSync(join(credentials, 'bitwarden-api-key'), options.bitwardenApiKey ?? JSON.stringify({ client_id: TOKENS.bitwardenClientId, client_secret: TOKENS.bitwardenClientSecret }));
+  writeFileSync(join(credentials, 'bitwarden-master-password'), TOKENS.bitwardenMasterPassword);
+  const bitwarden = new FakeBitwarden(join(dir, 'bitwarden'), {
+    clientId: TOKENS.bitwardenClientId,
+    clientSecret: TOKENS.bitwardenClientSecret,
+    masterPassword: TOKENS.bitwardenMasterPassword,
+  });
   const git = FakeGitRemote.create({
     dir: join(dir, 'github'),
     deployKey: TOKENS.deployKey,
@@ -149,6 +165,7 @@ export async function startWorld(options: {
     },
     productHunt: { apiUrl: productHunt.apiUrl },
     browser: { socketPath: browser.socketPath },
+    bitwarden: { command: bitwarden.command, timeoutSeconds: 60 },
     walkthroughs: { on: true },
     signupMailbox: SIGNUP_MAILBOX,
     gateway: { baseUrl: model.baseUrl },
@@ -216,6 +233,7 @@ export async function startWorld(options: {
     discord,
     productHunt,
     browser,
+    bitwarden,
     model,
     git,
     healthchecks,

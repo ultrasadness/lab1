@@ -147,6 +147,8 @@ export class FakeDiscord {
   readonly calls: string[] = [];
   /** Every IDENTIFY the bot sent, with its intents. */
   readonly identifies: { intents: number }[] = [];
+  /** The body of every request the bot sent, as Discord received it. */
+  readonly bodies: string[] = [];
   /** Requests Discord refused, with the reason it gave. */
   readonly refused: { path: string; reason: string }[] = [];
   /** Forums Discord can't read for now, such as their tags: each read answers 503. */
@@ -458,6 +460,7 @@ export class FakeDiscord {
     for await (const chunk of req) raw += chunk;
     const path = (req.url ?? '').replace(/^\/api\/v10/, '');
     this.calls.push(`${req.method} ${path}`);
+    if (raw) this.bodies.push(raw);
     const reply = (status: number, body?: unknown) => {
       res.writeHead(status, { 'content-type': 'application/json' });
       res.end(body === undefined ? undefined : JSON.stringify(body));

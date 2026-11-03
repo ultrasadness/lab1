@@ -27,6 +27,7 @@ function standingFrom(store: Store, product: Product, needsYouChannelId: string)
   const registration = store.registration(product.id);
   if (registration) {
     const approved = `Walkthrough v${registration.version} approved`;
+    if (registration.state === 'held') return { tags: ['walkthrough'], registerNote: `${approved}; waiting for Bitwarden.` };
     return registration.state === 'handed-off'
       ? { tags: ['handed off'], registerNote: `${approved}; handed off to you.` }
       : { tags: ['registering'], registerNote: `${approved}; registering.` };

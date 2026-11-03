@@ -15,7 +15,16 @@ import { ROLES } from '../../bot/src/config.ts';
 
 const REPO = join(import.meta.dirname, '..', '..');
 const OPS_TOKEN = join(REPO, 'ops', 'token');
-const BOT_TOKENS = ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'personal-database-deploy-key', 'healthchecks-ping-bot'];
+const BOT_TOKENS = [
+  'discord-bot-token',
+  'producthunt-token',
+  'newapi-key-miner',
+  'newapi-key-registration',
+  'personal-database-deploy-key',
+  'healthchecks-ping-bot',
+  'bitwarden-api-key',
+  'bitwarden-master-password',
+];
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose';
 
 interface Vm {
@@ -209,7 +218,7 @@ test("the bot isn't started while another of its tokens is missing, and the pers
   const ran = await opsToken(machine, ['newapi-key-miner'], [{ after: /Paste/, type: 'good-key' }]);
   assert.equal(ran.code, 0, ran.out);
   assert.match(ran.out, /new-api lets it reach miner@openrouter/);
-  assert.match(ran.out, /assistant\.service waits on: discord-bot-token, producthunt-token, newapi-key-registration, personal-database-deploy-key, healthchecks-ping-bot\./);
+  assert.match(ran.out, /assistant\.service waits on: discord-bot-token, producthunt-token, newapi-key-registration, personal-database-deploy-key, healthchecks-ping-bot, bitwarden-api-key, bitwarden-master-password\./);
   assert.equal(machine.systemctl(), '');
 });
 
@@ -399,7 +408,31 @@ test('a ping URL only the backup reads restarts nothing', async (t) => {
   assert.equal(machine.systemctl(), '');
 });
 
-test("Bitwarden: the API key is checked by logging in, and the master password waits for bw", async (t) => {
+/** A `bw` at the path `ops/install` gives it, answering as @bitwarden/cli 2026.10.0 does (`bot/test/harness/fake-bw.ts`). */
+function placeBw(machine: Vm, collections: string[] = ['Registrations']): void {
+  const bin = join(machine.root, 'opt/assistant/bw/node_modules/.bin');
+  mkdirSync(bin, { recursive: true });
+  const listed = JSON.stringify(collections.map((name, i) => ({ object: 'collection', id: `collection-${i}`, organizationId: 'organization', name, externalId: null })));
+  writeFileSync(
+    join(bin, 'bw'),
+    `#!/bin/sh
+echo "$* data=$BITWARDENCLI_APPDATA_DIR session=$BW_SESSION" >> "$OPS_ROOT/bw.log"
+case "$1" in
+  login) [ "$BW_CLIENTSECRET" = good-bw ] || { echo 'client_id or client_secret is incorrect. Try again.' >&2; exit 1; } ;;
+  unlock) [ "$BW_PASSWORD" = good-master ] || { echo 'Invalid master password.' >&2; exit 1; }; printf 'the-session-key' ;;
+  sync) echo 'Syncing complete.' ;;
+  list) printf '%s' '${listed}' ;;
+  logout) echo 'You have logged out.' ;;
+  *) echo "Invalid command: $*" >&2; exit 1 ;;
+esac
+`,
+    { mode: 0o755 },
+  );
+}
+
+const placeApiKey = (machine: Vm) => machine.put('bitwarden-api-key', JSON.stringify({ client_id: 'user.0b1c2d3e-0000-4000-8000-000000000001', client_secret: 'good-bw' }));
+
+test('Bitwarden: the API key is checked by logging in, and the master password needs the bw that ops/install puts in place', async (t) => {
   const machine = await vm(t);
   const key = await opsToken(machine, ['bitwarden-api-key'], [
     { after: /client_id/, type: 'user.0b1c2d3e-0000-4000-8000-000000000001' },
@@ -407,9 +440,41 @@ test("Bitwarden: the API key is checked by logging in, and the master password w
   ]);
   assert.equal(key.code, 0, key.out);
   assert.match(key.out, /Bitwarden logs the bot in with it/);
-  const password = await opsToken(machine, ['bitwarden-master-password'], [{ after: /Paste/, type: 'hunter2' }]);
+  const password = await opsToken(machine, ['bitwarden-master-password'], [{ after: /Paste/, type: 'good-master' }]);
   assert.equal(password.code, 1);
-  assert.match(password.out, /Nothing changed: bw isn't installed on the VM, so the master password can't be checked \(#54 installs it\)/);
+  assert.match(password.out, /Nothing changed: bw isn't installed on the VM, so the master password can't be checked: run ops\/install/);
+});
+
+test('Bitwarden: the master password is checked as the bot will use it, in a throwaway data folder', async (t) => {
+  const machine = await vm(t);
+  placeApiKey(machine);
+  placeBw(machine);
+
+  const refused = await opsToken(machine, ['bitwarden-master-password'], [{ after: /Paste/, type: 'wrong' }]);
+  assert.equal(refused.code, 1);
+  assert.match(refused.out, /Nothing changed: bw refuses this master password/);
+  assert.ok(!existsSync(join(machine.credentials, 'bitwarden-master-password')));
+
+  const placed = await opsToken(machine, ['bitwarden-master-password'], [{ after: /Paste/, type: 'good-master' }]);
+  assert.equal(placed.code, 0, placed.out);
+  assert.match(placed.out, /bw unlocks with it, and the bot's account sees only Registrations/);
+  assert.equal(readFileSync(join(machine.credentials, 'bitwarden-master-password'), 'utf8'), 'good-master');
+
+  const log = readFileSync(join(machine.root, 'bw.log'), 'utf8');
+  assert.deepEqual(log.split('\n').slice(-6, -1).map((line) => line.split(' data=')[0]), ['login --apikey --nointeraction', 'unlock --passwordenv BW_PASSWORD --raw --nointeraction', 'sync --nointeraction', 'list collections --nointeraction', 'logout --nointeraction']);
+  assert.match(log.split('\n').at(-3)!, /session=the-session-key$/, 'what it asks is what the bot asks, with the session key');
+  assert.ok(!log.includes('good-master') && !log.includes('good-bw'), 'no Secret on a command line');
+  assert.deepEqual(readdirSync(machine.credentials).filter((name) => name.startsWith('.')), [], 'no data folder is left');
+});
+
+test('Bitwarden: an account that sees more than the Registrations collection is refused, since the bot would hold every Approval', async (t) => {
+  const machine = await vm(t);
+  placeApiKey(machine);
+  placeBw(machine, ['Registrations', 'Everything']);
+  const ran = await opsToken(machine, ['bitwarden-master-password'], [{ after: /Paste/, type: 'good-master' }]);
+  assert.equal(ran.code, 1);
+  assert.match(ran.out, /Nothing changed: the bot's account sees 2 collections, and should see only Registrations/);
+  assert.ok(!existsSync(join(machine.credentials, 'bitwarden-master-password')));
 });
 
 test('ops/token names every token ADR 0009 lists, and the bot unit hands over each one the bot reads', async (t) => {

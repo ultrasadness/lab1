@@ -350,8 +350,13 @@ export interface StoredRegistration {
   productId: number;
   /** The Walkthrough version approved. */
   version: number;
-  state: 'queued' | 'handed-off';
+  /** `held`: its Approval is kept, and it starts once the Password vault has its password (ADR 0004). */
+  state: 'held' | 'queued' | 'handed-off';
   approvedAt: string;
+  /** Whether a vault item may have been created: from here on the Password vault is read before another is made (ADR 0007). */
+  vaultItemIntended: boolean;
+  /** The vault item holding its password, when it has one. The store never holds the password (ADR 0004). */
+  vaultItemId: string | null;
   /** The status message in the Product's post, marked before it is sent. */
   statusIntended: boolean;
   statusMessageId: string | null;
@@ -378,6 +383,11 @@ const MIGRATIONS: Migration[] = [
   id INTEGER PRIMARY KEY CHECK (id = 1),
   written_at TEXT NOT NULL
 );`,
+  },
+  {
+    name: "add registrations' vault item, the id of the Bitwarden item holding its password, and its intended mark (#54)",
+    sql: `ALTER TABLE registrations ADD COLUMN vault_item_intended INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE registrations ADD COLUMN vault_item_id TEXT;`,
   },
 ];
 
@@ -586,7 +596,9 @@ CREATE TABLE IF NOT EXISTS registrations (
   approved_at TEXT NOT NULL,
   status_intended INTEGER NOT NULL DEFAULT 0,
   status_message_id TEXT,
-  shown_at TEXT
+  shown_at TEXT,
+  vault_item_intended INTEGER NOT NULL DEFAULT 0,
+  vault_item_id TEXT
 );
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
@@ -699,6 +711,8 @@ const registrationOf = (row: Row): StoredRegistration => ({
   version: Number(row.version),
   state: String(row.state) as StoredRegistration['state'],
   approvedAt: String(row.approved_at),
+  vaultItemIntended: Boolean(row.vault_item_intended),
+  vaultItemId: textOrNull(row.vault_item_id),
   statusIntended: Boolean(row.status_intended),
   statusMessageId: textOrNull(row.status_message_id),
   shownAt: textOrNull(row.shown_at),
@@ -1713,6 +1727,21 @@ export class Store {
 
   unshownRegistrations(): StoredRegistration[] {
     return this.#db.prepare('SELECT * FROM registrations WHERE shown_at IS NULL ORDER BY approved_at').all().map(registrationOf);
+  }
+
+  /** The Registrations whose Approval waits on the Password vault, oldest first. */
+  heldRegistrations(): StoredRegistration[] {
+    return this.#db.prepare("SELECT * FROM registrations WHERE state = 'held' ORDER BY approved_at").all().map(registrationOf);
+  }
+
+  /** Marks that a vault item may be created for this Registration from now on, before `bw` is asked for one. */
+  saveRegistrationVaultIntended(productId: number): void {
+    this.#db.prepare('UPDATE registrations SET vault_item_intended = 1 WHERE product_id = ?').run(productId);
+  }
+
+  /** Keeps the id of the vault item holding the password, and starts the Registration in the state given. */
+  saveRegistrationVaultItem(productId: number, itemId: string, state: Exclude<StoredRegistration['state'], 'held'>): void {
+    this.#db.prepare('UPDATE registrations SET vault_item_id = ?, state = ? WHERE product_id = ?').run(itemId, state, productId);
   }
 
   /** Marks the Registration's status message as about to be sent, or as not sent after all. */

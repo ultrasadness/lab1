@@ -15,6 +15,7 @@
 | `ops/systemd/` | `ops/install` 放进 `/etc/systemd/system` 的单元 |
 | `ops/coding-sessions/` | Claude Code 和 Codex 的设置，让编码会话碰不到凭据 |
 | `ops/github-known-hosts` | GitHub 公布的 ssh 主机密钥，供机器人的 ssh 使用 |
+| `ops/bitwarden/` | 机器人运行的 Bitwarden CLI `bw` 的版本固定：它的确切版本，以及它带来的每个包的哈希 |
 | `compose.yaml` | Pi 和浏览器服务的 compose 项目 |
 
 ## 安装
@@ -31,6 +32,7 @@
 
 - 供机器人和运维脚本使用的 Node 24.22.2，对照 nodejs.org 公布的 SHA-256 校验，放在 `/opt/assistant/node`，这个链接改指向时，正在运行的机器人会重启到它上面；
 - `sqlite3`，供备份使用；
+- `bw`，版本由 `ops/bitwarden/` 固定，放在 `/opt/assistant/bw`，`config/assistant.json` 里的 `bitwarden.command` 从那里运行它，安装时不运行任何包的安装脚本；
 - `assistant` 系统用户，除了它自己的组以外不在任何组里：没有 `sudo`，没有 `docker`，`/home/ubuntu` 也不向它开放；
 - `/etc/assistant/credentials` 和 `/var/backups/assistant`，只归 root 所有（权限 700）；
 - 机器人在 `/opt/assistant/lab1` 的 lab1 checkout，归 root 所有，机器人只能读，和编码会话工作的地方分开；
@@ -57,13 +59,15 @@
 | `gmail-client-secret` | Google Cloud 的 Credentials 页面为桌面应用客户端下载的 JSON | Google 接受这个客户端，只拒绝一个编造的授权码 |
 | `gmail-refresh-token` | 在 Safari 里授权一次：登录 Signup mailbox 的账号，打开 `ops/token` 显示的链接，再把 Safari 打不开的那个地址粘贴回来 | 刷新一次，权限恰好是 `gmail.readonly` 和 `gmail.compose`，以及这个邮箱的地址 |
 | `bitwarden-api-key` | 机器人的 Bitwarden 账号的个人 API 密钥：先是它的 `client_id`，再是它的 `client_secret` | Bitwarden 用它让机器人登录 |
-| `bitwarden-master-password` | 机器人的 Bitwarden 账号 | `bw` 用它解锁密码库，等 #54 安装好 `bw` 之后 |
+| `bitwarden-master-password` | 机器人的 Bitwarden 账号 | 在一个一次性的数据目录里，`bw` 登录、用它解锁并同步，账号必须只能看到 *Registrations* 集合 |
 | `healthchecks-ping-bot`, `-miner`, `-backup`, `-weekly` | healthchecks.io 上每个检查的 ping URL；机器人那个检查的周期是 5 分钟，宽限 10 分钟 | 在这个检查上记一条日志事件，其他什么都不改 |
 | `personal-database-deploy-key` | 在 VM 上生成：`ops/token` 显示公钥，把它加到仓库的 Deploy keys 里，勾上 "Allow write access"，然后它等你按回车 | 在机器人的 checkout 里通过这把密钥运行 `git ls-remote origin main`，再做一次什么都不推的推送，没有写权限的密钥会被 GitHub 拒绝 |
 
 deploy key 的私钥从不离开 VM（在 #71 上确定）：在询问 GitHub 期间，它待在凭据目录里面的一个目录里，即使 SSH 会话断开，这个目录也会被删除。试了五次 GitHub 仍然拒绝的密钥，什么也不会改变：从仓库里删掉它，再运行一次 `ops/token`。CPA 的 ChatGPT 登录，也就是粘贴那个打不开的 `localhost:1455` 地址，随 CPA 本身在 #72 里到来。
 
-机器人的单元只交付机器人现在读取的令牌：`discord-bot-token`、`producthunt-token`、`newapi-key-miner`、`newapi-key-registration`、`personal-database-deploy-key` 和 `healthchecks-ping-bot`。之后读取别的令牌的 ticket，会在 `ops/systemd/assistant.service` 里加上它的 `LoadCredential=` 一行：只要这个单元和机器人读取的名字不一致，`ops/test/token.test.ts` 就会失败。
+运行 `ops/token bitwarden-master-password` 之前，这个人要先设置一次 Password vault（ADR 0004）：这个人自己的 Bitwarden 账号拥有一个免费组织，里面有 *Registrations* 集合；机器人自己的账号用 Signup mailbox 的一个加号地址，作为组织的第二个成员，只能编辑那个集合，别的什么都碰不到。账号能看到别的集合时检查就会失败，因为机器人会因此扣住每个 Approval。`bw list collections` 不会说明账号能否编辑，所以检查分辨不出只读授权：第一个 Approval 会被扣住，日志行会写明原因。
+
+机器人的单元只交付机器人现在读取的令牌：`discord-bot-token`、`producthunt-token`、`newapi-key-miner`、`newapi-key-registration`、`personal-database-deploy-key`、`healthchecks-ping-bot`、`bitwarden-api-key` 和 `bitwarden-master-password`。之后读取别的令牌的 ticket，会在 `ops/systemd/assistant.service` 里加上它的 `LoadCredential=` 一行：只要这个单元和机器人读取的名字不一致，`ops/test/token.test.ts` 就会失败。
 
 ### new-api 的渠道和角色密钥
 

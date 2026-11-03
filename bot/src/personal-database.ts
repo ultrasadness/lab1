@@ -16,6 +16,7 @@ import { errorText, type Log } from './log.ts';
 import type { NeedsYou } from './needs-you.ts';
 import { shortTime } from './pacific.ts';
 import { kill } from './process-group.ts';
+import type { SecretGuard } from './secret-guard.ts';
 import type { Divergence, PersonalDatabaseWrite, Store } from './store.ts';
 
 /** How long one git command may take, a fetch or push to GitHub included, before it is killed. */
@@ -42,6 +43,7 @@ export class PersonalDatabase {
   #retryMinutes: number;
   #store: Store;
   #needsYou: NeedsYou;
+  #secrets: SecretGuard;
   #clock: Clock;
   #log: Log;
   /** The lock: each sync starts once the one before it has ended. */
@@ -62,6 +64,7 @@ export class PersonalDatabase {
     retryMinutes: number;
     store: Store;
     needsYou: NeedsYou;
+    secrets: SecretGuard;
     clock: Clock;
     log: Log;
   }) {
@@ -71,6 +74,7 @@ export class PersonalDatabase {
     this.#retryMinutes = options.retryMinutes;
     this.#store = options.store;
     this.#needsYou = options.needsYou;
+    this.#secrets = options.secrets;
     this.#clock = options.clock;
     this.#log = options.log;
   }
@@ -249,6 +253,11 @@ export class PersonalDatabase {
   }
 
   async #commit(write: PersonalDatabaseWrite): Promise<void> {
+    // The last door (ADR 0009): git's history can't take a Secret back, so a file holding one is dropped, and the
+    // Personal database keeps the file as it was until the next write of it holds none (settled on #54).
+    if (this.#secrets.refuse({ path: write.path, content: write.content, message: write.message }, 'a commit to the Personal database').length > 0) {
+      return this.#store.removePersonalDatabaseWrite(write.path, write.content);
+    }
     const file = join(this.#dir, write.path);
     // The checkout holds GitHub's `main` here, so a file the person has there, even an empty one, stays theirs.
     if (write.createOnly && existsSync(file)) {

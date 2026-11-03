@@ -267,7 +267,7 @@ test('Edit makes a new version of the same card with a fresh Approve, and Approv
       '# Codemind · Delegate coding. Get back code that works. · Registration',
       '',
       '<!-- Appended by the bot at milestones from the live store. Edits here are not read back. -->',
-      '- 2026-10-12 09:03 PT · Walkthrough v3 approved · Sam Example, you+codemind@gmail.com',
+      `- 2026-10-12 09:03 PT · Walkthrough v3 approved · Sam Example, you+codemind@gmail.com · password in the Password vault, item ${world.bitwarden.items[0]!.id}`,
       '',
     ].join('\n'),
   );
@@ -558,7 +558,7 @@ test('a Product whose terms ban bot-made accounts gets a Walkthrough that says H
   assert.ok(
     world.git
       .file('products/codemindhq.dev/registration.md')!
-      .includes('- 2026-10-12 09:03 PT · Walkthrough v1 approved · Alex Example, you+codemind@gmail.com · handed off: its terms ban accounts made by a bot\n'),
+      .includes(`- 2026-10-12 09:03 PT · Walkthrough v1 approved · Alex Example, you+codemind@gmail.com · password in the Password vault, item ${world.bitwarden.items[0]!.id} · handed off: its terms ban accounts made by a bot\n`),
   );
   assert.deepEqual(world.discord.refused, []);
 });
@@ -651,7 +651,7 @@ test('an Approval whose work Discord cut short is kept, and finished at the next
   const after = world.discord.forumPosts(PRODUCTS_FORUM)[0]!;
   assert.deepEqual(after.tags, ['Registering']);
   assert.equal(after.messages.filter((m) => m.text.startsWith('**Registration** · queued')).length, 1);
-  assert.ok(world.git.file('products/codemindhq.dev/registration.md')!.includes('- 2026-10-12 09:03 PT · Walkthrough v1 approved · Alex Example, you+codemind@gmail.com\n'));
+  assert.ok(world.git.file('products/codemindhq.dev/registration.md')!.includes(`- 2026-10-12 09:03 PT · Walkthrough v1 approved · Alex Example, you+codemind@gmail.com · password in the Password vault, item ${world.bitwarden.items[0]!.id}\n`));
   assert.equal(world.model.walkthroughRuns.length, 1, 'nothing is prepared again');
   assert.deepEqual(world.discord.refused, []);
 });

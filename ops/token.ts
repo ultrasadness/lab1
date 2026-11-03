@@ -16,9 +16,10 @@ import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { accessSync, constants, existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { loadConfig, type Config } from '../bot/src/config.ts';
+import { onlyCollection } from '../bot/src/password-vault.ts';
 import { kill } from '../bot/src/process-group.ts';
 
 const ROOT = process.env.OPS_ROOT ?? '';
@@ -26,6 +27,8 @@ const TESTING = ROOT !== '';
 const CREDENTIALS = `${ROOT}/etc/assistant/credentials`;
 const UNITS = `${ROOT}/etc/systemd/system`;
 const KNOWN_HOSTS = `${ROOT}/var/lib/assistant/.ssh/known_hosts`;
+/** The `bw` that ops/install pins, as `bitwarden.command` in the bot's config names it. */
+const BW = `${ROOT}/opt/assistant/bw/node_modules/.bin/bw`;
 const BOT_UNIT = 'assistant.service';
 const HTTP_TIMEOUT_MS = 20_000;
 const COMMAND_TIMEOUT_MS = TESTING && process.env.OPS_COMMAND_TIMEOUT_MS ? Number(process.env.OPS_COMMAND_TIMEOUT_MS) : 60_000;
@@ -203,16 +206,27 @@ const TOKENS: Token[] = [
     check: async (value, context) => {
       const key = clientPair(context.inPlace('bitwarden-api-key') ?? '');
       if (!key) return { ok: false, why: 'bitwarden-api-key is not in place: run ops/token bitwarden-api-key first' };
-      if (!(await run('sh', ['-c', 'command -v bw'])).ok) return { ok: false, why: "bw isn't installed on the VM, so the master password can't be checked (#54 installs it)" };
-      // A throwaway bw data folder: log in with the API key, unlock with the password, log out.
+      if (!existsSync(BW)) return { ok: false, why: "bw isn't installed on the VM, so the master password can't be checked: run ops/install" };
+      // A throwaway bw data folder, asked what the bot will ask: log in with the API key, unlock with the password, sync,
+      // and read the one collection the bot's account may see (ADR 0004); then log out. sudo's PATH doesn't name our
+      // Node, which bw starts through env. Each Secret reaches only the command that needs it.
       const data = secretDir();
       try {
-        const env = { ...process.env, BITWARDENCLI_APPDATA_DIR: data, BW_CLIENTID: key.client_id, BW_CLIENTSECRET: key.client_secret, BW_PASSWORD: value };
-        const login = await run('bw', ['login', '--apikey', '--nointeraction'], env);
+        const env = { ...process.env, PATH: `${dirname(process.execPath)}:${process.env.PATH ?? ''}`, BITWARDENCLI_APPDATA_DIR: data };
+        const login = await run(BW, ['login', '--apikey', '--nointeraction'], { ...env, BW_CLIENTID: key.client_id, BW_CLIENTSECRET: key.client_secret });
         if (!login.ok) return { ok: false, why: `bw can't log in with the API key: ${login.stderr.trim()}` };
-        const unlock = await run('bw', ['unlock', '--passwordenv', 'BW_PASSWORD', '--nointeraction'], env);
-        await run('bw', ['logout', '--nointeraction'], env);
-        return unlock.ok ? { ok: true, note: 'bw unlocks the vault with it' } : { ok: false, why: 'bw refuses this master password' };
+        try {
+          const unlock = await run(BW, ['unlock', '--passwordenv', 'BW_PASSWORD', '--raw', '--nointeraction'], { ...env, BW_PASSWORD: value });
+          if (!unlock.ok) return { ok: false, why: 'bw refuses this master password' };
+          const session = { ...env, BW_SESSION: unlock.stdout.trim() };
+          const sync = await run(BW, ['sync', '--nointeraction'], session);
+          if (!sync.ok) return { ok: false, why: `bw can't sync: ${sync.stderr.trim()}` };
+          const listed = await run(BW, ['list', 'collections', '--nointeraction'], session);
+          if (!listed.ok) return { ok: false, why: `bw can't list the account's collections: ${listed.stderr.trim()}` };
+          return registrationsOnly(listed.stdout);
+        } finally {
+          await run(BW, ['logout', '--nointeraction'], env);
+        }
       } finally {
         forget(data);
       }
@@ -261,6 +275,18 @@ function clientPair(text: string): { client_id: string; client_secret: string } 
     if (typeof client.client_id === 'string' && typeof client.client_secret === 'string') return { client_id: client.client_id, client_secret: client.client_secret };
   } catch {}
   return undefined;
+}
+
+/** Whether `bw list collections` answered with the *Registrations* collection alone, which is what the bot asks. */
+function registrationsOnly(listed: string): Checked {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(listed);
+  } catch {
+    return { ok: false, why: "bw's list of collections isn't JSON" };
+  }
+  const only = onlyCollection(parsed);
+  return 'problem' in only ? { ok: false, why: only.problem } : { ok: true, note: "bw unlocks with it, and the bot's account sees only Registrations" };
 }
 
 /** The folders holding a secret while ops/token works with it, each removed when it is done or stopped. */

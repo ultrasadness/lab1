@@ -57,6 +57,12 @@ export interface Config {
   productHunt: { apiUrl: string };
   /** The browser service's Unix socket, which only the bot's user can reach (ADR 0006). */
   browser: { socketPath: string };
+  /** How the bot runs `bw`, the Bitwarden CLI that `ops/install` pins, once per operation (ADR 0009). */
+  bitwarden: {
+    command: string[];
+    /** How long one `bw` command may take, its own sync with Bitwarden included. */
+    timeoutSeconds: number;
+  };
   /**
    * Whether Walkthroughs are on (#99). While they are off, no Walkthrough is prepared and `signupMailbox` may be left
    * unset. Turning them on prepares one for each open or waitlisted Product posted while they were off.
@@ -144,6 +150,8 @@ export function checkConfig(config: Config): string[] {
   if (!(config.miner?.retryMinutes > 0)) problems.push('miner.retryMinutes must be above 0');
   if (!/^\d{2}:\d{2}$/.test(config.miner?.lateAt ?? '')) problems.push('miner.lateAt must look like 06:00');
   if (!config.browser?.socketPath?.startsWith('/')) problems.push("browser.socketPath must be the browser service's socket, as an absolute path");
+  if (!(config.bitwarden?.command?.length > 0)) problems.push('bitwarden.command must name the command that runs bw');
+  if (!(config.bitwarden?.timeoutSeconds > 0)) problems.push('bitwarden.timeoutSeconds must be above 0');
   if (typeof config.walkthroughs?.on !== 'boolean') problems.push('walkthroughs.on must be true or false');
   if (config.walkthroughs?.on && !/^[^\s@+]+@[^\s@]+\.[^\s@]+$/.test(config.signupMailbox ?? '')) {
     problems.push("signupMailbox must be the Signup mailbox's address, with no +, while Walkthroughs are on");

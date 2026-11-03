@@ -9,11 +9,12 @@
 //   new version comes as a new card, and the Correction is sorted as a Miner one is (#49);
 // - dismisses it, which ends it with no Correction;
 // - or approves it, with one tap that locks the card and starts the Registration as *queued*, or as *handed off* when
-//   its terms ban accounts made by a bot.
+//   its terms ban accounts made by a bot. A Walkthrough with a password field first gets its vault item, and while
+//   Bitwarden is unavailable its Approval is held, the card saying so, until the item is saved (ADR 0004).
 // An unanswered Walkthrough lapses after 14 days, with Prepare again. Every step is kept in the store before its work,
 // so a stop picks up where it left off.
 import type { BrowserService, PageRead } from '../browser.ts';
-import type { Clock } from '../clock.ts';
+import { inMinutes, type Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
 import { cut, Flags, popup, text, type MessagePayload, type Popup } from '../discord/components.ts';
 import { refused, type DiscordRest } from '../discord/rest.ts';
@@ -30,7 +31,8 @@ import type { RawInputs } from '../raw-inputs.ts';
 import type { Proposals } from '../rules/proposals.ts';
 import { runSort, unrecorded } from '../rules/sort-run.ts';
 import { decidedText, INTEREST_SCOPE_PATH, sortingPrompt, sortKey, type SortedItem } from '../rules/sorting.ts';
-import type { Product, StoredWalkthrough, Store, WalkthroughCorrection } from '../store.ts';
+import type { Product, StoredRegistration, StoredWalkthrough, Store, WalkthroughCorrection } from '../store.ts';
+import { PasswordVaultUnavailable, type PasswordVault } from '../password-vault.ts';
 import {
   approvedLine,
   cardText,
@@ -51,10 +53,12 @@ import {
 } from './card.ts';
 import { PROFILE_PATH, walkthroughPrompt } from './prompt.ts';
 import { registrationFileOf } from './registration-file.ts';
-import { identityOf, plusTagOf, readWalkthrough, VALUE_CHARS, versionHash, type Prepared, type Walkthrough, type WalkthroughField } from './walkthrough.ts';
+import { hasPasswordField, identityOf, plusTagOf, readWalkthrough, VALUE_CHARS, versionHash, type Prepared, type Walkthrough, type WalkthroughField } from './walkthrough.ts';
 
 /** How long a Walkthrough waits unanswered before it lapses (#11). */
 const LAPSE_MS = 14 * 24 * 60 * 60 * 1000;
+/** How often Bitwarden is tried again for an Approval held on it: the person has just tapped, and no run is spent. */
+const HELD_RETRY_MINUTES = 5;
 
 /** What a tap or a pop-up answers with, the work it leaves to do, or why it is refused. */
 export type Tapped =
@@ -78,12 +82,18 @@ export class Walkthroughs {
   #personalDatabase: PersonalDatabase;
   #proposals: Proposals;
   #rawInputs: RawInputs;
+  #passwordVault: PasswordVault;
   #walkthroughsDue: () => void;
   #correctionsDue: () => void;
   #plainWork: (work: () => Promise<void>) => void;
   #clock: Clock;
   #log: Log;
   #cancelLapse = () => {};
+  #cancelHeldRetry = () => {};
+  /** The Products whose Registration is being started now, so a retry can't make a second vault item beside a tap's. */
+  #starting = new Set<number>();
+  /** The Products whose card already says it waits for Bitwarden. */
+  #waitingShown = new Set<number>();
   #stopped = false;
 
   constructor(options: {
@@ -97,6 +107,7 @@ export class Walkthroughs {
     personalDatabase: PersonalDatabase;
     proposals: Proposals;
     rawInputs: RawInputs;
+    passwordVault: PasswordVault;
     /** Queues the preparation of each Walkthrough now due, in the background lane. */
     walkthroughsDue(): void;
     /** Queues the work of the Walkthrough Corrections sent, in the background lane. */
@@ -116,6 +127,7 @@ export class Walkthroughs {
     this.#personalDatabase = options.personalDatabase;
     this.#proposals = options.proposals;
     this.#rawInputs = options.rawInputs;
+    this.#passwordVault = options.passwordVault;
     this.#walkthroughsDue = options.walkthroughsDue;
     this.#correctionsDue = options.correctionsDue;
     this.#plainWork = options.plainWork;
@@ -126,6 +138,7 @@ export class Walkthroughs {
   stop(): void {
     this.#stopped = true;
     this.#cancelLapse();
+    this.#cancelHeldRetry();
   }
 
   // ---------- Preparing ----------
@@ -307,6 +320,73 @@ export class Walkthroughs {
     this.#store.saveWalkthroughEndShown(v.productId, v.version, this.#clock.now().toISOString());
   }
 
+  /**
+   * Starts a Registration its Approval asked for: its vault item first, if it is held on one, then showing it. While
+   * Bitwarden is unavailable it stays held, and is tried again.
+   */
+  async #startRegistration(productId: number): Promise<void> {
+    if (this.#starting.has(productId)) return;
+    this.#starting.add(productId);
+    try {
+      const registration = this.#store.registration(productId)!;
+      if (registration.state === 'held' && !(await this.#saveVaultItem(registration))) return;
+      await this.#showRegistration(productId);
+    } finally {
+      this.#starting.delete(productId);
+    }
+  }
+
+  /**
+   * Creates the held Registration's one vault item, and starts it. A create that may have reached the Password vault, because
+   * the bot stopped during one or its answer never came, is read back first, so no second item is made (ADR 0007).
+   * Returns false while Bitwarden is unavailable.
+   */
+  async #saveVaultItem(registration: StoredRegistration): Promise<boolean> {
+    const { productId } = registration;
+    const v = this.#store.walkthrough(productId, registration.version)!;
+    const { walkthrough: w } = v;
+    const login = { name: w.product, website: `https://${w.rootDomain}`, username: w.identity.plusAddress };
+    let itemId: string | undefined;
+    try {
+      itemId = registration.vaultItemIntended ? await this.#passwordVault.findItem(login) : undefined;
+      if (itemId) {
+        this.#log('vault-item.found', { productId, itemId });
+      } else {
+        this.#store.saveRegistrationVaultIntended(productId);
+        itemId = await this.#passwordVault.createItem(login);
+        this.#log('vault-item.created', { productId, itemId });
+      }
+    } catch (error) {
+      if (!(error instanceof PasswordVaultUnavailable)) throw error;
+      this.#log('password-vault.unavailable', { productId, why: error.message });
+      this.#armHeldRetry();
+      await this.#showWaiting(v, registration);
+      return false;
+    }
+    this.#store.saveRegistrationVaultItem(productId, itemId, startingState(w));
+    this.#waitingShown.delete(productId);
+    return true;
+  }
+
+  /** Says on the card, once, that its Approval waits for Bitwarden. */
+  async #showWaiting(v: StoredWalkthrough, registration: StoredRegistration): Promise<void> {
+    if (this.#waitingShown.has(v.productId) || !v.cardMessageId) return;
+    await this.#needsYou.edit(v.cardMessageId, this.#cardPayload(v, { kind: 'waiting-for-bitwarden', approvedAt: new Date(registration.approvedAt) }));
+    this.#waitingShown.add(v.productId);
+  }
+
+  /** Tries Bitwarden again for each Approval held on it, while one is. */
+  #armHeldRetry(): void {
+    this.#cancelHeldRetry();
+    if (this.#stopped || this.#store.heldRegistrations().length === 0) return;
+    this.#cancelHeldRetry = inMinutes(this.#clock, HELD_RETRY_MINUTES, () =>
+      this.#plainWork(async () => {
+        for (const { productId } of this.#store.heldRegistrations()) await this.#resumed(productId, () => this.#startRegistration(productId));
+        this.#armHeldRetry();
+      }),
+    );
+  }
+
   /** Shows a Registration its Approval started: the card locked to its line, the status message, the tags and git. */
   async #showRegistration(productId: number): Promise<void> {
     const registration = this.#store.registration(productId)!;
@@ -318,7 +398,7 @@ export class Walkthroughs {
     if (!registration.statusIntended) {
       this.#store.saveRegistrationStatusIntended(productId, true);
       try {
-        const status = statusMessage({ productId, walkthrough: v.walkthrough, version: v.version, approvedAt, state: registration.state });
+        const status = statusMessage({ productId, walkthrough: v.walkthrough, version: v.version, approvedAt, state: registration.state === 'handed-off' ? 'handed-off' : 'queued' });
         const { messageId } = await this.#discord.sendMessage(product.threadId!, status);
         this.#store.saveRegistrationStatus(productId, messageId);
       } catch (error) {
@@ -334,12 +414,13 @@ export class Walkthroughs {
   }
 
   /**
-   * As after a stop: shows each Approval, Edit, dismissal and lapse whose work wasn't done, and arms the lapse of each
-   * Walkthrough still waiting. The background lane shows prepared versions and Corrections' work.
+   * As after a stop: starts each Registration held on the Password vault, shows each Approval, Edit, dismissal and lapse whose
+   * work wasn't done, and arms the lapse of each Walkthrough still waiting. The background lane shows prepared versions
+   * and Corrections' work.
    */
   async resume(): Promise<void> {
     for (const r of this.#store.unshownRegistrations()) {
-      await this.#resumed(r.productId, () => this.#showRegistration(r.productId));
+      await this.#resumed(r.productId, () => this.#startRegistration(r.productId));
     }
     for (const v of this.#store.unshownWalkthroughs()) {
       if (!v.shownAt && v.cause.kind === 'edited') await this.#resumed(v.productId, () => this.#showVersion(v));
@@ -405,11 +486,11 @@ export class Walkthroughs {
           userId: interaction.userId,
           interactionId: interaction.interactionId,
           approvedAt: at,
-          state: v.walkthrough.termsBan ? 'handed-off' : 'queued',
+          state: hasPasswordField(v.walkthrough) ? 'held' : startingState(v.walkthrough),
         });
         if (approved !== 'approved') return { refused: `Already approved at ${pacificTime(new Date(approved.already.approvedAt))}.` };
         this.#log('walkthrough.approved', { productId, version, interactionId: interaction.interactionId });
-        return { update: this.#cardPayload(v, { kind: 'approving' }), work: () => this.#showRegistration(productId) };
+        return { update: this.#cardPayload(v, { kind: 'approving' }), work: () => this.#startRegistration(productId) };
       }
       case 'correct':
         return { popup: popup(customId, `Correct · Walkthrough v${version} · ${v.walkthrough.product}`, [], CORRECTION_FIELD) };
@@ -696,6 +777,8 @@ export class Walkthroughs {
 
   /** Where a version's card stands, from the store. */
   #cardState(v: StoredWalkthrough): CardState {
+    const registration = this.#store.registration(v.productId);
+    if (registration?.state === 'held') return { kind: 'waiting-for-bitwarden', approvedAt: new Date(registration.approvedAt) };
     if (v.lapsedAt) return v.againTappedAt ? { kind: 'preparing-again' } : { kind: 'lapsed' };
     if (this.#underCorrection(v)) return { kind: 'correcting' };
     const unapplied = this.#store
@@ -718,6 +801,9 @@ export class Walkthroughs {
 
 /** The Edit pop-up's one field. */
 const EDIT_FIELD = 'value';
+
+/** How a Registration starts once nothing holds it: as a Handoff when its terms ban accounts made by a bot. */
+const startingState = (w: Walkthrough) => (w.termsBan ? ('handed-off' as const) : ('queued' as const));
 
 
 /** Discord allows a pop-up field's label at most 45 characters. */

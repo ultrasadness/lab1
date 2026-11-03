@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，借助 Node 的类型剥离（type stripping）原样运行，自己没有任何 npm 依赖。它持有所有令牌，独自写入实时存储（live store），并发出所有对外调用。规格是 #41。它的第一个切片（#42）打通了 Miner 从 Product Hunt 到 Miner days 论坛的路径，#47 为每个达到或高于 Day's line 的 Launch 加上一份 Dossier，#48 让这个人可以对 Miner 的评判做 Correction，#49 把每个 Correction 分为只修正本项、Interest scope 的改动或 Rule，并把每条保留下来的 Rule 载入之后的运行，#53 为每个 open 或 waitlisted 的 Product 把一份 Walkthrough 交给这个人，它的 Approval 开启这个 Product 的 Registration。#99 让配置可以关掉 Walkthrough，发布时它们就是关着的。#100 给写不成的 Dossier 的尝试次数设了上限。#98 给实时存储加上 schema 版本号，以及机器人启动时运行的迁移（migration）。#71 把它安装到 VM 上，以它自己的用户运行（`ops/README.md`），#85 给它加上 healthchecks.io 的 ping。
+Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，借助 Node 的类型剥离（type stripping）原样运行，自己没有任何 npm 依赖。它持有所有令牌，独自写入实时存储（live store），并发出所有对外调用。规格是 #41。它的第一个切片（#42）打通了 Miner 从 Product Hunt 到 Miner days 论坛的路径，#47 为每个达到或高于 Day's line 的 Launch 加上一份 Dossier，#48 让这个人可以对 Miner 的评判做 Correction，#49 把每个 Correction 分为只修正本项、Interest scope 的改动或 Rule，并把每条保留下来的 Rule 载入之后的运行，#53 为每个 open 或 waitlisted 的 Product 把一份 Walkthrough 交给这个人，它的 Approval 开启这个 Product 的 Registration。#99 让配置可以关掉 Walkthrough，发布时它们就是关着的。#100 给写不成的 Dossier 的尝试次数设了上限。#98 给实时存储加上 schema 版本号，以及机器人启动时运行的迁移（migration）。#71 把它安装到 VM 上，以它自己的用户运行（`ops/README.md`），#85 给它加上 healthchecks.io 的 ping。#54 在 Approval 时把 Registration 的密码存进 Password vault，并拒绝任何含有 Secret 的模型请求、Discord 消息或提交。
 
 | 路径 | 是什么 |
 |---|---|
@@ -16,6 +16,8 @@ Assistant 唯一长期运行的进程：运行在 Node 24 上的 TypeScript，�
 | `bot/src/status.ts` | `#status` 文字频道里的静默消息 |
 | `bot/src/needs-you.ts` | `#needs-you` 文字频道里的卡片，每张都提及这个人 |
 | `bot/src/health-ping.ts` | healthchecks.io 的 ping：机器人登录着 Discord、实时存储也写得进时，每 5 分钟一次 |
+| `bot/src/password-vault.ts` | Password vault：每次操作运行一次 `bw`，机器人生成的密码，以及存放它的条目 |
+| `bot/src/secret-guard.ts` | 最后一道门：机器人持有的每个 Secret，按确切值在每个模型请求和 Discord 消息里查找，以及要求更换它的通知 |
 | `bot/src/forwarder.ts` | Pi 容器唯一的端点：带角色密钥的模型请求（每个都按名义美元计价），以及运行记录 |
 | `bot/src/pi-runs.ts` | 每次运行一个 `pi --mode rpc` 进程，按墙钟时间、轮数和 token 数设上限 |
 | `bot/src/store.ts` | 实时存储（SQLite），以及它的 schema 和迁移 |
@@ -43,13 +45,15 @@ node --test bot/test/miner-day.test.ts # one file
 
 每次提交和 push 要过的 hook 和 CI，以及在新的克隆里怎么打开 hook，见 `docs/hooks-and-ci.md`。`npm test` 也运行 `ops/test/` 里运维脚本的测试（`ops/README.md`）。
 
-机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在它独占的 worker 线程里运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt、浏览器服务、模型 provider 和 healthchecks.io 服务器、一个存放 Personal database 的假 GitHub，以及一个由测试拨动的时钟。假的 GitHub 是一个本地的裸仓库，git 通过代替 ssh 的 `bot/test/harness/fake-ssh.ts` 访问它。它只放行 deploy key，可以拒绝或扣住推送，也接受这个人自己的提交和合并。只有 harness 从 `bot/src` 导入：`bot/test/` 下其他任何文件的导入只要写出那里的某个文件，`npm test` 都会失败（`scripts/bot-test-imports.test.ts`）。`bot/test/store-schema.test.ts` 还会用 `node:sqlite` 直接读取实时存储的文件，这是 #98 对它的要求；`bot/test/health-ping.test.ts` 也通过它占住实时存储的写锁，以此模拟一个写不进的实时存储。`bot/test/` 下其他任何文件只要写出 `node:sqlite`，`npm test` 都会失败（`scripts/bot-test-store.test.ts`）。测试还可以断言什么，见 `CODING_STANDARDS.md` 的 **What a test asserts on**。
+机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在它独占的 worker 线程里运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt、浏览器服务、模型 provider 和 healthchecks.io 服务器、一个假的 `bw`、一个存放 Personal database 的假 GitHub，以及一个由测试拨动的时钟。假的 GitHub 是一个本地的裸仓库，git 通过代替 ssh 的 `bot/test/harness/fake-ssh.ts` 访问它。它只放行 deploy key，可以拒绝或扣住推送，也接受这个人自己的提交和合并。只有 harness 从 `bot/src` 导入：`bot/test/` 下其他任何文件的导入只要写出那里的某个文件，`npm test` 都会失败（`scripts/bot-test-imports.test.ts`）。`bot/test/store-schema.test.ts` 还会用 `node:sqlite` 直接读取实时存储的文件，这是 #98 对它的要求；`bot/test/health-ping.test.ts` 也通过它占住实时存储的写锁，以此模拟一个写不进的实时存储。`bot/test/` 下其他任何文件只要写出 `node:sqlite`，`npm test` 都会失败（`scripts/bot-test-store.test.ts`）。测试还可以断言什么，见 `CODING_STANDARDS.md` 的 **What a test asserts on**。
 
 时钟的一次跳跃（`advanceTo`）只在新的时间点把过期的定时器触发一次，和真实时钟一样。要测试重复的定时器，用 `stepThrough` 逐一走过它的每次触发。
 
-`world.restart()` 和 `world.outage()` 走机器人自己的停止流程，它会等每个任务和每项普通代码工作做完，所以用它们，测试没法让机器人停在同一项工作的两步之间。`world.kill()` 可以。它终止机器人的线程，并杀掉机器人启动的每个运行和 git 命令，机器人的停止流程不会运行。旧的机器人再也不会有任何动作，不管假服务怎么回答、时钟怎么走；之后 `restart` 或 `outage` 在同一个实时存储、数据目录和 Personal database checkout 上启动一个新的机器人。测试通过外部世界选择停在哪里，绝不伸进 `bot/src`：它让一个假服务收下请求且永不回答，用 `world.model.hold` 或 `world.git.holdPushes`，等到假服务收到请求，再杀掉机器人。被扣住的请求在关掉扣留之后仍然被扣住，所以新机器人的请求会得到回答。旁边没有对外调用的位置，用这种办法到不了。杀掉和 VM 上的崩溃有两点不同。实时存储的句柄会干净地关闭，所以没有测试走到 SQLite 对预写日志（write-ahead log）的恢复，而下一个机器人读到的提交都一样。另外，机器人启动的东西会立刻结束，而在 VM 上，git 命令先收到 systemd 发的 SIGTERM，容器里的 Pi 则通过 stdin 被告知结束，并且再也连不上模型（`ops/README.md`）。机器人为什么运行在线程里，见 #96。
+`world.restart()` 和 `world.outage()` 走机器人自己的停止流程，它会等每个任务和每项普通代码工作做完，所以用它们，测试没法让机器人停在同一项工作的两步之间。`world.kill()` 可以。它终止机器人的线程，并杀掉机器人启动的每个运行、git 命令和 `bw` 命令，机器人的停止流程不会运行。旧的机器人再也不会有任何动作，不管假服务怎么回答、时钟怎么走；之后 `restart` 或 `outage` 在同一个实时存储、数据目录和 Personal database checkout 上启动一个新的机器人。测试通过外部世界选择停在哪里，绝不伸进 `bot/src`：它让一个假服务收下请求且永不回答，用 `world.model.hold`、`world.git.holdPushes` 或 `world.bitwarden.holdCreate`，等到假服务收到请求，再杀掉机器人。被扣住的请求在关掉扣留之后仍然被扣住，所以新机器人的请求会得到回答。旁边没有对外调用的位置，用这种办法到不了。杀掉和 VM 上的崩溃有两点不同。实时存储的句柄会干净地关闭，所以没有测试走到 SQLite 对预写日志（write-ahead log）的恢复，而下一个机器人读到的提交都一样。另外，机器人启动的东西会立刻结束，而在 VM 上，git 命令先收到 systemd 发的 SIGTERM，容器里的 Pi 则通过 stdin 被告知结束，并且再也连不上模型（`ops/README.md`）。机器人为什么运行在线程里，见 #96。
 
 假的浏览器服务在一个 Unix 套接字上回答 `read(url)` 和 `redirect(url)`。每个 Launch 的网站跳转都通向 `.example` 上一个属于它自己的普通站点，带一个价格页和一个注册页，除非测试从 `bot/test/harness/dossier-fixtures.ts` 提供某个真实 Product 的页面。HEAD 回答 403，除非测试设定了它的回答。
+
+假的 `bw`（`bot/test/harness/fake-bw.ts`）和真的一样，每条命令一个进程，`world.bitwarden` 读取它保存的东西：Password vault 里的条目，以及每条命令的参数和它拿到了哪些 `BW_` 变量。它的注释写明它依据真实 CLI 的哪些表现，以及哪些还没有真实账号试过。
 
 每次 Pi 运行大约要半秒 CPU，一个 Miner 日除了评判运行，还要为它的每份 Dossier 各跑一次，再为每个 open 或 waitlisted 的 Product 的 Walkthrough 各跑一次（harness 启动机器人时 Walkthrough 是打开的），所以 fixture 日的 Dossier 会让每个发出一天的测试都付出代价。不是测 Dossier 的测试，用 `world.model.onlyDossiers(postIds)` 把它那一天的 Dossier 限制在需要的几份：其他每个 Launch 都会被评判在 Day's line 以下。
 
@@ -73,7 +77,7 @@ CREDENTIALS_DIRECTORY=/path/to/credentials npm run capture:producthunt-schema
 
 ## 运行
 
-机器人读取 `config/assistant.json`（或 `$ASSISTANT_CONFIG`），并按 systemd 的 `LoadCredential=` 交付的方式，从 `$CREDENTIALS_DIRECTORY` 读取它的令牌：`discord-bot-token`、`producthunt-token`、每个角色一个 `newapi-key-<role>`、Personal database 仓库的 deploy key `personal-database-deploy-key`，以及机器人在 healthchecks.io 上那个检查的 ping URL `healthchecks-ping-bot`。
+机器人读取 `config/assistant.json`（或 `$ASSISTANT_CONFIG`），并按 systemd 的 `LoadCredential=` 交付的方式，从 `$CREDENTIALS_DIRECTORY` 读取它的令牌：`discord-bot-token`、`producthunt-token`、每个角色一个 `newapi-key-<role>`、Personal database 仓库的 deploy key `personal-database-deploy-key`、机器人在 healthchecks.io 上那个检查的 ping URL `healthchecks-ping-bot`，以及它的 Bitwarden 账号的 `bitwarden-api-key` 和 `bitwarden-master-password`。
 
 机器人的 Personal database checkout 位于 `personalDatabase.dir`：这个人的仓库的一个克隆，检出 `main`，`origin` 指向仓库的 ssh URL。机器人在里面运行 git 时，除了这个 checkout 自己的 git 配置之外不读任何配置，并带着 deploy key 通过 `personalDatabase.ssh` 访问 GitHub，所以机器人用户的 `known_hosts` 里必须有 GitHub 的主机密钥。每次运行前它都快进这个 checkout，运行从其中的 `profile/interest-scope.md` 读取 Interest scope。机器人写的每个文件，比如 `days/<YYYY-MM-DD>.md`，都先在实时存储里排队，再单独提交，每次提交都会推送。被 GitHub 拒绝的推送，或者已经分叉的历史，每隔 `personalDatabase.retryMinutes` 重试一次。
 
@@ -89,6 +93,12 @@ Dossier 发到 Products 论坛 `discord.productsForumId`，论坛标签由这个
 
 Walkthrough 打开时，一个 open 或 waitlisted 的 Product 的帖子发出后，机器人再实时读一次它的注册页：它的落地页链接到的那一页，落地页没有链接到注册页时就读落地页本身。一次 registration 角色的运行根据这次读取、Dossier 和 Profile 准备 Walkthrough。它的卡片发到 `#needs-you`，每个版本的副本发到 Product 的帖子里，Dossier 的 Register 一行写明 Walkthrough 处在哪里。注册页上有银行卡字段，或者运行指出了一道什么都过不去的 Wall，就没有 Walkthrough，Register 写明原因。Edit 在同一张卡片上产生新版本，Correct 由另一次运行产生一张新卡片，Dismiss 结束它。没人回应的 Walkthrough 在 14 天后过期，带 **Prepare again**。Approve 记下 Approval 并开启 Registration：通常以 *queued* 开启，Product 的条款禁止机器人创建账号时以 *handed off* 开启；两种情况都在帖子里发一条静默的状态消息，并在 `registration.md` 里写一行。填写表单是 #56 的事，状态消息上的 **Stop** 也随它接通。
 
+对有密码字段的 Walkthrough，Approve 先把一个新密码存进 Password vault，也就是这个人的 Bitwarden 组织里的 *Registrations* 集合（ADR 0004），每个 Registration 一个条目。密码由机器人生成，24 个字符，包含所有字符类别，任何模型都不会生成或看到它。条目以 Product 命名，网站是 Product 的根域名，用户名是 Signup identity 的加号地址。密码只通过 stdin 交给 `bw`，实时存储、`registration.md` 和日志只保存条目的 id。机器人每次操作运行一次 `bitwarden.command`，`bw` 的数据目录在 `dataDir` 下的 `bitwarden/`，会话密钥只在内存里，所以没有任何东西在监听，它也没有任何办法修改或删除条目。
+
+Bitwarden 不可用时，Approval 被扣住：它会保留下来，但 Registration 不开始。不可用是指 `bw` 失败、超过 `bitwarden.timeoutSeconds`（一开始是 60 秒）或不存在，或者机器人的账号看到了 *Registrations* 集合以外的东西。卡片上写明正在等待，机器人每 5 分钟和每次启动时再试一次。一次可能已经到达 Password vault 的创建，比如机器人在创建中途死掉，或者一直没等到回答，会先读回来再决定是否新建，所以一个 Registration 只有一个条目。按引用填入、表单拒绝密码时的替换密码，以及 Bitwarden 不可用时扣住填入，都是 #56 的事（由这个人在 #54 上确定）。
+
+机器人拒绝任何含有它所持有的某个 Secret 确切值的模型请求（在 forwarder 处）、Discord 消息和对 Personal database 的提交：它读取的每个令牌、它的 Bitwarden 会话密钥，以及它启动以来生成的每个密码（ADR 0009）。它查找这个值的原样、JSON 字符串里的形式，以及 URL 携带时的形式。被拒绝的模型请求让它那次运行失败，返回的 403 不会让 Pi 重试；被拒绝的 Discord 消息算作一次 Discord 的拒绝，所以它所属的工作按任何一次拒绝之后那样继续；被拒绝的文件不提交，Personal database 里的这个文件保持原样，直到下一次写入不再含有这个值（由这个人在 #54 上确定）。机器人启动以来，每个 Secret 第一次被拒绝时，在 `#needs-you` 发一条通知，写明它的名字以及如何更换。验证码要等 #57 读取 Signup mailbox 之后才加入其中。
+
 ```sh
 sudo ops/install   # on the VM, from the main checkout: ops/README.md
 ```
@@ -99,6 +109,6 @@ sudo ops/install   # on the VM, from the main checkout: ops/README.md
 
 `roles` 里的每个 provider 都写明它在 new-api 上的 `role@provider` 渠道服务哪个模型，`prices` 记录每个这样的模型的标价，以每 1M 未缓存输入、缓存输入和输出 token 的美元计。只要某个 provider 的模型没有价格，机器人就不会启动。ADR 0011 把价格放在 `ops/pins` 里；在它出现之前，价格放在这里。每个模型请求都按它的 provider 的价格计为名义美元。`budgets.miner` 是一个 Miner 日期的运行可以花的钱，Retry 也算在内，初始为 6 美元。只有在这个日期的花费低于 Miner 预算时，运行才会开始；已开始的运行即使超出预算也会完成。Miner 预算一旦用完，这个日期剩下的运行就等待，它在太平洋时间 06:00 的迟到消息会点出 Miner 预算；调高 `budgets.miner` 并重启机器人，这些运行就会继续。上线时（#85），两个角色的 provider 都使用 OpenRouter 的免费模型 `nvidia/nemotron-3-ultra-550b-a55b:free`，价格按 0 美元计，所以没有哪项预算会拦住运行，能限制失控的是 OpenRouter 对免费请求的每日上限（由这个人在 #85 上确定）。`prices` 里也保留着 GPT-6.1 Sol 的价格，各项预算就是按这个价格定的（#39）。`budgets.registration` 初始为 20 美元，是 registration 角色的运行在一个太平洋时间日可以花的钱，Dossier 运行和 Walkthrough 运行也在其中；它们的花费会被计算，但在 #69 之前，没有什么会让运行受它约束。
 
-机器人每个事件向 stdout 输出一行 JSON。`run.finished` 行带有这次运行的角色、provider、模型、精确的 token 数和名义美元；运行触到上限时，还写明触到的是哪个上限。`miner.run-held` 行写明一次在等 Miner 预算的运行，以及这个日期的花费；`miner.posted` 行带有这个日期总共花了多少。`miner.judged` 行写明哪个模型请求的回复里有这次评判，以及该请求的精确 token 数；通常一个回复就评判了它那次运行里的每个 Launch。`dossier.written` 行用根域名写明一份 Dossier 的 Product，以及写它的那次运行、provider 和模型。`dossier.unwritten` 行写明一次尝试没写成 Dossier 的 Launch、原因，以及它有几次尝试计入次数上限；`dossier.stopped` 行写明到达次数上限的那个 Launch。`run.rules-loaded` 行写明一次运行的 Rule 是在哪次提交读取的、这些 Rule 的名字，以及它们大约占多少 token。`walkthrough.prepared` 行写明一份 Walkthrough 的版本和准备它的那次运行，`walkthrough.none` 行写明一个 Product 为什么没有 Walkthrough，`walkthrough.approved` 行写明一次 Approval 来自哪个 Discord interaction。
+机器人每个事件向 stdout 输出一行 JSON。`run.finished` 行带有这次运行的角色、provider、模型、精确的 token 数和名义美元；运行触到上限时，还写明触到的是哪个上限。`miner.run-held` 行写明一次在等 Miner 预算的运行，以及这个日期的花费；`miner.posted` 行带有这个日期总共花了多少。`miner.judged` 行写明哪个模型请求的回复里有这次评判，以及该请求的精确 token 数；通常一个回复就评判了它那次运行里的每个 Launch。`dossier.written` 行用根域名写明一份 Dossier 的 Product，以及写它的那次运行、provider 和模型。`dossier.unwritten` 行写明一次尝试没写成 Dossier 的 Launch、原因，以及它有几次尝试计入次数上限；`dossier.stopped` 行写明到达次数上限的那个 Launch。`run.rules-loaded` 行写明一次运行的 Rule 是在哪次提交读取的、这些 Rule 的名字，以及它们大约占多少 token。`walkthrough.prepared` 行写明一份 Walkthrough 的版本和准备它的那次运行，`walkthrough.none` 行写明一个 Product 为什么没有 Walkthrough，`walkthrough.approved` 行写明一次 Approval 来自哪个 Discord interaction。`vault-item.created` 行用 id 写明一个 Registration 的条目，`vault-item.found` 行写明一次没等到回答的创建之后读回来的条目，`password-vault.unavailable` 行写明一次 Approval 为什么被扣住。`secret.refused` 行写明 Secret 在哪道门被拦下，以及它的名字。
 
 机器人每 5 分钟向它在 healthchecks.io 上的检查发一次 ping，地址是 `healthchecks-ping-bot` 里的 URL，但只在它登录着 Discord、实时存储也写得进时才发：它先把当前时间写进实时存储。没发出的 ping 记一行 `health.ping-withheld`，写明原因；healthchecks.io 没接受的 ping 记一行 `health.ping-failed`。两种情况都要等到下一个 5 分钟才再试。这个检查的周期是 5 分钟，宽限 10 分钟，所以 15 分钟没收到 ping，这个人就会收到一封邮件，邮件只说 Assistant 在 Discord 上联系不到他们（#26）。Miner、备份和每周检查的 ping 随 #70 一起来。

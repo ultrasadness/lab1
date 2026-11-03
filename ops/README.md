@@ -19,6 +19,7 @@ person runs on the VM is in #85 and #73.
 | `ops/systemd/` | The units `ops/install` puts in `/etc/systemd/system` |
 | `ops/coding-sessions/` | Claude Code's and Codex's settings that keep coding sessions out of the credentials |
 | `ops/github-known-hosts` | GitHub's published ssh host keys, for the bot's ssh |
+| `ops/bitwarden/` | The pin of `bw`, the Bitwarden CLI the bot runs: its exact version, and every package it pulls in by hash |
 | `compose.yaml` | The compose project of Pi and the browser service |
 
 ## Installing
@@ -41,6 +42,8 @@ Run everything from the main checkout of lab1, on `main`:
 - Node 24.22.2 for the bot and the ops scripts, checked against nodejs.org's SHA-256, in `/opt/assistant/node`, with
   a running bot restarted onto it when that link moves;
 - `sqlite3`, for the backup;
+- `bw`, as `ops/bitwarden/` pins it, in `/opt/assistant/bw`, where `bitwarden.command` in `config/assistant.json` runs it
+  from, with none of its packages' install scripts run;
 - the `assistant` system user, in no group but its own: no `sudo`, no `docker`, and `/home/ubuntu` closed to it;
 - `/etc/assistant/credentials` and `/var/backups/assistant`, root's alone (mode 700);
 - the bot's checkout of lab1 at `/opt/assistant/lab1`, root's and only readable to the bot, apart from where coding
@@ -83,7 +86,7 @@ without writing it.
 | `gmail-client-secret` | the JSON Google Cloud's Credentials page downloads for the Desktop app client | Google takes the client, refusing only a made-up code |
 | `gmail-refresh-token` | a consent in Safari: open the link `ops/token` shows, signed in to the Signup mailbox's account, then paste the address Safari can't load | a refresh, exactly `gmail.readonly` and `gmail.compose`, and the mailbox's address |
 | `bitwarden-api-key` | the bot's Bitwarden account's personal API key: its `client_id`, then its `client_secret` | Bitwarden logs the bot in with it |
-| `bitwarden-master-password` | the bot's Bitwarden account | `bw` unlocks the vault with it, once #54 installs `bw` |
+| `bitwarden-master-password` | the bot's Bitwarden account | in a throwaway data folder, `bw` logs in, unlocks with it and syncs, and the account must see only the *Registrations* collection |
 | `healthchecks-ping-bot`, `-miner`, `-backup`, `-weekly` | each check's ping URL on healthchecks.io; the bot's check has a 5-minute period and 10 minutes' grace | a log event on the check, which changes nothing else |
 | `personal-database-deploy-key` | made on the VM: `ops/token` shows the public key to add to the repo's Deploy keys, with "Allow write access", then waits for Enter | `git ls-remote origin main` from the bot's checkout, through the key, and a push of nothing, which GitHub refuses a key added without write access |
 
@@ -92,8 +95,15 @@ the credentials folder, removed even when the SSH session drops. A key GitHub st
 changes nothing: remove it from the repo and run `ops/token` again. CPA's ChatGPT login, pasted as the failed
 `localhost:1455` address, comes with CPA itself in #72.
 
+Before `ops/token bitwarden-master-password`, the person sets up the Password vault once (ADR 0004): their own Bitwarden
+account owns a free organization with a *Registrations* collection, and the bot's own account, on a Signup mailbox
+plus-address, is its second member, able to edit that collection and nothing else. The check fails an account that sees
+any other collection, since the bot would hold every Approval on it. `bw list collections` doesn't say whether the account
+may edit, so the check can't tell a view-only grant: the first Approval would be held, its log line saying why.
+
 The bot's unit hands over only the tokens the bot reads today: `discord-bot-token`, `producthunt-token`,
-`newapi-key-miner`, `newapi-key-registration`, `personal-database-deploy-key` and `healthchecks-ping-bot`. A later
+`newapi-key-miner`, `newapi-key-registration`, `personal-database-deploy-key`, `healthchecks-ping-bot`,
+`bitwarden-api-key` and `bitwarden-master-password`. A later
 ticket that reads another adds its `LoadCredential=` line to `ops/systemd/assistant.service`: `ops/test/token.test.ts`
 fails while the unit and the names the bot reads differ.
 

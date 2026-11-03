@@ -46,4 +46,4 @@ Every key and token the Assistant uses is a Secret, and none sits in a container
   4. restarts the service that uses it.
 
   Together, these commands are the runbook for rebuilding the VM.
-- **The bot refuses any model request or Discord message holding the exact value of a Secret it holds**, and posts a notice to replace that token. This extends [ADR 0006](./0006-registration-browser-in-its-own-container-driven-through-fixed-actions.md)'s exact-value redaction of snapshots to the Assistant's own keys and to every way out.
+- **The bot refuses any model request, Discord message or commit to the Personal database holding the exact value of a Secret it holds**, and posts a notice to replace that token. The commit was added on [#54](https://github.com/ultrasadness/lab1/issues/54), since git's history can't take a Secret back. This extends [ADR 0006](./0006-registration-browser-in-its-own-container-driven-through-fixed-actions.md)'s exact-value redaction of snapshots to the Assistant's own keys and to every way out.

@@ -23,7 +23,7 @@ import {
 import { needsYouCard } from '../needs-you.ts';
 import { pacificTime, shortTime } from '../pacific.ts';
 import { PROFILE_PATH } from './prompt.ts';
-import { offDomain, type Walkthrough, type WalkthroughField } from './walkthrough.ts';
+import { hasPasswordField, offDomain, type Walkthrough, type WalkthroughField } from './walkthrough.ts';
 
 /** What made a version: a preparation, the person's Edit of one field, their Correction, or Prepare again after a lapse. */
 export type VersionCause =
@@ -33,12 +33,14 @@ export type VersionCause =
   | { kind: 'prepared-again' };
 
 /**
- * Where the card stands: open; its buttons off while an Approve is done or the Walkthrough is prepared again; lapsed,
- * with only Prepare again on; or open again after a Correction that couldn't be applied, saying why.
+ * Where the card stands: open; its buttons off while an Approve is done, waits for Bitwarden, or the Walkthrough is
+ * prepared again; lapsed, with only Prepare again on; or open again after a Correction that couldn't be applied, saying
+ * why.
  */
 export type CardState =
   | { kind: 'open'; note?: string }
   | { kind: 'approving' }
+  | { kind: 'waiting-for-bitwarden'; approvedAt: Date }
   | { kind: 'correcting' }
   | { kind: 'lapsed' }
   | { kind: 'preparing-again' };
@@ -122,6 +124,8 @@ function stateNote(state: CardState): string | undefined {
   switch (state.kind) {
     case 'approving':
       return 'Approving…';
+    case 'waiting-for-bitwarden':
+      return `Approved ${pacificTime(state.approvedAt)}. Waiting for Bitwarden: the Registration starts once its new password is saved.`;
     case 'correcting':
       return 'Preparing it again after your Correction…';
     case 'preparing-again':
@@ -203,7 +207,7 @@ function consequences(w: Walkthrough): string {
   const terms = `You accept ${termsText(w)}.`;
   if (w.termsBan) {
     // A Walkthrough with no password field gets no vault item (ADR 0004).
-    const password = w.fields.some((f) => f.key === 'password') ? ` saves a new random password to Bitwarden › Registrations › ${product}, and` : '';
+    const password = hasPasswordField(w) ? ` saves a new random password to Bitwarden › Registrations › ${product}, and` : '';
     return (
       `If you approve, the Assistant${password} hands the Registration to you: you create the account at ${product} ${where} ` +
       `yourself, with the values below. ${terms}`

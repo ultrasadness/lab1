@@ -1,6 +1,7 @@
 // Discord's REST API, with its rate limits obeyed: a route that reports no requests left waits for its reset, and
 // a 429 waits as long as Discord asks before trying again.
 import type { Log } from '../log.ts';
+import type { SecretGuard } from '../secret-guard.ts';
 import type { MessagePayload, PlainMessage } from './components.ts';
 
 export class DiscordError extends Error {
@@ -40,14 +41,16 @@ export class DiscordRest {
   #apiBaseUrl: string;
   #token: string;
   #log: Log;
+  #secrets: SecretGuard;
   /** When each route may be used again, after Discord said it had no requests left. */
   #routeResets = new Map<string, number>();
   #userId: string | undefined;
 
-  constructor(options: { apiBaseUrl: string; token: string; log: Log }) {
+  constructor(options: { apiBaseUrl: string; token: string; log: Log; secrets: SecretGuard }) {
     this.#apiBaseUrl = options.apiBaseUrl.replace(/\/$/, '');
     this.#token = options.token;
     this.#log = options.log;
+    this.#secrets = options.secrets;
   }
 
   async gatewayUrl(): Promise<string> {
@@ -132,6 +135,9 @@ export class DiscordRest {
   async #request(method: string, path: string, body?: unknown, authorise = true): Promise<unknown> {
     // Rate limits apply per route and major parameter (the channel or interaction).
     const route = `${method} ${path.split('/').slice(0, 3).join('/')}`;
+    // The last door (ADR 0009): this goes as a refusal, since Discord surely didn't take it.
+    const stopped = this.#secrets.refuse(body, 'a Discord message');
+    if (stopped.length > 0) throw new DiscordError(0, undefined, `The bot refused ${route}: it held the exact value of ${stopped.join(', ')}`);
     for (let attempt = 0; ; attempt++) {
       const wait = (this.#routeResets.get(route) ?? 0) - Date.now();
       if (wait > 0) await sleep(wait);

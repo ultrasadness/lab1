@@ -90,7 +90,7 @@ export class BotThread implements Assistant {
   }
 
   /**
-   * Ends the bot where it stands, and each run and git command it started. Its stop never runs. `bot/README.md` says how
+   * Ends the bot where it stands, and each run, git command and `bw` command it started. Its stop never runs. `bot/README.md` says how
    * this differs from a crash on the VM.
    */
   async kill(): Promise<void> {
@@ -148,7 +148,7 @@ export class BotThread implements Assistant {
   }
 }
 
-/** How many processes the bot started are still running: its runs and git commands, and what they started. */
+/** How many processes the bot started are still running: its runs, git commands and `bw` commands, and what they started. */
 export function botProcessesRunning(): number {
   const all = processes();
   const groups = botProcessGroups(all);
@@ -164,7 +164,7 @@ function processes(): { pid: number; ppid: number; pgid: number; stat: string }[
 }
 
 /**
- * The process groups this process's children lead. The bot starts each run and git command as the leader of its own
+ * The process groups this process's children lead. The bot starts each run, git command and `bw` command as the leader of its own
  * group (`bot/src/process-group.ts`), and nothing else in a test's process has one, so a test's git helpers aren't among
  * them. These are all one bot's, since `world.kill` refuses to run beside a second world.
  */

@@ -1,0 +1,8 @@
+{
+  "name": "lab1-bitwarden-cli",
+  "private": true,
+  "description": "The Bitwarden CLI the bot runs once per operation (ADR 0009), pinned here. ops/install puts it in /opt/assistant/bw.",
+  "dependencies": {
+    "@bitwarden/cli": "2026.10.0"
+  }
+}

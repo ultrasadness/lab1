@@ -67,6 +67,9 @@ export interface Walkthrough {
   rulesApplied: string[];
 }
 
+/** Whether a Walkthrough has a password field, which alone gets it a vault item (ADR 0004). */
+export const hasPasswordField = (w: Pick<Walkthrough, 'fields'>) => w.fields.some((f) => f.key === 'password');
+
 /** The most fields a Walkthrough carries, so that its card fits Discord; later ones are left empty. */
 export const MAX_FIELDS = 15;
 

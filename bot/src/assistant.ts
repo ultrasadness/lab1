@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { BrowserService } from './browser.ts';
 import { inMinutes, type Clock } from './clock.ts';
 import { checkConfig, ROLES, type Config, type Role } from './config.ts';
-import { Flags, type MessagePayload, type Popup } from './discord/components.ts';
+import { Flags, text, type MessagePayload, type Popup } from './discord/components.ts';
 import { DiscordGateway, popupField, type Interaction } from './discord/gateway.ts';
 import { DiscordRest } from './discord/rest.ts';
 import { Dossiers } from './dossier/dossiers.ts';
@@ -24,7 +24,9 @@ import { RawInputs } from './raw-inputs.ts';
 import { Proposals } from './rules/proposals.ts';
 import { loadRules } from './rules/rules.ts';
 import { correctionOf } from './rules/sorting.ts';
+import { SecretGuard, secretNotice } from './secret-guard.ts';
 import { Store, type Migration } from './store.ts';
+import { apiKeyOf, PasswordVault } from './password-vault.ts';
 import { Walkthroughs } from './walkthrough/walkthroughs.ts';
 
 export type { LogEntry };
@@ -42,6 +44,8 @@ const tokenFile = {
   roleKey: (role: Role) => `newapi-key-${role}`,
   deployKey: 'personal-database-deploy-key',
   healthPing: 'healthchecks-ping-bot',
+  bitwardenApiKey: 'bitwarden-api-key',
+  bitwardenMasterPassword: 'bitwarden-master-password',
 };
 
 export async function startAssistant(options: {
@@ -62,13 +66,31 @@ export async function startAssistant(options: {
     if (!existsSync(path)) throw new Error(`The token ${name} is missing; place it with ops/token ${name}`);
     return path;
   };
-  const token = (name: string) => readFileSync(tokenPath(name), 'utf8').trim();
+  // The last door (ADR 0009) holds each token from the moment the bot reads it.
+  const secrets = new SecretGuard({
+    log,
+    post: async (secret, door) => {
+      const { heading, body } = secretNotice(secret, door);
+      await needsYou.post(heading, [text(body)]);
+    },
+    plainWork: (work) => plainWork(work),
+  });
+  const replaceToken = (name: string) => ({ name, replace: `Replace it on the VM: \`sudo ops/token ${name}\`.` });
+  const token = (name: string) => {
+    const value = readFileSync(tokenPath(name), 'utf8').trim();
+    secrets.hold(value, replaceToken(name));
+    return value;
+  };
   const roleKeys = new Map(ROLES.map((role) => [role, token(tokenFile.roleKey(role))]));
   const discordToken = token(tokenFile.discord);
   const productHuntToken = token(tokenFile.productHunt);
-  // ssh reads the deploy key from its file itself.
+  // ssh reads the deploy key from its file itself, so the bot reads it only to hold it.
+  token(tokenFile.deployKey);
   const deployKey = tokenPath(tokenFile.deployKey);
   const healthPingUrl = token(tokenFile.healthPing);
+  const bitwardenApiKey = apiKeyOf(token(tokenFile.bitwardenApiKey));
+  if (bitwardenApiKey) secrets.hold(bitwardenApiKey.clientSecret, replaceToken(tokenFile.bitwardenApiKey));
+  const bitwardenMasterPassword = token(tokenFile.bitwardenMasterPassword);
 
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
   const store = Store.open(join(config.dataDir, 'assistant.sqlite'), options.migrations);
@@ -80,11 +102,12 @@ export async function startAssistant(options: {
     gatewayBaseUrl: config.gateway.baseUrl,
     providers: (role) => config.roles[role].providers.map(({ name, model }) => ({ name, price: config.prices[model]! })),
     roleKey: (role) => roleKeys.get(role)!,
+    secrets,
     store,
     clock,
     log,
   });
-  const discord = new DiscordRest({ apiBaseUrl: config.discord.apiBaseUrl, token: discordToken, log });
+  const discord = new DiscordRest({ apiBaseUrl: config.discord.apiBaseUrl, token: discordToken, log, secrets });
   const gateway = new DiscordGateway({
     rest: discord,
     token: discordToken,
@@ -116,6 +139,7 @@ export async function startAssistant(options: {
     retryMinutes: config.personalDatabase.retryMinutes,
     store,
     needsYou,
+    secrets,
     clock,
     log,
   });
@@ -132,6 +156,9 @@ export async function startAssistant(options: {
     log,
   });
   const browser = new BrowserService({ socketPath: config.browser.socketPath });
+  const bitwardenDir = join(config.dataDir, 'bitwarden');
+  mkdirSync(bitwardenDir, { recursive: true, mode: 0o700 });
+  const passwordVault = new PasswordVault({ command: config.bitwarden.command, timeoutSeconds: config.bitwarden.timeoutSeconds, dataDir: bitwardenDir, apiKey: bitwardenApiKey, masterPassword: bitwardenMasterPassword, secrets, log });
   // The background lane runs one job at a time (#11): Corrections, then Walkthrough preparation, then the Miner (#40 §8).
   const lane = new Lane(log);
   const dossiers = new Dossiers({
@@ -172,6 +199,7 @@ export async function startAssistant(options: {
     personalDatabase,
     proposals,
     rawInputs,
+    passwordVault,
     walkthroughsDue: () => prepareWalkthroughs(),
     correctionsDue: () => correctWalkthroughs(),
     plainWork: (work) => plainWork(work().catch((error: unknown) => log('walkthrough.work-failed', { error: errorText(error) }))),
@@ -297,6 +325,7 @@ export async function startAssistant(options: {
         cancelWalkthroughsRetry();
         cancelWalkthroughCorrectionsRetry();
         walkthroughs.stop();
+        passwordVault.stop();
         personalDatabase.stop();
         lane.close();
         await pi.stop();

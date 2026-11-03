@@ -10,7 +10,8 @@ sorts each Correction into fix only, an Interest scope change or a Rule, and loa
 #53 puts a Walkthrough to the person for each open or waitlisted Product, whose Approval starts its Registration.
 #99 lets the config switch Walkthroughs off, and it ships with them off. #100 bounds the tries at a Dossier that
 can't be written. #98 gives the live store a schema version, and migrations the bot runs at start. #71 installs it on
-the VM as its own user (`ops/README.md`), and #85 gives it its healthchecks.io ping.
+the VM as its own user (`ops/README.md`), and #85 gives it its healthchecks.io ping. #54 saves a Registration's password
+in the Password vault at its Approval, and refuses any model request, Discord message or commit holding a Secret.
 
 | Path | What it is |
 |---|---|
@@ -24,6 +25,8 @@ the VM as its own user (`ops/README.md`), and #85 gives it its healthchecks.io p
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
 | `bot/src/needs-you.ts` | Cards in the `#needs-you` text channel, each mentioning the person |
 | `bot/src/health-ping.ts` | The healthchecks.io ping, every 5 minutes while the bot is logged in to Discord and its store takes a write |
+| `bot/src/password-vault.ts` | The Password vault: `bw` run once per operation, the password the bot makes, and the item it goes in |
+| `bot/src/secret-guard.ts` | The last door: each Secret the bot holds, looked for by its exact value in every model request, Discord message and commit, and the notice to replace it |
 | `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, each priced in notional dollars, and run records |
 | `bot/src/pi-runs.ts` | One `pi --mode rpc` process per run, capped on wall clock, turns and tokens |
 | `bot/src/store.ts` | The live store (SQLite), with its schema and migrations |
@@ -58,7 +61,7 @@ The hooks and CI that check each commit and push, and how to turn the hooks on i
 
 The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in a worker thread of its own, with real Pi
 and our extension as local processes, against fake Discord, Product Hunt, browser service, model provider and
-healthchecks.io servers, a fake GitHub holding the Personal database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
+healthchecks.io servers, a fake `bw`, a fake GitHub holding the Personal database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
 `bot/test/harness/fake-ssh.ts` in place of ssh. It lets in only the deploy key, can refuse or hold pushes, and takes the
 person's own commits and merges. Only the harness imports from `bot/src`: `npm test` fails any other file under
 `bot/test/` whose import names a file there (`scripts/bot-test-imports.test.ts`). `bot/test/store-schema.test.ts` also reads the
@@ -72,12 +75,12 @@ a repeating timer, step through each firing with `stepThrough`.
 
 `world.restart()` and `world.outage()` go through the bot's own stop, which waits for every job and piece of
 plain-code work to finish, so no test can stop the bot between two steps of one piece of work with them. `world.kill()`
-can. It terminates the bot's thread and kills each run and git command the bot started, and the bot's stop never runs.
+can. It terminates the bot's thread and kills each run, git command and `bw` command the bot started, and the bot's stop never runs.
 The old bot never acts again, whatever a fake answers
 or the clock does, and `restart` or `outage` then starts a fresh one on the same live store, data dir and Personal
 database checkout. A test chooses the point through the outside world, never by reaching into `bot/src`: it has a fake
-take a request and never answer, with `world.model.hold` or `world.git.holdPushes`, waits until the fake has it, and
-kills the bot. A request held stays held once the hold is off, so the fresh bot's requests get answered. A point with
+take a request and never answer, with `world.model.hold`, `world.git.holdPushes` or `world.bitwarden.holdCreate`,
+waits until the fake has it, and kills the bot. A request held stays held once the hold is off, so the fresh bot's requests get answered. A point with
 no outside call beside it can't be reached this way. A kill differs from a crash on the VM in two ways. The store's
 handle closes cleanly, so no test exercises SQLite's recovery of its write-ahead log, and the next bot reads the same
 commits either way. And what the bot started ends at once, where on the VM a git command gets SIGTERM first, from
@@ -87,6 +90,10 @@ systemd, and Pi, in its container, is told to end through its stdin and can no l
 The fake browser service answers `read(url)` and `redirect(url)` on a Unix socket. Each Launch's website redirect leads
 to a plain site of its own on `.example`, with a pricing page and a signup page, unless a test serves a real Product's
 pages from `bot/test/harness/dossier-fixtures.ts`. A HEAD answers 403 unless a test sets its answer.
+
+The fake `bw` (`bot/test/harness/fake-bw.ts`) is one process per command, as the real one is, and `world.bitwarden` reads
+what it keeps: the Password vault's items, and each command's arguments and which `BW_` variables it was given. Its comment says
+what of the real CLI it was anchored to, and what no real account has tried yet.
 
 Each Pi run takes about half a second of CPU, and a Miner day makes one for each of its Dossiers beside its judging
 runs, and, as the harness starts the bot with Walkthroughs on, one more for each open or waitlisted Product's
@@ -142,8 +149,9 @@ rows arrive.
 
 The bot reads `config/assistant.json` (or `$ASSISTANT_CONFIG`), and its tokens from `$CREDENTIALS_DIRECTORY`, as
 systemd's `LoadCredential=` hands them over: `discord-bot-token`, `producthunt-token`, one `newapi-key-<role>` per
-role, `personal-database-deploy-key`, the Personal database repo's deploy key, and `healthchecks-ping-bot`, the ping
-URL of the bot's check on healthchecks.io.
+role, `personal-database-deploy-key`, the Personal database repo's deploy key, `healthchecks-ping-bot`, the ping
+URL of the bot's check on healthchecks.io, and `bitwarden-api-key` and `bitwarden-master-password`, its Bitwarden
+account's.
 
 The bot's checkout of the Personal database sits at `personalDatabase.dir`: a clone of the person's repo with `main`
 checked out and its `origin` at the repo's ssh URL. The bot runs git in it with no git config but the checkout's own,
@@ -217,6 +225,29 @@ version of the same card, Correct a new card from another run, and Dismiss ends 
 off* when the Product's terms ban accounts made by a bot, with a silent status message in the post and a line in
 `registration.md`. Filling the form is #56's, and **Stop** on the status message is wired with it.
 
+Approve on a Walkthrough with a password field first saves a new password in the Password vault, the *Registrations*
+collection of the person's Bitwarden organization (ADR 0004), with one item per Registration. The bot makes the
+password, 24 characters with every character class, and no model ever makes or sees it. The item is named after the
+Product, its website is the Product's root domain, and its username is the Signup identity's plus-address. The password
+reaches only `bw`, on its stdin, and the live store, `registration.md` and the log hold only the item's id. The bot runs
+`bitwarden.command` once per operation, with `bw`'s data folder at `bitwarden/` in `dataDir` and the session key in
+memory only, so nothing listens, and it has no way to change or delete an item.
+
+While Bitwarden is unavailable, the Approval is held: it is kept, but the Registration doesn't start. That means `bw`
+fails, takes longer than `bitwarden.timeoutSeconds` (60 to start) or isn't there, or the bot's account sees anything but
+the *Registrations* collection. The card says it waits, and the bot tries again every 5 minutes and at each start. A create that may have
+reached the Password vault, because the bot died during one or its answer never came, is read back before another is made, so a
+Registration has one item. Fills by reference, a replacement password for a form that refuses one, and fills held while
+Bitwarden is unavailable are #56's (settled by the person on #54).
+
+The bot refuses any model request, at the forwarder, any Discord message and any commit to the Personal database
+holding the exact value of a Secret it holds: each token it reads, its Bitwarden session key, and each password it has made since it started (ADR 0009). It
+looks for the value as it stands, inside a JSON string, and as a URL carries it. A refused model request fails its run,
+with a 403 Pi doesn't retry, and a refused Discord message counts as one Discord refused, so the work it belonged to
+goes on as after any refusal. A refused file isn't committed, and the Personal database keeps that file as it was until
+the next write of it holds no such value (settled by the person on #54). The first refusal of each Secret since the bot started posts one `#needs-you` notice,
+naming it and how to replace it. A verification code joins them once #57 reads the Signup mailbox.
+
 ```sh
 sudo ops/install   # on the VM, from the main checkout: ops/README.md
 ```
@@ -256,7 +287,10 @@ the run, provider and model that wrote it. A `dossier.unwritten` line names a La
 why and how many of its tries count, and a `dossier.stopped` line one that reached the limit. A `run.rules-loaded`
 line names the commit a run's Rules were read at, the Rules by name, and about how many tokens they take. A
 `walkthrough.prepared` line names a Walkthrough's version and the run that prepared it, a `walkthrough.none` line why
-a Product gets none, and a `walkthrough.approved` line the Discord interaction an Approval came in.
+a Product gets none, and a `walkthrough.approved` line the Discord interaction an Approval came in. A
+`vault-item.created` line names a Registration's vault item by its id, a `vault-item.found` line one read back after a
+create whose answer never came, and a `password-vault.unavailable` line why an Approval is held. A `secret.refused` line names the
+door a Secret was stopped at, and the Secret by its name.
 
 Every 5 minutes the bot pings its check on healthchecks.io, at the URL in `healthchecks-ping-bot`, but only while it
 is logged in to Discord and its store takes a write: it writes the time to the store first. A ping withheld gets a

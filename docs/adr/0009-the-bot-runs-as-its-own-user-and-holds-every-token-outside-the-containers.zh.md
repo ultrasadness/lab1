@@ -46,4 +46,4 @@ Assistant 使用的每个密钥和令牌都是 Secret，没有一个放在容器
   4. 重启使用它的服务。
 
   这些命令合在一起，就是重建 VM 的操作手册。
-- **机器人拒绝任何包含它所持有的某个 Secret 确切值的模型请求或 Discord 消息**，并发布一条通知，要求更换那个令牌。这把 [ADR 0006](./0006-registration-browser-in-its-own-container-driven-through-fixed-actions.zh.md) 对快照的确切值脱敏，扩展到 Assistant 自己的密钥和每一条出去的路。
+- **机器人拒绝任何包含它所持有的某个 Secret 确切值的模型请求、Discord 消息或对 Personal database 的提交**，并发布一条通知，要求更换那个令牌。提交这一项是在 [#54](https://github.com/ultrasadness/lab1/issues/54) 上加的，因为 git 的历史收不回 Secret。这把 [ADR 0006](./0006-registration-browser-in-its-own-container-driven-through-fixed-actions.zh.md) 对快照的确切值脱敏，扩展到 Assistant 自己的密钥和每一条出去的路。

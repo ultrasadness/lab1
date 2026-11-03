@@ -99,6 +99,11 @@ export class FakeGitRemote {
       .map(([, subject]) => subject);
   }
 
+  /** Every commit message and change GitHub holds on any branch, as one text. */
+  history(): string {
+    return git(this.#bare, 'log', '--all', '--patch', '--format=%B');
+  }
+
   /** The commit a branch on GitHub is at. */
   head(branch = 'main'): string {
     return git(this.#bare, 'rev-parse', `refs/heads/${branch}`).trim();

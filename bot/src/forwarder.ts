@@ -9,6 +9,7 @@ import { randomBytes } from 'node:crypto';
 import type { Clock } from './clock.ts';
 import type { ListPrice, Role } from './config.ts';
 import { errorText, type Log } from './log.ts';
+import type { SecretGuard } from './secret-guard.ts';
 import type { Store, Tokens } from './store.ts';
 
 export type RecordResult = { ok: true; message: string } | { ok: false; error: string };
@@ -46,6 +47,7 @@ export async function startForwarder(options: {
   /** The role's providers, in priority order. */
   providers(role: Role): PricedProvider[];
   roleKey(role: Role): string;
+  secrets: SecretGuard;
   store: Store;
   clock: Clock;
   log: Log;
@@ -89,6 +91,10 @@ export async function startForwarder(options: {
   async function forward(run: RunRegistration, raw: string, res: http.ServerResponse): Promise<void> {
     const provider = options.providers(run.role)[0]!;
     const request = JSON.parse(raw) as Record<string, unknown>;
+    // The last door (ADR 0009). Pi doesn't retry a 403, and this names no value, so its run fails and says why.
+    if (options.secrets.refuse(request, 'a model request').length > 0) {
+      return json(res, 403, { error: { message: 'The bot refused this request: it holds the exact value of a Secret.' } });
+    }
     request.model = `${run.role}@${provider.name}`;
     // Exact counting needs the usage chunk at the end of every stream.
     if (request.stream) request.stream_options = { ...(request.stream_options as object), include_usage: true };

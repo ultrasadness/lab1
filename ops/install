@@ -9,6 +9,7 @@
 # It puts in place:
 #   - Node for the bot, at the version below, checked against nodejs.org's SHA-256, in /opt/assistant/node;
 #   - sqlite3, for the nightly backup;
+#   - `bw`, the Bitwarden CLI that the bot runs, as ops/bitwarden pins it, in /opt/assistant/bw (ADR 0009);
 #   - the `assistant` system user: no sudo, no `docker` group, no view of /home (ADR 0009);
 #   - /etc/assistant/credentials for ops/token, and /var/backups/assistant, both root's alone;
 #   - the bot's own checkout of lab1 at /opt/assistant/lab1, root's and only readable to the bot (ADR 0008);
@@ -288,6 +289,19 @@ files=$checkout
 [ -d "$files/ops" ] || files=$(dirname "$here")
 if [ -d "$checkout/.git" ] && [ -n "$(git -C "$checkout" status --porcelain 2>/dev/null)" ]; then
   problem "$checkout has changes git didn't make: the running Assistant changes only through ops/install --deploy"
+fi
+
+# --- bw, the Bitwarden CLI the bot runs once per operation (ADR 0009) ----------------------------------------------
+# Its lock pins every package by its hash, and none of their install scripts runs. A running bot needs no restart for
+# a new pin, since it starts bw afresh for each operation.
+bw_dir=$root/opt/assistant/bw
+install_bw() {
+  mkdir -p "$bw_dir"
+  cp "$files/ops/bitwarden/package.json" "$files/ops/bitwarden/package-lock.json" "$bw_dir/"
+  (cd "$bw_dir" && PATH="$(dirname "$node"):$PATH" npm ci --ignore-scripts --omit=dev --no-audit --no-fund --loglevel=error)
+}
+if ! cmp -s "$files/ops/bitwarden/package-lock.json" "$bw_dir/package-lock.json" || [ ! -x "$bw_dir/node_modules/.bin/bw" ]; then
+  change "install bw as ops/bitwarden pins it, in $bw_dir" install_bw
 fi
 
 # --- The Personal database's checkout ---------------------------------------------------------------------------

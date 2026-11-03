@@ -130,7 +130,8 @@ inspects internal tables or function calls. It may assert on a model request as 
 the bot builds it, and on any log line as the bot writes it to stdout, where `world.logs` takes stdout's place in the
 harness. Only `bot/test/store-schema.test.ts` reads the store's tables, because #98 asks it to. A test may compare the
 store's files byte for byte to show that nothing wrote to them, as `bot/test/kill.test.ts` does, since that reads
-nothing they hold.
+nothing they hold. It may also search them for one Secret's bytes to show that the value isn't there, as
+`bot/test/harness/secrets.ts` does, since that says nothing else about what they hold.
 
 **Why it matters:** a rule a review can't read gets argued again on each ticket. In #42, a review flagged the test of
 Maker comments under #41's wording ("never inspects internal tables, function calls or prompts"), and the test stayed.
@@ -139,7 +140,9 @@ Standards reviewer had to be told that asserting on log lines and on model reque
 review reads said so, and #41, which a review doesn't read, still said the opposite about prompts. In #96, a Standards
 reviewer read `kill.test.ts`'s comparison of the store's files as a way round this rule, since it passes
 `scripts/bot-test-store.test.ts` only by not naming `node:sqlite`. It shows the ticket's "no store write" and reads no
-table, and `9d595f0` landed it.
+table, and `9d595f0` landed it. In #54, a criterion asked that a password show nowhere outside `bw`, and only a search of
+the store's files could show that. A Standards reviewer read it as breaking this rule as written, and the person
+settled that the rule allows it.
 
 **In a diff, look for:**
 

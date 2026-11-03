@@ -1,7 +1,8 @@
 // A Product's `registration.md` in the Personal database (#33, ADR 0007): a view the bot writes from the live store,
 // never read back. Until the Product has a Registration it says so, or why no Walkthrough is offered. Each Correction
 // of its Walkthrough gets a line, with what came of its sort once that has settled, and the Approval gets one naming
-// the Signup identity. Every date carries its year and zone (#37).
+// the Signup identity and the vault item holding the password, never the password (ADR 0004). Every date carries its
+// year and zone (#37).
 import { sortKey, sortNote } from '../rules/sorting.ts';
 import { fullTime } from '../pacific.ts';
 import { plain } from '../personal-database.ts';
@@ -41,10 +42,11 @@ export function registrationFileOf(store: Store, productId: number, change: stri
   const registration = store.registration(productId);
   if (registration) {
     const { walkthrough } = store.walkthrough(productId, registration.version)!;
+    const vaultItem = registration.vaultItemId ? ` · password in the Password vault, item ${registration.vaultItemId}` : '';
     const handedOff = registration.state === 'handed-off' ? ' · handed off: its terms ban accounts made by a bot' : '';
     dated.push({
       at: registration.approvedAt,
-      line: `${fullTime(new Date(registration.approvedAt))} · Walkthrough v${registration.version} approved · ${identityText(walkthrough)}${handedOff}`,
+      line: `${fullTime(new Date(registration.approvedAt))} · Walkthrough v${registration.version} approved · ${identityText(walkthrough)}${vaultItem}${handedOff}`,
     });
   }
   dated.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
