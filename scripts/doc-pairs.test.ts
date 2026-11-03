@@ -1,7 +1,8 @@
 // The doc-pair check (#82): each paired doc's English and Chinese sides stay in step through the pair's record,
 // and mirror each other's headings, code blocks, list items, inline code and language links. A Chinese side links
 // to other pairs' Chinese sides and to headings that exist, keeps each paragraph's Chinese text on one line, and holds
-// the rendering of each phrase of the table its English side uses. Every other doc is listed as unpaired.
+// the rendering of each phrase of the table its English side uses. Every other doc is listed as unpaired. Neither side
+// writes a Setext heading or an indented code block.
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -441,6 +442,176 @@ test('--list prints each pair state and never fails, and a check that passes say
   const list = checkDocs(['--list'], root, ['guide.md', 'other.md', 'third.md']);
   assert.equal(list.ok, true);
   assert.equal(list.output, 'guide.md  in step\nother.md  missing other.zh.md and other.i18n.yaml\nthird.md  out of step\n');
+});
+
+/** The check on a pair recorded with `body`, which starts at line 9 of each side, in place of the Run section's text. */
+function holding(t: TestContext, body: string): ReturnType<typeof checkDocs> {
+  return run(recorded(t, EN.replace('Start it like this.', body), ZH.replace('这样启动。', body)));
+}
+
+test('a Setext heading on either side fails the check, naming the file and line and asking for a # heading', (t) => {
+  const root = recorded(t, EN.replace('Start it like this.', 'Start it\n==='), ZH.replace('这样启动。', '这样启动。\n\n启动\n---'));
+  const check = run(root);
+  assert.equal(check.ok, false);
+  assert.match(check.output, /\n {2}guide\.md:10: a Setext heading; write it with # instead\n/);
+  assert.match(check.output, /\n {2}guide\.zh\.md:12: a Setext heading; write it with # instead, or put a blank line above it if it is a thematic break\n/);
+});
+
+/** Asserts that a pair holding each of `bodies` passes the check. */
+function assertPasses(t: TestContext, bodies: string[]): void {
+  for (const body of bodies) {
+    const check = holding(t, body);
+    assert.equal(check.ok, true, `${body}\n${check.output}`);
+  }
+}
+
+// What each of these is was tried on GitHub's renderer (`POST /markdown`, `gfm`), on 2026-11-03: see #86.
+test('each way of underlining a line of text is a Setext heading', (t) => {
+  const cases: [string, number][] = [
+    ['Start it\n===', 10],
+    ['Start it\n---', 10],
+    ['Start it\n=', 10],
+    ['Start it\n-', 10],
+    ['Start it\n   ---  ', 10],
+    ['One line\nand another\n---', 11],
+    ['- an item\n  ---', 10],
+    ['| not a table yet |\n---', 10],
+    ['| a | b |\n| - |\n---', 11],
+    ['---\ntitle: front matter\n---', 11],
+    ['    npm start\nA paragraph\n---', 11],
+    ['<https://example.com> is a link\n---', 10],
+    ['<span>A word</span> and more\n---', 10],
+    ['<!-- a comment -->\nA title\n---', 11],
+    ['[Note]: not a link definition\n---', 10],
+    ['[a]: https://example.com/\nA title\n---', 11],
+  ];
+  for (const [body, line] of cases) {
+    assert.match(holding(t, body).output, new RegExp(`\\n {2}guide\\.md:${line}: a Setext heading; `), body);
+  }
+});
+
+test('--- under a table\'s row, HTML or a link definition fails though GitHub renders no heading, as the person settled on #86', (t) => {
+  const cases: [string, number][] = [
+    ['| a |\n| - |\n| b |\n---', 12],
+    ['a | b\n--- | ---\nc | d\n---', 12],
+    ['<div>\n---\n</div>', 10],
+    ['[a]: https://example.com/\n---', 10],
+  ];
+  for (const [body, line] of cases) {
+    assert.match(holding(t, body).output, new RegExp(`\\n {2}guide\\.md:${line}: a Setext heading; .*put a blank line above it`), body);
+    const [above, below] = [body.slice(0, body.lastIndexOf('---')), body.slice(body.lastIndexOf('---'))];
+    assertPasses(t, [`${above}\n${below}`]);
+  }
+});
+
+test('--- or === under anything but a line of text is no Setext heading, and passes', (t) => {
+  assertPasses(t, [
+    'Start it.\n\n---',
+    'Start it.\n\n===',
+    'Start it.\n\n---\n---',
+    'Start it.\n- - -',
+    'Start it.\n    ---',
+    '- an item\n---',
+    '- an item\n===',
+    '-\n  ---',
+    '> a quote\n---',
+    'Start it.\n> a quote\n---',
+    'Start it.\n> a quote\n===',
+    '- an item\n  > a quote\n  ---',
+    '```sh\nnpm start\n```\n---',
+    '```sh\nTitle\n---\n```',
+  ]);
+  const below = run(recorded(t, EN.replace('## Run', '## Run\n---'), ZH.replace('## 运行', '## 运行\n---')));
+  assert.equal(below.ok, true, below.output);
+});
+
+test('a Setext heading fails on top of what its side misses, and --list reports the pair out of step', (t) => {
+  const root = recorded(t);
+  write(root, 'guide.zh.md', ZH.replace('## 运行', '运行\n---'));
+  const output = run(root).output;
+  assert.match(output, /\n {2}guide\.zh\.md:8: a Setext heading; /);
+  assert.match(output, /\n {2}\/guide\/run: guide\.zh\.md has no heading to match it\n/);
+  assert.equal(run(root, '--list').output, 'guide.md  out of step\n');
+});
+
+test('an indented code block on either side fails the check, naming the file and line and asking for a fenced block', (t) => {
+  const root = recorded(t, EN.replace('Start it like this.', 'Start it.\n\n    npm start'), ZH.replace('这样启动。', '这样启动。\n\n还可以：\n\n    npm start'));
+  const check = run(root);
+  assert.equal(check.ok, false);
+  assert.match(check.output, /\n {2}guide\.md:11: an indented code block; write it as a fenced block instead\n/);
+  assert.match(check.output, /\n {2}guide\.zh\.md:13: an indented code block; write it as a fenced block instead\n/);
+});
+
+test('each way of writing indented code fails, once per block', (t) => {
+  const cases: [string, number[]][] = [
+    ['\tnpm start', [9]],
+    ['    npm start\n    npm stop\n\n    npm test', [9]],
+    ['    npm start\n\nA paragraph.\n\n    npm stop', [9, 13]],
+    ['---\n    npm start', [10]],
+    ['A paragraph\n***\n    npm start', [11]],
+    ['- an item\n---\n\n    npm start', [12]],
+    ['    npm start\n```sh\nnpm start\n```\n    npm stop', [9, 13]],
+    ['```sh\nnpm start\n```\n    npm stop', [12]],
+    ['    ```sh\n    npm start\n    ```', [9]],
+    ['- an item\n\n      npm start', [11]],
+    ['- an item\n\n\t  npm start', [11]],
+    ['1. an item\n\n       npm start', [11]],
+    ['- an item\n  - a nested item\n\n        npm start', [12]],
+    ['- an item\n\n      ```sh\n      npm start\n      ```', [11]],
+    ['-     npm start', [9]],
+    ['-     npm start\n\n  A paragraph\n\n    goes on', [9]],
+    ['-     npm start\n\n      npm stop', [9]],
+    ['A title\n---\n    npm start', [11]],
+    ['- an item\n\nA paragraph closes the list.\n\n    npm start', [13]],
+    ['- an item\n\n```sh\nnpm start\n```\n\n    npm stop', [15]],
+  ];
+  for (const [body, at] of cases) {
+    const output = holding(t, body).output;
+    assert.deepEqual([...output.matchAll(/ guide\.md:(\d+): an indented code block; /g)].map((m) => Number(m[1])), at, body);
+  }
+  const below = run(recorded(t, `${EN}\n## Next\n    npm start\n`, `${ZH}\n## 下一步\n    npm start\n`));
+  assert.match(below.output, / guide\.md:\d+: an indented code block; /);
+
+  const afterList = run(recorded(t, `${EN}\n- an item\n\n## Next\n\n    npm start\n`, `${ZH}\n- an item\n\n## 下一步\n\n    npm start\n`));
+  assert.match(afterList.output, / guide\.md:\d+: an indented code block; /, 'a heading closes the list');
+});
+
+test('what a list item holds at its own indentation, and a paragraph\'s indented line, pass', (t) => {
+  assertPasses(t, [
+    'Start it.\n    Go on.',
+    '- an item\n  goes on\n\n  and on',
+    '- an item\n\n    goes on',
+    '- an item\n\n\tgoes on',
+    '- an item\n      goes on',
+    '- an item\nlazily\n\n    goes on',
+    '* an item\n\n    goes on',
+    '+ an item\n\n    goes on',
+    '1. an item\n\n    goes on',
+    '1) an item\n\n    goes on',
+    '10. an item\n\n    goes on',
+    '  - an item\n\n      goes on',
+    '-\n     goes on',
+    '- an item\n    - a nested item\n    - another',
+    '- an item\n\n    - a nested item\n\n      goes on\n\n      - a deeper item\n\n        goes on',
+    '- - two items at once\n\n      goes on',
+    '- an item\n\n  ## Inside it\n\n    goes on',
+    '- an item\n\n  ## Inside it\n\n    - a nested item',
+    '- an item\n\n  ```sh\n  npm start\n  ```\n\n    goes on',
+    '1. an item\n\n    ```sh\n    npm start\n    ```',
+    '-\tan item after a tab\n\n    goes on',
+    '-   an item after three spaces\n\n      goes on',
+    'A paragraph\n- an item\n\n    goes on',
+  ]);
+});
+
+test('the check does not look inside a block quote, as the person settled on #86', (t) => {
+  assertPasses(t, ['> A title\n> ---', '> A title\n> ===', '>     npm start', '> quoted\n    lazily']);
+});
+
+test('an indented line after a blank line in an HTML block fails too, as the person settled on #86', (t) => {
+  for (const body of ['<pre>\n\n    text\n\n</pre>', '<!--\n\n    text\n\n-->']) {
+    assert.match(holding(t, body).output, / guide\.md:11: an indented code block; /, body);
+  }
 });
 
 test('--write takes any of a pair\'s files or its stem, and refuses a doc that is not a pair', (t) => {

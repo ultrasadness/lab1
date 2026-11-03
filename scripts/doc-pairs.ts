@@ -4,7 +4,8 @@
 // fails a Chinese side that links to another pair's English side or to an anchor no heading has, or that breaks a line
 // between two Chinese characters (#83). Given the docs that stay unpaired, it fails every doc on neither list, so
 // whether a new doc gets a Chinese side goes to the person. Given a table of renderings, it fails a section whose
-// English side uses a phrase of the table and whose Chinese side lacks the phrase's one rendering (#97).
+// English side uses a phrase of the table and whose Chinese side lacks the phrase's one rendering (#97). It fails a
+// Setext heading or an indented code block on either side (#86).
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, normalize } from 'node:path';
@@ -26,11 +27,11 @@ interface Sides {
 
 /**
  * A top-level Markdown block. Its text has whitespace runs collapsed, unless it is code; a paragraph also keeps its
- * lines as written, the first of them at line `line`.
+ * lines as written, and a heading its line. Code and a paragraph start at line `line`.
  */
 type Block =
-  | { kind: 'heading'; depth: number; title: string; text: string }
-  | { kind: 'code'; text: string }
+  | { kind: 'heading'; depth: number; title: string; text: string; written: string }
+  | { kind: 'code'; text: string; line: number }
   | { kind: 'text'; text: string; line: number; lines: string[] };
 
 type Heading = Extract<Block, { kind: 'heading' }>;
@@ -167,8 +168,101 @@ function check(root: string, pair: Pair, pairs: Pair[], renderings: Rendering[])
   const gone = absent(root, [pair.en, pair.zh, pair.record]);
   if (gone.includes(pair.en) || gone.includes(pair.zh)) return [areMissing(gone)];
   const doc = sides(root, pair);
-  const problems = [...unmirrored(doc), ...englishLinks(doc, pairs), ...brokenAnchors(root, doc), ...brokenLines(doc)];
+  const problems = [...unreadForms(doc), ...unmirrored(doc), ...englishLinks(doc, pairs), ...brokenAnchors(root, doc), ...brokenLines(doc)];
   return misaligned(doc).length > 0 ? problems : [...problems, ...unrendered(doc, renderings), ...unrecorded(root, doc)];
+}
+
+/** Each Setext heading and indented code block on either side, which `blocks` reads as text, so the docs keep one way of each. */
+function unreadForms({ pair, en, zh }: Sides): string[] {
+  return [...formsIn(pair.en, en), ...formsIn(pair.zh, zh)];
+}
+
+/** Any run of `=` or of `-`, past its indentation, which a line of text above makes a Setext heading. */
+const UNDERLINE = /^(?:=+|-+)[ \t]*$/;
+const THEMATIC_BREAK = /^([-*_])[ \t]*(?:\1[ \t]*){2,}$/;
+const LIST_MARKER = /^([-*+]|\d{1,9}[.)])([ \t]+|$)/;
+
+/**
+ * The Setext headings and indented code blocks in a side's blocks. What a line is turns on the lines above it. An
+ * underline goes under a line of text in the same list item. Code is 4 columns past the content of the innermost list
+ * item the line reaches, unless it goes on from the line above.
+ *
+ * This follows GitHub's renderer, where each case in the tests was tried, except where the person chose on #86 to keep
+ * it simple, for forms no pair holds. It doesn't look inside a block quote. A table's row, a line of HTML and a link
+ * reference definition are lines of text, so an underline under one fails, as do a front matter's closing `---` and an
+ * indented line in an HTML block. Some forms pass though GitHub renders a heading or code: an empty list item, a blank
+ * line and an indented line; a line that looks like a list item and can't interrupt a paragraph (`2016. then`), over an
+ * underline; a fence whose list item ends before it does; an indented line right under a table's row or a line of HTML.
+ */
+function formsIn(file: string, side: Block[][]): string[] {
+  const out: string[] = [];
+  const indentedCode = (line: number) => out.push(`${file}:${line}: an indented code block; write it as a fenced block instead`);
+  const open: number[] = [];
+  let above: 'text' | 'code' | 'quote' | undefined;
+  for (const block of side.flat()) {
+    if (block.kind !== 'text') {
+      const { inside, past } = reach(block.kind === 'code' ? block.text : block.written, open);
+      open.length = inside;
+      if (block.kind === 'code' && past >= 4) indentedCode(block.line);
+      above = undefined;
+      continue;
+    }
+    if (above !== 'code') above = undefined;
+    for (const [i, line] of block.lines.entries()) {
+      const { indent, inside, past, text } = reach(line, open);
+      const starts = past < 4 && (THEMATIC_BREAK.test(text) || LIST_MARKER.test(text) || text.startsWith('>'));
+      const goesOn = above === 'code' ? past >= 4 : above !== undefined;
+      if (above === 'text' && inside === open.length && past < 4 && UNDERLINE.test(text)) {
+        const thematicBreak = text.startsWith('-') ? ', or put a blank line above it if it is a thematic break' : '';
+        out.push(`${file}:${block.line + i}: a Setext heading; write it with # instead${thematicBreak}`);
+        above = undefined;
+      } else if (starts || !goesOn) {
+        open.length = inside;
+        if (past >= 4) {
+          indentedCode(block.line + i);
+          above = 'code';
+        } else if (THEMATIC_BREAK.test(text)) {
+          above = undefined;
+        } else {
+          const { rest, indented } = openItems(open, indent, text);
+          if (indented) indentedCode(block.line + i);
+          above = rest === '' ? undefined : indented ? 'code' : rest.startsWith('>') ? 'quote' : 'text';
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** How far `line` is indented, how many of the `open` list items it reaches, how far past the last of them, and its text. */
+function reach(line: string, open: number[]): { indent: number; inside: number; past: number; text: string } {
+  const space = /^[ \t]*/.exec(line)![0];
+  const indent = widthOf(space);
+  const inside = open.filter((column) => column <= indent).length;
+  return { indent, inside, past: indent - (open[inside - 1] ?? 0), text: line.slice(space.length) };
+}
+
+/**
+ * Adds to `open` the content column of each list item `text` starts, at column `indent`, and returns what follows the
+ * markers. More than 4 columns after a marker, that is indented code starting the item's content.
+ */
+function openItems(open: number[], indent: number, text: string): { rest: string; indented: boolean } {
+  let [column, rest] = [indent, text];
+  for (let marker = LIST_MARKER.exec(rest); marker !== null; marker = LIST_MARKER.exec(rest)) {
+    const start = column + marker[1]!.length;
+    const gap = widthOf(marker[2]!, start);
+    rest = rest.slice(marker[0].length);
+    const indented = gap > 4 && rest !== '';
+    column = start + (indented || rest === '' ? 1 : gap);
+    open.push(column);
+    if (indented) return { rest, indented };
+  }
+  return { rest, indented: false };
+}
+
+/** How many columns the whitespace `space` covers from column `from`, a tab going on to the next multiple of 4. */
+function widthOf(space: string, from = 0): number {
+  return [...space].reduce((width, c) => (c === '\t' ? width + 4 - ((from + width) % 4) : width + 1), 0);
 }
 
 /** Where the two sides don't mirror each other's structure. */
@@ -425,7 +519,7 @@ function blocks(markdown: string): Block[] {
   const out: Block[] = [];
   let paragraph: string[] = [];
   let start = 0;
-  let fence: { marker: string; lines: string[] } | undefined;
+  let fence: { marker: string; lines: string[]; line: number } | undefined;
   const flush = () => {
     if (paragraph.length > 0) out.push({ kind: 'text', text: collapse(paragraph.join(' ')), line: start, lines: paragraph });
     paragraph = [];
@@ -435,7 +529,7 @@ function blocks(markdown: string): Block[] {
       fence.lines.push(line);
       const close = /^\s*(`{3,}|~{3,})\s*$/.exec(line)?.[1];
       if (close !== undefined && close[0] === fence.marker[0] && close.length >= fence.marker.length) {
-        out.push({ kind: 'code', text: fence.lines.join('\n') });
+        out.push({ kind: 'code', text: fence.lines.join('\n'), line: fence.line });
         fence = undefined;
       }
       continue;
@@ -444,10 +538,10 @@ function blocks(markdown: string): Block[] {
     const heading = /^ {0,3}(#{1,6})(?:\s+(.*?))?(?:\s+#+)?\s*$/.exec(line);
     if (open) {
       flush();
-      fence = { marker: open, lines: [line] };
+      fence = { marker: open, lines: [line], line: i + 1 };
     } else if (heading) {
       flush();
-      out.push({ kind: 'heading', depth: heading[1]!.length, title: heading[2] ?? '', text: collapse(line) });
+      out.push({ kind: 'heading', depth: heading[1]!.length, title: heading[2] ?? '', text: collapse(line), written: line });
     } else if (line.trim() === '') {
       flush();
     } else {
@@ -456,7 +550,7 @@ function blocks(markdown: string): Block[] {
     }
   }
   flush();
-  if (fence) out.push({ kind: 'code', text: fence.lines.join('\n') });
+  if (fence) out.push({ kind: 'code', text: fence.lines.join('\n'), line: fence.line });
   return out;
 }
 

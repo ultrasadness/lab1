@@ -17,6 +17,21 @@ A commit that edits either side of a pair updates the other side in the same com
    both sides say the same thing. A green check means only that someone confirmed the pair at these contents and that
    it holds the table's renderings; the translation's quality is review's job.
 
+## Writing a heading or a code block
+
+On either side, a heading is a `#` heading and a code block is a fenced block: the check's parser reads no other form,
+so a section under another form would never be keyed, aligned or recorded, and its code would be checked like prose.
+`npm run check:docs` fails a Setext heading (a line of text underlined with `===` or `---`) and an indented code block,
+naming the file and line and asking for the `#` heading or the fence (#86). A `---` after a blank line is a thematic
+break, and a list item's indented continuation lines and nested items are the item's own, so these pass.
+
+The person settled the edges on #86, and no pair holds one today. The check doesn't look inside a block quote, where the
+parser reads `#` headings and fences as text too. A table's row, a line of HTML and a link reference definition count as
+lines of text, so an underline right under one fails even where GitHub renders no heading: put a blank line above it. A
+front matter's closing `---` fails the same way, and an indented line after a blank line in an HTML block fails as
+indented code. A few rare forms pass though GitHub renders a heading or code: the comment on `formsIn` in
+`scripts/doc-pairs.ts` names them. A pair that needs or hits one of these gets a ticket first.
+
 ## Writing the Chinese side
 
 - It mirrors the English side: the same headings at the same depths in the same order, code blocks copied byte for
