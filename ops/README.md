@@ -106,14 +106,20 @@ admin page:
 - a channel of the provider's type whose models are that one name, with a model redirect from it to the model the
   provider serves, such as `{"miner@openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free"}`: the model that
   `roles.<role>.providers` names in `config/assistant.json`, with its price in `prices`;
-- a price for the name in new-api's ratio settings, which a new-api in self-use mode doesn't ask for;
+- a price for the name in new-api's ratio settings, which a new-api in self-use mode doesn't ask for: the price
+  `prices` gives the model, so $0 for a free model's input and output;
 - a token for the role alone, whose model limit names each of the role's `<role>@<provider>` names, with 4 weeks of
   the role's budget as its quota (ADR 0011); a mail role's token goes in the `mail` group (ADR 0010).
+
+The new-api user holding the tokens needs quota of its own as well. new-api reserves each request's cost against it
+and refuses with a 403 once it falls short, such as `insufficient_user_quota`.
 
 new-api's Playground, sent "hi" on each name, shows that the channel, the redirect and the price work. Then
 `ops/token newapi-key-<role>` refuses a key that new-api's `/models` doesn't let reach each of its role's names. At
 go-live (#85) both tokens were limited to the upstream model's name, and the registration role's slot held the miner
-key: the check then only counted models, so both passed, and every run failed on new-api's 403.
+key: the check then only counted models, so both passed, and every run failed on new-api's 403. Neither step compares
+new-api's price with `prices`. On 2026-11-05 (#85) new-api was charging for the free model while the bot counted it at
+$0, so the user's quota ran out with `"spent":0` in the journal, and from 09:26 UTC the Dossier runs failed on that 403.
 
 ## The bot's user and the Docker helper
 
