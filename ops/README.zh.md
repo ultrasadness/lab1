@@ -58,7 +58,7 @@
 | `newapi-key-probe` | new-api 为每日探测生成的密钥 | new-api 的 `/models` |
 | `gmail-client-secret` | Google Cloud 的 Credentials 页面为桌面应用客户端下载的 JSON | Google 接受这个客户端，只拒绝一个编造的授权码 |
 | `gmail-refresh-token` | 在 Safari 里授权一次：登录 Signup mailbox 的账号，打开 `ops/token` 显示的链接，再把 Safari 打不开的那个地址粘贴回来 | 刷新一次，权限恰好是 `gmail.readonly` 和 `gmail.compose`，以及这个邮箱的地址 |
-| `bitwarden-api-key` | 机器人的 Bitwarden 账号的个人 API 密钥：先是它的 `client_id`，再是它的 `client_secret` | Bitwarden 用它让机器人登录 |
+| `bitwarden-api-key` | 机器人的 Bitwarden 账号的个人 API 密钥：先是它的 `client_id`，再是它的 `client_secret` | 在一个一次性的数据目录里，`bw` 用它登录 |
 | `bitwarden-master-password` | 机器人的 Bitwarden 账号 | 在一个一次性的数据目录里，`bw` 登录、用它解锁并同步，账号必须只能看到 *Registrations* 集合 |
 | `healthchecks-ping-bot`, `-miner`, `-backup`, `-weekly` | healthchecks.io 上每个检查的 ping URL；机器人那个检查的周期是 5 分钟，宽限 10 分钟 | 在这个检查上记一条日志事件，其他什么都不改 |
 | `personal-database-deploy-key` | 在 VM 上生成：`ops/token` 显示公钥，把它加到仓库的 Deploy keys 里，勾上 "Allow write access"，然后它等你按回车 | 在机器人的 checkout 里通过这把密钥运行 `git ls-remote origin main`，再做一次什么都不推的推送，没有写权限的密钥会被 GitHub 拒绝 |

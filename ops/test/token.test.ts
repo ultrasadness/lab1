@@ -1,5 +1,5 @@
 // ops/token with dummy values only (#71), as the person runs it: values typed on stdin, checked against fakes of
-// Discord, Product Hunt, new-api, Google, Gmail, Bitwarden and healthchecks.io, written under a throwaway OPS_ROOT,
+// Discord, Product Hunt, new-api, Google, Gmail, `bw` and healthchecks.io, written under a throwaway OPS_ROOT,
 // and the service restarted through a fake systemctl that logs each call. The Personal database's remote is a fake
 // GitHub that lets in only the deploy keys the test adds, as GitHub does.
 import { test, type TestContext } from 'node:test';
@@ -96,11 +96,6 @@ async function vm(t: TestContext): Promise<Vm> {
       return json(400, { error: 'invalid_grant' });
     }
     if (url.pathname === '/gmail/profile') return auth === 'Bearer good-access' ? json(200, { emailAddress: 'signup@example.com' }) : json(401, {});
-    if (url.pathname === '/bitwarden/connect/token') {
-      const form = new URLSearchParams(text);
-      const good = form.get('client_id') === 'user.0b1c2d3e-0000-4000-8000-000000000001' && form.get('client_secret') === 'good-bw';
-      return good ? json(200, { access_token: 'bw' }) : json(400, { error: 'invalid_client' });
-    }
     if (url.pathname.startsWith('/hc/') && req.method === 'POST') {
       res.writeHead(url.pathname === '/hc/good-uuid/log' ? 200 : 404);
       return res.end(url.pathname === '/hc/good-uuid/log' ? 'OK' : 'not found');
@@ -145,7 +140,7 @@ async function vm(t: TestContext): Promise<Vm> {
       PATH: `${bin}:${process.env.PATH}`,
       OPS_ROOT: root,
       ASSISTANT_CONFIG: join(root, 'assistant.json'),
-      OPS_ENDPOINTS: JSON.stringify({ googleAuth: `${base}/google/auth`, googleToken: `${base}/google/token`, gmail: `${base}/gmail`, bitwardenIdentity: `${base}/bitwarden` }),
+      OPS_ENDPOINTS: JSON.stringify({ googleAuth: `${base}/google/auth`, googleToken: `${base}/google/token`, gmail: `${base}/gmail` }),
     },
     systemctl: () => (existsSync(join(root, 'systemctl.log')) ? readFileSync(join(root, 'systemctl.log'), 'utf8') : ''),
     put: (name, value) => writeFileSync(join(credentials, name), value, { mode: 0o600 }),
@@ -418,7 +413,10 @@ function placeBw(machine: Vm, collections: string[] = ['Registrations']): void {
     `#!/bin/sh
 echo "$* data=$BITWARDENCLI_APPDATA_DIR session=$BW_SESSION" >> "$OPS_ROOT/bw.log"
 case "$1" in
-  login) [ "$BW_CLIENTSECRET" = good-bw ] || { echo 'client_id or client_secret is incorrect. Try again.' >&2; exit 1; } ;;
+  login)
+    # Every run on a new data folder says this first, as the real one does.
+    echo "Could not find data file, \\"$BITWARDENCLI_APPDATA_DIR/data.json\\"; creating it instead." >&2
+    [ "$BW_CLIENTID" = user.0b1c2d3e-0000-4000-8000-000000000001 ] && [ "$BW_CLIENTSECRET" = good-bw ] || { echo 'client_id or client_secret is incorrect. Try again.' >&2; exit 1; } ;;
   unlock) [ "$BW_PASSWORD" = good-master ] || { echo 'Invalid master password.' >&2; exit 1; }; printf 'the-session-key' ;;
   sync) echo 'Syncing complete.' ;;
   list) printf '%s' '${listed}' ;;
@@ -432,17 +430,41 @@ esac
 
 const placeApiKey = (machine: Vm) => machine.put('bitwarden-api-key', JSON.stringify({ client_id: 'user.0b1c2d3e-0000-4000-8000-000000000001', client_secret: 'good-bw' }));
 
-test('Bitwarden: the API key is checked by logging in, and the master password needs the bw that ops/install puts in place', async (t) => {
+const typeApiKey = (secret: string) => [
+  { after: /client_id/, type: 'user.0b1c2d3e-0000-4000-8000-000000000001' },
+  { after: /client_secret/, type: secret },
+];
+
+test('Bitwarden: the API key is checked as the bot will use it, by bw logging in, in a throwaway data folder', async (t) => {
   const machine = await vm(t);
-  const key = await opsToken(machine, ['bitwarden-api-key'], [
-    { after: /client_id/, type: 'user.0b1c2d3e-0000-4000-8000-000000000001' },
-    { after: /client_secret/, type: 'good-bw' },
-  ]);
-  assert.equal(key.code, 0, key.out);
-  assert.match(key.out, /Bitwarden logs the bot in with it/);
+  placeBw(machine);
+
+  const refused = await opsToken(machine, ['bitwarden-api-key'], typeApiKey('wrong'));
+  assert.equal(refused.code, 1);
+  assert.match(refused.out, /Nothing changed: bw can't log in with the API key: client_id or client_secret is incorrect\. Try again\./);
+  assert.doesNotMatch(refused.out, /Could not find/, 'only the line that says why');
+  assert.ok(!existsSync(join(machine.credentials, 'bitwarden-api-key')));
+
+  const placed = await opsToken(machine, ['bitwarden-api-key'], typeApiKey('good-bw'));
+  assert.equal(placed.code, 0, placed.out);
+  assert.match(placed.out, /bw logs in with it/);
+
+  const log = readFileSync(join(machine.root, 'bw.log'), 'utf8');
+  assert.deepEqual(log.split('\n').slice(-3, -1).map((line) => line.split(' data=')[0]), ['login --apikey --nointeraction', 'logout --nointeraction']);
+  assert.ok(!log.includes('good-bw'), 'no Secret on a command line');
+  assert.deepEqual(readdirSync(machine.credentials).filter((name) => name.startsWith('.')), [], 'no data folder is left');
+});
+
+test('Bitwarden: neither token can be checked without the bw that ops/install puts in place', async (t) => {
+  const machine = await vm(t);
+  const key = await opsToken(machine, ['bitwarden-api-key'], typeApiKey('good-bw'));
+  assert.equal(key.code, 1);
+  assert.match(key.out, /Nothing changed: bw isn't installed on the VM, so this token can't be checked: run ops\/install/);
+
+  placeApiKey(machine);
   const password = await opsToken(machine, ['bitwarden-master-password'], [{ after: /Paste/, type: 'good-master' }]);
   assert.equal(password.code, 1);
-  assert.match(password.out, /Nothing changed: bw isn't installed on the VM, so the master password can't be checked: run ops\/install/);
+  assert.match(password.out, /Nothing changed: bw isn't installed on the VM, so this token can't be checked: run ops\/install/);
 });
 
 test('Bitwarden: the master password is checked as the bot will use it, in a throwaway data folder', async (t) => {

@@ -11,7 +11,7 @@
 //   ops/token --list              every token's name and what it is for
 //
 // With OPS_ROOT set (the tests), every fixed path is taken under it, systemctl and the rest come from PATH, and
-// OPS_ENDPOINTS may name other addresses for Google and Bitwarden.
+// OPS_ENDPOINTS may name other addresses for Google.
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { accessSync, constants, existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
@@ -39,7 +39,6 @@ const ENDPOINTS = {
   googleAuth: 'https://accounts.google.com/o/oauth2/v2/auth',
   googleToken: 'https://oauth2.googleapis.com/token',
   gmail: 'https://gmail.googleapis.com/gmail/v1/users/me',
-  bitwardenIdentity: 'https://identity.bitwarden.com',
   ...(TESTING && process.env.OPS_ENDPOINTS ? (JSON.parse(process.env.OPS_ENDPOINTS) as Record<string, string>) : {}),
 };
 /** The Signup mailbox's only scopes (#16): reading and drafting, so the Assistant can't delete mail. */
@@ -180,23 +179,12 @@ const TOKENS: Token[] = [
       if (!/^user\.[0-9a-f-]{36}$/.test(clientId) || !clientSecret) return { refused: 'that is not a personal API key: its client_id starts user.' };
       return JSON.stringify({ client_id: clientId, client_secret: clientSecret });
     },
+    // Through bw, not a request of ops/token's own to Bitwarden's token endpoint, which refused every key for lacking a
+    // header bw sends (#54). What this asks is then what the bot asks.
     check: async (value) => {
       const key = clientPair(value);
       if (!key) return { ok: false, why: 'the file holds no client_id and client_secret' };
-      const response = await request(`${ENDPOINTS.bitwardenIdentity}/connect/token`, {
-        method: 'POST',
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          scope: 'api',
-          ...key,
-          deviceType: '8',
-          deviceName: 'linux',
-          // One device for every check, so Bitwarden doesn't see a new one each time.
-          deviceIdentifier: machineDevice(),
-        }),
-      });
-      if (!response.ok) return refusedBy('Bitwarden', response);
-      return { ok: true, note: 'Bitwarden logs the bot in with it' };
+      return loggedInBw(key, async () => ({ ok: true, note: 'bw logs in with it' }));
     },
   },
   {
@@ -206,30 +194,17 @@ const TOKENS: Token[] = [
     check: async (value, context) => {
       const key = clientPair(context.inPlace('bitwarden-api-key') ?? '');
       if (!key) return { ok: false, why: 'bitwarden-api-key is not in place: run ops/token bitwarden-api-key first' };
-      if (!existsSync(BW)) return { ok: false, why: "bw isn't installed on the VM, so the master password can't be checked: run ops/install" };
-      // A throwaway bw data folder, asked what the bot will ask: log in with the API key, unlock with the password, sync,
-      // and read the one collection the bot's account may see (ADR 0004); then log out. sudo's PATH doesn't name our
-      // Node, which bw starts through env. Each Secret reaches only the command that needs it.
-      const data = secretDir();
-      try {
-        const env = { ...process.env, PATH: `${dirname(process.execPath)}:${process.env.PATH ?? ''}`, BITWARDENCLI_APPDATA_DIR: data };
-        const login = await run(BW, ['login', '--apikey', '--nointeraction'], { ...env, BW_CLIENTID: key.client_id, BW_CLIENTSECRET: key.client_secret });
-        if (!login.ok) return { ok: false, why: `bw can't log in with the API key: ${login.stderr.trim()}` };
-        try {
-          const unlock = await run(BW, ['unlock', '--passwordenv', 'BW_PASSWORD', '--raw', '--nointeraction'], { ...env, BW_PASSWORD: value });
-          if (!unlock.ok) return { ok: false, why: 'bw refuses this master password' };
-          const session = { ...env, BW_SESSION: unlock.stdout.trim() };
-          const sync = await run(BW, ['sync', '--nointeraction'], session);
-          if (!sync.ok) return { ok: false, why: `bw can't sync: ${sync.stderr.trim()}` };
-          const listed = await run(BW, ['list', 'collections', '--nointeraction'], session);
-          if (!listed.ok) return { ok: false, why: `bw can't list the account's collections: ${listed.stderr.trim()}` };
-          return registrationsOnly(listed.stdout);
-        } finally {
-          await run(BW, ['logout', '--nointeraction'], env);
-        }
-      } finally {
-        forget(data);
-      }
+      // What the bot will ask: unlock with the password, sync, and read the one collection its account may see (ADR 0004).
+      return loggedInBw(key, async (env) => {
+        const unlock = await run(BW, ['unlock', '--passwordenv', 'BW_PASSWORD', '--raw', '--nointeraction'], { ...env, BW_PASSWORD: value });
+        if (!unlock.ok) return { ok: false, why: 'bw refuses this master password' };
+        const session = { ...env, BW_SESSION: unlock.stdout.trim() };
+        const sync = await run(BW, ['sync', '--nointeraction'], session);
+        if (!sync.ok) return { ok: false, why: `bw can't sync: ${lastLine(sync.stderr)}` };
+        const listed = await run(BW, ['list', 'collections', '--nointeraction'], session);
+        if (!listed.ok) return { ok: false, why: `bw can't list the account's collections: ${lastLine(listed.stderr)}` };
+        return registrationsOnly(listed.stdout);
+      });
     },
   },
   ...(['bot', 'miner', 'backup', 'weekly'] as const).map(
@@ -277,6 +252,31 @@ function clientPair(text: string): { client_id: string; client_secret: string } 
   return undefined;
 }
 
+/** bw's own reason for a failure: on a new data folder, its stderr opens with lines saying it made one. */
+const lastLine = (stderr: string): string => (stderr.trim().split('\n').at(-1) ?? '').replace(/\.$/, '');
+
+/**
+ * Logs bw in with the API key in a throwaway data folder, as the bot logs in, asks `then` what it needs of the account,
+ * and logs out. sudo's PATH doesn't name our Node, which bw starts through env. Each Secret reaches only the command
+ * that needs it.
+ */
+async function loggedInBw(key: { client_id: string; client_secret: string }, then: (env: NodeJS.ProcessEnv) => Promise<Checked>): Promise<Checked> {
+  if (!existsSync(BW)) return { ok: false, why: "bw isn't installed on the VM, so this token can't be checked: run ops/install" };
+  const data = secretDir();
+  try {
+    const env = { ...process.env, PATH: `${dirname(process.execPath)}:${process.env.PATH ?? ''}`, BITWARDENCLI_APPDATA_DIR: data };
+    const login = await run(BW, ['login', '--apikey', '--nointeraction'], { ...env, BW_CLIENTID: key.client_id, BW_CLIENTSECRET: key.client_secret });
+    if (!login.ok) return { ok: false, why: `bw can't log in with the API key: ${lastLine(login.stderr)}` };
+    try {
+      return await then(env);
+    } finally {
+      await run(BW, ['logout', '--nointeraction'], env);
+    }
+  } finally {
+    forget(data);
+  }
+}
+
 /** Whether `bw list collections` answered with the *Registrations* collection alone, which is what the bot asks. */
 function registrationsOnly(listed: string): Checked {
   let parsed: unknown;
@@ -319,13 +319,6 @@ for (const [signal, code] of [['SIGINT', 130], ['SIGHUP', 129], ['SIGTERM', 143]
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
     process.exit(code);
   });
-}
-
-/** A device id for Bitwarden made from the VM's machine id, the same at every check. */
-function machineDevice(): string {
-  const id = existsSync('/etc/machine-id') ? readFileSync('/etc/machine-id', 'utf8').trim() : 'lab1';
-  const hex = createHash('sha256').update(`lab1 ops/token ${id}`).digest('hex');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
 /** The consent in Safari: a link to open, then the address Safari can't load, traded for the refresh token. */

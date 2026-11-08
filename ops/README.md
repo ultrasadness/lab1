@@ -85,7 +85,7 @@ without writing it.
 | `newapi-key-probe` | a key new-api makes for the daily probe | new-api's `/models` |
 | `gmail-client-secret` | the JSON Google Cloud's Credentials page downloads for the Desktop app client | Google takes the client, refusing only a made-up code |
 | `gmail-refresh-token` | a consent in Safari: open the link `ops/token` shows, signed in to the Signup mailbox's account, then paste the address Safari can't load | a refresh, exactly `gmail.readonly` and `gmail.compose`, and the mailbox's address |
-| `bitwarden-api-key` | the bot's Bitwarden account's personal API key: its `client_id`, then its `client_secret` | Bitwarden logs the bot in with it |
+| `bitwarden-api-key` | the bot's Bitwarden account's personal API key: its `client_id`, then its `client_secret` | in a throwaway data folder, `bw` logs in with it |
 | `bitwarden-master-password` | the bot's Bitwarden account | in a throwaway data folder, `bw` logs in, unlocks with it and syncs, and the account must see only the *Registrations* collection |
 | `healthchecks-ping-bot`, `-miner`, `-backup`, `-weekly` | each check's ping URL on healthchecks.io; the bot's check has a 5-minute period and 10 minutes' grace | a log event on the check, which changes nothing else |
 | `personal-database-deploy-key` | made on the VM: `ops/token` shows the public key to add to the repo's Deploy keys, with "Allow write access", then waits for Enter | `git ls-remote origin main` from the bot's checkout, through the key, and a push of nothing, which GitHub refuses a key added without write access |
