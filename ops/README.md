@@ -109,7 +109,8 @@ admin page:
 - a price for the name in new-api's ratio settings, which a new-api in self-use mode doesn't ask for: the price
   `prices` gives the model, so $0 for a free model's input and output;
 - a token for the role alone, whose model limit names each of the role's `<role>@<provider>` names, with 4 weeks of
-  the role's budget as its quota (ADR 0011); a mail role's token goes in the `mail` group (ADR 0010).
+  the role's budget as its quota (ADR 0011); a mail role's token goes in the `mail` group (ADR 0010). The role's name
+  must be available to the group its token uses, or new-api answers 503 with `model_not_found`.
 
 The new-api user holding the tokens needs quota of its own as well. new-api reserves each request's cost against it
 and refuses with a 403 once it falls short, such as `insufficient_user_quota`.
@@ -120,6 +121,8 @@ go-live (#85) both tokens were limited to the upstream model's name, and the reg
 key: the check then only counted models, so both passed, and every run failed on new-api's 403. Neither step compares
 new-api's price with `prices`. On 2026-11-05 (#85) new-api was charging for the free model while the bot counted it at
 $0, so the user's quota ran out with `"spent":0` in the journal, and from 09:26 UTC the Dossier runs failed on that 403.
+On 2026-11-06 and 2026-11-07 (#85) `registration@openrouter` wasn't available to the `vip` group, so every Dossier run
+failed on that 503.
 
 ## The bot's user and the Docker helper
 

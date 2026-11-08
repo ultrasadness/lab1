@@ -71,11 +71,11 @@ forwarder 向 new-api 请求一个角色的模型时，用的名字是 `<role>@<
 
 - 一个该 provider 类型的渠道，它的模型只有这一个名字，并带一条从这个名字到 provider 所服务模型的模型重定向，比如 `{"miner@openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free"}`：这个模型就是 `config/assistant.json` 里 `roles.<role>.providers` 写明的那个，它的价格在 `prices` 里；
 - 在 new-api 的倍率设置里给这个名字一个价格，处于自用模式的 new-api 不要求这一项：这个价格就是 `prices` 给这个模型的价格，所以免费模型的输入和输出都是 $0；
-- 一个只属于这个角色的令牌，它的模型限制写明这个角色的每个 `<role>@<provider>` 名字，额度是这个角色 4 周的预算（ADR 0011）；mail 角色的令牌放在 `mail` 分组里（ADR 0010）。
+- 一个只属于这个角色的令牌，它的模型限制写明这个角色的每个 `<role>@<provider>` 名字，额度是这个角色 4 周的预算（ADR 0011）；mail 角色的令牌放在 `mail` 分组里（ADR 0010）。这个角色的名字必须对它的令牌所用的分组可用，否则 new-api 会返回 503 和 `model_not_found`。
 
 持有这些令牌的 new-api 用户自己也需要额度。new-api 会按每次请求的费用从中预扣，不够时就以 403 拒绝，比如 `insufficient_user_quota`。
 
-在 new-api 的 Playground 里对每个名字发一句 "hi"，就能看出渠道、重定向和价格都可用。之后，如果 new-api 的 `/models` 显示一个 key 访问不到它所属角色的每个名字，`ops/token newapi-key-<role>` 就会拒绝它。上线时（#85），两个令牌都被限制在上游模型的名字上，registration 角色的位置上放的还是 miner 的 key：当时的检查只数模型个数，所以两个都通过了，结果每次运行都因 new-api 的 403 而失败。这两步都不会把 new-api 的价格和 `prices` 作比较。2026-11-05（#85），new-api 一直在对这个免费模型收费，而机器人按 $0 计算，所以用户额度耗尽时日志里还是 `"spent":0`，从 09:26 UTC 起 Dossier 的运行都因这个 403 而失败。
+在 new-api 的 Playground 里对每个名字发一句 "hi"，就能看出渠道、重定向和价格都可用。之后，如果 new-api 的 `/models` 显示一个 key 访问不到它所属角色的每个名字，`ops/token newapi-key-<role>` 就会拒绝它。上线时（#85），两个令牌都被限制在上游模型的名字上，registration 角色的位置上放的还是 miner 的 key：当时的检查只数模型个数，所以两个都通过了，结果每次运行都因 new-api 的 403 而失败。这两步都不会把 new-api 的价格和 `prices` 作比较。2026-11-05（#85），new-api 一直在对这个免费模型收费，而机器人按 $0 计算，所以用户额度耗尽时日志里还是 `"spent":0`，从 09:26 UTC 起 Dossier 的运行都因这个 403 而失败。2026-11-06 和 2026-11-07（#85），`registration@openrouter` 对 `vip` 分组不可用，所以每次 Dossier 的运行都因这个 503 而失败。
 
 ## 机器人的用户和 Docker 辅助程序
 
