@@ -65,7 +65,12 @@
 
 deploy key 的私钥从不离开 VM（在 #71 上确定）：在询问 GitHub 期间，它待在凭据目录里面的一个目录里，即使 SSH 会话断开，这个目录也会被删除。试了五次 GitHub 仍然拒绝的密钥，什么也不会改变：从仓库里删掉它，再运行一次 `ops/token`。CPA 的 ChatGPT 登录，也就是粘贴那个打不开的 `localhost:1455` 地址，随 CPA 本身在 #72 里到来。
 
-运行 `ops/token bitwarden-master-password` 之前，这个人要先设置一次 Password vault（ADR 0004）：这个人自己的 Bitwarden 账号拥有一个免费组织，里面有 *Registrations* 集合；机器人自己的账号用 Signup mailbox 的一个加号地址，作为组织的第二个成员，只能编辑那个集合，别的什么都碰不到。账号能看到别的集合时检查就会失败，因为机器人会因此扣住每个 Approval。`bw list collections` 不会说明账号能否编辑，所以检查分辨不出只读授权：第一个 Approval 会被扣住，日志行会写明原因。
+运行 `ops/token bitwarden-api-key` 之前，这个人要先设置一次 Password vault（ADR 0004）：这个人自己的 Bitwarden 账号拥有一个免费组织，里面有 *Registrations* 集合；机器人自己的账号 vault 里没有别的东西，作为组织的第二个成员，对那个集合有 *Can edit* 权限，别的什么都碰不到。两个账号都在 bitwarden.com 上，`bw` 没有另行设置时用的就是这个服务器。被邀请的成员要先接受邮件里的链接，再由所有者确认，之后才能看到内容。账号能看到别的集合时检查就会失败，因为机器人会因此扣住每个 Approval。
+
+`bw list collections` 不会说明账号能对集合做什么，所以检查分辨不出两种错误的授权：
+
+- 只读授权：第一个 Approval 会被扣住，日志行会写明原因；
+- *Can edit, except passwords*：创建能成功，但 `bw` 把每个密码都答成 null，所以按引用填写（#56）会没有东西可填。#54 的试验在 2026-11-08 遇到了这种情况。
 
 机器人的单元只交付机器人现在读取的令牌：`discord-bot-token`、`producthunt-token`、`newapi-key-miner`、`newapi-key-registration`、`personal-database-deploy-key`、`healthchecks-ping-bot`、`bitwarden-api-key` 和 `bitwarden-master-password`。之后读取别的令牌的 ticket，会在 `ops/systemd/assistant.service` 里加上它的 `LoadCredential=` 一行：只要这个单元和机器人读取的名字不一致，`ops/test/token.test.ts` 就会失败。
 

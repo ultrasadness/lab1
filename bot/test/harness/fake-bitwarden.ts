@@ -28,6 +28,8 @@ export interface BitwardenState {
   loggedIn: boolean;
   /** Each session key `bw unlock` printed; only the latest opens the vault. */
   sessionKeys: string[];
+  /** Each session key `bw login` printed inside its message, which opens nothing the bot needs. */
+  loginKeys: string[];
   items: VaultItem[];
   calls: BwCall[];
   /** Whether a `create item` has reached the point `holdCreate` names. */
@@ -37,7 +39,7 @@ export interface BitwardenState {
 /** What a test sets, which `fake-bw.ts` reads. */
 export interface BitwardenControl {
   account: { clientId: string; clientSecret: string; masterPassword: string };
-  collections: { object: 'collection'; id: string; organizationId: string; name: string; externalId: null }[];
+  collections: { object: 'collection'; id: string; organizationId: string; name: string }[];
   down: boolean;
   /** Where a `create item` stops and never answers: before the vault has the item, or after. */
   holdCreate: 'before' | 'after' | null;
@@ -59,13 +61,13 @@ export class FakeBitwarden {
     this.command = [process.execPath, fileURLToPath(new URL('./fake-bw.ts', import.meta.url)), folder];
     this.#control = {
       account,
-      collections: [{ object: 'collection', id: REGISTRATIONS, organizationId: ORGANIZATION, name: 'Registrations', externalId: null }],
+      collections: [{ object: 'collection', id: REGISTRATIONS, organizationId: ORGANIZATION, name: 'Registrations' }],
       down: false,
       holdCreate: null,
       failAfterCreate: false,
     };
     this.#setControl({});
-    writeFileSync(join(folder, 'state.json'), JSON.stringify({ loggedIn: false, sessionKeys: [], items: [], calls: [], heldCreate: false } satisfies BitwardenState));
+    writeFileSync(join(folder, 'state.json'), JSON.stringify({ loggedIn: false, sessionKeys: [], loginKeys: [], items: [], calls: [], heldCreate: false } satisfies BitwardenState));
   }
 
   get #state(): BitwardenState {
@@ -94,6 +96,11 @@ export class FakeBitwarden {
     return this.#state.sessionKeys;
   }
 
+  /** Each session key `bw login` has printed. */
+  get loginKeys(): string[] {
+    return this.#state.loginKeys;
+  }
+
   /** Whether a `create item` is being held, as `holdCreate` asks. */
   get heldCreate(): boolean {
     return this.#state.heldCreate;
@@ -116,7 +123,7 @@ export class FakeBitwarden {
 
   /** The bot's account sees these collections besides *Registrations*, as if it had been given more. */
   addCollection(name: string): void {
-    this.#setControl({ collections: [...this.#control.collections, { object: 'collection', id: `other-${name}`, organizationId: ORGANIZATION, name, externalId: null }] });
+    this.#setControl({ collections: [...this.#control.collections, { object: 'collection', id: `other-${name}`, organizationId: ORGANIZATION, name }] });
   }
 
   /** Takes back what `addCollection` gave. */

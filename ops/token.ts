@@ -171,7 +171,7 @@ const TOKENS: Token[] = [
   },
   {
     name: 'bitwarden-api-key',
-    what: "the bot's Bitwarden account's personal API key (Account settings, Security, Keys)",
+    what: "the bot's Bitwarden account's personal API key (logged in as that account: Settings, Security, Keys)",
     unit: BOT_UNIT,
     obtain: async (input) => {
       const clientId = (await input.hidden('Paste the client_id (it starts user.), then press Enter: ')).trim();

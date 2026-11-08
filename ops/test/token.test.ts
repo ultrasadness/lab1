@@ -407,7 +407,7 @@ test('a ping URL only the backup reads restarts nothing', async (t) => {
 function placeBw(machine: Vm, collections: string[] = ['Registrations']): void {
   const bin = join(machine.root, 'opt/assistant/bw/node_modules/.bin');
   mkdirSync(bin, { recursive: true });
-  const listed = JSON.stringify(collections.map((name, i) => ({ object: 'collection', id: `collection-${i}`, organizationId: 'organization', name, externalId: null })));
+  const listed = JSON.stringify(collections.map((name, i) => ({ object: 'collection', id: `collection-${i}`, organizationId: 'organization', name })));
   writeFileSync(
     join(bin, 'bw'),
     `#!/bin/sh
@@ -416,7 +416,9 @@ case "$1" in
   login)
     # Every run on a new data folder says this first, as the real one does.
     echo "Could not find data file, \\"$BITWARDENCLI_APPDATA_DIR/data.json\\"; creating it instead." >&2
-    [ "$BW_CLIENTID" = user.0b1c2d3e-0000-4000-8000-000000000001 ] && [ "$BW_CLIENTSECRET" = good-bw ] || { echo 'client_id or client_secret is incorrect. Try again.' >&2; exit 1; } ;;
+    [ "$BW_CLIENTID" = user.0b1c2d3e-0000-4000-8000-000000000001 ] && [ "$BW_CLIENTSECRET" = good-bw ] || { echo 'client_id or client_secret is incorrect. Try again.' >&2; exit 1; }
+    # With --nointeraction its message holds a session key, as the real one's does.
+    echo 'You are logged in! ex: $ bw list items --session the-login-key' ;;
   unlock) [ "$BW_PASSWORD" = good-master ] || { echo 'Invalid master password.' >&2; exit 1; }; printf 'the-session-key' ;;
   sync) echo 'Syncing complete.' ;;
   list) printf '%s' '${listed}' ;;
@@ -448,6 +450,7 @@ test('Bitwarden: the API key is checked as the bot will use it, by bw logging in
   const placed = await opsToken(machine, ['bitwarden-api-key'], typeApiKey('good-bw'));
   assert.equal(placed.code, 0, placed.out);
   assert.match(placed.out, /bw logs in with it/);
+  assert.ok(!placed.out.includes('the-login-key'), "what bw's login prints isn't shown");
 
   const log = readFileSync(join(machine.root, 'bw.log'), 'utf8');
   assert.deepEqual(log.split('\n').slice(-3, -1).map((line) => line.split(' data=')[0]), ['login --apikey --nointeraction', 'logout --nointeraction']);

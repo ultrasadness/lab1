@@ -95,11 +95,17 @@ the credentials folder, removed even when the SSH session drops. A key GitHub st
 changes nothing: remove it from the repo and run `ops/token` again. CPA's ChatGPT login, pasted as the failed
 `localhost:1455` address, comes with CPA itself in #72.
 
-Before `ops/token bitwarden-master-password`, the person sets up the Password vault once (ADR 0004): their own Bitwarden
-account owns a free organization with a *Registrations* collection, and the bot's own account, on a Signup mailbox
-plus-address, is its second member, able to edit that collection and nothing else. The check fails an account that sees
-any other collection, since the bot would hold every Approval on it. `bw list collections` doesn't say whether the account
-may edit, so the check can't tell a view-only grant: the first Approval would be held, its log line saying why.
+Before `ops/token bitwarden-api-key`, the person sets up the Password vault once (ADR 0004): their own Bitwarden account
+owns a free organization with a *Registrations* collection, and the bot's own account, with nothing else in its vault, is
+its second member, with *Can edit* on that collection and nothing else. Both are on bitwarden.com, the server `bw` uses
+unless told otherwise. An invited member sees nothing until it accepts the mailed link and the owner confirms it. The
+check fails an account that sees any other collection, since the bot would hold every Approval on it.
+
+`bw list collections` doesn't say what the account may do with the collection, so the check can't tell two wrong grants:
+
+- on a view-only grant, the first Approval would be held, its log line saying why;
+- on *Can edit, except passwords*, a create works and `bw` answers each password as null, so a fill by reference (#56)
+  would have nothing to fill. The trial on #54 met this on 2026-11-08.
 
 The bot's unit hands over only the tokens the bot reads today: `discord-bot-token`, `producthunt-token`,
 `newapi-key-miner`, `newapi-key-registration`, `personal-database-deploy-key`, `healthchecks-ping-bot`,

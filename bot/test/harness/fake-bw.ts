@@ -1,13 +1,13 @@
 // A fake `bw`: one process per command, as the real CLI is, with the Password vault's state in a folder the test reads
-// (`fake-bitwarden.ts`). It answers as @bitwarden/cli 2026.10.0 was seen to on 2026-11-03: run with no account, it printed
-// `status` as JSON on stdout, and its errors ("You are not logged in.") on stderr with exit code 1, and its help says
-// `create` takes the encoded item on stdin. Its source (`build/bw.js`) gave the rest: a list prints a JSON array, a created
-// item prints as JSON with its id and password, `unlock --raw` prints only the session key, and without
-// --nointeraction a locked vault asks for the password.
+// (`fake-bitwarden.ts`). It answers as @bitwarden/cli 2026.10.0 did on the real account on 2026-11-08, in the trial on #54,
+// which printed the shape of each answer: `status`, each list and each item as JSON on stdout, `unlock --raw` only the
+// session key, 88 characters, and `create` the item it read from stdin, with no key for what is null. With --nointeraction,
+// `login` prints a session key inside its message, which nothing needs. An account on *Can edit, except passwords* gets
+// each password as null: this fake has no such account, since the bot reads no password back yet.
 //
-// No real account has run through it, so `login`, `unlock`, `sync`, `list collections`, `create item` and `list items`
-// rest on that source alone. #54 closes only after a trial of them on the real account, at its landing, whose script is
-// on #54: its result replaces this paragraph.
+// What a failure says rests on less. Only "You are not logged in." and a wrong API key's line were seen, each on stderr
+// with exit code 1. The rest comes from the CLI's source (`build/bw.js`), as does that without --nointeraction a locked
+// vault asks for the password.
 //
 //   node fake-bw.ts <folder> <bw's arguments…>
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -39,6 +39,23 @@ const hold = async () => {
   setInterval(() => {}, 1000);
   await new Promise(() => {});
 };
+/** An item as the real `bw` prints it: no key for what is null, and lists and dates the bot never sent. */
+const answer = (item: VaultItem) => ({
+  type: item.type,
+  name: item.name,
+  favorite: false,
+  reprompt: 0,
+  id: item.id,
+  collectionIds: item.collectionIds,
+  object: 'item',
+  organizationId: item.organizationId,
+  fields: [],
+  login: { uris: item.login.uris.map(({ uri }) => ({ uri })), fido2Credentials: [], username: item.login.username, password: item.login.password, passwordRevisionDate: null },
+  passwordHistory: [],
+  creationDate: new Date().toISOString(),
+  revisionDate: new Date().toISOString(),
+  attachments: [],
+});
 const readStdin = async () => {
   let text = '';
   for await (const chunk of process.stdin) text += String(chunk);
@@ -69,7 +86,9 @@ if (command === 'login') {
   const { clientId, clientSecret } = control.account;
   if (process.env.BW_CLIENTID !== clientId || process.env.BW_CLIENTSECRET !== clientSecret) fail('client_id or client_secret is incorrect. Try again.');
   state.loggedIn = true;
-  print('You are logged in!');
+  const key = randomBytes(64).toString('base64');
+  state.loginKeys.push(key);
+  print(`You are logged in!\n\nTo unlock your vault, set your session key to the \`BW_SESSION\` environment variable. ex:\n$ export BW_SESSION="${key}"\n\nYou can also pass the session key to any command with the \`--session\` option. ex:\n$ bw list items --session ${key}\n`);
   save();
   process.exit(0);
 }
@@ -91,7 +110,7 @@ if (command === 'sync') {
   print(control.collections);
 } else if (command === 'list' && object === 'items') {
   const collection = args[args.indexOf('--collectionid') + 1];
-  print(state.items.filter((item) => item.collectionIds.includes(collection!)));
+  print(state.items.filter((item) => item.collectionIds.includes(collection!)).map(answer));
 } else if (creating) {
   if (control.down) fail('fetch failed');
   const encoded = input ?? words[2]!;
@@ -100,7 +119,7 @@ if (command === 'sync') {
   state.items.push(item);
   if (control.holdCreate === 'after') await hold();
   if (control.failAfterCreate) fail('fetch failed');
-  print(item);
+  print(answer(item));
 } else {
   fail(`Invalid command: ${args.join(' ')}`);
 }

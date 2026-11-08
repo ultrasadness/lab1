@@ -42,6 +42,11 @@ test('approving a Walkthrough with a password field creates one vault item, and 
   assert.deepEqual(whereItShows(world, session), []);
   assert.ok(create.env.includes('BW_SESSION'));
 
+  // `bw login` prints a session key of its own inside its message, as the real one was seen to: it goes nowhere.
+  const [loginKey] = world.bitwarden.loginKeys;
+  assert.ok(loginKey);
+  assert.deepEqual(whereItShows(world, loginKey), []);
+
   // Nothing listens, and nothing changes or deletes an item.
   assert.deepEqual(world.bitwarden.calls.map((call) => call.args[0]).filter((command) => ['serve', 'edit', 'delete', 'restore', 'move'].includes(command!)), []);
 
