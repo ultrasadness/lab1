@@ -39,10 +39,10 @@ export function lineOf(world: World, name: string): { post: SeenPost; message: S
   throw new Error(`No line for ${name} in the day post`);
 }
 
-/** Waits until the condition holds, for at most 10 seconds. */
-export async function until(condition: () => boolean): Promise<void> {
+/** Waits until the condition holds, for at most 10 seconds, or longer for what takes several runs to reach. */
+export async function until(condition: () => boolean, seconds = 10): Promise<void> {
   for (let waited = 0; !condition(); waited += 20) {
-    if (waited > 10_000) throw new Error('Waited 10 seconds in vain');
+    if (waited > seconds * 1000) throw new Error(`Waited ${seconds} seconds in vain`);
     await delay(20);
   }
 }

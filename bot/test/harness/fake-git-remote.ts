@@ -147,6 +147,11 @@ export class FakeGitRemote {
     git(this.#person, 'push', '--quiet', 'origin', 'main');
   }
 
+  /** The person tags main's latest commit, as a release on GitHub does. */
+  tagAsPerson(tag: string): void {
+    git(this.#bare, 'tag', tag, 'main');
+  }
+
   /** The person merges a branch into main with GitHub's "Create a merge commit". */
   mergeAsPerson(branch: string): void {
     this.#syncPerson();

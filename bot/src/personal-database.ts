@@ -6,8 +6,9 @@
 // When the checkout and GitHub's `main` each hold commits the other lacks, the bot stops committing (#14) and pushes
 // its own commits to a branch of their own. One #needs-you card asks the person to merge that branch with a merge
 // commit, and the bot commits again once `main` holds its commits (ADR 0012). Work that doesn't commit carries on.
+// A git command that dies can leave its lock file in the checkout, and each sync starts by removing any it finds (#103).
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { inMinutes, type Clock } from './clock.ts';
 import { escapeMarkdown, linkButton, section, text } from './discord/components.ts';
@@ -29,6 +30,15 @@ export const plain = (value: string) => escapeMarkdown(value).replace(/\$/g, '\\
 /** GitHub's branch the checkout follows, and where the bot pushes. */
 const MAIN = 'refs/heads/main';
 const ORIGIN_MAIN = 'refs/remotes/origin/main';
+
+/**
+ * The lock files under the checkout's `.git` that stop a sync once a git command has died holding one, as #103's trial
+ * found on git 2.34.1. Each other one it tried stopped nothing. It names them rather than taking every `*.lock`, since
+ * the part of git's auto gc that carries on after its command takes lock files too, none of them these. That was traced
+ * on 2.34.1 alone: an upgrade of the VM's git traces it again, and `gc.autoDetach=false` is the way out if a later gc
+ * holds one of these (#103).
+ */
+const LOCKS_THAT_STOP_A_SYNC = ['index.lock', 'HEAD.lock', 'ORIG_HEAD.lock', 'refs/heads/main.lock', 'refs/remotes/origin/main.lock'];
 
 interface GitResult {
   code: number | null;
@@ -156,6 +166,7 @@ export class PersonalDatabase {
 
   /** Returns whether work is left for a later sync. */
   async #sync(prepare: (() => Promise<void>) | undefined): Promise<boolean> {
+    this.#removeLocksLeft();
     // The checkout is the bot's alone, so anything uncommitted in it is a write that stopped before its commit. That
     // file is still queued in the store, and is written again below.
     await this.#git('reset', '--quiet', '--hard');
@@ -177,11 +188,25 @@ export class PersonalDatabase {
   }
 
   /**
+   * Removes each lock file a git command left when it died. Syncs run one at a time, and no git command of the bot's
+   * outside a sync takes one of these, so no command can still hold one found here.
+   */
+  #removeLocksLeft(): void {
+    for (const lock of LOCKS_THAT_STOP_A_SYNC) {
+      const file = join(this.#dir, '.git', lock);
+      if (!existsSync(file)) continue;
+      rmSync(file);
+      this.#log('personal-database.lock-removed', { lock: `.git/${lock}` });
+    }
+  }
+
+  /**
    * Fetches GitHub's `main`, and fast-forwards the checkout to it when it has moved on. Says whether GitHub couldn't
    * be reached, or each side holds commits the other lacks.
    */
   async #fastForward(): Promise<'fetched' | 'unreachable' | 'diverged'> {
-    const fetched = await this.#tryGit('fetch', '--quiet', 'origin', `+${MAIN}:${ORIGIN_MAIN}`);
+    // No tags: the bot reads none, and a lock file left on a tag it fetched would stop every later fetch (#103).
+    const fetched = await this.#tryGit('fetch', '--quiet', '--no-tags', 'origin', `+${MAIN}:${ORIGIN_MAIN}`);
     if (fetched.code !== 0) {
       this.#log('personal-database.fetch-failed', { error: whatGitSaid(fetched) });
       return 'unreachable';

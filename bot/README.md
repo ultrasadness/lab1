@@ -63,7 +63,7 @@ The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in a 
 and our extension as local processes, against fake Discord, Product Hunt, browser service, model provider and
 healthchecks.io servers, a fake `bw`, a fake GitHub holding the Personal database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
 `bot/test/harness/fake-ssh.ts` in place of ssh. It lets in only the deploy key, can refuse or hold pushes, and takes the
-person's own commits and merges. Only the harness imports from `bot/src`: `npm test` fails any other file under
+person's own commits, merges and tags. Only the harness imports from `bot/src`: `npm test` fails any other file under
 `bot/test/` whose import names a file there (`scripts/bot-test-imports.test.ts`). `bot/test/store-schema.test.ts` also reads the
 live store's file with `node:sqlite`, as #98 asks of it, and `bot/test/health-ping.test.ts` holds the store's write
 lock through it, to show a store that can't take a write. `npm test` fails any other file under `bot/test/` that names
@@ -160,7 +160,12 @@ and reaches GitHub through `personalDatabase.ssh` with the deploy key, so GitHub
 `known_hosts`. Before each run it fast-forwards the checkout, and runs read the Interest scope from
 `profile/interest-scope.md` there. Each file the bot writes, such as `days/<YYYY-MM-DD>.md`, is queued in the live
 store and committed on its own, and every commit is pushed. A push GitHub refuses, or a history that has diverged, is
-tried again every `personalDatabase.retryMinutes`.
+tried again every `personalDatabase.retryMinutes`. The fast-forward, the commits and the push run together as one sync,
+under one lock. A git command that dies can leave its lock file in the checkout, which can stop later syncs:
+`.git/index.lock`, `.git/HEAD.lock`, `.git/ORIG_HEAD.lock`, `.git/refs/heads/main.lock` or
+`.git/refs/remotes/origin/main.lock`. Each sync starts by removing any of these it finds. No git command can still hold
+one by then: syncs run one at a time, and the part of git's auto gc that outlives its command takes none of them, as
+#103 traced on git 2.34.1. The fetch takes only `main` and no tags, so a tag's lock file can't stop a sync.
 
 The person's Profile is `profile/profile.md` there, in whatever Markdown they write. A Walkthrough's run reads the
 names it fills from it, and while there is no such file, a Walkthrough leaves the names empty and says where to add
@@ -291,7 +296,8 @@ line names the commit a run's Rules were read at, the Rules by name, and about h
 a Product gets none, and a `walkthrough.approved` line the Discord interaction an Approval came in. A
 `vault-item.created` line names a Registration's vault item by its id, a `vault-item.found` line one read back after a
 create whose answer never came, and a `password-vault.unavailable` line why an Approval is held. A `secret.refused` line names the
-door a Secret was stopped at, and the Secret by its name.
+door a Secret was stopped at, and the Secret by its name. A `personal-database.lock-removed` line names a git lock
+file a sync found left in the checkout and removed.
 
 Every 5 minutes the bot pings its check on healthchecks.io, at the URL in `healthchecks-ping-bot`, but only while it
 is logged in to Discord and its store takes a write: it writes the time to the store first. A ping withheld gets a

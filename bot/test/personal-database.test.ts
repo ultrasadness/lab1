@@ -3,11 +3,18 @@
 // Miner day, written from the live store once the day is judged.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { INTEREST_SCOPE, MINER_DAYS_FORUM, NEEDS_YOU, PERSON, startWorld } from './harness/world.ts';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { INTEREST_SCOPE, MINER_DAYS_FORUM, NEEDS_YOU, PERSON, PRODUCTS_FORUM, startWorld, type World } from './harness/world.ts';
 import { fixtureDay } from './harness/fake-product-hunt.ts';
 import { opensJudgingRun, said } from './harness/fake-model.ts';
+import { CODEMIND, serveProduct } from './harness/dossier-fixtures.ts';
+import { until } from './harness/miner-day.ts';
 
 const ph = (slug: string) => `https://www.producthunt.com/posts/${slug}`;
+
+/** guilds.run's Launch on Oct 12, at Fit 8 like Codemind's and ahead of it on Product Hunt. */
+const GUILDS = '1274741';
 
 const OCT_12 = [
   '# Miner day · Mon 2026-10-12 PT',
@@ -205,4 +212,157 @@ test('once the histories diverge, the bot stops committing and tells the person 
   assert.equal(cards.length, 1);
   assert.match(cards[0]!.text, /^Personal database: the histories rejoined at 01:30 PT Tue Oct 13\. The Assistant is committing again\.$/);
   assert.deepEqual(cards[0]!.lines, [], 'the card shrank to a line');
+});
+
+/** Leaves a lock file in the checkout, as a git command that dies holding it does. */
+function leaveLock(world: World, lock: string): void {
+  const file = join(world.checkout, '.git', lock);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, '');
+}
+
+/** The locks the bot's log says it removed, oldest first. */
+const locksRemoved = (world: World) => world.logs.filter((l) => l.event === 'personal-database.lock-removed').map((l) => l.lock);
+
+/** The lines that say a sync, or the fetch in it, failed. */
+const failures = (world: World) => world.logs.filter((l) => /^personal-database\.(sync|fetch)-failed$/.test(l.event));
+
+test('a sync removes a lock left in the checkout of a running bot, as a git command killed at its limit leaves one, and goes on', async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  await world.assistant.whenIdle();
+  leaveLock(world, 'index.lock');
+
+  await world.advanceTo('2026-10-12T08:00:00Z');
+
+  assert.equal(world.git.file('days/2026-10-12.md'), OCT_12);
+  assert.deepEqual(locksRemoved(world), ['.git/index.lock'], 'one line names the lock');
+  assert.deepEqual(failures(world), []);
+  assert.ok(!existsSync(join(world.checkout, '.git', 'index.lock')));
+});
+
+test('a bot killed and a lock left in the checkout: the commit it made and the files still queued reach GitHub at the next start, each once', async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  world.model.onlyDossiers([GUILDS, CODEMIND.postId]);
+  serveProduct(world, CODEMIND);
+  // GitHub refuses the day's push, so its commit waits in the checkout. guilds.run's Dossier then queues its files, and
+  // the provider holds Codemind's run, with no sync to come before the kill.
+  world.git.refusePushes = true;
+  const scripted = world.model.dossier;
+  world.model.dossier = (run) => {
+    if (run.postIds.includes(CODEMIND.postId)) world.model.hold = true;
+    return scripted(run);
+  };
+  world.clock.advanceTo('2026-10-12T08:00:00Z');
+  // A judging run and two Dossier runs come first, which took over 10 seconds on a loaded machine.
+  await until(() => world.model.dossierRuns[1]?.requests === 2, 40);
+
+  await world.kill();
+
+  assert.deepEqual(world.logs.filter((l) => l.event === 'personal-database.committed').map((l) => l.path), ['days/2026-10-12.md'], 'the one commit the old bot made');
+  assert.equal(world.discord.forumPosts(PRODUCTS_FORUM)[0]?.title.startsWith('guilds.run'), true, "guilds.run's Dossier was written");
+  assert.deepEqual(world.git.subjects('main'), ['Start the Personal database']);
+  leaveLock(world, 'index.lock');
+  world.git.refusePushes = false;
+  world.model.hold = false;
+  world.model.dossier = scripted;
+
+  // The clock stays put, so what reaches GitHub here reached it at this start, and not at a later retry.
+  await world.restart();
+
+  assert.deepEqual(world.git.subjects('main'), [
+    'Start the Personal database',
+    'Miner day Mon 2026-10-12 PT: 2 Dossiers, line 7',
+    'Dossier v1: guilds.run (p1274741.example)',
+    'Notes file for the person: guilds.run (p1274741.example)',
+    'Registration file: guilds.run (p1274741.example), none yet',
+    'Dossier v1: Codemind (codemindhq.dev)',
+    'Notes file for the person: Codemind (codemindhq.dev)',
+    'Registration file: Codemind (codemindhq.dev), none yet',
+  ]);
+  assert.deepEqual(locksRemoved(world), ['.git/index.lock']);
+  assert.deepEqual(failures(world), []);
+});
+
+// The other locks #103's trial found stopping a sync. GitHub has moved on in each test, since ORIG_HEAD.lock stops only
+// the fast-forward, and the lock on the tracking ref only the fetch before it: with that lock left, a commit and its
+// push still go through, until GitHub has moved on.
+for (const lock of ['HEAD.lock', 'ORIG_HEAD.lock', 'refs/heads/main.lock', 'refs/remotes/origin/main.lock']) {
+  test(`a sync removes a ${lock} left in the checkout, fast-forwards and pushes`, async (t) => {
+    const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
+    t.after(() => world.stop());
+    world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+    await world.assistant.whenIdle();
+    world.git.commitAsPerson('ideas.md', 'Run the Miner on weekends too?\n', 'Note an idea');
+    leaveLock(world, lock);
+
+    await world.advanceTo('2026-10-12T08:00:00Z');
+
+    assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }), ['Start the Personal database', 'Note an idea', 'Miner day Mon 2026-10-12 PT: 4 Dossiers, line 7']);
+    assert.deepEqual(locksRemoved(world), [`.git/${lock}`]);
+    assert.deepEqual(failures(world), []);
+  });
+}
+
+test("a tag's lock left in the checkout stops no sync, since the bot's fetch takes no tags", async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  await world.assistant.whenIdle();
+  world.git.commitAsPerson('ideas.md', 'Run the Miner on weekends too?\n', 'Note an idea');
+  world.git.tagAsPerson('v1');
+  leaveLock(world, 'refs/tags/v1.lock');
+
+  await world.advanceTo('2026-10-12T08:00:00Z');
+
+  assert.deepEqual(world.git.subjects('main', { leavingOut: 'products' }), ['Start the Personal database', 'Note an idea', 'Miner day Mon 2026-10-12 PT: 4 Dossiers, line 7']);
+  assert.deepEqual(locksRemoved(world), []);
+  assert.deepEqual(failures(world), []);
+});
+
+test("a lock that stops no sync stays where it is, such as those of git's auto gc, which can outlive its command", async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  await world.assistant.whenIdle();
+  const locks = ['gc.pid.lock', 'gc.log.lock', 'objects/info/commit-graph.lock', 'packed-refs.lock'];
+  for (const lock of locks) leaveLock(world, lock);
+
+  await world.advanceTo('2026-10-12T08:00:00Z');
+
+  assert.equal(world.git.file('days/2026-10-12.md'), OCT_12);
+  assert.deepEqual(locksRemoved(world), []);
+  assert.deepEqual(failures(world), []);
+  assert.deepEqual(locks.filter((lock) => !existsSync(join(world.checkout, '.git', lock))), [], 'each is still there');
+});
+
+test('a sync that fails for another reason removes no lock, logs the failure and tries again after the retry time', async (t) => {
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z' });
+  t.after(() => world.stop());
+  world.productHunt.addFeatured(fixtureDay('2026-10-12'), '2026-10-12T07:01:00Z');
+  await world.assistant.whenIdle();
+  const index = join(world.checkout, '.git', 'index');
+  writeFileSync(index, 'not an index');
+
+  await world.advanceTo('2026-10-12T08:00:00Z');
+
+  assert.equal(world.discord.forumPosts(MINER_DAYS_FORUM)[0]?.title, 'Mon Oct 12 · 4 Dossiers · line 7', 'the day still posts');
+  assert.equal(world.git.file('days/2026-10-12.md'), undefined);
+  const failed = failures(world);
+  assert.ok(failed.length > 0);
+  assert.ok(failed.every((l) => l.event === 'personal-database.sync-failed' && /git reset failed/.test(String(l.error))), JSON.stringify(failed));
+  assert.deepEqual(locksRemoved(world), []);
+
+  await world.advanceTo('2026-10-12T08:29:00Z');
+  assert.equal(failures(world).length, failed.length, 'the next try is 30 minutes after the last');
+  await world.advanceTo('2026-10-12T08:30:00Z');
+  assert.equal(failures(world).length, failed.length + 1, 'and it fails the same way, until someone mends the checkout');
+
+  rmSync(index);
+  await world.advanceTo('2026-10-12T09:00:00Z');
+  assert.equal(world.git.file('days/2026-10-12.md'), OCT_12);
+  assert.deepEqual(locksRemoved(world), []);
 });
