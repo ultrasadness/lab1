@@ -15,7 +15,7 @@
 | `ops/systemd/` | `ops/install` 放进 `/etc/systemd/system` 的单元 |
 | `ops/coding-sessions/` | Claude Code 和 Codex 的设置，让编码会话碰不到凭据 |
 | `ops/github-known-hosts` | GitHub 公布的 ssh 主机密钥，供机器人的 ssh 使用 |
-| `ops/bitwarden/` | 机器人运行的 Bitwarden CLI `bw` 的版本固定：它的确切版本，以及它带来的每个包的哈希 |
+| `ops/bitwarden/` | 机器人运行的 Bitwarden CLI `bw` 的版本固定：它的确切版本，以及它带来的每个包的哈希；还有 `trial`，它在真实账号上运行机器人的 `bw` 命令 |
 | `compose.yaml` | Pi 和浏览器服务的 compose 项目 |
 
 ## 安装
@@ -65,12 +65,14 @@
 
 deploy key 的私钥从不离开 VM（在 #71 上确定）：在询问 GitHub 期间，它待在凭据目录里面的一个目录里，即使 SSH 会话断开，这个目录也会被删除。试了五次 GitHub 仍然拒绝的密钥，什么也不会改变：从仓库里删掉它，再运行一次 `ops/token`。CPA 的 ChatGPT 登录，也就是粘贴那个打不开的 `localhost:1455` 地址，随 CPA 本身在 #72 里到来。
 
-运行 `ops/token bitwarden-api-key` 之前，这个人要先设置一次 Password vault（ADR 0004）：这个人自己的 Bitwarden 账号拥有一个免费组织，里面有 *Registrations* 集合；机器人自己的账号 vault 里没有别的东西，作为组织的第二个成员，对那个集合有 *Can edit* 权限，别的什么都碰不到。两个账号都在 bitwarden.com 上，`bw` 没有另行设置时用的就是这个服务器。被邀请的成员要先接受邮件里的链接，再由所有者确认，之后才能看到内容。账号能看到别的集合时检查就会失败，因为机器人会因此扣住每个 Approval。
+运行 `ops/token bitwarden-api-key` 之前，这个人要先设置一次 Password vault（ADR 0004）：这个人自己的 Bitwarden 账号拥有一个免费组织，里面有 *Registrations* 集合；机器人自己的账号个人密码库里没有别的东西，作为组织的第二个成员，对那个集合有 *Can edit* 权限，别的什么都碰不到。两个账号都在 bitwarden.com 上，`bw` 没有另行设置时用的就是这个服务器。被邀请的成员要先接受邮件里的链接，再由所有者确认，之后才能看到内容。账号能看到别的集合时，`ops/token bitwarden-master-password` 的检查就会失败，因为机器人会因此扣住每个 Approval。
 
-`bw list collections` 不会说明账号能对集合做什么，所以检查分辨不出两种错误的授权：
+`bw list collections` 不会说明账号能对集合做什么，所以这个检查分辨不出两种错误的授权：
 
 - 只读授权：第一个 Approval 会被扣住，日志行会写明原因；
 - *Can edit, except passwords*：创建能成功，但 `bw` 把每个密码都答成 null，所以按引用填写（#56）会没有东西可填。#54 的试验在 2026-11-08 遇到了这种情况。
+
+`sudo ops/bitwarden/trial` 在真实账号上运行机器人的 `bw` 命令：它创建一个条目再读回来，遇到第一个机器人用不了的答复就报 TRIAL FAILED，而且不打印任何值。每次运行只要走到创建这一步，就会留下一个名为 `lab1 bw trial` 的条目，由这个人删除。
 
 机器人的单元只交付机器人现在读取的令牌：`discord-bot-token`、`producthunt-token`、`newapi-key-miner`、`newapi-key-registration`、`personal-database-deploy-key`、`healthchecks-ping-bot`、`bitwarden-api-key` 和 `bitwarden-master-password`。之后读取别的令牌的 ticket，会在 `ops/systemd/assistant.service` 里加上它的 `LoadCredential=` 一行：只要这个单元和机器人读取的名字不一致，`ops/test/token.test.ts` 就会失败。
 
@@ -140,6 +142,7 @@ sudo docker start new-api
 
 - `install.test.ts` 安装两次，检查第二次什么都不改；它还覆盖试运行、经过一个只放行已添加的 deploy key 的假 GitHub 的 Personal database、`--deploy`、`systemd-analyze verify` 读到的单元文件，以及 `ops/install` 不在 bash 忽略 `set -e` 的地方做任何改动；
 - `token.test.ts` 输入每一种令牌，包括在一个会回显输入的终端下输入，并检查写入了什么、重启了什么；
+- `bitwarden-trial.test.ts` 让 `ops/bitwarden/trial` 对着机器人测试用的假 `bw` 运行，并检查它什么时候失败、是否不打印任何值；
 - `docker-helper.test.ts` 像 systemd 那样，在 `systemd-socket-activate` 后面运行辅助程序，配一个假的 `docker`；
 - `alert.test.ts` 让告警对着一个假的 healthchecks.io 运行，它按测试说的次数失败；
 - `backup.test.ts` 和 `firewall.test.ts`，后者在测试自己的一个网络命名空间里运行。

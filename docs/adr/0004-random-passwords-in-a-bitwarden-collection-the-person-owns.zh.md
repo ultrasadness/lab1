@@ -2,7 +2,7 @@
 
 [English](0004-random-passwords-in-a-bitwarden-collection-the-person-owns.md) | 中文
 
-每个 Registration 都有自己的随机密码。它在这个人批准 Walkthrough 时由机器人生成，从不由模型生成，并作为一个条目存进 Password vault。Password vault 是一个免费的两人 Bitwarden 组织里的 *Registrations* 集合，这个组织归这个人自己的账号所有。机器人有自己的免费 Bitwarden 账号，它的 vault 里没有别的东西，作为组织的第二个成员，只对那个集合有 *Can edit* 权限。这个人本来就在用 Bitwarden，所以密码通过 Bitwarden 的 iOS 自动填充（AutoFill）到达这个人的 iPhone，无论是在 Handoff 中注册时，还是之后每次登录时；这个人的个人密码库也从不接触 VM。在 [Registration 的密码如何生成、保存，又如何在 iPhone 上取用？](https://github.com/ultrasadness/lab1/issues/7) 中决定。
+每个 Registration 都有自己的随机密码。它在这个人批准 Walkthrough 时由机器人生成，从不由模型生成，并作为一个条目存进 Password vault。Password vault 是一个免费的两人 Bitwarden 组织里的 *Registrations* 集合，这个组织归这个人自己的账号所有。机器人有自己的免费 Bitwarden 账号，它的个人密码库里没有别的东西，作为组织的第二个成员，只对那个集合有 *Can edit* 权限。这个人本来就在用 Bitwarden，所以密码通过 Bitwarden 的 iOS 自动填充（AutoFill）到达这个人的 iPhone，无论是在 Handoff 中注册时，还是之后每次登录时；这个人的个人密码库也从不接触 VM。在 [Registration 的密码如何生成、保存，又如何在 iPhone 上取用？](https://github.com/ultrasadness/lab1/issues/7) 中决定。
 
 ## 考虑过的方案
 

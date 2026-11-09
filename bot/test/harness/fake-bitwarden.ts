@@ -34,6 +34,8 @@ export interface BitwardenState {
   calls: BwCall[];
   /** Whether a `create item` has reached the point `holdCreate` names. */
   heldCreate: boolean;
+  /** Whether a command has made the CLI's data file, which the first one on a new folder says it did. */
+  dataFileMade: boolean;
 }
 
 /** What a test sets, which `fake-bw.ts` reads. */
@@ -44,6 +46,7 @@ export interface BitwardenControl {
   /** Where a `create item` stops and never answers: before the vault has the item, or after. */
   holdCreate: 'before' | 'after' | null;
   failAfterCreate: boolean;
+  hidesPasswords: boolean;
 }
 
 const ORGANIZATION = '3f0c2b1e-0000-4000-8000-00000000000a';
@@ -65,9 +68,10 @@ export class FakeBitwarden {
       down: false,
       holdCreate: null,
       failAfterCreate: false,
+      hidesPasswords: false,
     };
     this.#setControl({});
-    writeFileSync(join(folder, 'state.json'), JSON.stringify({ loggedIn: false, sessionKeys: [], loginKeys: [], items: [], calls: [], heldCreate: false } satisfies BitwardenState));
+    writeFileSync(join(folder, 'state.json'), JSON.stringify({ loggedIn: false, sessionKeys: [], loginKeys: [], items: [], calls: [], heldCreate: false, dataFileMade: false } satisfies BitwardenState));
   }
 
   get #state(): BitwardenState {
@@ -119,6 +123,11 @@ export class FakeBitwarden {
   /** While true, a `create item` fails after the vault has taken the item, as when the answer is lost on the way back. */
   set failAfterCreate(failAfterCreate: boolean) {
     this.#setControl({ failAfterCreate });
+  }
+
+  /** While true, the bot's account is on *Can edit, except passwords*: a create works, and `bw` answers each password as null. */
+  set hidesPasswords(hidesPasswords: boolean) {
+    this.#setControl({ hidesPasswords });
   }
 
   /** The bot's account sees these collections besides *Registrations*, as if it had been given more. */

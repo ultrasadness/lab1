@@ -53,7 +53,7 @@ node --test bot/test/miner-day.test.ts # one file
 
 假的浏览器服务在一个 Unix 套接字上回答 `read(url)` 和 `redirect(url)`。每个 Launch 的网站跳转都通向 `.example` 上一个属于它自己的普通站点，带一个价格页和一个注册页，除非测试从 `bot/test/harness/dossier-fixtures.ts` 提供某个真实 Product 的页面。HEAD 回答 403，除非测试设定了它的回答。
 
-假的 `bw`（`bot/test/harness/fake-bw.ts`）和真的一样，每条命令一个进程，`world.bitwarden` 读取它保存的东西：Password vault 里的条目，以及每条命令的参数和它拿到了哪些 `BW_` 变量。它的注释写明它依据真实 CLI 的哪些表现，以及哪些还没有真实账号试过。
+假的 `bw`（`bot/test/harness/fake-bw.ts`）和真的一样，每条命令一个进程，`world.bitwarden` 读取它保存的东西：Password vault 里的条目，每条命令的参数和它拿到了哪些 `BW_` 变量，以及 `bw login` 和 `bw unlock` 打印的每个会话密钥。它的注释写明它依据真实 CLI 的哪些表现，以及哪些还没有真实账号试过。
 
 每次 Pi 运行大约要半秒 CPU，一个 Miner 日除了评判运行，还要为它的每份 Dossier 各跑一次，再为每个 open 或 waitlisted 的 Product 的 Walkthrough 各跑一次（harness 启动机器人时 Walkthrough 是打开的），所以 fixture 日的 Dossier 会让每个发出一天的测试都付出代价。不是测 Dossier 的测试，用 `world.model.onlyDossiers(postIds)` 把它那一天的 Dossier 限制在需要的几份：其他每个 Launch 都会被评判在 Day's line 以下。
 

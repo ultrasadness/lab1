@@ -2,7 +2,7 @@
 
 English | [中文](0004-random-passwords-in-a-bitwarden-collection-the-person-owns.zh.md)
 
-Each Registration gets its own random password. The bot generates it, never the model, when the person approves the Walkthrough, and saves it as an item in the Password vault. The Password vault is a *Registrations* collection in a free two-person Bitwarden organization owned by the person's own account. The bot has its own free Bitwarden account, with nothing else in its vault, as the organization's second member, with *Can edit* on that collection only. The person already uses Bitwarden, so the password reaches their iPhone through Bitwarden's iOS AutoFill, both at signup in a Handoff and at every later login, and their personal vault never touches the VM. Decided in [How are Registration passwords made, kept, and reached from the iPhone?](https://github.com/ultrasadness/lab1/issues/7).
+Each Registration gets its own random password. The bot generates it, never the model, when the person approves the Walkthrough, and saves it as an item in the Password vault. The Password vault is a *Registrations* collection in a free two-person Bitwarden organization owned by the person's own account. The bot has its own free Bitwarden account, with nothing else in its personal vault, as the organization's second member, with *Can edit* on that collection only. The person already uses Bitwarden, so the password reaches their iPhone through Bitwarden's iOS AutoFill, both at signup in a Handoff and at every later login, and their personal vault never touches the VM. Decided in [How are Registration passwords made, kept, and reached from the iPhone?](https://github.com/ultrasadness/lab1/issues/7).
 
 ## Considered Options
 

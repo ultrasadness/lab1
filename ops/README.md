@@ -19,7 +19,7 @@ person runs on the VM is in #85 and #73.
 | `ops/systemd/` | The units `ops/install` puts in `/etc/systemd/system` |
 | `ops/coding-sessions/` | Claude Code's and Codex's settings that keep coding sessions out of the credentials |
 | `ops/github-known-hosts` | GitHub's published ssh host keys, for the bot's ssh |
-| `ops/bitwarden/` | The pin of `bw`, the Bitwarden CLI the bot runs: its exact version, and every package it pulls in by hash |
+| `ops/bitwarden/` | The pin of `bw`, the Bitwarden CLI the bot runs: its exact version, and every package it pulls in by hash; and `trial`, which runs the bot's `bw` commands on the real account |
 | `compose.yaml` | The compose project of Pi and the browser service |
 
 ## Installing
@@ -96,16 +96,21 @@ changes nothing: remove it from the repo and run `ops/token` again. CPA's ChatGP
 `localhost:1455` address, comes with CPA itself in #72.
 
 Before `ops/token bitwarden-api-key`, the person sets up the Password vault once (ADR 0004): their own Bitwarden account
-owns a free organization with a *Registrations* collection, and the bot's own account, with nothing else in its vault, is
-its second member, with *Can edit* on that collection and nothing else. Both are on bitwarden.com, the server `bw` uses
-unless told otherwise. An invited member sees nothing until it accepts the mailed link and the owner confirms it. The
-check fails an account that sees any other collection, since the bot would hold every Approval on it.
+owns a free organization with a *Registrations* collection, and the bot's own account, with nothing else in its personal
+vault, is its second member, with *Can edit* on that collection and nothing else. Both are on bitwarden.com, the server
+`bw` uses unless told otherwise. An invited member sees nothing until it accepts the mailed link and the owner confirms
+it. `ops/token bitwarden-master-password`'s check fails an account that sees any other collection, since the bot would
+hold every Approval on it.
 
-`bw list collections` doesn't say what the account may do with the collection, so the check can't tell two wrong grants:
+`bw list collections` doesn't say what the account may do with the collection, so that check can't tell two wrong grants:
 
 - on a view-only grant, the first Approval would be held, its log line saying why;
 - on *Can edit, except passwords*, a create works and `bw` answers each password as null, so a fill by reference (#56)
   would have nothing to fill. The trial on #54 met this on 2026-11-08.
+
+`sudo ops/bitwarden/trial` runs the bot's `bw` commands on the real account: it creates an item and reads it back, says
+TRIAL FAILED at the first answer the bot couldn't use, and prints no value. Each run that gets as far as creating leaves
+one item, named `lab1 bw trial`, for the person to delete.
 
 The bot's unit hands over only the tokens the bot reads today: `discord-bot-token`, `producthunt-token`,
 `newapi-key-miner`, `newapi-key-registration`, `personal-database-deploy-key`, `healthchecks-ping-bot`,
@@ -234,6 +239,8 @@ system's commands and of every outside service, and dummy tokens only:
   `systemd-analyze verify` reads them, and that `ops/install` makes no change where bash ignores `set -e`;
 - `token.test.ts` types each kind of token, including one under a terminal that would echo it, and checks what is
   written and restarted;
+- `bitwarden-trial.test.ts` runs `ops/bitwarden/trial` against the fake `bw` the bot's tests use, and checks when it
+  fails and that it prints no value;
 - `docker-helper.test.ts` runs the helper behind `systemd-socket-activate`, as systemd does, with a fake `docker`;
 - `alert.test.ts` runs the alert against a fake healthchecks.io that fails as often as the test says;
 - `backup.test.ts` and `firewall.test.ts`, the latter in a network namespace of the test's own.

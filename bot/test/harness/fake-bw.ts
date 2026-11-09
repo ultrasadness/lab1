@@ -1,13 +1,17 @@
 // A fake `bw`: one process per command, as the real CLI is, with the Password vault's state in a folder the test reads
 // (`fake-bitwarden.ts`). It answers as @bitwarden/cli 2026.10.0 did on the real account on 2026-11-08, in the trial on #54,
-// which printed the shape of each answer: `status`, each list and each item as JSON on stdout, `unlock --raw` only the
-// session key, 88 characters, and `create` the item it read from stdin, with no key for what is null. With --nointeraction,
-// `login` prints a session key inside its message, which nothing needs. An account on *Can edit, except passwords* gets
-// each password as null: this fake has no such account, since the bot reads no password back yet.
+// which printed the shape of each answer (`ops/bitwarden/trial` prints them today): `status`, each list and each item as
+// JSON on stdout, `unlock --raw` only the session key, 88 characters, and `create` the item it read from stdin, with no
+// key for a null it was sent (`notes`, `folderId`, a URI's `match`). With --nointeraction, `login` prints a session key
+// inside its message, which nothing needs. The first command on a new data folder says on stderr that it made a data
+// file, even when it goes on to succeed. An account on *Can edit, except passwords* gets each password as null, and its
+// create still works.
 //
-// What a failure says rests on less. Only "You are not logged in." and a wrong API key's line were seen, each on stderr
-// with exit code 1. The rest comes from the CLI's source (`build/bw.js`), as does that without --nointeraction a locked
-// vault asks for the password.
+// What a failure says rests on less, and each one seen was on stderr with exit code 1. "You are not logged in." and a
+// wrong API key's line were seen on 2026-11-03, with no account and a made-up key. A login that can't reach the server
+// was seen on 2026-11-09, on a closed local port with a made-up key: many lines, the last of them the one this prints,
+// with that port's address. The rest comes from the CLI's source (`build/bw.js`), as does that without --nointeraction a
+// locked vault asks for the password.
 //
 //   node fake-bw.ts <folder> <bw's arguments…>
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -39,7 +43,7 @@ const hold = async () => {
   setInterval(() => {}, 1000);
   await new Promise(() => {});
 };
-/** An item as the real `bw` prints it: no key for what is null, and lists and dates the bot never sent. */
+/** An item as the real `bw` prints it: no key for a null the bot sent, and keys, lists and dates it never sent. */
 const answer = (item: VaultItem) => ({
   type: item.type,
   name: item.name,
@@ -50,7 +54,7 @@ const answer = (item: VaultItem) => ({
   object: 'item',
   organizationId: item.organizationId,
   fields: [],
-  login: { uris: item.login.uris.map(({ uri }) => ({ uri })), fido2Credentials: [], username: item.login.username, password: item.login.password, passwordRevisionDate: null },
+  login: { uris: item.login.uris.map(({ uri }) => ({ uri })), fido2Credentials: [], username: item.login.username, password: control.hidesPasswords ? null : item.login.password, passwordRevisionDate: null },
   passwordHistory: [],
   creationDate: new Date().toISOString(),
   revisionDate: new Date().toISOString(),
@@ -72,6 +76,11 @@ state.calls.push({
   stdin: input !== undefined,
 });
 
+if (!state.dataFileMade) {
+  process.stderr.write(`Could not find data file, "${join(folder, 'data.json')}"; creating it instead.\n`);
+  state.dataFileMade = true;
+}
+
 const session = state.sessionKeys.at(-1);
 const unlocked = session !== undefined && process.env.BW_SESSION === session;
 
@@ -82,7 +91,7 @@ if (command === 'status') {
 }
 if (!args.includes('--nointeraction')) fail('The real bw would ask at the terminal here, and wait.');
 if (command === 'login') {
-  if (control.down) fail('fetch failed');
+  if (control.down) fail('FetchError: request to https://identity.bitwarden.com/connect/token failed, reason: connect ECONNREFUSED');
   const { clientId, clientSecret } = control.account;
   if (process.env.BW_CLIENTID !== clientId || process.env.BW_CLIENTSECRET !== clientSecret) fail('client_id or client_secret is incorrect. Try again.');
   state.loggedIn = true;

@@ -92,8 +92,9 @@ to a plain site of its own on `.example`, with a pricing page and a signup page,
 pages from `bot/test/harness/dossier-fixtures.ts`. A HEAD answers 403 unless a test sets its answer.
 
 The fake `bw` (`bot/test/harness/fake-bw.ts`) is one process per command, as the real one is, and `world.bitwarden` reads
-what it keeps: the Password vault's items, and each command's arguments and which `BW_` variables it was given. Its comment says
-what of the real CLI it was anchored to, and what no real account has tried yet.
+what it keeps: the Password vault's items, each command's arguments and which `BW_` variables it was given, and each
+session key `bw login` and `bw unlock` printed. Its comment says what of the real CLI it was anchored to, and what no
+real account has tried yet.
 
 Each Pi run takes about half a second of CPU, and a Miner day makes one for each of its Dossiers beside its judging
 runs, and, as the harness starts the bot with Walkthroughs on, one more for each open or waitlisted Product's

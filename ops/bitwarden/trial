@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2016
+# The trial of the bot's `bw` commands on the real account: `sudo ops/bitwarden/trial`, once ops/token has placed both
+# Bitwarden tokens. Run it on a new `bw` (#72), and after changing the grant of the bot's account: `bw list collections`
+# doesn't say what the account may do, so ops/token can't see a wrong grant, and this can (ops/README.md).
+#
+# It runs what the bot runs, in the bot's order, in a throwaway data folder. It prints only each answer's shape and what
+# it checked, never a value, so its output can go in a ticket. bot/test/harness/fake-bw.ts rests on the shapes this
+# printed on 2026-11-08, so a new shape means that fake changes too.
+#
+# It stops with TRIAL FAILED and exit code 1 at the first answer the bot couldn't use. Each run that gets as far as
+# creating leaves one item, named "lab1 bw trial", for the person to delete: the bot has no way to.
+set -euo pipefail
+here=$(dirname "$(readlink -f "$0")")
+root=${OPS_ROOT:-}
+bw=$root/opt/assistant/bw/node_modules/.bin/bw
+credentials=$root/etc/assistant/credentials
+name='lab1 bw trial'
+username=trial@example.com
+website=https://example.com
+export PATH=/opt/assistant/node/bin:$PATH
+
+fail() {
+  echo "TRIAL FAILED: $1" >&2
+  exit 1
+}
+[ -x "$bw" ] || fail "bw isn't installed: run ops/install"
+
+BITWARDENCLI_APPDATA_DIR=$(mktemp -d)
+export BITWARDENCLI_APPDATA_DIR
+left=
+finish() {
+  status=$?
+  rm -rf "$BITWARDENCLI_APPDATA_DIR"
+  [ -z "$left" ] || echo "Now delete $left named \"$name\" from the Registrations collection in Bitwarden: the bot has no way to."
+  exit "$status"
+}
+trap finish EXIT
+
+# Prints what stdin's JSON looks like: an array by its length and its first entry, and an object by its keys and types.
+shape() {
+  node -e '
+    const of = (v) => v === null ? "null" : Array.isArray(v) ? `array(${v.length})${v.length ? " of " + JSON.stringify(of(v[0])) : ""}` : typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, of(x)])) : typeof v;
+    console.log(JSON.stringify(of(JSON.parse(require("fs").readFileSync(0, "utf8"))), null, 1));'
+}
+# One field of the JSON on stdin, for the next command. It is never printed.
+field() {
+  node -e 'const v = process.argv[1].split(".").reduce((o, k) => o[k], JSON.parse(require("fs").readFileSync(0, "utf8"))); process.stdout.write(String(v));' "$1"
+}
+
+echo '--- status'
+"$bw" status | shape
+
+echo '--- login --apikey'
+BW_CLIENTID=$(field client_id < "$credentials/bitwarden-api-key") \
+  BW_CLIENTSECRET=$(field client_secret < "$credentials/bitwarden-api-key") \
+  "$bw" login --apikey --nointeraction > /dev/null
+echo ok
+
+echo '--- unlock --raw'
+BW_PASSWORD=$(cat "$credentials/bitwarden-master-password")
+export BW_PASSWORD
+BW_SESSION=$("$bw" unlock --passwordenv BW_PASSWORD --raw --nointeraction)
+unset BW_PASSWORD
+export BW_SESSION
+echo "a session key of ${#BW_SESSION} characters"
+
+echo '--- sync'
+"$bw" sync --nointeraction > /dev/null
+echo ok
+
+echo '--- list collections'
+collections=$("$bw" list collections --nointeraction)
+printf '%s' "$collections" | shape
+# The bot's own rule on what the account may see, so the two can't drift.
+problem=$(printf '%s' "$collections" | node --input-type=module -e '
+  const { onlyCollection } = await import(process.argv[1]);
+  const { readFileSync } = await import("node:fs");
+  console.log(onlyCollection(JSON.parse(readFileSync(0, "utf8"))).problem ?? "");' "$here/../../bot/src/password-vault.ts")
+[ -z "$problem" ] || fail "$problem"
+collection=$(printf '%s' "$collections" | field 0.id)
+organization=$(printf '%s' "$collections" | field 0.organizationId)
+echo ok
+
+echo '--- create item, on stdin'
+TRIAL_PASSWORD=$(head -c 18 /dev/urandom | base64)
+export TRIAL_PASSWORD
+created=$(node -e '
+  const [organizationId, collection, name, username, uri] = process.argv.slice(1);
+  const login = { uris: [{ match: null, uri }], username, password: process.env.TRIAL_PASSWORD, totp: null };
+  process.stdout.write(Buffer.from(JSON.stringify({ organizationId, collectionIds: [collection], folderId: null, type: 1, name, notes: null, favorite: false, fields: [], login, reprompt: 0 })).toString("base64"));
+' "$organization" "$collection" "$name" "$username" "$website" | "$bw" create item --nointeraction)
+left='the item'
+printf '%s' "$created" | shape
+
+echo '--- list items --collectionid'
+items=$("$bw" list items --collectionid "$collection" --nointeraction)
+printf '%s' "$items" | shape
+# Prints how many items have the trial's name, a tab, and what is wrong with the new one, if anything.
+verdict=$(printf '%s' "$items" | node -e '
+  const [id, name, username, website] = process.argv.slice(1);
+  const items = JSON.parse(require("fs").readFileSync(0, "utf8"));
+  const found = items.filter((i) => i.id === id && i.name === name && i.login?.username === username && i.login?.uris?.some((u) => u.uri === website));
+  const password = found[0]?.login?.password;
+  const problem = found.length !== 1 ? `the new item found by name, username and website: ${found.length}`
+    : password === null ? "bw answers the password as null: is this account on *Can edit, except passwords*?"
+    : password !== process.env.TRIAL_PASSWORD ? "bw answers the new item with another password than it was given"
+    : "";
+  console.log(`${items.filter((i) => i.name === name).length}\t${problem}`);
+' "$(printf '%s' "$created" | field id)" "$name" "$username" "$website")
+count=${verdict%%$'\t'*}
+problem=${verdict#*$'\t'}
+if [ "$count" -gt 1 ]; then left="the $count items"; fi
+[ -z "$problem" ] || fail "$problem"
+echo 'the new item found by name, username and website, with the password it was given: 1'
