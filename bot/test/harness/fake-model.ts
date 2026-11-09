@@ -6,15 +6,20 @@
 // another if the bot refuses it and the test scripts one. Usage is scripted too.
 //
 // A test can also have new-api answer a `role@provider` name with a `Fault` in place of a reply, and spend or revoke a
-// key, which `GET /api/usage/token/` then tells as new-api does. What new-api does to a provider's failure is anchored to
-// the trial on #46 (2026-11-09): a throwaway new-api of the live image, v1.0.0-rc.46, in front of a stub upstream. The
-// bodies of `limit`, `out-of-balance`, `bad-request`, `provider-key-refused`, `server-error`, `no-channel`, `cut-reply`
-// and `error-in-stream` with code 429 are what a client of it received, its request id left out. The upstream's own
-// bodies were those `research/model-limits` records for CPA, OpenRouter and DeepSeek: no real 429 or 402 from them has
-// been seen, so `X-RateLimit-Reset`'s unit, milliseconds, is the stub's. `user-quota` and `no-channel` were seen live, on
-// 2026-11-05 and 2026-11-06 (#85), in the same shape, and `key-quota` is as the research read it in new-api's source.
-// No real service was seen doing the rest: `hang-up`, `ended-early`, `odd-body`, `error-in-stream` with another code or
-// with `hangs`, and `junkLine`, each there for what the forwarder must do with any answer at all.
+// key, which `GET /api/usage/token/` then tells as new-api does. What new-api does to a provider's failure comes from
+// `npm run capture:new-api`, which keeps what a client of a throwaway new-api received in
+// `bot/test/fixtures/new-api/answers.json`, its request id left out, as the trial on #46 first saw it. `limit`,
+// `out-of-balance`, `bad-request`, `provider-key-refused`, `server-error`, `no-channel`, `cut-reply`, `error-in-stream`
+// with code 429, a key new-api refuses and `GET /api/usage/token/` are served from there, a stream's parts apart, and
+// `captured` answers with any other row, so a changed answer fails the tests of whatever relied on it. The stub in
+// front of it answered as `research/model-limits` records CPA, OpenRouter and DeepSeek answering: no real 429 or 402 from
+// them has been seen, so `X-RateLimit-Reset`'s unit, milliseconds, is the stub's. `no-channel` was seen live too, on
+// 2026-11-06 (#85), in the same shape.
+//
+// The capture didn't see the rest, which stays hand-written. `user-quota` was seen live on 2026-11-05 (#85), and
+// `key-quota` is as the research read it in new-api's source. No real service was seen doing `hang-up`, `ended-early`,
+// `odd-body`, `error-in-stream` with another code or with `hangs`, or `junkLine`, each there for what the forwarder must
+// do with any answer at all.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { readFileSync } from 'node:fs';
@@ -26,6 +31,44 @@ export interface ScriptedJudgment {
   /** The Rules the judgment names; none if left out. */
   rulesApplied?: string[];
 }
+
+/** What a client of new-api received, as `npm run capture:new-api` recorded it. */
+interface CapturedAnswer {
+  status: number;
+  headers: Record<string, string>;
+  /** A whole answer: the parsed JSON, or the text where it wasn't JSON. */
+  body?: unknown;
+  /** A stream's parts, in the order new-api sent them. */
+  parts?: string[];
+}
+
+/** The rows of the capture no other `Fault` serves. */
+type OtherRow = 'plus-limit' | 'plain-429' | 'retry-after-only' | 'deepseek-402' | 'upstream-403' | 'unreachable' | 'ok';
+
+const newApi = JSON.parse(readFileSync(new URL('../fixtures/new-api/answers.json', import.meta.url), 'utf8')) as {
+  usage: Record<'key-with-quota' | 'wrong-key' | 'spent-key', CapturedAnswer>;
+  chat: Record<
+    | OtherRow
+    | 'cpa-cooldown'
+    | 'openrouter-429'
+    | 'openrouter-402'
+    | 'upstream-400'
+    | 'upstream-401'
+    | 'upstream-500'
+    | 'upstream-502'
+    | 'upstream-503'
+    | 'stream-error-event'
+    | 'stream-cut'
+    | 'no-channel'
+    | 'wrong-key'
+    | 'spent-key',
+    CapturedAnswer
+  >;
+};
+/** The reset time in the stub's OpenRouter 429, which a test's own takes the place of. */
+const STUB_RESET = '1893456000000';
+/** How far apart a captured stream's parts go out, so that the forwarder reads them as separate writes reach a client. */
+const PART_GAP_MS = 50;
 
 /** The stand-in judgments of every fixture Launch, from the #9 prototype. */
 export const fixtureJudgments: Record<string, ScriptedJudgment> = JSON.parse(
@@ -161,7 +204,9 @@ export type Fault =
   /** A refusal with any body at all. */
   | { answer: 'odd-body'; status: number; body: string }
   /** A stream that simply ends part way, with no `[DONE]`. The trial never saw new-api do this, and nothing rules it out. */
-  | { answer: 'ended-early' };
+  | { answer: 'ended-early' }
+  /** Another row of the capture of new-api, as it stands, so that a test reads each one. */
+  | { answer: 'captured'; row: OtherRow };
 
 export class FakeModelProvider {
   readonly requests: ModelRequest[] = [];
@@ -289,28 +334,19 @@ export class FakeModelProvider {
     const token = req.headers.authorization?.replace(/^Bearer /, '');
     const known = token !== undefined && this.#keys.has(token);
     if (req.method === 'GET' && req.url === '/api/usage/token/') {
-      if (!known) return json(res, 401, { message: 'Invalid token', success: false });
+      if (!known) return sendCaptured(res, newApi.usage['wrong-key']);
       if (this.usageBody !== null) {
         res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
         res.end(this.usageBody);
         return;
       }
-      const available = this.spentKeys.has(token) ? 0 : 500_000;
-      json(res, 200, {
-        code: true,
-        data: { expires_at: 0, model_limits: {}, model_limits_enabled: false, name: 'role', object: 'token_usage', total_available: available, total_granted: 500_000, total_used: 500_000 - available, unlimited_quota: false },
-        message: 'ok',
-      });
-      return;
+      return sendCaptured(res, newApi.usage[this.spentKeys.has(token) ? 'spent-key' : 'key-with-quota']);
     }
     if (req.method !== 'POST' || req.url !== '/v1/chat/completions') {
       res.writeHead(404).end();
       return;
     }
-    if (!known || this.spentKeys.has(token)) {
-      json(res, 401, { error: { code: '', message: 'Invalid token', type: 'new_api_error' } });
-      return;
-    }
+    if (!known || this.spentKeys.has(token)) return sendCaptured(res, newApi.chat[known ? 'spent-key' : 'wrong-key']);
     const body = JSON.parse(raw) as {
       model: string;
       messages: ChatMessage[];
@@ -440,7 +476,7 @@ export class FakeModelProvider {
     res.end();
   }
 
-  /** Answers with the fault, as the trial on #46 saw new-api do. Returns whether the request is answered. */
+  /** Answers with the fault, from the capture of new-api where it saw one. Returns whether the request is answered. */
   #answerWith(fault: Fault, model: string, res: http.ServerResponse): boolean {
     const usage = { prompt_tokens: 9, completion_tokens: 2, total_tokens: 11, prompt_tokens_details: { cached_tokens: 0 } };
     const chunk = (fields: Record<string, unknown>) => `data: ${JSON.stringify({ id: 'x', object: 'chat.completion.chunk', created: 1, model, ...fields })}\n\n`;
@@ -449,31 +485,27 @@ export class FakeModelProvider {
     switch (fault.answer) {
       case 'limit': {
         if (fault.resetsAt === undefined) {
-          json(res, 429, { error: { message: 'All credentials for model gpt-6 are cooling down via provider codex', type: 'upstream_error', param: '', code: 'model_cooldown' } });
+          sendCaptured(res, newApi.chat['cpa-cooldown']);
           return true;
         }
         const reset = fault.resetsAt instanceof Date ? String(fault.resetsAt.getTime()) : fault.resetsAt;
-        const metadata = { error_type: 'rate_limit_exceeded', headers: { 'X-RateLimit-Limit': '50', 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': reset } };
-        json(res, 429, { error: { message: `Rate limit exceeded: free-models-per-day. (${JSON.stringify(metadata)})`, type: 'upstream_error', param: '', code: 429, metadata } });
+        sendCaptured(res, newApi.chat['openrouter-429'], (body) => body.replaceAll(STUB_RESET, reset));
         return true;
       }
-      case 'out-of-balance': {
-        const metadata = { limit_source: 'openrouter_credits' };
-        json(res, 402, { error: { message: `Insufficient credits. Add more using https://openrouter.ai/settings/credits (${JSON.stringify(metadata)})`, type: 'upstream_error', param: '', code: 402, metadata } });
+      case 'out-of-balance':
+        sendCaptured(res, newApi.chat['openrouter-402']);
         return true;
-      }
       case 'bad-request':
-        json(res, 400, { error: { message: 'context_length_exceeded: too long', type: 'invalid_request_error', param: '', code: 'context_length_exceeded' } });
+        sendCaptured(res, newApi.chat['upstream-400']);
         return true;
       case 'provider-key-refused':
-        json(res, 401, { error: { message: 'Invalid API key', type: 'authentication_error', param: '', code: null } });
+        sendCaptured(res, newApi.chat['upstream-401']);
         return true;
       case 'server-error':
-        if (fault.status === 502) json(res, 502, { error: { message: 'openai_error', type: 'bad_response_status_code', param: '', code: 'bad_response_status_code' } });
-        else json(res, fault.status, { error: { message: fault.status === 500 ? 'Internal error' : 'Overloaded', type: 'server_error', param: '', code: null } });
+        sendCaptured(res, newApi.chat[`upstream-${fault.status}`]);
         return true;
       case 'no-channel':
-        json(res, 503, { error: { code: 'model_not_found', message: `No available channel for model ${model} under group default (distributor)`, type: 'new_api_error' } });
+        sendCaptured(res, newApi.chat['no-channel']);
         return true;
       case 'user-quota':
         json(res, 403, { error: { message: '用户额度不足, 剩余额度: ＄-0.127512', type: 'new_api_error', param: '', code: 'insufficient_user_quota' } });
@@ -481,14 +513,20 @@ export class FakeModelProvider {
       case 'key-quota':
         json(res, 403, { error: { message: 'token quota is not enough, token remain quota: 0, need quota: 1000', type: 'new_api_error', param: '', code: 'pre_consume_token_quota_failed' } });
         return true;
+      case 'captured':
+        sendCaptured(res, newApi.chat[fault.row]);
+        return true;
       case 'hang-up':
         res.destroy();
         return true;
       case 'cut-reply':
-        res.writeHead(200, { 'content-type': 'text/event-stream' });
-        res.end(`${partial}${closing}`);
+        sendCaptured(res, newApi.chat['stream-cut']);
         return true;
       case 'error-in-stream':
+        if (fault.code === 429 && !fault.hangs) {
+          sendCaptured(res, newApi.chat['stream-error-event']);
+          return true;
+        }
         res.writeHead(200, { 'content-type': 'text/event-stream' });
         res.write(`${partial}${chunk({ error: { code: fault.code, message: 'Rate limit exceeded' }, choices: [{ index: 0, delta: { content: '' }, finish_reason: 'error' }] })}`);
         if (!fault.hangs) setTimeout(() => res.end(closing), 50);
@@ -503,6 +541,23 @@ export class FakeModelProvider {
         return true;
     }
   }
+}
+
+/** Sends what new-api was seen to send, with `change` made to a whole body. */
+function sendCaptured(res: http.ServerResponse, answer: CapturedAnswer, change: (body: string) => string = (body) => body): void {
+  res.writeHead(answer.status, answer.headers);
+  if (answer.parts) sendApart(res, answer.parts);
+  else res.end(change(typeof answer.body === 'string' ? answer.body : JSON.stringify(answer.body)));
+}
+
+/** Writes a stream's parts a moment apart: the forwarder reads chunks as they come (`CODING_STANDARDS.md`, "A fake … is anchored to the real one"). */
+function sendApart(res: http.ServerResponse, [part, ...rest]: string[]): void {
+  if (rest.length === 0) {
+    res.end(part);
+    return;
+  }
+  res.write(part);
+  setTimeout(() => sendApart(res, rest), PART_GAP_MS);
 }
 
 function json(res: http.ServerResponse, status: number, body: unknown): void {

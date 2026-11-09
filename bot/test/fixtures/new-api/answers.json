@@ -1,0 +1,355 @@
+{
+  "image": {
+    "version": "v1.0.0-rc.46",
+    "digest": "sha256:abf1f675efa1847b90c049c03766e2daaf62a78998aae3625cf34b6a045b1b97"
+  },
+  "capturedOn": "2026-11-09",
+  "usage": {
+    "key-with-quota": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "code": true,
+        "data": {
+          "expires_at": 0,
+          "model_limits": {},
+          "model_limits_enabled": false,
+          "name": "with-quota",
+          "object": "token_usage",
+          "total_available": 500000,
+          "total_granted": 500000,
+          "total_used": 0,
+          "unlimited_quota": false,
+          "user_quota": {
+            "total_available": 100000000,
+            "total_used": 0
+          }
+        },
+        "message": "ok"
+      }
+    },
+    "wrong-key": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "message": "Invalid token",
+        "success": false
+      }
+    },
+    "spent-key": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "code": true,
+        "data": {
+          "expires_at": 0,
+          "model_limits": {},
+          "model_limits_enabled": false,
+          "name": "spent",
+          "object": "token_usage",
+          "total_available": 0,
+          "total_granted": 0,
+          "total_used": 0,
+          "unlimited_quota": false,
+          "user_quota": {
+            "total_available": 100000000,
+            "total_used": 0
+          }
+        },
+        "message": "ok"
+      }
+    }
+  },
+  "chat": {
+    "cpa-cooldown": {
+      "status": 429,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "All credentials for model gpt-6 are cooling down via provider codex",
+          "type": "upstream_error",
+          "param": "",
+          "code": "model_cooldown"
+        }
+      }
+    },
+    "plus-limit": {
+      "status": 429,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "The usage limit has been reached",
+          "type": "usage_limit_reached",
+          "param": "",
+          "code": null
+        }
+      }
+    },
+    "openrouter-429": {
+      "status": 429,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day ({\"error_type\":\"rate_limit_exceeded\",\"headers\":{\"X-RateLimit-Limit\":\"50\",\"X-RateLimit-Remaining\":\"0\",\"X-RateLimit-Reset\":\"1893456000000\"}})",
+          "type": "upstream_error",
+          "param": "",
+          "code": 429,
+          "metadata": {
+            "error_type": "rate_limit_exceeded",
+            "headers": {
+              "X-RateLimit-Limit": "50",
+              "X-RateLimit-Remaining": "0",
+              "X-RateLimit-Reset": "1893456000000"
+            }
+          }
+        }
+      }
+    },
+    "plain-429": {
+      "status": 429,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "Too many requests",
+          "type": "rate_limit_error",
+          "param": "",
+          "code": null
+        }
+      }
+    },
+    "retry-after-only": {
+      "status": 429,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "Slow down",
+          "type": "rate_limit_error",
+          "param": "",
+          "code": null
+        }
+      }
+    },
+    "openrouter-402": {
+      "status": 402,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "Insufficient credits. Add more using https://openrouter.ai/settings/credits ({\"limit_source\":\"openrouter_credits\"})",
+          "type": "upstream_error",
+          "param": "",
+          "code": 402,
+          "metadata": {
+            "limit_source": "openrouter_credits"
+          }
+        }
+      }
+    },
+    "deepseek-402": {
+      "status": 402,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "Insufficient Balance",
+          "type": "unknown_error",
+          "param": "",
+          "code": "invalid_request_error"
+        }
+      }
+    },
+    "upstream-400": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "context_length_exceeded: too long",
+          "type": "invalid_request_error",
+          "param": "",
+          "code": "context_length_exceeded"
+        }
+      }
+    },
+    "upstream-401": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "Invalid API key",
+          "type": "authentication_error",
+          "param": "",
+          "code": null
+        }
+      }
+    },
+    "upstream-403": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "Budget reached ({\"resets_at\":1893456000})",
+          "type": "upstream_error",
+          "param": "",
+          "code": 403,
+          "metadata": {
+            "resets_at": 1893456000
+          }
+        }
+      }
+    },
+    "upstream-500": {
+      "status": 500,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "Internal error",
+          "type": "server_error",
+          "param": "",
+          "code": null
+        }
+      }
+    },
+    "upstream-502": {
+      "status": 502,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "openai_error",
+          "type": "bad_response_status_code",
+          "param": "",
+          "code": "bad_response_status_code"
+        }
+      }
+    },
+    "upstream-503": {
+      "status": 503,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "Overloaded",
+          "type": "server_error",
+          "param": "",
+          "code": null
+        }
+      }
+    },
+    "stream-error-event": {
+      "status": 200,
+      "headers": {
+        "content-type": "text/event-stream"
+      },
+      "parts": [
+        "data: {\"id\":\"x\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"stream-error-event\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"partial\"},\"finish_reason\":null}]}\n\n",
+        "data: {\"id\":\"x\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"stream-error-event\",\"error\":{\"code\":429,\"message\":\"Rate limit exceeded\"},\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\"},\"finish_reason\":\"error\"}]}\n\n",
+        "data: {\"id\":\"x\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"stream-error-event\",\"system_fingerprint\":\"\",\"choices\":[],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":2,\"total_tokens\":11,\"prompt_tokens_details\":{\"cached_tokens\":0,\"text_tokens\":0,\"audio_tokens\":0,\"image_tokens\":0},\"completion_tokens_details\":{\"text_tokens\":0,\"audio_tokens\":0,\"image_tokens\":0,\"reasoning_tokens\":0},\"input_tokens\":0,\"output_tokens\":0,\"input_tokens_details\":null,\"claude_cache_creation_5_m_tokens\":0,\"claude_cache_creation_1_h_tokens\":0}}\n\n",
+        "data: [DONE]\n\n"
+      ]
+    },
+    "stream-cut": {
+      "status": 200,
+      "headers": {
+        "content-type": "text/event-stream"
+      },
+      "parts": [
+        "data: {\"id\":\"x\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"stream-cut\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"partial\"},\"finish_reason\":null}]}\n\n",
+        "data: {\"id\":\"x\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"stream-cut\",\"system_fingerprint\":\"\",\"choices\":[],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":2,\"total_tokens\":11,\"prompt_tokens_details\":{\"cached_tokens\":0,\"text_tokens\":0,\"audio_tokens\":0,\"image_tokens\":0},\"completion_tokens_details\":{\"text_tokens\":0,\"audio_tokens\":0,\"image_tokens\":0,\"reasoning_tokens\":0},\"input_tokens\":0,\"output_tokens\":0,\"input_tokens_details\":null,\"claude_cache_creation_5_m_tokens\":0,\"claude_cache_creation_1_h_tokens\":0}}\n\n",
+        "data: [DONE]\n\n"
+      ]
+    },
+    "no-channel": {
+      "status": 503,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "code": "model_not_found",
+          "message": "No available channel for model no-such-model under group default (distributor)",
+          "type": "new_api_error"
+        }
+      }
+    },
+    "unreachable": {
+      "status": 500,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "message": "upstream error: do request failed",
+          "type": "new_api_error",
+          "param": "",
+          "code": "do_request_failed"
+        }
+      }
+    },
+    "wrong-key": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "code": "",
+          "message": "Invalid token",
+          "type": "new_api_error"
+        }
+      }
+    },
+    "spent-key": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "error": {
+          "code": "",
+          "message": "Invalid token",
+          "type": "new_api_error"
+        }
+      }
+    },
+    "ok": {
+      "status": 200,
+      "headers": {
+        "content-type": "text/event-stream"
+      },
+      "parts": [
+        "data: {\"id\":\"x\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"ok\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"hello\"},\"finish_reason\":null}]}\n\n",
+        "data: {\"id\":\"x\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"ok\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+        "data: {\"id\":\"x\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"ok\",\"choices\":[],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":2,\"total_tokens\":12}}\n\n",
+        "data: [DONE]\n\n"
+      ]
+    }
+  }
+}

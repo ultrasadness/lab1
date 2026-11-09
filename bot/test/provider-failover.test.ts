@@ -500,15 +500,64 @@ for (const body of ['{"error":{"metadata":"text"}}', '{"error":{"metadata":{"hea
   });
 }
 
-test('what a reply that failed part way spent counts, though its usage comes after its error', async (t) => {
+/** What new-api counted for a failed reply it closed itself, as the capture of it recorded. The forwarder relies on no one number. */
+function countedByNewApi(row: string): { prompt_tokens: number; completion_tokens: number; prompt_tokens_details: { cached_tokens: number } } {
+  const { chat } = JSON.parse(readFileSync(new URL('./fixtures/new-api/answers.json', import.meta.url), 'utf8')) as { chat: Record<string, { parts: string[] }> };
+  return JSON.parse(chat[row]!.parts.find((part) => part.includes('"usage"'))!.replace(/^data: /, '')).usage;
+}
+
+for (const [name, fault, row] of [
+  ['though its usage comes after its error', { answer: 'error-in-stream', code: 429 }, 'stream-error-event'],
+  ['when new-api closed it after a cut', { answer: 'cut-reply' }, 'stream-cut'],
+] as const) {
+  test(`what a reply that failed part way spent counts, ${name}`, async (t) => {
+    const world = await dayWorld();
+    t.after(() => world.stop());
+    world.model.fault = onProvider('plus', fault);
+
+    await world.advanceTo('2026-10-12T08:00:00Z');
+    assert.deepEqual(asked(world), ['miner@plus', 'miner@openrouter', 'miner@openrouter']);
+    // On top of what the reply cut off spent, 2,400 input and 380 output tokens from each of the next provider's two.
+    const counted = countedByNewApi(row);
+    assert.deepEqual(world.logs.find((l) => l.event === 'run.finished')?.tokens, {
+      input: counted.prompt_tokens + 4800,
+      cached: counted.prompt_tokens_details.cached_tokens,
+      output: counted.completion_tokens + 760,
+    });
+  });
+}
+
+// The rows of the capture of new-api no other test reads, so that a changed one fails here.
+for (const [row, fault, line] of [
+  ['plus-limit', { answer: 'captured', row: 'plus-limit' }, 'ChatGPT Plus at its limit, trying again at 01:30 PT · Miner and registration on OpenRouter'],
+  ['plain-429', { answer: 'captured', row: 'plain-429' }, 'ChatGPT Plus at its limit, trying again at 01:30 PT · Miner and registration on OpenRouter'],
+  ['retry-after-only', { answer: 'captured', row: 'retry-after-only' }, 'ChatGPT Plus at its limit, trying again at 01:30 PT · Miner and registration on OpenRouter'],
+  ['deepseek-402', { answer: 'captured', row: 'deepseek-402' }, 'ChatGPT Plus out of balance, top it up, trying again at 01:30 PT · Miner and registration on OpenRouter'],
+  ['upstream-403', { answer: 'captured', row: 'upstream-403' }, 'ChatGPT Plus failing for Miner (403), trying again at 01:30 PT · Miner on OpenRouter'],
+  ['unreachable', { answer: 'captured', row: 'unreachable' }, 'ChatGPT Plus failing for Miner (500 do_request_failed), trying again at 01:30 PT · Miner on OpenRouter'],
+  ['upstream-500', { answer: 'server-error', status: 500 }, 'ChatGPT Plus failing for Miner (500), trying again at 01:30 PT · Miner on OpenRouter'],
+  ['upstream-502', { answer: 'server-error', status: 502 }, 'ChatGPT Plus failing for Miner (502 bad_response_status_code), trying again at 01:30 PT · Miner on OpenRouter'],
+] as const) {
+  test(`the capture of new-api’s \`${row}\` moves the request on, and #status says why`, async (t) => {
+    const world = await dayWorld();
+    t.after(() => world.stop());
+    world.model.fault = onProvider('plus', fault);
+
+    await world.advanceTo('2026-10-12T08:00:00Z');
+    assert.deepEqual(statusLines(world), [line]);
+    assert.equal(titles(world).length, 1);
+  });
+}
+
+test('the capture of a reply new-api served whole reads as served: nothing drops out, and its usage is read', async (t) => {
   const world = await dayWorld();
   t.after(() => world.stop());
-  world.model.fault = onProvider('plus', { answer: 'error-in-stream', code: 429 });
+  world.model.fault = onProvider('plus', { answer: 'captured', row: 'ok' });
 
   await world.advanceTo('2026-10-12T08:00:00Z');
-  assert.deepEqual(asked(world), ['miner@plus', 'miner@openrouter', 'miner@openrouter']);
-  // 9 input tokens from the reply cut off, and 2,400 from each of the next provider's two.
-  assert.deepEqual(world.logs.find((l) => l.event === 'run.finished')?.tokens, { input: 4809, cached: 0, output: 762 });
+  assert.ok(asked(world).length > 0 && asked(world).every((name) => name === 'miner@plus'), asked(world).join());
+  assert.deepEqual(statusLines(world), []);
+  assert.deepEqual(world.logs.filter((l) => l.event === 'forwarder.usage-missing'), []);
 });
 
 test('a provider further down its role’s list is still tried again: a request asks it first once its time is up, and it says when it is back', async (t) => {

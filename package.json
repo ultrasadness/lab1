@@ -14,6 +14,7 @@
     "check:shell": "node scripts/check-shell.ts",
     "check:source": "node --test scripts/bot-imports.test.ts scripts/bot-test-imports.test.ts scripts/bot-test-store.test.ts scripts/bounded-waits.test.ts",
     "capture:producthunt-schema": "node scripts/capture-producthunt-schema.ts",
+    "capture:new-api": "node scripts/capture-new-api.ts",
     "ticket": "node scripts/ticket.ts"
   },
   "dependencies": {

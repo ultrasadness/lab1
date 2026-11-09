@@ -120,6 +120,30 @@ API might have.
 CREDENTIALS_DIRECTORY=/path/to/credentials npm run capture:producthunt-schema
 ```
 
+The fake model provider hands the forwarder new-api's failures as a client of new-api received them.
+`npm run capture:new-api` runs a throwaway new-api in front of a stub upstream, asks it for each kind of failure, and
+writes each answer, with the image's version and digest and the date, to `bot/test/fixtures/new-api/answers.json`, where
+the fake reads it. The image is the one the running `new-api` container uses, or the one `--image` names by digest. The
+throwaway sits on a private Docker network, is published only on `127.0.0.1` and keeps its data in a tmpfs, and the
+script removes the containers and the network when it ends, on a failure too. The stub answers as
+`research/model-limits` records CPA, OpenRouter and DeepSeek answering, so the fixture shows what new-api does to those
+bodies, not what those providers really send. When a setup step fails or a case gets no answer, the script stops with
+`CAPTURE FAILED`, names the step and leaves the fixture as it was. CI reads only the fixture, and needs no image of
+new-api. Run the script on the VM, where Docker holds the running container, whenever new-api's image changes, as a pull
+can until #72 pins it, and then read the fixture's diff:
+
+- **Empty, or only the version, digest and date differ:** nothing to do but commit it.
+- **A body changes and `bot/test/provider-failover.test.ts` still passes:** the forwarder doesn't rely on what changed.
+  Commit it.
+- **A body changes and that test fails:** the forwarder relies on what changed. The capture has done its job, and the
+  fix goes in the forwarder with the fixture, in a ticket of its own if it won't fit in the work at hand.
+- **A setup step fails:** new-api's admin API changed. Fix the script, since the running bot isn't affected by it.
+
+```sh
+npm run capture:new-api
+npm run capture:new-api -- --image calciumion/new-api@sha256:<digest>
+```
+
 ## Change the live store's schema
 
 The live store, `assistant.sqlite` in `dataDir`, records its schema version in `PRAGMA user_version`. Version 1 is

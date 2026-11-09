@@ -64,6 +64,18 @@ node --test bot/test/miner-day.test.ts # one file
 CREDENTIALS_DIRECTORY=/path/to/credentials npm run capture:producthunt-schema
 ```
 
+假的模型 provider 把 new-api 的失败交给 forwarder，内容就是 new-api 的客户端实际收到的。`npm run capture:new-api` 在一个 stub 上游前面运行一个用完即弃的 new-api，向它询问每一种失败，再把每个回答连同镜像的版本和 digest 以及日期写到 `bot/test/fixtures/new-api/answers.json`，假的模型 provider 就从那里读取。镜像是正在运行的 `new-api` 容器所用的那个，或者 `--image` 按 digest 指定的那个。这个用完即弃的 new-api 位于一个私有的 Docker 网络上，只发布在 `127.0.0.1` 上，数据放在 tmpfs 里，脚本结束时会删除容器和网络，失败时也一样。stub 按 `research/model-limits` 记录的 CPA、OpenRouter 和 DeepSeek 的回答来回答，所以这份 fixture 显示的是 new-api 怎样处理这些回答内容，而不是这些 provider 真正会发什么。某个设置步骤失败，或者某个用例没有得到回答时，脚本以 `CAPTURE FAILED` 停下，说明是哪一步，并让 fixture 保持原样。CI 只读取这份 fixture，不需要 new-api 的镜像。每当 new-api 的镜像改变（在 #72 把它固定下来之前，一次拉取就可能改变它），就在 VM 上运行这个脚本，因为那里的 Docker 有正在运行的容器，然后读 fixture 的 diff：
+
+- **diff 为空，或者只有版本、digest 和日期不同：** 除了提交它，不用做别的。
+- **某个回答内容变了，而 `bot/test/provider-failover.test.ts` 仍然通过：** forwarder 不依赖变了的内容。提交它。
+- **某个回答内容变了，而这个测试失败：** forwarder 依赖变了的内容。这次抓取起到了作用，修复放在 forwarder 里，和 fixture 一起提交，如果手头的工作放不下，就另开一个 ticket。
+- **某个设置步骤失败：** new-api 的管理 API 变了。修改脚本，因为运行中的机器人不受它影响。
+
+```sh
+npm run capture:new-api
+npm run capture:new-api -- --image calciumion/new-api@sha256:<digest>
+```
+
 ## 修改实时存储的 schema
 
 实时存储即 `dataDir` 里的 `assistant.sqlite`，它把自己的 schema 版本号记在 `PRAGMA user_version` 里。版本 1 是 #98 之前的 schema。机器人启动时，在任何东西读写这个存储之前，会把 `bot/src/store.ts` 里的 `SCHEMA` 整个交给一个新的存储，并记为最新版本。对一个较旧的存储，它按顺序运行这个存储的版本之后的每个迁移，每个迁移和它的版本号放在同一个事务里。有表但没有记录版本号的存储算作版本 1。失败的迁移，或者留下指向不存在的行的键的迁移，会被撤销：存储保持原来的版本号，机器人不启动，并说明是哪个迁移失败了。比代码还新的存储会被原封不动地拒绝，机器人同样不启动（由这个人在 #98 上确定）。错误信息写明两个版本号，以及两条出路：再升级到认识这个存储的版本的代码，或者从每晚的备份恢复这个存储，备份之后的实时状态会丢掉。所以，把机器人回滚到某个迁移之前，会让它停着。
