@@ -292,8 +292,8 @@ found others it reached, such as the tests of healthchecks.io's pings, and the p
 A fake that stands in for an outside service, such as GitHub, new-api, Product Hunt or the VM's network, behaves as
 the real one was seen to behave, and says where it was seen: a trial on the real service, recorded in the fake's
 comment, or a capture of it, as the fake Product Hunt answers only what the live schema accepts. A check of a service
-or of the VM asks what the code will ask of it, and tries the paths that must get through as well as those that must
-be refused.
+or of the VM asks what the code will ask of it, the way the code asks it, and tries the paths that must get through as
+well as those that must be refused.
 
 **Why it matters:** a fake built from what a service is assumed to do passes tests the real service fails, and the
 failure shows only at go-live. In #71, the fake GitHub served a push through a local `git receive-pack`, which takes
@@ -302,7 +302,11 @@ input before it has sent its refs. GitHub ends such a session with status 1 and 
 the fake now ends a session whose input comes first. #71 also tried `ops/firewall` in a network namespace, which lacks
 the REJECT that Oracle's Ubuntu image ends `INPUT` with, and `ops/firewall check` tried only what the browser must not
 reach. Nothing tried Pi's way to the forwarder, and every Miner run failed at go-live until `dd25c9f` let it in and the
-check tried it. `90fa152` (#78) had anchored the fake Product Hunt the same way, to a capture of the live schema.
+check tried it. `90fa152` (#78) had anchored the fake Product Hunt the same way, to a capture of the live schema. In
+#54, `ops/token` checked the Bitwarden API key with a request of its own to Bitwarden's token endpoint, where the bot
+logs in through `bw`. It asked what the bot asks, whether the key logs in, a case this section's words didn't name yet,
+and neither reviewer raised it. The test's fake endpoint took the request. The real one answered 400 to every good key,
+for lacking a header `bw` sends. `5a13f68` checked the key through `bw login`.
 
 **In a diff, look for:**
 
@@ -312,5 +316,7 @@ check tried it. `90fa152` (#78) had anchored the fake Product Hunt the same way,
   unlike the real service in the case the test is about;
 - a check of a token or a service that asks it something other than what the code will, such as how many models a
   key lists where the bot asks for one by name;
+- a check that asks through a client of its own where the code goes through the service's, such as a request to a token
+  endpoint where the bot runs `bw`;
 - a check that only tries what must be refused, such as a firewall's blocked addresses, beside a path that must get
   through.
