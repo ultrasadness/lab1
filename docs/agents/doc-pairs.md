@@ -59,7 +59,9 @@ and the Chinese sides render it one way throughout. Everyday technical words suc
 English, stay out, because the wider the table, the more often a sound synonym gets refused. The person settled this
 on #97.
 
-Add `{ en, zh }` to `RENDERINGS`, run `npm run check:docs`, and read each failure:
+Add `{ en, zh }` to `RENDERINGS`, one for each form a verb takes in the docs, since the match reads a plural and no
+other ending: `drop out`, `drops out`, `dropped out` and `dropping out` are four entries. Run `npm run check:docs`, and
+read each failure:
 
 - A real fault: fix the Chinese side and re-record the pair.
 - A use in another sense: put its wording in the entry's `except`, as `gate` lets through "a gate between runs" (`关卡`

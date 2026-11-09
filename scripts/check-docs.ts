@@ -63,6 +63,11 @@ const RENDERINGS: Rendering[] = [
   { en: 'Pacific day', zh: '太平洋时间日' },
   { en: 'notional dollar', zh: '名义美元' },
   { en: 'fixed action', zh: '固定动作' },
+  { en: 'drop out', zh: '掉线' },
+  { en: 'drops out', zh: '掉线' },
+  { en: 'dropped out', zh: '掉线' },
+  { en: 'dropping out', zh: '掉线' },
+  { en: 'out of balance', zh: '余额不足' },
 ];
 
 const { ok, output } = checkDocs(process.argv.slice(2), join(import.meta.dirname, '..'), PAIRS, UNPAIRED, RENDERINGS);

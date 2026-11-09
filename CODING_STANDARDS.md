@@ -28,7 +28,8 @@ after a grace time.
 ## A retry that starts a run is bounded in what it spends
 
 Work tried again on a timer, starting a model run each time, stops by itself: after a count of tries kept in the
-store, or once a budget checked before each run is spent.
+store, or once a budget checked before each run is spent. A run no provider served spent nothing, so trying it again
+needs neither.
 
 **Why it matters:** a run that fails the same way each time spends about the same each time, and a retry every 30
 minutes is 48 runs a day. In #53, a Walkthrough preparation whose run failed, or hit its cap without recording a
@@ -37,7 +38,12 @@ until #69. Neither #53's reviewers nor #99's caught it; the person's question in
 found two more. A Dossier run that failed was run again at each 30-minute pass of its date, for as long as the date
 stayed in the 3-date catch-up window. One a Miner Correction asked for was run again every 30 minutes with no end. #99
 shipped Walkthroughs off and left them to #69, and `d093b01` gave each Launch's Dossier at most 3 tries that end
-without one, counted in the store and tried once a day (#100).
+without one, counted in the store and tried once a day (#100). In #46, the person settled what this rule doesn't
+bound. On 2026-11-06 and 11-07, 38 Dossier runs failed because every provider failed, and each counted as a try, though
+a refusal costs nothing. `773bd87` counts no try for a run no provider served, which `PiRunner.run` tells by
+`totals.providers`, so a date whose providers all refuse still starts a run at each 30-minute pass, at $0 (ADR 0013).
+The person's first answer let off a run that ran out of providers part way too. That run had spent, so this rule kept
+it a failed run that counts.
 
 **In a diff, look for:**
 
@@ -45,7 +51,9 @@ without one, counted in the store and tried once a day (#100).
   that failed or hit its cap, with no count of tries in the store and no budget checked before the next run starts;
 - a window or a date standing in for that bound: 3 dates of 30-minute passes are 144 runs;
 - a failed run recorded only as a problem to retry, where a Correction's sorting run records it as the outcome
-  (`unsorted`), and so runs once.
+  (`unsorted`), and so runs once;
+- a run left uncounted because it spent nothing, where a provider served part of it: only a run whose
+  `totals.providers` is empty spent nothing.
 
 ## Outside input is parsed totally
 
@@ -306,7 +314,12 @@ check tried it. `90fa152` (#78) had anchored the fake Product Hunt the same way,
 #54, `ops/token` checked the Bitwarden API key with a request of its own to Bitwarden's token endpoint, where the bot
 logs in through `bw`. It asked what the bot asks, whether the key logs in, a case this section's words didn't name yet,
 and neither reviewer raised it. The test's fake endpoint took the request. The real one answered 400 to every good key,
-for lacking a header `bw` sends. `5a13f68` checked the key through `bw login`.
+for lacking a header `bw` sends. `5a13f68` checked the key through `bw login`. In #46, the fake model wrote a reply's
+error and the usage after it in one write, and the forwarder, reading chunks as they came, stopped at the error. The
+trial had shown new-api sending usage after the error, so a real reply's spend would have gone uncounted with the test
+green. The Spec reviewer split the write by 100 ms and got `forwarder.usage-missing`, and Codex found it too, where the
+Standards reviewer didn't. `773bd87` reads a failed reply on for up to 5 seconds, and the fake sends the usage 50 ms
+later.
 
 **In a diff, look for:**
 
@@ -314,6 +327,8 @@ for lacking a header `bw` sends. `5a13f68` checked the key through `bw login`.
   behaviour was seen, and for the comment that says so;
 - a fake that hands the request to a local stand-in, such as git, a stub server or a network namespace, which behaves
   unlike the real service in the case the test is about;
+- a fake that writes at once what the real service sends apart, where the code reads chunks as they come, such as a
+  stream's error and the usage after it;
 - a check of a token or a service that asks it something other than what the code will, such as how many models a
   key lists where the bot asks for one by name;
 - a check that asks through a client of its own where the code goes through the service's, such as a request to a token
