@@ -10,19 +10,20 @@
 // `npm run capture:new-api`, which keeps what a client of a throwaway new-api received in
 // `bot/test/fixtures/new-api/answers.json`, its request id left out, as the trial on #46 first saw it. `limit`,
 // `out-of-balance`, `bad-request`, `provider-key-refused`, `server-error`, `no-channel`, `cut-reply`, `error-in-stream`
-// with code 429, a key new-api refuses and `GET /api/usage/token/` are served from there, a stream's parts apart, and
-// `captured` answers with any other row, so a changed answer fails the tests of whatever relied on it. The stub in
+// with code 429, `failing`, a key new-api refuses and `GET /api/usage/token/` are served from there, a stream's parts
+// apart, and `captured` answers with any other row, so a changed answer fails the tests of whatever relied on it. The stub in
 // front of it answered as `research/model-limits` records CPA, OpenRouter and DeepSeek answering: no real 429 or 402 from
 // them has been seen, so `X-RateLimit-Reset`'s unit, milliseconds, is the stub's. `no-channel` was seen live too, on
 // 2026-11-06 (#85), in the same shape.
 //
 // The capture didn't see the rest, which stays hand-written. `user-quota` was seen live on 2026-11-05 (#85), and
 // `key-quota` is as the research read it in new-api's source. No real service was seen doing `hang-up`, `ended-early`,
-// `odd-body`, `error-in-stream` with another code or with `hangs`, or `junkLine`, each there for what the forwarder must
-// do with any answer at all.
+// `odd-body`, `error-in-stream` with another code or with `hangs`, `junkLine` or `hold`, each there for what the
+// forwarder must do with any answer at all, or none.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { readFileSync } from 'node:fs';
+import capturedAnswers from '../fixtures/new-api/answers.json' with { type: 'json' };
 
 export interface ScriptedJudgment {
   fit: number;
@@ -42,29 +43,30 @@ interface CapturedAnswer {
   parts?: string[];
 }
 
-/** The rows of the capture no other `Fault` serves. */
-type OtherRow = 'plus-limit' | 'plain-429' | 'retry-after-only' | 'deepseek-402' | 'upstream-403' | 'unreachable' | 'ok';
+/** The rows of the capture's chat answers, as the fixture names them. */
+type CapturedRow = keyof typeof capturedAnswers.chat;
+/** The rows a `Fault` of their own, a refused key or `failing` serves. */
+type ServedOtherwise =
+  | 'cpa-cooldown'
+  | 'openrouter-429'
+  | 'openrouter-402'
+  | 'upstream-400'
+  | 'upstream-401'
+  | 'upstream-500'
+  | 'upstream-502'
+  | 'upstream-503'
+  | 'stream-error-event'
+  | 'stream-cut'
+  | 'no-channel'
+  | 'wrong-key'
+  | 'spent-key';
+/**
+ * The rows only `captured` serves. A row the capture adds lands here, and `provider-failover.test.ts` keys a table by
+ * these, so its typecheck fails until a test reads the row.
+ */
+export type OtherRow = Exclude<CapturedRow, ServedOtherwise>;
 
-const newApi = JSON.parse(readFileSync(new URL('../fixtures/new-api/answers.json', import.meta.url), 'utf8')) as {
-  usage: Record<'key-with-quota' | 'wrong-key' | 'spent-key', CapturedAnswer>;
-  chat: Record<
-    | OtherRow
-    | 'cpa-cooldown'
-    | 'openrouter-429'
-    | 'openrouter-402'
-    | 'upstream-400'
-    | 'upstream-401'
-    | 'upstream-500'
-    | 'upstream-502'
-    | 'upstream-503'
-    | 'stream-error-event'
-    | 'stream-cut'
-    | 'no-channel'
-    | 'wrong-key'
-    | 'spent-key',
-    CapturedAnswer
-  >;
-};
+const newApi: { usage: Record<keyof typeof capturedAnswers.usage, CapturedAnswer>; chat: Record<CapturedRow, CapturedAnswer> } = capturedAnswers;
 /** The reset time in the stub's OpenRouter 429, which a test's own takes the place of. */
 const STUB_RESET = '1893456000000';
 /** How far apart a captured stream's parts go out, so that the forwarder reads them as separate writes reach a client. */
@@ -275,7 +277,7 @@ export class FakeModelProvider {
   endDelayMs = 0;
   /** While true, the provider takes requests and never answers them. */
   hold = false;
-  /** While true, every request is refused with a 503, as when no provider of the role can serve it. */
+  /** While true, every request gets the capture's `upstream-503`, new-api's answer to a provider that is overloaded. */
   failing = false;
   /** The media type a streamed reply is labelled with; media types are case-insensitive. */
   contentType = 'text/event-stream';
@@ -382,11 +384,7 @@ export class FakeModelProvider {
     const run = this.#current;
     if (run) run.requests += 1;
     if (this.hold) return;
-    if (this.failing) {
-      res.writeHead(503, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'No provider of the role is available', type: 'new_api_error' } }));
-      return;
-    }
+    if (this.failing) return sendCaptured(res, newApi.chat['upstream-503']);
 
     const n = this.requests.length;
     res.writeHead(200, { 'content-type': this.contentType });

@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { CODEMIND, serveProduct } from './harness/dossier-fixtures.ts';
 import { fixtureDay, websiteOf } from './harness/fake-product-hunt.ts';
 import { correct, dayPost, dayPosted, lineOf, rejudges } from './harness/miner-day.ts';
-import { opensRun, type Fault, type ModelRequest } from './harness/fake-model.ts';
+import { opensRun, type Fault, type ModelRequest, type OtherRow } from './harness/fake-model.ts';
 import { MINER_DAYS_FORUM, NEEDS_YOU, PERSON, PRODUCTS_FORUM, STATUS, startWorld, TOKENS, type Config, type World } from './harness/world.ts';
 
 const DAY = fixtureDay('2026-10-12').slice(0, 8);
@@ -527,17 +527,8 @@ for (const [name, fault, row] of [
   });
 }
 
-// The rows of the capture of new-api no other test reads, so that a changed one fails here.
-for (const [row, fault, line] of [
-  ['plus-limit', { answer: 'captured', row: 'plus-limit' }, 'ChatGPT Plus at its limit, trying again at 01:30 PT · Miner and registration on OpenRouter'],
-  ['plain-429', { answer: 'captured', row: 'plain-429' }, 'ChatGPT Plus at its limit, trying again at 01:30 PT · Miner and registration on OpenRouter'],
-  ['retry-after-only', { answer: 'captured', row: 'retry-after-only' }, 'ChatGPT Plus at its limit, trying again at 01:30 PT · Miner and registration on OpenRouter'],
-  ['deepseek-402', { answer: 'captured', row: 'deepseek-402' }, 'ChatGPT Plus out of balance, top it up, trying again at 01:30 PT · Miner and registration on OpenRouter'],
-  ['upstream-403', { answer: 'captured', row: 'upstream-403' }, 'ChatGPT Plus failing for Miner (403), trying again at 01:30 PT · Miner on OpenRouter'],
-  ['unreachable', { answer: 'captured', row: 'unreachable' }, 'ChatGPT Plus failing for Miner (500 do_request_failed), trying again at 01:30 PT · Miner on OpenRouter'],
-  ['upstream-500', { answer: 'server-error', status: 500 }, 'ChatGPT Plus failing for Miner (500), trying again at 01:30 PT · Miner on OpenRouter'],
-  ['upstream-502', { answer: 'server-error', status: 502 }, 'ChatGPT Plus failing for Miner (502 bad_response_status_code), trying again at 01:30 PT · Miner on OpenRouter'],
-] as const) {
+/** A test that the capture of new-api's `row`, served as `fault`, moves the request on, with `line` in #status. */
+function movesOn(row: string, fault: Fault, line: string): void {
   test(`the capture of new-api’s \`${row}\` moves the request on, and #status says why`, async (t) => {
     const world = await dayWorld();
     t.after(() => world.stop());
@@ -548,6 +539,21 @@ for (const [row, fault, line] of [
     assert.equal(titles(world).length, 1);
   });
 }
+
+// What #status says for each row of the capture that no other test reads. Keyed by the fixture's rows, so a row the
+// capture adds fails the typecheck here until a test reads it, and `bot/README.md` can say that a changed row which
+// fails no test is one the forwarder doesn't rely on.
+const lineOfRow: Record<Exclude<OtherRow, 'ok'>, string> = {
+  'plus-limit': 'ChatGPT Plus at its limit, trying again at 01:30 PT · Miner and registration on OpenRouter',
+  'plain-429': 'ChatGPT Plus at its limit, trying again at 01:30 PT · Miner and registration on OpenRouter',
+  'retry-after-only': 'ChatGPT Plus at its limit, trying again at 01:30 PT · Miner and registration on OpenRouter',
+  'deepseek-402': 'ChatGPT Plus out of balance, top it up, trying again at 01:30 PT · Miner and registration on OpenRouter',
+  'upstream-403': 'ChatGPT Plus failing for Miner (403), trying again at 01:30 PT · Miner on OpenRouter',
+  unreachable: 'ChatGPT Plus failing for Miner (500 do_request_failed), trying again at 01:30 PT · Miner on OpenRouter',
+};
+for (const [row, line] of Object.entries(lineOfRow)) movesOn(row, { answer: 'captured', row: row as OtherRow }, line);
+movesOn('upstream-500', { answer: 'server-error', status: 500 }, 'ChatGPT Plus failing for Miner (500), trying again at 01:30 PT · Miner on OpenRouter');
+movesOn('upstream-502', { answer: 'server-error', status: 502 }, 'ChatGPT Plus failing for Miner (502 bad_response_status_code), trying again at 01:30 PT · Miner on OpenRouter');
 
 test('the capture of a reply new-api served whole reads as served: nothing drops out, and its usage is read', async (t) => {
   const world = await dayWorld();
