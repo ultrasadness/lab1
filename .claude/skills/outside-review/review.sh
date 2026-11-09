@@ -103,8 +103,12 @@ bwrap --dev-bind / / --unshare-pid --proc /proc --die-with-parent "${mounts[@]}"
 # A run that failed or was stopped is audited too: what it tried is still worth the record.
 [[ ! -e $out/events.jsonl ]] || node "$here/audit.ts" "$out" "$repo" "$checkout"
 [[ $(worktree_state) == "$before" ]] || echo "Warning: the worktree changed while Codex read it, so its review may not match these commits."
+# A killed run's status depends on timeout's version: 137 on the VM, and 124 on CI's runner (Bot run 42580796387).
+if [[ $status -eq 124 || $status -eq 137 ]]; then
+  echo "Codex ran past its limit, so there is no review." >&2
+  status=137
+fi
 if [[ $status -ne 0 ]]; then
-  [[ $status -ne 137 ]] || echo "Codex ran past its limit, so there is no review." >&2
   tail -n 20 "$out/stderr.txt" >&2 || true
   exit "$status"
 fi

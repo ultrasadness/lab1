@@ -324,6 +324,22 @@ test('a Codex that ignores TERM and never ends is killed at the limit, and what 
   assert.match(readFileSync(join(r.out, 'audit.md'), 'utf8'), /Codex ran 1 shell commands; 1 flagged\./);
 });
 
+// Bot run 42580796387 saw 124 from the same kill that gives 137 on the VM, so each machine's test reaches one of them.
+for (const status of [124, 137]) {
+  test(`timeout's status ${status} reads as Codex past its limit, whichever version gave it`, (t) => {
+    const w = world(t);
+    w.commitCode();
+    writeFileSync(
+      join(w.bin, 'timeout'),
+      `#!/usr/bin/env bash\nshift 2\nif [[ $1 == codex ]]; then exit ${status}; fi\nexec "$@"\n`,
+    );
+    chmodSync(join(w.bin, 'timeout'), 0o755);
+    const r = w.review();
+    assert.equal(r.status, 137, r.stderr);
+    assert.match(r.stderr, /past its limit/);
+  });
+}
+
 test('a gh that never answers ends the review at its limit, saying so, before Codex starts', (t) => {
   const w = world(t);
   w.commitCode();
