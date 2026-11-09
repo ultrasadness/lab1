@@ -20,6 +20,7 @@ import type { Config } from '../config.ts';
 import { asEdit, type MessagePayload } from '../discord/components.ts';
 import { refused, type DiscordRest } from '../discord/rest.ts';
 import { errorText, type Log } from '../log.ts';
+import { NoProviderLeft } from '../providers.ts';
 import { launchUrl } from '../miner/day-post.ts';
 import { dayLabel } from '../pacific.ts';
 import type { PersonalDatabase } from '../personal-database.ts';
@@ -128,7 +129,7 @@ export class Dossiers {
       try {
         outcome = await this.#write(input, readInterestScope, queued);
       } catch (error) {
-        outcome = { problem: `the Assistant hit an error (${errorText(error)})` };
+        outcome = error instanceof NoProviderLeft ? this.#waitForProvider(input.launch.postId, error.message) : { problem: `the Assistant hit an error (${errorText(error)})` };
       }
       if (outcome === 'stopped') return 'stopped';
       if (typeof outcome !== 'string') {
@@ -145,8 +146,16 @@ export class Dossiers {
    * since `since`, the Miner's latest start, and those a later try wrote whose post isn't up yet.
    */
   queued(since: Date): string[] {
-    const due = this.#store.unwrittenDossiers().filter((t) => !this.#atLimit(t) && t.unwrittenAt < since.toISOString());
-    return [...due.map((t) => t.postId), ...this.#store.unpostedTriedDossiers()];
+    const due = this.#store.unwrittenDossiers().filter((t) => !this.#atLimit(t) && (t.waiting || t.unwrittenAt < since.toISOString()));
+    const noProvider = this.#pi.noProviderLeft('registration');
+    // A try needs a run, and a post doesn't. Each one due then waits for a provider, not for the next day's start.
+    if (noProvider) for (const { postId, waiting } of due) if (!waiting) this.#waitForProvider(postId, noProvider);
+    return [...(noProvider ? [] : due.map((t) => t.postId)), ...this.#store.unpostedTriedDossiers()];
+  }
+
+  /** The Launches whose Dossier waits for the registration role to have a provider again, which each 30-minute pass tries. */
+  waitingForProvider(): string[] {
+    return this.#store.unwrittenDossiers().filter((t) => t.waiting && !this.#atLimit(t)).map((t) => t.postId);
   }
 
   /** Whether a Launch's Dossier has had every try the limit allows. */
@@ -161,6 +170,9 @@ export class Dossiers {
       const tries = this.#store.dossierTries(launch.postId);
       // One at the limit is tried no more, and one kept for a later try waits for the queue's pass.
       if (this.#atLimit(tries) || (tries && !queued)) return 'kept';
+      // Nothing is read for a run that can't start.
+      const noProvider = this.#pi.noProviderLeft('registration');
+      if (noProvider) return this.#waitForProvider(launch.postId, noProvider);
       const tried = await this.#try(input, interestScope);
       if (tried === 'stopped') return tried;
       if ('unwritten' in tried) return this.#unwritten(launch, tried.unwritten);
@@ -191,6 +203,13 @@ export class Dossiers {
   #unwritten(launch: Launch, why: string): 'kept' {
     this.#store.saveDossierUnwritten(launch.postId, why, this.#clock.now().toISOString());
     this.#log('dossier.unwritten', { postId: launch.postId, tries: this.#store.dossierTries(launch.postId)!.tries, why });
+    return 'kept';
+  }
+
+  /** Keeps why the Launch's Dossier waits for a provider. Its role being out says nothing of it, so no try counts (#46). */
+  #waitForProvider(postId: string, why: string): 'kept' {
+    this.#store.saveDossierWaiting(postId, why, this.#clock.now().toISOString());
+    this.#log('dossier.waiting', { postId, why });
     return 'kept';
   }
 

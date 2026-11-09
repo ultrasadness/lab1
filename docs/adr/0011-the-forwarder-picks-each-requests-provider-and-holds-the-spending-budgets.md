@@ -18,7 +18,7 @@ The bot's forwarder ([ADR 0009](./0009-the-bot-runs-as-its-own-user-and-holds-ev
 ## Consequences
 
 - **Routing:**
-  - The forwarder sends each request to a `role@provider` model name, in `ops/pins` order. Exactly one channel serves each name, so new-api can't switch providers, whatever `RetryTimes` the person sets for their other uses. The plain role names go away.
+  - The forwarder sends each request to a `role@provider` model name, in `ops/pins` order. Exactly one channel serves each name, so new-api can't switch providers, whatever `RetryTimes` the person sets for their other uses. The plain role names go away. [ADR 0013](./0013-a-failure-takes-out-only-what-it-names-and-a-role-with-no-provider-starts-no-run.md) sets what one failure takes out of use, and asks a provider due to be tried again ahead of this order.
   - It skips a provider that is cooling down (until the reset time when the error gives one, otherwise trying it again every 30 minutes), out of balance (402), failing, or past the Plus share. A run whose provider drops out carries on with the next one.
   - Mail roles have `@provider` names only for routes in the `mail` group ([ADR 0010](./0010-mail-text-reaches-only-mail-cleared-roles-on-routes-that-dont-train.md)), so failover never leaves it.
   - The forwarder records which provider served each request, so a Miner judgment's provider no longer needs the token-log lookup from [How do we catch a Miner provider whose Fits run higher or lower than the others?](https://github.com/ultrasadness/lab1/issues/35).

@@ -7,6 +7,9 @@ import { dirname, resolve } from 'node:path';
 export const ROLES = ['miner', 'registration'] as const;
 export type Role = (typeof ROLES)[number];
 
+/** The roles that read mail text (ADR 0010). The mail role itself arrives with #61. */
+export const MAIL_CLEARED_ROLES = ['mail'];
+
 /** Every kind of Pi run the Assistant makes. Each one is capped. */
 export const RUN_KINDS = ['miner-judging', 'dossier', 'walkthrough-preparation', 'fill', 'mail', 'question', 'correction-sorting'] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
@@ -22,6 +25,14 @@ export interface RunCaps {
 export interface Provider {
   name: string;
   model: string;
+}
+
+/** What a provider is, whichever roles list it. */
+export interface ProviderInfo {
+  /** Its name on Discord, such as `ChatGPT Plus`. */
+  label: string;
+  /** Whether its route is in new-api's `mail` group, the only routes a mail-cleared role may list (ADR 0010). */
+  mailGroup: boolean;
 }
 
 /** A model's list price, in dollars per 1M tokens: uncached input, cached input, and output. */
@@ -74,9 +85,15 @@ export interface Config {
    * after they are turned off.
    */
   signupMailbox: string;
-  /** new-api's OpenAI-compatible base URL, reached only by the forwarder. */
-  gateway: { baseUrl: string };
-  /** Each role's providers, in priority order. For now the first one serves every request. */
+  gateway: {
+    /** new-api's OpenAI-compatible base URL, reached only by the forwarder. */
+    baseUrl: string;
+    /** How long a provider that dropped out with no reset time waits before it is tried again. */
+    retryMinutes: number;
+  };
+  /** Each provider any role lists, by the name in its `role@provider` model names. */
+  providers: Record<string, ProviderInfo>;
+  /** Each role's providers, in priority order: the first that can serve a request serves it. #72 moves this to `ops/pins`. */
   roles: Record<Role, { providers: Provider[] }>;
   /** The list price of each model a role's provider serves, by model, which notional dollars are counted at. */
   prices: Record<string, ListPrice>;
@@ -139,6 +156,17 @@ export function checkConfig(config: Config): string[] {
     }
     if (!(config.budgets?.[role] > 0)) problems.push(`budgets.${role} must be above 0`);
   }
+  // Every role in the file, the ones not brought up yet among them, since a mail-cleared role's mistake is what this stops.
+  for (const [role, { providers }] of Object.entries<{ providers: Provider[] }>(config.roles ?? {})) {
+    for (const { name } of providers ?? []) {
+      const provider = config.providers?.[name];
+      if (!provider?.label) problems.push(`roles.${role}: ${name} needs its label in providers`);
+      else if (MAIL_CLEARED_ROLES.includes(role) && provider.mailGroup !== true) {
+        problems.push(`roles.${role}: ${name} isn't in the mail group, and a mail-cleared role may list only routes that are (ADR 0010)`);
+      }
+    }
+  }
+  if (!(config.gateway?.retryMinutes > 0)) problems.push('gateway.retryMinutes must be above 0');
   for (const [model, price] of Object.entries(config.prices ?? {})) {
     for (const part of ['input', 'cached', 'output'] as const) {
       if (!(Number(price?.[part]) >= 0)) problems.push(`prices.${model}.${part} must be 0 or above, in dollars per 1M tokens`);

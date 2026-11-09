@@ -80,9 +80,11 @@ deploy key 的私钥从不离开 VM（在 #71 上确定）：在询问 GitHub �
 
 forwarder 向 new-api 请求一个角色的模型时，用的名字是 `<role>@<provider>`，比如 `miner@openrouter`，从不用模型自己的名字（ADR 0011）。在 #72 的 `ops/upgrade role` 能创建它们之前，由这个人在 new-api 的管理页面里逐个设置：
 
-- 一个该 provider 类型的渠道，它的模型只有这一个名字，并带一条从这个名字到 provider 所服务模型的模型重定向，比如 `{"miner@openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free"}`：这个模型就是 `config/assistant.json` 里 `roles.<role>.providers` 写明的那个，它的价格在 `prices` 里；
+- 一个该 provider 类型的渠道，它的模型只有这一个名字，并带一条从这个名字到 provider 所服务模型的模型重定向，比如 `{"miner@openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free"}`：这个模型就是 `config/assistant.json` 里 `roles.<role>.providers` 写明的那个，它的价格在 `prices` 里，它的 `label` 在 `providers` 里；
 - 在 new-api 的倍率设置里给这个名字一个价格，处于自用模式的 new-api 不要求这一项：这个价格就是 `prices` 给这个模型的价格，所以免费模型的输入和输出都是 $0；
-- 一个只属于这个角色的令牌，它的模型限制写明这个角色的每个 `<role>@<provider>` 名字，额度是这个角色 4 周的预算（ADR 0011）；mail 角色的令牌放在 `mail` 分组里（ADR 0010）。这个角色的名字必须对它的令牌所用的分组可用，否则 new-api 会返回 503 和 `model_not_found`。
+- 一个只属于这个角色的令牌，它的模型限制写明这个角色的每个 `<role>@<provider>` 名字，额度是这个角色 4 周的预算（ADR 0011）；mail 角色的令牌放在 `mail` 分组里（ADR 0010），`providers` 里的 `mailGroup` 标明这个分组包含哪些路线。这个角色的名字必须对它的令牌所用的分组可用，否则 new-api 会返回 503 和 `model_not_found`。
+
+一个角色的第二个 provider 就是以上各项再加一份，forwarder 按 `roles` 列出的顺序在它们之间做故障转移（`bot/README.md`）。
 
 持有这些令牌的 new-api 用户自己也需要额度。new-api 会按每次请求的费用从中预扣，不够时就以 403 拒绝，比如 `insufficient_user_quota`。
 

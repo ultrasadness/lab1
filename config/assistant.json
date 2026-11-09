@@ -28,7 +28,11 @@
   },
   "signupMailbox": "set when Walkthroughs turn on",
   "gateway": {
-    "baseUrl": "http://127.0.0.1:3000/v1"
+    "baseUrl": "http://127.0.0.1:3000/v1",
+    "retryMinutes": 30
+  },
+  "providers": {
+    "openrouter": { "label": "OpenRouter", "mailGroup": true }
   },
   "roles": {
     "miner": { "providers": [{ "name": "openrouter", "model": "nvidia/nemotron-3-ultra-550b-a55b:free" }] },

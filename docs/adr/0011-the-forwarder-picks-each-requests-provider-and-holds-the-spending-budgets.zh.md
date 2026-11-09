@@ -18,7 +18,7 @@
 ## 后果
 
 - **路由**：
-  - forwarder 按 `ops/pins` 的顺序，把每个请求发到一个 `role@provider` 模型名。每个名字恰好由一个渠道服务，所以不管这个人为其他用途把 `RetryTimes` 设成多少，new-api 都无法切换 provider。不带 provider 的角色名被取消。
+  - forwarder 按 `ops/pins` 的顺序，把每个请求发到一个 `role@provider` 模型名。每个名字恰好由一个渠道服务，所以不管这个人为其他用途把 `RetryTimes` 设成多少，new-api 都无法切换 provider。不带 provider 的角色名被取消。[ADR 0013](./0013-a-failure-takes-out-only-what-it-names-and-a-role-with-no-provider-starts-no-run.zh.md) 规定一次失败让什么停用，并让到了再试时间的 provider 排在这个顺序之前。
   - 它跳过正在冷却（错误给出重置时间时冷却到那个时间，否则每 30 分钟再试一次）、余额不足（402）、持续出错，或超出 Plus share 的 provider。provider 掉线的运行会换下一个继续。
   - mail 角色只为 `mail` 分组里的路线设 `@provider` 名（[ADR 0010](./0010-mail-text-reaches-only-mail-cleared-roles-on-routes-that-dont-train.zh.md)），所以故障转移永远不会离开这个分组。
   - forwarder 记录每个请求由哪个 provider 服务，所以 Miner 评判的 provider 不再需要 [怎样发现给出的 Fit 比其他 provider 偏高或偏低的 Miner provider？](https://github.com/ultrasadness/lab1/issues/35) 里的 token 日志查找。

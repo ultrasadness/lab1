@@ -67,8 +67,11 @@ export function judgmentBefore(store: Store, correction: Correction): Judgment {
   return shown;
 }
 
+/** A provider's name on Discord, from the name its judgments are stored under. */
+export type ProviderLabel = (provider: string) => string;
+
 /** The date's post as it now reads, from its stored line: the summary, its Retry notices, then its bands. */
-export function dayPostOf(store: Store, date: string): RenderedDayPost {
+export function dayPostOf(store: Store, date: string, label: ProviderLabel): RenderedDayPost {
   const launches = dayLaunches(store, date);
   const productPosts = new Map<string, string>();
   for (const l of launches) {
@@ -76,7 +79,12 @@ export function dayPostOf(store: Store, date: string): RenderedDayPost {
     if (post) productPosts.set(l.postId, post);
   }
   const unwritten = new Map(store.unwrittenDossiers().map((t) => [t.postId, t.why]));
-  const { title, messages, launchesIn } = renderDayPost({ date, line: store.dayLine(date)!, launches, productPosts, unwritten });
+  // The day's own judgments: a Correction's run is one Launch judged again, on what the person wrote.
+  const counts = Map.groupBy(store.judgmentsFor(date), (j) => j.provider);
+  const judgedBy = [...counts]
+    .map(([provider, judged]) => ({ provider: label(provider), launches: judged.length }))
+    .sort((a, b) => b.launches - a.launches || a.provider.localeCompare(b.provider));
+  const { title, messages, launchesIn } = renderDayPost({ date, line: store.dayLine(date)!, launches, productPosts, unwritten, judgedBy });
   const notices = store.minerRetries(date).map((retry) => renderRetryNotice(retry));
   return {
     title,
@@ -89,10 +97,10 @@ export function dayPostOf(store: Store, date: string): RenderedDayPost {
  * Rewrites the date's posted list as the store now has it: its title and summary, and each message holding one of these
  * Launches' lines. An archived post can't be edited, so the rename unarchives it too.
  */
-export async function rewriteDayPost(store: Store, discord: DiscordRest, date: string, postIds: ReadonlySet<string>): Promise<void> {
+export async function rewriteDayPost(store: Store, discord: DiscordRest, date: string, postIds: ReadonlySet<string>, label: ProviderLabel): Promise<void> {
   const post = store.dayPost(date);
   const threadId = post.threadId!;
-  const rendered = dayPostOf(store, date);
+  const rendered = dayPostOf(store, date, label);
   await discord.editThread(threadId, { name: rendered.title, archived: false });
   store.saveDayPostTitle(date, rendered.title);
   for (const [i, message] of rendered.messages.entries()) {

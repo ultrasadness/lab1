@@ -4,8 +4,8 @@
 // date, the day posts on Discord, the Retries a capped date waits on, the tries at each Launch's Dossier that ended
 // without one, Products by root domain with their Launches, Dossiers and posts, each Product's Walkthrough versions
 // and the person's Corrections of them, Approvals and Registrations, run and model-request records with each run's
-// Rule-set commit and each request's notional dollars, the index of raw inputs kept outside git, the files waiting to
-// be written to the Personal database, and the times its history diverged.
+// Rule-set commit and each request's notional dollars, the providers that dropped out, the index of raw inputs kept
+// outside git, the files waiting to be written to the Personal database, and the times its history diverged.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
 import type { PageRead } from './browser.ts';
@@ -201,6 +201,8 @@ export interface DossierTries {
   unwrittenAt: string;
   /** When #status was told it won't be tried again. */
   stopNotedAt: string | null;
+  /** Whether it waits for its role to have a provider again: no run started, and no try counted (#46). */
+  waiting: boolean;
 }
 
 /** One version of a Product's Dossier, with the run that wrote it. */
@@ -225,6 +227,35 @@ export interface ModelRequest {
   /** The tokens in notional dollars, at the list price of the model the provider serves; 0 with no tokens. */
   dollars: number;
   at: string;
+}
+
+/** Why a provider dropped out (#46): its limit, an empty balance, failing, a gateway quota spent, or a dead role key. */
+export type DropoutKind = 'limit' | 'balance' | 'failing' | 'quota' | 'key';
+
+/**
+ * A provider's time out of use (#46), from its first failure until it next serves a request. The lines and card that
+ * tell of it are each marked before they are sent, and an uncertain send counts as sent (ADR 0007).
+ */
+export interface ProviderDropout {
+  id: number;
+  /** The provider, or `''` when a role's key or the new-api user holding the keys takes all of them. */
+  provider: string;
+  /** The one role it is out for, or `''` for every role it takes. */
+  role: string;
+  kind: DropoutKind;
+  /** What it answered, when it is failing. */
+  detail: string | null;
+  since: string;
+  /** When it is next tried. */
+  until: string;
+  /** Whether `until` is the reset time its error gave. */
+  resetKnown: boolean;
+  notedAt: string | null;
+  cardIntended: boolean;
+  cardMessageId: string | null;
+  cardShrunkAt: string | null;
+  backAt: string | null;
+  backNotedAt: string | null;
 }
 
 export interface RunRecord {
@@ -389,6 +420,27 @@ const MIGRATIONS: Migration[] = [
     sql: `ALTER TABLE registrations ADD COLUMN vault_item_intended INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE registrations ADD COLUMN vault_item_id TEXT;`,
   },
+  {
+    name: "add provider_dropouts, each provider's time out of use, and dossier_tries' waiting mark for a Dossier that waits on a provider (#46)",
+    sql: `CREATE TABLE provider_dropouts (
+  id INTEGER PRIMARY KEY,
+  provider TEXT NOT NULL,
+  role TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  detail TEXT,
+  since TEXT NOT NULL,
+  until TEXT NOT NULL,
+  reset_known INTEGER NOT NULL,
+  noted_at TEXT,
+  card_intended INTEGER NOT NULL DEFAULT 0,
+  card_message_id TEXT,
+  card_shrunk_at TEXT,
+  back_at TEXT,
+  back_noted_at TEXT
+);
+CREATE UNIQUE INDEX provider_dropouts_open ON provider_dropouts(provider, role) WHERE back_at IS NULL;
+ALTER TABLE dossier_tries ADD COLUMN waiting INTEGER NOT NULL DEFAULT 0;`,
+  },
 ];
 
 /** The latest schema, which a new store gets whole at the latest version. */
@@ -537,7 +589,8 @@ CREATE TABLE IF NOT EXISTS dossier_tries (
   why TEXT NOT NULL,
   unwritten_at TEXT NOT NULL,
   stop_noted_at TEXT,
-  unshown INTEGER NOT NULL DEFAULT 0
+  unshown INTEGER NOT NULL DEFAULT 0,
+  waiting INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS signup_tags (
   product_id INTEGER PRIMARY KEY REFERENCES products(id),
@@ -625,6 +678,23 @@ CREATE TABLE IF NOT EXISTS model_requests (
   at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS model_requests_by_run ON model_requests(run_id);
+CREATE TABLE IF NOT EXISTS provider_dropouts (
+  id INTEGER PRIMARY KEY,
+  provider TEXT NOT NULL,
+  role TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  detail TEXT,
+  since TEXT NOT NULL,
+  until TEXT NOT NULL,
+  reset_known INTEGER NOT NULL,
+  noted_at TEXT,
+  card_intended INTEGER NOT NULL DEFAULT 0,
+  card_message_id TEXT,
+  card_shrunk_at TEXT,
+  back_at TEXT,
+  back_noted_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS provider_dropouts_open ON provider_dropouts(provider, role) WHERE back_at IS NULL;
 CREATE TABLE IF NOT EXISTS raw_inputs (
   id INTEGER PRIMARY KEY,
   source TEXT NOT NULL,
@@ -733,6 +803,24 @@ const dossierTriesOf = (row: Row): DossierTries => ({
   why: String(row.why),
   unwrittenAt: String(row.unwritten_at),
   stopNotedAt: textOrNull(row.stop_noted_at),
+  waiting: Boolean(row.waiting),
+});
+
+const providerDropoutOf = (row: Row): ProviderDropout => ({
+  id: Number(row.id),
+  provider: String(row.provider),
+  role: String(row.role),
+  kind: String(row.kind) as DropoutKind,
+  detail: textOrNull(row.detail),
+  since: String(row.since),
+  until: String(row.until),
+  resetKnown: Boolean(row.reset_known),
+  notedAt: textOrNull(row.noted_at),
+  cardIntended: Boolean(row.card_intended),
+  cardMessageId: textOrNull(row.card_message_id),
+  cardShrunkAt: textOrNull(row.card_shrunk_at),
+  backAt: textOrNull(row.back_at),
+  backNotedAt: textOrNull(row.back_noted_at),
 });
 
 const productOf = (row: Row): Product => ({
@@ -1432,7 +1520,17 @@ export class Store {
     this.#db
       .prepare(
         `INSERT INTO dossier_tries (post_id, tries, why, unwritten_at) VALUES (?, 1, ?, ?)
-         ON CONFLICT DO UPDATE SET tries = tries + 1, why = excluded.why, unwritten_at = excluded.unwritten_at, stop_noted_at = NULL`,
+         ON CONFLICT DO UPDATE SET tries = tries + 1, why = excluded.why, unwritten_at = excluded.unwritten_at, stop_noted_at = NULL, waiting = 0`,
+      )
+      .run(postId, why, at);
+  }
+
+  /** Keeps why the Launch's Dossier waits for its role to have a provider again. No try is counted (#46). */
+  saveDossierWaiting(postId: string, why: string, at: string): void {
+    this.#db
+      .prepare(
+        `INSERT INTO dossier_tries (post_id, tries, why, unwritten_at, waiting) VALUES (?, 0, ?, ?, 1)
+         ON CONFLICT DO UPDATE SET why = excluded.why, waiting = 1`,
       )
       .run(postId, why, at);
   }
@@ -1818,7 +1916,9 @@ export class Store {
       tokens.output += Number(row.output_tokens ?? 0);
       dollars += Number(row.dollars);
     }
-    const distinct = (key: string) => [...new Set(rows.map((r) => r[key]).filter((v) => v !== null).map(String))];
+    // A provider that refused a request served none of it.
+    const served = rows.filter((r) => Number(r.status) >= 200 && Number(r.status) < 300);
+    const distinct = (key: string) => [...new Set(served.map((r) => r[key]).filter((v) => v !== null).map(String))];
     return { requests: rows.length, tokens, dollars, providers: distinct('provider'), models: distinct('model') };
   }
 
@@ -1831,6 +1931,67 @@ export class Store {
       )
       .get(role, item);
     return Number(row?.dollars ?? 0);
+  }
+
+  // ---------- Providers that dropped out ----------
+
+  /**
+   * Keeps a provider's drop-out. If it is out already, only what it answered this time and when it is next tried change,
+   * and its line is due again if why it is out is new, such as a limit turned into an empty balance.
+   */
+  saveProviderDropout(d: Pick<ProviderDropout, 'provider' | 'role' | 'kind' | 'detail' | 'since' | 'until' | 'resetKnown'>): void {
+    this.#db
+      .prepare(
+        `INSERT INTO provider_dropouts (provider, role, kind, detail, since, until, reset_known) VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (provider, role) WHERE back_at IS NULL
+         DO UPDATE SET noted_at = CASE WHEN kind = excluded.kind THEN noted_at END, kind = excluded.kind, detail = excluded.detail,
+           until = excluded.until, reset_known = excluded.reset_known`,
+      )
+      .run(d.provider, d.role, d.kind, d.detail, d.since, d.until, d.resetKnown ? 1 : 0);
+  }
+
+  /** Every provider out of use now, oldest first. */
+  openProviderDropouts(): ProviderDropout[] {
+    return this.#db.prepare('SELECT * FROM provider_dropouts WHERE back_at IS NULL ORDER BY id').all().map(providerDropoutOf);
+  }
+
+  /** The drop-outs with a line still to say or a card still to shrink, oldest first. */
+  untoldProviderDropouts(): ProviderDropout[] {
+    return this.#db
+      .prepare(
+        `SELECT * FROM provider_dropouts
+         WHERE noted_at IS NULL OR (back_at IS NOT NULL AND (back_noted_at IS NULL OR (card_message_id IS NOT NULL AND card_shrunk_at IS NULL)))
+         ORDER BY id`,
+      )
+      .all()
+      .map(providerDropoutOf);
+  }
+
+  saveProviderBack(id: number, at: string): void {
+    this.#db.prepare('UPDATE provider_dropouts SET back_at = ? WHERE id = ?').run(at, id);
+  }
+
+  /** Marks the line saying it dropped out as said, or as not said after all. */
+  saveProviderDropoutNoted(id: number, at: string | null): void {
+    this.#db.prepare('UPDATE provider_dropouts SET noted_at = ? WHERE id = ?').run(at, id);
+  }
+
+  /** Marks the line saying it's back as said, or as not said after all. */
+  saveProviderBackNoted(id: number, at: string | null): void {
+    this.#db.prepare('UPDATE provider_dropouts SET back_noted_at = ? WHERE id = ?').run(at, id);
+  }
+
+  /** Marks the card as about to be sent, or as not sent after all. */
+  saveProviderCardIntended(id: number, intended: boolean): void {
+    this.#db.prepare('UPDATE provider_dropouts SET card_intended = ? WHERE id = ?').run(intended ? 1 : 0, id);
+  }
+
+  saveProviderCard(id: number, messageId: string): void {
+    this.#db.prepare('UPDATE provider_dropouts SET card_message_id = ? WHERE id = ?').run(messageId, id);
+  }
+
+  saveProviderCardShrunk(id: number, at: string): void {
+    this.#db.prepare('UPDATE provider_dropouts SET card_shrunk_at = ? WHERE id = ?').run(at, id);
   }
 
   // ---------- Raw inputs ----------

@@ -98,6 +98,12 @@ const ordinal = (n: number) => {
   return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 };
 
+/** `ChatGPT Plus (8) and OpenRouter (4)`: a day with more than one may be uneven (#46). */
+const judgedByText = (judgedBy: { provider: string; launches: number }[]) => {
+  const named = judgedBy.map((j) => `${escapeMarkdown(j.provider)} (${j.launches})`);
+  return `${named.slice(0, -1).join(', ')} and ${named.at(-1)}`;
+};
+
 export function renderDayPost(input: {
   date: string;
   line: DayLine;
@@ -106,8 +112,10 @@ export function renderDayPost(input: {
   productPosts: ReadonlyMap<string, string>;
   /** Why each Launch filed under no Product went without a Dossier at its latest try, by Post id. */
   unwritten: ReadonlyMap<string, string>;
+  /** The providers that made the day's judgments, most Launches first. */
+  judgedBy: { provider: string; launches: number }[];
 }): RenderedDayPost {
-  const { date, line, launches, productPosts, unwritten } = input;
+  const { date, line, launches, productPosts, unwritten, judgedBy } = input;
   const dossierLaunches = launches.filter((l) => outcomeOf(l, line.line) === 'dossier').sort((a, b) => b.fit - a.fit || a.rank - b.rank);
   const dossiers = dossierLaunches.length;
   const dossierPosts = [...new Set(dossierLaunches.flatMap((l) => productPosts.get(l.postId) ?? []))];
@@ -130,6 +138,7 @@ export function renderDayPost(input: {
             `**${count(dossiers, 'Dossier')}** · ${count(launches.length - dossiers, 'Skip')} · ${count(line.featuredCount, 'Featured Launch', 'Featured Launches')} · Day's line **${line.line}**`,
             ...(dossierPosts.length > 0 ? [`**Dossiers:** ${dossierPosts.map((id) => `<#${id}>`).join(' · ')}`] : []),
             ...notWritten(whyKept),
+            ...(judgedBy.length > 1 ? [`-# Judged by ${judgedByText(judgedBy)}`] : []),
             `-# Line: ${whyTheLine(line)}`,
             `-# [Data sourced from Product Hunt](${leaderboardUrl(date)})`,
           ].join('\n'),

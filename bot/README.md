@@ -27,7 +27,8 @@ in the Password vault at its Approval, and refuses any model request, Discord me
 | `bot/src/health-ping.ts` | The healthchecks.io ping, every 5 minutes while the bot is logged in to Discord and its store takes a write |
 | `bot/src/password-vault.ts` | The Password vault: `bw` run once per operation, the password the bot makes, and the item it goes in |
 | `bot/src/secret-guard.ts` | The last door: each Secret the bot holds, looked for by its exact value in every model request, Discord message and commit, and the notice to replace it |
-| `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, each priced in notional dollars, and run records |
+| `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, each sent to the first of its role's providers that can serve it and priced in notional dollars, and run records |
+| `bot/src/providers.ts` | Which of a role's providers can serve a request now, why each that can't has dropped out, and the `#status` lines and `#needs-you` card that say so |
 | `bot/src/pi-runs.ts` | One `pi --mode rpc` process per run, capped on wall clock, turns and tokens |
 | `bot/src/store.ts` | The live store (SQLite), with its schema and migrations |
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 and Discord |
@@ -209,7 +210,10 @@ without it. A Launch gets at most `dossiers.tries` tries that end without a Doss
 store across passes, restarts and both paths. A run the Assistant stops itself, as at shutdown, or one a crash cuts
 short doesn't count, and neither does an error of its own before the run starts, such as a browser service it can't
 reach: that still holds the list, and the Miner tries again every 30 minutes. A run that fails because the Pi container
-or every provider is down counts like any other. At the limit no more tries start, and one silent line in `#status`
+is down counts like any other. A role with no provider left is different (settled by the person on #46, changing #100):
+no run starts for it and no try counts, and neither does a run no provider served. The list still goes out, naming the
+Dossier and why, and each 30-minute pass tries again until the role has a provider. A run a provider served before its
+role ran out counts, since it spent. At the limit no more tries start, and one silent line in `#status`
 names the Dossier and why its last try failed. A Dossier written on a later try is posted as any other, and its date's
 list then links it. Raising `dossiers.tries` through `ops/upgrade` lets the bot try such a Dossier again, however old,
 as after an outage that stopped Dossiers.
@@ -287,13 +291,52 @@ run, and what limits a runaway is OpenRouter's daily cap on free requests (settl
 also keeps GPT-6.1 Sol's, the price the budgets were sized at (#39). `budgets.registration`, $20 to start, is what the registration role's runs may spend in a Pacific day,
 Dossier and Walkthrough runs among them; their spend is counted, but nothing holds a run to it until #69.
 
-The bot logs one JSON line per event to stdout. A `run.finished` line carries the run's role, providers, models, exact
-tokens and notional dollars, and for a capped run the cap it hit. A `miner.run-held` line names a run that waits on
+`roles` lists each role's providers in priority order, which #72 moves to `ops/pins`. `providers` gives each one its
+`label` on Discord and says whether its route is in new-api's `mail` group. The bot won't start while a role lists a
+provider with no label, or while a mail-cleared role lists one outside that group (ADR 0010). The mail role itself
+comes with #61. At go-live (#85) each role has one provider, so until a second is set up, losing it is an outage.
+
+The forwarder sends each model request to the first of the role's providers that can serve it, and moves the request
+on from one that can't, so the run never hears of it (#46, ADR 0011, ADR 0013). A provider that dropped out and is due to be tried
+again goes first, ahead of the order, or one further down would never hear again once one above it serves (settled by
+the person on #46). What new-api answers decides what follows:
+
+| new-api's answer | What the forwarder does |
+|---|---|
+| 429 | The provider is at its limit, for every role that lists it, until the reset time the error gives, or otherwise for `gateway.retryMinutes` |
+| 402 | The provider is out of balance, for every role that lists it, for `gateway.retryMinutes` |
+| 401 | It reads `GET /api/usage/token/` with that key. No quota left is *gateway quota spent*, for that role. Quota left means the provider refused its own key, so that `role@provider` name is failing. A key new-api refuses there too is dead: all of that role's providers are out, and #70 adds its notice to the `#status` line naming `ops/token` (settled by the person on #46). An answer it can't read goes back to the run |
+| 403 `pre_consume_token_quota_failed` | *Gateway quota spent*, for that role: all its providers share its key (settled by the person on #46) |
+| 403 `insufficient_user_quota` | *Gateway quota spent*, for every role, since one new-api user holds every key (settled by the person on #46) |
+| 400, 404, 413 or 422 | The request's own fault: it goes back to the run, and no provider drops out |
+| Anything else, or no answer | That `role@provider` name is failing for `gateway.retryMinutes`, and the role's other names and other roles carry on: on 2026-11-06 one name had no channel while the one beside it worked (settled by the person on #46) |
+
+A reply that fails part way, with an error in its stream or no `finish_reason` at its end, counts the same. The
+forwarder reads the rest of it for up to 5 seconds, for the usage that says what it spent, then cuts it off, and Pi's
+retry of that goes to the next provider. One 5xx is enough to drop out, with the fallback of three in a row if a one-off
+5xx ever costs a run. Only OpenRouter's reset time reaches the bot: new-api keeps a 429's `error.metadata`, and drops
+CPA's `Retry-After` and `reset_seconds` (the trial on #46), so ChatGPT Plus is tried again every 30 minutes. Once its
+time is up, a provider is tried again by the next request. If it serves, it's back; if not, it stays out a while longer,
+with a new line only if why it is out has changed. Drop-outs live in the live store, so a restart keeps skipping a
+provider.
+
+A provider dropping out gets one silent line in `#status`, naming it, why, until when and which provider took over, and
+another when it's back. A role with no provider left is an outage. Its runs don't start: the Miner tries again every 30
+minutes and its 06:00 PT late line names why, a Correction or a Walkthrough preparation waits for the next 30-minute
+try, and a Dossier waits as above. A card goes to `#needs-you` only when an empty balance or a spent gateway quota leaves
+a role with no provider, and it shrinks to a line once that is back. A day's summary names its providers, with how many
+Launches each judged, when more than one judged it.
+
+The bot logs one JSON line per event to stdout. A `run.finished` line carries the run's role, the providers and models
+that served it, exact tokens and notional dollars, and for a capped run the cap it hit. A `miner.run-held` line names a run that waits on
 the Miner budget, with the date's spend, and a `miner.posted` line carries what the date spent in all. A
 `miner.judged` line names the model request whose reply held the judgment, with that request's exact tokens; one reply
 usually judges every Launch in its run. A `dossier.written` line names a Dossier's Product by its root domain, with
 the run, provider and model that wrote it. A `dossier.unwritten` line names a Launch whose try wrote no Dossier, with
-why and how many of its tries count, and a `dossier.stopped` line one that reached the limit. A `run.rules-loaded`
+why and how many of its tries count, a `dossier.stopped` line one that reached the limit, and a `dossier.waiting` line
+one that waits for a provider, with why. A `provider.dropped-out` line names what dropped out, why and until when, and a
+`provider.back` line what came back. A `forwarder.no-provider` line names a request no provider was left to serve, and a
+`forwarder.key-unread` line a 401 whose `GET /api/usage/token/` said nothing it could read. A `run.rules-loaded`
 line names the commit a run's Rules were read at, the Rules by name, and about how many tokens they take. A
 `walkthrough.prepared` line names a Walkthrough's version and the run that prepared it, a `walkthrough.none` line why
 a Product gets none, and a `walkthrough.approved` line the Discord interaction an Approval came in. A

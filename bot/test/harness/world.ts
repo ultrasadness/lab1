@@ -18,6 +18,8 @@ import { FakeHealthchecks } from './fake-healthchecks.ts';
 import { FakeModelProvider } from './fake-model.ts';
 import { FakeProductHunt } from './fake-product-hunt.ts';
 
+export type { Config };
+
 export const PERSON = '100000000000000001';
 export const STRANGER = '100000000000000009';
 export const MINER_DAYS_FORUM = '200000000000000001';
@@ -168,7 +170,8 @@ export async function startWorld(options: {
     bitwarden: { command: bitwarden.command, timeoutSeconds: 60 },
     walkthroughs: { on: true },
     signupMailbox: SIGNUP_MAILBOX,
-    gateway: { baseUrl: model.baseUrl },
+    gateway: { baseUrl: model.baseUrl, retryMinutes: 30 },
+    providers: { openrouter: { label: 'OpenRouter', mailGroup: true } },
     roles: {
       miner: { providers: [{ name: 'openrouter', model: 'judge-model-1' }] },
       registration: { providers: [{ name: 'openrouter', model: 'judge-model-1' }] },

@@ -176,6 +176,9 @@ export class Walkthroughs {
   }
 
   async #prepare(product: Product): Promise<Done> {
+    // Nothing is read for a run that can't start.
+    const noProvider = this.#pi.noProviderLeft('registration');
+    if (noProvider) return { problem: noProvider };
     const { dossier } = this.#store.latestDossier(product.id)!;
     const previous = this.#store.latestWalkthrough(product.id);
     const readAt = this.#clock.now();

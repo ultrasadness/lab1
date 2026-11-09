@@ -12,6 +12,7 @@ import type { DiscordRest } from '../discord/rest.ts';
 import type { Dossiers } from '../dossier/dossiers.ts';
 import type { RecordResult } from '../forwarder.ts';
 import { errorText, type Log } from '../log.ts';
+import { NoProviderLeft } from '../providers.ts';
 import type { PersonalDatabase } from '../personal-database.ts';
 import { dayLabel, fullDate } from '../pacific.ts';
 import type { PiRunner } from '../pi-runs.ts';
@@ -21,7 +22,7 @@ import { decidedText, INTEREST_SCOPE_PATH, sortingPrompt, sortKey, type SortedIt
 import type { Correction, Judgment, Store } from '../store.ts';
 import { outcomeOf } from './day-line.ts';
 import { correctId, judgmentText, plainJudgment, renderWithdrawn } from './day-post.ts';
-import { dayFileOf, dayLaunches, dayPostOf, judgmentBefore, reLaunchOfRegistered, rewriteDayPost, type DayLaunch } from './day-view.ts';
+import { dayFileOf, dayLaunches, dayPostOf, judgmentBefore, reLaunchOfRegistered, rewriteDayPost, type DayLaunch, type ProviderLabel } from './day-view.ts';
 import { correctionPrompt, launchParts, readJudgment } from './judging.ts';
 
 /** The pop-up's one field. */
@@ -34,6 +35,7 @@ export class Corrections {
   #personalDatabase: PersonalDatabase;
   #dossiers: Dossiers;
   #proposals: Proposals;
+  #providerLabel: ProviderLabel;
   #clock: Clock;
   #log: Log;
 
@@ -44,6 +46,7 @@ export class Corrections {
     personalDatabase: PersonalDatabase;
     dossiers: Dossiers;
     proposals: Proposals;
+    providerLabel: ProviderLabel;
     clock: Clock;
     log: Log;
   }) {
@@ -53,6 +56,7 @@ export class Corrections {
     this.#personalDatabase = options.personalDatabase;
     this.#dossiers = options.dossiers;
     this.#proposals = options.proposals;
+    this.#providerLabel = options.providerLabel;
     this.#clock = options.clock;
     this.#log = options.log;
   }
@@ -78,7 +82,7 @@ export class Corrections {
     const id = this.#store.saveCorrection({ postId, date, text: what, submittedAt: this.#clock.now().toISOString() });
     this.#log('correction.submitted', { id, date, postId });
     const index = messageId ? this.#store.dayPost(date).messageIds.indexOf(messageId) : -1;
-    return { update: index >= 0 ? asEdit(dayPostOf(this.#store, date).messages[index]!) : undefined };
+    return { update: index >= 0 ? asEdit(dayPostOf(this.#store, date, this.#providerLabel).messages[index]!) : undefined };
   }
 
   /**
@@ -93,7 +97,7 @@ export class Corrections {
       try {
         finished = await this.#finish(id);
       } catch (error) {
-        finished = { problem: `the Assistant hit an error (${errorText(error)})` };
+        finished = { problem: error instanceof NoProviderLeft ? error.message : `the Assistant hit an error (${errorText(error)})` };
       }
       if (finished === 'stopped') return false;
       if (finished !== 'done') {
@@ -280,7 +284,7 @@ export class Corrections {
 
   /** Rewrites the day post as the store now has it: its title and summary, and each message holding a corrected line. */
   async #show(date: string): Promise<void> {
-    await rewriteDayPost(this.#store, this.#discord, date, new Set(this.#store.correctionsFor(date).map((c) => c.postId)));
+    await rewriteDayPost(this.#store, this.#discord, date, new Set(this.#store.correctionsFor(date).map((c) => c.postId)), this.#providerLabel);
   }
 
   /** The Launch's line on its posted day, and the day's stored line, unless the line can't be corrected now. */

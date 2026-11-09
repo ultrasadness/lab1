@@ -6,6 +6,7 @@
 // It catches up on the latest 3 dates, oldest first, and drops older ones with a #status line. A date that can't
 // finish is tried again by the caller's 30-minute retry, and gets one #status line if its list isn't out by 06:00 PT.
 // Launches tapped for Retry are judged at the date's next pass, in a run of their own, with no automatic retry.
+// With no provider left for its role, a run doesn't start, and the date goes on at a later pass once one is back (#46).
 // A run starts only while the date's spend is under its Miner budget (ADR 0011). A run that starts under it finishes,
 // and once the Miner budget is spent the date's remaining runs wait, until it is raised and the bot restarts.
 // Each run fast-forwards the Personal database first and reads the Interest scope there. Once the date is judged, its
@@ -24,12 +25,13 @@ import type { PersonalDatabase } from '../personal-database.ts';
 import { addDays, dayLabel, nextDate, pacificDate, pacificDay, pacificInstant, pacificTime } from '../pacific.ts';
 import type { PiRunner, RunResult } from '../pi-runs.ts';
 import type { ProductHunt } from '../product-hunt.ts';
+import { NoProviderLeft } from '../providers.ts';
 import type { Status } from '../status.ts';
 import type { CappedRun, Launch, Store } from '../store.ts';
 import { catchUpWindow, droppedLine, lateLine, type BudgetHold } from './catch-up.ts';
 import { drawDayLine, outcomeOf } from './day-line.ts';
 import { renderDroppedPost, renderRetryNotice, renderWaitingPost } from './day-post.ts';
-import { dayFileOf, dayLaunches, dayPostOf, reLaunchOfRegistered, rewriteDayPost } from './day-view.ts';
+import { dayFileOf, dayLaunches, dayPostOf, reLaunchOfRegistered, rewriteDayPost, type ProviderLabel } from './day-view.ts';
 import { judgingPrompt, readJudgment } from './judging.ts';
 
 export class Miner {
@@ -45,6 +47,7 @@ export class Miner {
   #log: Log;
   /** Dates whose latest pass ran into a problem. */
   #troubled = new Set<string>();
+  #providerLabel: ProviderLabel;
 
   constructor(options: {
     config: Config;
@@ -55,9 +58,11 @@ export class Miner {
     status: Status;
     personalDatabase: PersonalDatabase;
     dossiers: Dossiers;
+    providerLabel: ProviderLabel;
     clock: Clock;
     log: Log;
   }) {
+    this.#providerLabel = options.providerLabel;
     this.#config = options.config;
     this.#store = options.store;
     this.#productHunt = options.productHunt;
@@ -101,7 +106,7 @@ export class Miner {
       try {
         await this.mine(date);
       } catch (error) {
-        this.#problem(date, `the Miner hit an error (${errorText(error)})`);
+        this.#problem(date, error instanceof NoProviderLeft ? error.message : `the Miner hit an error (${errorText(error)})`);
       }
       // A pass that ran into nothing leaves no reason standing from an earlier one.
       if (!this.#troubled.has(date)) this.#store.saveMinerDayProblem(date, null);
@@ -110,7 +115,7 @@ export class Miner {
     const unshownLeft = await this.#showRetriedDossiers();
     await this.noteLate();
     // A date held by its Miner budget can go on only once it is raised, which takes a restart.
-    return dossiersLeft || unshownLeft || this.#unfinished(window).some((date) => !this.#heldByBudget(date));
+    return dossiersLeft || unshownLeft || this.dossiersWaiting() || this.#unfinished(window).some((date) => !this.#heldByBudget(date));
   }
 
   /**
@@ -119,12 +124,7 @@ export class Miner {
    * dropped, is left. Returns whether one ran into a problem other than its Dossier not being written.
    */
   async #retryDossiers(since: Date): Promise<boolean> {
-    const queued = new Set(this.#dossiers.queued(since));
-    const dates = [...new Set([...queued].map((postId) => this.#store.launch(postId)!.date))];
-    const launches = dates
-      .filter((date) => !this.#store.minerDay(date)?.droppedAt)
-      .flatMap((date) => this.#dossierLaunches(date, this.#store.launchesFor(date)!).filter((l) => queued.has(l.launch.postId)))
-      .sort((a, b) => b.fit - a.fit || a.date.localeCompare(b.date) || a.launch.rank - b.launch.rank);
+    const launches = this.#queueOf(new Set(this.#dossiers.queued(since)));
     if (launches.length === 0) return false;
     const postIds = launches.map((l) => l.launch.postId);
     this.#log('dossier.queue-pass', { postIds });
@@ -141,6 +141,20 @@ export class Miner {
     return written !== 'done';
   }
 
+  /** Those of these Launches the queue still tries, in its order. */
+  #queueOf(postIds: ReadonlySet<string>): DossierLaunchInput[] {
+    const dates = [...new Set([...postIds].map((postId) => this.#store.launch(postId)!.date))];
+    return dates
+      .filter((date) => !this.#store.minerDay(date)?.droppedAt)
+      .flatMap((date) => this.#dossierLaunches(date, this.#store.launchesFor(date)!).filter((l) => postIds.has(l.launch.postId)))
+      .sort((a, b) => b.fit - a.fit || a.date.localeCompare(b.date) || a.launch.rank - b.launch.rank);
+  }
+
+  /** Whether a Dossier the queue still tries waits for a provider, so a pass is due in 30 minutes. */
+  dossiersWaiting(): boolean {
+    return this.#queueOf(new Set(this.#dossiers.waitingForProvider())).length > 0;
+  }
+
   /**
    * Shows in each date's posted list how the queue's tries at its Dossiers went: its summary, and each message holding
    * one of their lines. A list not posted yet shows them once it is. Returns whether one is left to show.
@@ -150,7 +164,7 @@ export class Miner {
     for (const { date, postIds } of this.#store.unshownDossiers()) {
       try {
         if (this.posted(date)) {
-          await rewriteDayPost(this.#store, this.#discord, date, new Set(postIds));
+          await rewriteDayPost(this.#store, this.#discord, date, new Set(postIds), this.#providerLabel);
           this.#log('miner.post-reshown', { date, postIds });
         }
         this.#store.saveDossiersUnshown(postIds, false);
@@ -330,7 +344,17 @@ export class Miner {
     const at = this.#clock.now().toISOString();
     if (!this.#store.saveMinerRetryTapped(id, at)) return { refused: `Already retried at ${pacificTime(new Date(retry.tappedAt!))} PT.` };
     this.#log('miner.retry-tapped', { date: retry.date, retry: id });
-    return { update: asEdit(renderRetryNotice({ ...retry, tappedAt: at })), work: () => this.mine(retry.date) };
+    return { update: asEdit(renderRetryNotice({ ...retry, tappedAt: at })), work: () => this.#mineTapped(retry.date) };
+  }
+
+  /** The date's next pass after a Retry tap. With no provider left its run waits, and the catch-up's pass runs it. */
+  async #mineTapped(date: string): Promise<void> {
+    try {
+      await this.mine(date);
+    } catch (error) {
+      if (!(error instanceof NoProviderLeft)) throw error;
+      this.#problem(date, error.message);
+    }
   }
 
   /**
@@ -476,7 +500,7 @@ export class Miner {
    */
   async #post(date: string): Promise<void> {
     if (this.posted(date)) return;
-    const rendered = dayPostOf(this.#store, date);
+    const rendered = dayPostOf(this.#store, date, this.#providerLabel);
     const [summary, ...rest] = rendered.messages;
 
     const { threadId } = await this.#ensurePost(date, rendered.title, summary!);

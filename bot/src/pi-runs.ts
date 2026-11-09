@@ -3,7 +3,10 @@
 // (ADR 0002): the all scope's and its own scope's, which our extension asks the forwarder for. The bot sends the run's
 // one prompt and waits until Pi settles. The run's records come in through the forwarder as the run goes, each Rule
 // they name checked against the run's own; its model requests are counted there too. Every run is capped on wall
-// clock, turns and tokens (#26), read from the events Pi streams, and aborted at the first cap it passes.
+// clock, turns and tokens (#26), read from the events Pi streams, and aborted at the first cap it passes. A role with no
+// provider left starts no run (#46): `run` throws `NoProviderLeft`, for the caller to keep the work for a later try, and
+// does so too for a run that failed with no provider having served it. Neither spent anything, so trying again every 30
+// minutes costs nothing. A run a provider served before its role ran out spent money, and is a failed run like any other.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { inMinutes, type Clock } from './clock.ts';
@@ -11,6 +14,7 @@ import { kill, signal } from './process-group.ts';
 import type { Role, RunCaps, RunKind } from './config.ts';
 import type { Forwarder, RecordResult } from './forwarder.ts';
 import { errorText, type Log } from './log.ts';
+import { NoProviderLeft, type Providers } from './providers.ts';
 import { checkRulesApplied, loadedScopes, rulesPrompt, tokensOf, type Rule, type RuleScope, type RuleSet } from './rules/rules.ts';
 import type { Store } from './store.ts';
 
@@ -52,6 +56,7 @@ export class PiRunner {
   #caps: Record<RunKind, RunCaps>;
   #rules: (scopes: RuleScope[]) => Promise<RuleSet>;
   #forwarder: Forwarder;
+  #providers: Pick<Providers, 'noProviderLeft'>;
   #store: Store;
   #clock: Clock;
   #log: Log;
@@ -70,6 +75,7 @@ export class PiRunner {
     /** The Rules of these scopes, as the Personal database's checkout last committed them. */
     rules(scopes: RuleScope[]): Promise<RuleSet>;
     forwarder: Forwarder;
+    providers: Pick<Providers, 'noProviderLeft'>;
     store: Store;
     clock: Clock;
     log: Log;
@@ -81,13 +87,21 @@ export class PiRunner {
     this.#caps = options.caps;
     this.#rules = options.rules;
     this.#forwarder = options.forwarder;
+    this.#providers = options.providers;
     this.#store = options.store;
     this.#clock = options.clock;
     this.#log = options.log;
   }
 
+  /** Why a run of this role couldn't start now, if so: it has no provider left. */
+  noProviderLeft(role: Role): string | undefined {
+    return this.#providers.noProviderLeft(role);
+  }
+
   async run(request: RunRequest): Promise<RunResult> {
     if (this.#stopped) throw new Error('The Assistant is stopping; no new runs start');
+    const noProvider = this.noProviderLeft(request.role);
+    if (noProvider) throw new NoProviderLeft(noProvider);
     const runId = `${request.kind}-${randomUUID()}`;
     const { commit, rules } = await this.#rules(loadedScopes(request.kind, request.ruleScope));
     const prompt = rulesPrompt(rules);
@@ -130,6 +144,8 @@ export class PiRunner {
       tokens: totals.tokens,
       dollars: totals.dollars,
     });
+    const ranOut = result.outcome === 'failed' && totals.providers.length === 0 ? this.noProviderLeft(role) : undefined;
+    if (ranOut) throw new NoProviderLeft(ranOut);
     return result;
   }
 

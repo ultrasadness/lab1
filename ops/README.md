@@ -128,12 +128,16 @@ admin page:
 
 - a channel of the provider's type whose models are that one name, with a model redirect from it to the model the
   provider serves, such as `{"miner@openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free"}`: the model that
-  `roles.<role>.providers` names in `config/assistant.json`, with its price in `prices`;
+  `roles.<role>.providers` names in `config/assistant.json`, with its price in `prices` and its `label` in `providers`;
 - a price for the name in new-api's ratio settings, which a new-api in self-use mode doesn't ask for: the price
   `prices` gives the model, so $0 for a free model's input and output;
 - a token for the role alone, whose model limit names each of the role's `<role>@<provider>` names, with 4 weeks of
-  the role's budget as its quota (ADR 0011); a mail role's token goes in the `mail` group (ADR 0010). The role's name
-  must be available to the group its token uses, or new-api answers 503 with `model_not_found`.
+  the role's budget as its quota (ADR 0011); a mail role's token goes in the `mail` group (ADR 0010), and `mailGroup` in
+  `providers` marks each route that group holds. The role's name must be available to the group its token uses, or
+  new-api answers 503 with `model_not_found`.
+
+A role's second provider is one more of each, and the forwarder fails over between them in the order `roles` lists
+them (`bot/README.md`).
 
 The new-api user holding the tokens needs quota of its own as well. new-api reserves each request's cost against it
 and refuses with a 403 once it falls short, such as `insufficient_user_quota`.

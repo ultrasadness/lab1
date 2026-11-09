@@ -19,6 +19,7 @@ import { nextDate, pacificDate, pacificInstant } from './pacific.ts';
 import { PersonalDatabase } from './personal-database.ts';
 import { Status } from './status.ts';
 import { PiRunner } from './pi-runs.ts';
+import { Providers } from './providers.ts';
 import { ProductHunt } from './product-hunt.ts';
 import { RawInputs } from './raw-inputs.ts';
 import { Proposals } from './rules/proposals.ts';
@@ -96,17 +97,6 @@ export async function startAssistant(options: {
   const store = Store.open(join(config.dataDir, 'assistant.sqlite'), options.migrations);
   const rawInputs = new RawInputs({ dir: join(config.dataDir, 'raw'), store, clock, keepDays: config.rawInputs.keepDays, log });
 
-  const forwarder = await startForwarder({
-    host: config.forwarder.host,
-    port: config.forwarder.port,
-    gatewayBaseUrl: config.gateway.baseUrl,
-    providers: (role) => config.roles[role].providers.map(({ name, model }) => ({ name, price: config.prices[model]! })),
-    roleKey: (role) => roleKeys.get(role)!,
-    secrets,
-    store,
-    clock,
-    log,
-  });
   const discord = new DiscordRest({ apiBaseUrl: config.discord.apiBaseUrl, token: discordToken, log, secrets });
   const gateway = new DiscordGateway({
     rest: discord,
@@ -132,6 +122,19 @@ export async function startAssistant(options: {
   });
   const status = new Status({ discord, channelId: config.discord.statusChannelId, log });
   const needsYou = new NeedsYou({ discord, channelId: config.discord.needsYouChannelId, personUserId: config.discord.personUserId, log });
+  const providers = new Providers({ config, store, status, needsYou, clock, log, plainWork });
+  const forwarder = await startForwarder({
+    host: config.forwarder.host,
+    port: config.forwarder.port,
+    gatewayBaseUrl: config.gateway.baseUrl,
+    providers: (role) => config.roles[role].providers.map(({ name, model }) => ({ name, price: config.prices[model]! })),
+    failover: providers,
+    roleKey: (role) => roleKeys.get(role)!,
+    secrets,
+    store,
+    clock,
+    log,
+  });
   const personalDatabase = new PersonalDatabase({
     dir: config.personalDatabase.dir,
     ssh: config.personalDatabase.ssh,
@@ -151,6 +154,7 @@ export async function startAssistant(options: {
     caps: config.runCaps,
     rules: (scopes) => loadRules(personalDatabase, scopes),
     forwarder,
+    providers,
     store,
     clock,
     log,
@@ -174,7 +178,8 @@ export async function startAssistant(options: {
     clock,
     log,
   });
-  const miner = new Miner({ config, store, productHunt, pi, discord, status, personalDatabase, dossiers, clock, log });
+  const providerLabel = (provider: string) => providers.label(provider);
+  const miner = new Miner({ config, store, productHunt, pi, discord, status, personalDatabase, dossiers, providerLabel, clock, log });
   const proposals = new Proposals({
     store,
     personalDatabase,
@@ -187,7 +192,17 @@ export async function startAssistant(options: {
     clock,
     log,
   });
-  const corrections = new Corrections({ store, pi, discord, personalDatabase, dossiers, proposals, clock, log });
+  const corrections = new Corrections({
+    store,
+    pi,
+    discord,
+    personalDatabase,
+    dossiers,
+    proposals,
+    providerLabel,
+    clock,
+    log,
+  });
   const walkthroughs = new Walkthroughs({
     config,
     store,
@@ -223,6 +238,8 @@ export async function startAssistant(options: {
         left = await corrections.work();
       } finally {
         if (left && !stopped) cancelCorrectionsRetry = inMinutes(clock, config.miner.retryMinutes, correct);
+        // A Dossier a Correction asked for goes to the Miner's queue, whose passes it needs while it waits for a provider.
+        if (!stopped && miner.dossiersWaiting()) passIn30Minutes();
       }
     });
   gateway.start();
@@ -258,6 +275,10 @@ export async function startAssistant(options: {
   // now), and every 30 minutes while a date in its window can't finish, or a Dossier it tried again isn't posted or
   // shown in its list yet. Each Dossier not written is tried again at the first pass after each daily start.
   let cancelRetry = () => {};
+  const passIn30Minutes = () => {
+    cancelRetry();
+    cancelRetry = inMinutes(clock, config.miner.retryMinutes, catchUp);
+  };
   const catchUp = () =>
     lane.add('miner', 'miner', async () => {
       cancelRetry();
@@ -265,9 +286,7 @@ export async function startAssistant(options: {
       try {
         unfinished = await miner.catchUp();
       } finally {
-        if (unfinished && !stopped) {
-          cancelRetry = inMinutes(clock, config.miner.retryMinutes, catchUp);
-        }
+        if (unfinished && !stopped) passIn30Minutes();
       }
     });
   const daily = () => {
@@ -303,6 +322,8 @@ export async function startAssistant(options: {
   correct();
   correctWalkthroughs();
   prepareWalkthroughs();
+  // A line about a provider a stop left unsaid is said now.
+  providers.resume();
   // A Keep tapped before a stop, or a decision not yet shown, is done now; so is an Approval, Edit, dismissal or lapse.
   plainWork(proposals.resume());
   plainWork(walkthroughs.resume());

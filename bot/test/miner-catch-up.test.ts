@@ -115,18 +115,19 @@ test('a date that can’t finish is tried every 30 minutes, and one silent #stat
     '2026-10-12T12:00:00.000Z': perTry,
     '2026-10-12T12:30:00.000Z': perTry,
   });
-  assert.deepEqual(world.discord.textMessages(STATUS), []);
+  const droppedOut = 'OpenRouter failing for Miner (503), trying again at 01:30 PT · Miner has no provider left';
+  assert.deepEqual(world.discord.textMessages(STATUS).map((l) => l.content), [droppedOut]);
 
   await world.advanceTo('2026-10-12T13:00:00Z'); // 06:00 PDT
   assert.equal(judgingRuns(world), 11 * perTry);
   const lines = world.discord.textMessages(STATUS);
-  assert.equal(lines.length, 1);
-  assert.match(
-    lines[0]!.content,
-    /^Miner: Mon Oct 12's list is late: its judging runs are failing \(.+\)\. The Miner tries again every 30 minutes until the date leaves the 3-day catch-up at 01:00 PT Thu Oct 15\.$/,
+  assert.equal(lines.length, 2);
+  assert.equal(
+    lines[1]!.content,
+    "Miner: Mon Oct 12's list is late: Miner has no provider left: OpenRouter failing (503). The Miner tries again every 30 minutes until the date leaves the 3-day catch-up at 01:00 PT Thu Oct 15.",
   );
-  assert.ok(lines[0]!.silent);
-  assert.ok(lines[0]!.mentionsNobody);
+  assert.ok(lines[1]!.silent);
+  assert.ok(lines[1]!.mentionsNobody);
 
   // The providers come back, and the next try, at 06:30 PDT, posts the list.
   world.model.failing = false;
@@ -135,7 +136,7 @@ test('a date that can’t finish is tried every 30 minutes, and one silent #stat
   await world.advanceTo('2026-10-12T13:30:00Z');
   assert.deepEqual(titles(world), ['Mon Oct 12 · 1 Dossier · line 7']);
   await world.advanceTo('2026-10-13T07:00:00Z');
-  assert.equal(world.discord.textMessages(STATUS).length, 1, 'the late line is said once');
+  assert.deepEqual(world.discord.textMessages(STATUS).slice(1).map((l) => l.content), [lines[1]!.content, 'OpenRouter is back for Miner'], 'the late line is said once');
 });
 
 test('a date that never finishes is tried until it leaves the 3-day window, then dropped with a #status line', async (t) => {

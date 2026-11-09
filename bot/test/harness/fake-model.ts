@@ -4,6 +4,17 @@
 // more if the bot says the Dossier is too long; for a Walkthrough preparation run, one record_walkthrough call, and
 // another if the bot refuses it and the test scripts one; for a Correction's sorting run, one record_sort call, and
 // another if the bot refuses it and the test scripts one. Usage is scripted too.
+//
+// A test can also have new-api answer a `role@provider` name with a `Fault` in place of a reply, and spend or revoke a
+// key, which `GET /api/usage/token/` then tells as new-api does. What new-api does to a provider's failure is anchored to
+// the trial on #46 (2026-11-09): a throwaway new-api of the live image, v1.0.0-rc.46, in front of a stub upstream. The
+// bodies of `limit`, `out-of-balance`, `bad-request`, `provider-key-refused`, `server-error`, `no-channel`, `cut-reply`
+// and `error-in-stream` with code 429 are what a client of it received, its request id left out. The upstream's own
+// bodies were those `research/model-limits` records for CPA, OpenRouter and DeepSeek: no real 429 or 402 from them has
+// been seen, so `X-RateLimit-Reset`'s unit, milliseconds, is the stub's. `user-quota` and `no-channel` were seen live, on
+// 2026-11-05 and 2026-11-06 (#85), in the same shape, and `key-quota` is as the research read it in new-api's source.
+// No real service was seen doing the rest: `hang-up`, `ended-early`, `odd-body`, `error-in-stream` with another code or
+// with `hangs`, and `junkLine`, each there for what the forwarder must do with any answer at all.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { readFileSync } from 'node:fs';
@@ -121,6 +132,37 @@ export interface SeenRun {
   requests: number;
 }
 
+/** What new-api answers for a `role@provider` name, in place of a reply. */
+export type Fault =
+  /** With `resetsAt`, OpenRouter's 429, whose `error.metadata` new-api keeps. Without, CPA's: new-api drops its `Retry-After` and `reset_seconds`. */
+  | { answer: 'limit'; resetsAt?: Date | string }
+  /** OpenRouter's 402. */
+  | { answer: 'out-of-balance' }
+  /** The request's own fault, such as a prompt too long for the model. */
+  | { answer: 'bad-request' }
+  /** A 401 from the provider, its own key refused: the role's key is fine. */
+  | { answer: 'provider-key-refused' }
+  | { answer: 'server-error'; status: 500 | 502 | 503 }
+  /** new-api's 503 when no channel serves the name. */
+  | { answer: 'no-channel' }
+  /** new-api's 403 once the user holding the keys falls short, which it answers before any channel. */
+  | { answer: 'user-quota' }
+  /** new-api's 403 once the key's quota doesn't cover the request, which the research read in its source. */
+  | { answer: 'key-quota' }
+  /** new-api is gone: the connection ends with no answer. */
+  | { answer: 'hang-up' }
+  /** The reply stops part way: new-api closes the stream with usage and `[DONE]`, and no `finish_reason`. */
+  | { answer: 'cut-reply' }
+  /**
+   * A provider's mid-stream limit: new-api relays its `finish_reason: "error"` chunk, then usage and `[DONE]`, a moment
+   * apart, as separate writes reach a client. With `hangs`, nothing follows the error and the connection stays open.
+   */
+  | { answer: 'error-in-stream'; code: number | string; hangs?: boolean }
+  /** A refusal with any body at all. */
+  | { answer: 'odd-body'; status: number; body: string }
+  /** A stream that simply ends part way, with no `[DONE]`. The trial never saw new-api do this, and nothing rules it out. */
+  | { answer: 'ended-early' };
+
 export class FakeModelProvider {
   readonly requests: ModelRequest[] = [];
   readonly runs: SeenRun[] = [];
@@ -192,8 +234,19 @@ export class FakeModelProvider {
   failing = false;
   /** The media type a streamed reply is labelled with; media types are case-insensitive. */
   contentType = 'text/event-stream';
+  /** How new-api answers each request in place of a reply, if it does. It counts as no turn of any run. */
+  fault: (request: ModelRequest) => Fault | undefined = () => undefined;
+  /** The model each provider reports in its replies, by the provider's name; `upstreamModel` for any other. */
+  upstreamModels: Record<string, string> = {};
+  /** What `GET /api/usage/token/` answers a key it knows, in place of its usage, as an answer the bot can't read. */
+  usageBody: string | null = null;
+  /** A line every reply opens with, for a value the forwarder must read past. No provider has been seen to send one. */
+  junkLine: string | null = null;
+  /** Keys whose quota has run out: a request gets new-api's 401, and their usage still reads, showing none left. */
+  readonly spentKeys = new Set<string>();
 
   #server: http.Server;
+  /** The keys new-api knows. */
   #keys: Set<string>;
   /** The run now going on; the bot runs one at a time. */
   #current: SeenRun | undefined;
@@ -215,6 +268,16 @@ export class FakeModelProvider {
     return `http://127.0.0.1:${(this.#server.address() as AddressInfo).port}/v1`;
   }
 
+  /** Takes a key away, as a deleted token: new-api answers it 401 everywhere, its usage included. */
+  revokeKey(key: string): void {
+    this.#keys.delete(key);
+  }
+
+  /** Gives a key back, as a person replacing a dead token would leave the bot with one that works. */
+  restoreKey(key: string): void {
+    this.#keys.add(key);
+  }
+
   async close(): Promise<void> {
     this.#server.closeAllConnections();
     await new Promise<void>((resolve) => this.#server.close(() => resolve()));
@@ -223,14 +286,29 @@ export class FakeModelProvider {
   async #handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     let raw = '';
     for await (const chunk of req) raw += chunk;
+    const token = req.headers.authorization?.replace(/^Bearer /, '');
+    const known = token !== undefined && this.#keys.has(token);
+    if (req.method === 'GET' && req.url === '/api/usage/token/') {
+      if (!known) return json(res, 401, { message: 'Invalid token', success: false });
+      if (this.usageBody !== null) {
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(this.usageBody);
+        return;
+      }
+      const available = this.spentKeys.has(token) ? 0 : 500_000;
+      json(res, 200, {
+        code: true,
+        data: { expires_at: 0, model_limits: {}, model_limits_enabled: false, name: 'role', object: 'token_usage', total_available: available, total_granted: 500_000, total_used: 500_000 - available, unlimited_quota: false },
+        message: 'ok',
+      });
+      return;
+    }
     if (req.method !== 'POST' || req.url !== '/v1/chat/completions') {
       res.writeHead(404).end();
       return;
     }
-    const token = req.headers.authorization?.replace(/^Bearer /, '');
-    if (!token || !this.#keys.has(token)) {
-      res.writeHead(401, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Invalid token', type: 'new_api_error' } }));
+    if (!known || this.spentKeys.has(token)) {
+      json(res, 401, { error: { code: '', message: 'Invalid token', type: 'new_api_error' } });
       return;
     }
     const body = JSON.parse(raw) as {
@@ -239,7 +317,10 @@ export class FakeModelProvider {
       tools?: { function: { name: string } }[];
     };
     const tools = (body.tools ?? []).map((t) => t.function.name);
-    this.requests.push({ authorization: req.headers.authorization, model: body.model, messages: body.messages, tools, raw });
+    const request: ModelRequest = { authorization: req.headers.authorization, model: body.model, messages: body.messages, tools, raw };
+    this.requests.push(request);
+    const fault = this.fault(request);
+    if (fault && this.#answerWith(fault, body.model, res)) return;
     const startsRun = !body.messages.some((m) => m.role === 'assistant');
     if (startsRun) {
       const judging = tools.includes('record_judgment');
@@ -273,10 +354,10 @@ export class FakeModelProvider {
 
     const n = this.requests.length;
     res.writeHead(200, { 'content-type': this.contentType });
+    if (this.junkLine) res.write(`${this.junkLine}\n\n`);
+    const model = this.upstreamModels[body.model.split('@')[1] ?? ''] ?? this.upstreamModel;
     const send = (choices: unknown[], extra: Record<string, unknown> = {}) =>
-      res.write(
-        `data: ${JSON.stringify({ id: `chatcmpl-${n}`, object: 'chat.completion.chunk', created: 1, model: this.upstreamModel, choices, ...extra })}\n\n`,
-      );
+      res.write(`data: ${JSON.stringify({ id: `chatcmpl-${n}`, object: 'chat.completion.chunk', created: 1, model, choices, ...extra })}\n\n`);
     const callTools = (calls: Record<string, unknown>[], name = 'record_judgment') => {
       send([
         {
@@ -358,6 +439,75 @@ export class FakeModelProvider {
     if (this.endDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, this.endDelayMs));
     res.end();
   }
+
+  /** Answers with the fault, as the trial on #46 saw new-api do. Returns whether the request is answered. */
+  #answerWith(fault: Fault, model: string, res: http.ServerResponse): boolean {
+    const usage = { prompt_tokens: 9, completion_tokens: 2, total_tokens: 11, prompt_tokens_details: { cached_tokens: 0 } };
+    const chunk = (fields: Record<string, unknown>) => `data: ${JSON.stringify({ id: 'x', object: 'chat.completion.chunk', created: 1, model, ...fields })}\n\n`;
+    const partial = chunk({ choices: [{ index: 0, delta: { role: 'assistant', content: 'partial' }, finish_reason: null }] });
+    const closing = `${chunk({ choices: [], usage })}data: [DONE]\n\n`;
+    switch (fault.answer) {
+      case 'limit': {
+        if (fault.resetsAt === undefined) {
+          json(res, 429, { error: { message: 'All credentials for model gpt-6 are cooling down via provider codex', type: 'upstream_error', param: '', code: 'model_cooldown' } });
+          return true;
+        }
+        const reset = fault.resetsAt instanceof Date ? String(fault.resetsAt.getTime()) : fault.resetsAt;
+        const metadata = { error_type: 'rate_limit_exceeded', headers: { 'X-RateLimit-Limit': '50', 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': reset } };
+        json(res, 429, { error: { message: `Rate limit exceeded: free-models-per-day. (${JSON.stringify(metadata)})`, type: 'upstream_error', param: '', code: 429, metadata } });
+        return true;
+      }
+      case 'out-of-balance': {
+        const metadata = { limit_source: 'openrouter_credits' };
+        json(res, 402, { error: { message: `Insufficient credits. Add more using https://openrouter.ai/settings/credits (${JSON.stringify(metadata)})`, type: 'upstream_error', param: '', code: 402, metadata } });
+        return true;
+      }
+      case 'bad-request':
+        json(res, 400, { error: { message: 'context_length_exceeded: too long', type: 'invalid_request_error', param: '', code: 'context_length_exceeded' } });
+        return true;
+      case 'provider-key-refused':
+        json(res, 401, { error: { message: 'Invalid API key', type: 'authentication_error', param: '', code: null } });
+        return true;
+      case 'server-error':
+        if (fault.status === 502) json(res, 502, { error: { message: 'openai_error', type: 'bad_response_status_code', param: '', code: 'bad_response_status_code' } });
+        else json(res, fault.status, { error: { message: fault.status === 500 ? 'Internal error' : 'Overloaded', type: 'server_error', param: '', code: null } });
+        return true;
+      case 'no-channel':
+        json(res, 503, { error: { code: 'model_not_found', message: `No available channel for model ${model} under group default (distributor)`, type: 'new_api_error' } });
+        return true;
+      case 'user-quota':
+        json(res, 403, { error: { message: '用户额度不足, 剩余额度: ＄-0.127512', type: 'new_api_error', param: '', code: 'insufficient_user_quota' } });
+        return true;
+      case 'key-quota':
+        json(res, 403, { error: { message: 'token quota is not enough, token remain quota: 0, need quota: 1000', type: 'new_api_error', param: '', code: 'pre_consume_token_quota_failed' } });
+        return true;
+      case 'hang-up':
+        res.destroy();
+        return true;
+      case 'cut-reply':
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.end(`${partial}${closing}`);
+        return true;
+      case 'error-in-stream':
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write(`${partial}${chunk({ error: { code: fault.code, message: 'Rate limit exceeded' }, choices: [{ index: 0, delta: { content: '' }, finish_reason: 'error' }] })}`);
+        if (!fault.hangs) setTimeout(() => res.end(closing), 50);
+        return true;
+      case 'odd-body':
+        res.writeHead(fault.status, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(fault.body);
+        return true;
+      case 'ended-early':
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.end(partial);
+        return true;
+    }
+  }
+}
+
+function json(res: http.ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(body));
 }
 
 /** The keys a Dossier run's prompt says it may cite. */
