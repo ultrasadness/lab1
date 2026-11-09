@@ -73,7 +73,14 @@ async function vm(t: TestContext): Promise<Vm> {
       res.writeHead(status, { 'content-type': 'application/json' });
       res.end(JSON.stringify(value));
     };
-    if (url.pathname === '/discord/users/@me') return auth === 'Bot good-discord' ? json(200, { username: 'lab1-assistant' }) : json(401, { message: '401: Unauthorized' });
+    if (url.pathname === '/discord/users/@me') {
+      if (auth === 'Bot good-discord') return json(200, { username: 'lab1-assistant' });
+      // A refusal in the fields Bitwarden's token endpoint answered #54 with, beside a field that says nothing about why.
+      if (auth === 'Bot no-header') return json(400, { error: 'version_header_missing', error_description: 'No client version header found.', echoed: 'a-field-nothing-names' });
+      if (auth === 'Bot long-reason') return json(400, { message: `line one\n${'x'.repeat(1000)}` });
+      if (auth === 'Bot echoed-value') return json(401, { message: 'no such token: echoed-value' });
+      return json(401, { message: '401: Unauthorized' });
+    }
     if (url.pathname === '/producthunt') {
       if (auth !== 'Bearer good-ph') return json(401, { error: 'invalid_oauth_token' });
       return json(200, { data: { posts: { edges: [{ node: { id: '1' } }] } } });
@@ -86,6 +93,7 @@ async function vm(t: TestContext): Promise<Vm> {
     }
     if (url.pathname === '/google/token') {
       const form = new URLSearchParams(text);
+      if (form.get('client_id') === 'unauthorized.apps.googleusercontent.com') return json(400, { error: 'unauthorized_client', error_description: 'Unauthorized' });
       if (form.get('client_id') !== 'client.apps.googleusercontent.com' || form.get('client_secret') !== 'good-secret') return json(401, { error: 'invalid_client' });
       if (form.get('grant_type') === 'refresh_token') {
         return form.get('refresh_token') === 'good-refresh' ? json(200, { access_token: 'good-access', scope: GMAIL_SCOPE }) : json(400, { error: 'invalid_grant' });
@@ -208,6 +216,33 @@ test('a value that fails its check changes nothing', async (t) => {
   assert.equal(machine.systemctl(), '');
 });
 
+// On #54, Bitwarden's 400 said why in its body and ops/token showed only the status, so a script had to go and read it,
+// and that script printed a session key into an agent's session.
+test("a refusal gives the service's own reason, from the fields that hold one and no others", async (t) => {
+  const machine = await vm(t);
+  const flat = await opsToken(machine, ['discord-bot-token'], [{ after: /Paste/, type: 'no-header' }]);
+  assert.equal(flat.code, 1);
+  assert.match(flat.out, /Nothing changed: Discord answered with 400: version_header_missing; No client version header found\.$/m);
+  assert.doesNotMatch(flat.out, /a-field-nothing-names/);
+
+  const nested = await opsToken(machine, ['newapi-key-miner'], [{ after: /Paste/, type: 'revoked' }]);
+  assert.match(nested.out, /Nothing changed: new-api refused it with 401: invalid token\.$/m);
+
+  // Google's check has already read the body, to tell a good client from a bad one.
+  const client = JSON.stringify({ installed: { client_id: 'unauthorized.apps.googleusercontent.com', client_secret: 'any' } });
+  const read = await opsToken(machine, ['gmail-client-secret'], [{ after: /Paste/, type: client }]);
+  assert.match(read.out, /Nothing changed: Google answered with 400: unauthorized_client; Unauthorized\.$/m);
+
+  const long = await opsToken(machine, ['discord-bot-token'], [{ after: /Paste/, type: 'long-reason' }]);
+  assert.match(long.out, /Nothing changed: Discord answered with 400: line one x+…\.$/m);
+  assert.ok(long.out.length < 500, `a reason is cut short:\n${long.out}`);
+
+  // A body that isn't JSON names no field, so the status stands alone.
+  const base = JSON.parse(machine.env.OPS_ENDPOINTS!).googleToken.replace('/google/token', '');
+  const plain = await opsToken(machine, ['healthchecks-ping-bot'], [{ after: /Paste/, type: `${base}/hc/unknown` }]);
+  assert.match(plain.out, /Nothing changed: healthchecks\.io answered with 404\.$/m);
+});
+
 test("the bot isn't started while another of its tokens is missing, and the person is told which", async (t) => {
   const machine = await vm(t);
   const ran = await opsToken(machine, ['newapi-key-miner'], [{ after: /Paste/, type: 'good-key' }]);
@@ -257,7 +292,7 @@ test('the check mode reports each token in place, and fails while one is dead', 
   const ran = await opsToken(machine, ['--check']);
   assert.equal(ran.code, 1);
   assert.match(ran.out, /^discord-bot-token: works \(Discord knows it as the bot lab1-assistant\)$/m);
-  assert.match(ran.out, /^newapi-key-registration: DEAD \(new-api refused it with 401\); replace it with ops\/token newapi-key-registration$/m);
+  assert.match(ran.out, /^newapi-key-registration: DEAD \(new-api refused it with 401: invalid token\); replace it with ops\/token newapi-key-registration$/m);
   assert.match(ran.out, /^healthchecks-ping-bot: works \(healthchecks\.io took a log event on it\)$/m);
   assert.equal(machine.systemctl(), '');
 });
@@ -414,14 +449,24 @@ function placeBw(machine: Vm, collections: string[] = ['Registrations']): void {
 echo "$* data=$BITWARDENCLI_APPDATA_DIR session=$BW_SESSION" >> "$OPS_ROOT/bw.log"
 case "$1" in
   login)
-    # Every run on a new data folder says this first, as the real one does.
+    # Every run on a new data folder says this first, as the trial on #54 saw.
     echo "Could not find data file, \\"$BITWARDENCLI_APPDATA_DIR/data.json\\"; creating it instead." >&2
+    case "$BW_CLIENTSECRET" in
+      # A login that never ends, as the real one does on a port that doesn't answer (#54's review tried it), having said
+      # something else first, and one that fails saying nothing.
+      hangs) echo 'a warning before it hangs' >&2; echo $$ > "$OPS_ROOT/bw.pid"; exec sleep 60 ;;
+      silent) exit 1 ;;
+    esac
     [ "$BW_CLIENTID" = user.0b1c2d3e-0000-4000-8000-000000000001 ] && [ "$BW_CLIENTSECRET" = good-bw ] || { echo 'client_id or client_secret is incorrect. Try again.' >&2; exit 1; }
-    # With --nointeraction its message holds a session key, as the real one's does.
+    # With --nointeraction its message holds a session key, as the trial on #54 saw.
     echo 'You are logged in! ex: $ bw list items --session the-login-key' ;;
   unlock) [ "$BW_PASSWORD" = good-master ] || { echo 'Invalid master password.' >&2; exit 1; }; printf 'the-session-key' ;;
-  sync) echo 'Syncing complete.' ;;
-  list) printf '%s' '${listed}' ;;
+  sync)
+    [ ! -e "$OPS_ROOT/bw-cant-sync" ] || { echo 'Syncing failed: connect ECONNREFUSED' >&2; exit 1; }
+    echo 'Syncing complete.' ;;
+  list)
+    [ ! -e "$OPS_ROOT/bw-cant-list" ] || { echo 'Vault is locked.' >&2; exit 1; }
+    printf '%s' '${listed}' ;;
   logout) echo 'You have logged out.' ;;
   *) echo "Invalid command: $*" >&2; exit 1 ;;
 esac
@@ -483,6 +528,7 @@ test('Bitwarden: the master password is checked as the bot will use it, in a thr
   const placed = await opsToken(machine, ['bitwarden-master-password'], [{ after: /Paste/, type: 'good-master' }]);
   assert.equal(placed.code, 0, placed.out);
   assert.match(placed.out, /bw unlocks with it, and the bot's account sees only Registrations/);
+  assert.ok(!placed.out.includes('the-login-key') && !placed.out.includes('the-session-key'), "what bw's login and unlock print isn't shown");
   assert.equal(readFileSync(join(machine.credentials, 'bitwarden-master-password'), 'utf8'), 'good-master');
 
   const log = readFileSync(join(machine.root, 'bw.log'), 'utf8');
@@ -500,6 +546,91 @@ test('Bitwarden: an account that sees more than the Registrations collection is 
   assert.equal(ran.code, 1);
   assert.match(ran.out, /Nothing changed: the bot's account sees 2 collections, and should see only Registrations/);
   assert.ok(!existsSync(join(machine.credentials, 'bitwarden-master-password')));
+});
+
+test("Bitwarden: a sync or a list that fails gives bw's reason, and nothing bw printed before it", async (t) => {
+  const machine = await vm(t);
+  placeApiKey(machine);
+  placeBw(machine);
+  for (const [marker, said] of [
+    ['bw-cant-sync', /Nothing changed: bw can't sync: Syncing failed: connect ECONNREFUSED\.$/m],
+    ['bw-cant-list', /Nothing changed: bw can't list the account's collections: Vault is locked\.$/m],
+  ] as const) {
+    writeFileSync(join(machine.root, marker), '');
+    const ran = await opsToken(machine, ['bitwarden-master-password'], [{ after: /Paste/, type: 'good-master' }]);
+    rmSync(join(machine.root, marker));
+    assert.equal(ran.code, 1, ran.out);
+    assert.match(ran.out, said);
+    assert.ok(!ran.out.includes('the-login-key') && !ran.out.includes('the-session-key'), `a key showed:\n${ran.out}`);
+  }
+});
+
+test('Bitwarden: a bw that hangs or says nothing is reported as that, not by its line about the data folder', async (t) => {
+  const machine = await vm(t);
+  placeBw(machine);
+  const quick = { ...machine, env: { ...machine.env, OPS_COMMAND_TIMEOUT_MS: '500' } };
+  const hung = await opsToken(quick, ['bitwarden-api-key'], typeApiKey('hangs'));
+  assert.equal(hung.code, 1, hung.out);
+  assert.match(hung.out, /Nothing changed: bw can't log in with the API key: killed after 0\.5 seconds\.$/m);
+
+  const silent = await opsToken(machine, ['bitwarden-api-key'], typeApiKey('silent'));
+  assert.equal(silent.code, 1, silent.out);
+  assert.match(silent.out, /Nothing changed: bw can't log in with the API key: it said nothing\.$/m);
+});
+
+test('Bitwarden: stopping ops/token stops the bw it started, which holds a Secret in its environment, and removes its data folder', async (t) => {
+  const machine = await vm(t);
+  placeBw(machine);
+  const child = spawn(OPS_TOKEN, ['bitwarden-api-key'], { env: machine.env, stdio: ['pipe', 'pipe', 'pipe'] });
+  child.stdin.end('user.0b1c2d3e-0000-4000-8000-000000000001\nhangs\n');
+  const closed = new Promise<number | null>((resolve) => child.once('close', (code) => resolve(code)));
+  const pause = () => new Promise((resolve) => setTimeout(resolve, 50));
+  const pidFile = join(machine.root, 'bw.pid');
+  const started = Date.now() + 20_000;
+  while (!existsSync(pidFile) && Date.now() < started) await pause();
+  const pid = Number(readFileSync(pidFile, 'utf8'));
+  const alive = () => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  t.after(() => {
+    if (alive()) process.kill(pid, 'SIGKILL');
+  });
+  child.kill('SIGTERM');
+  assert.equal(await closed, 143);
+  const gone = Date.now() + 5_000;
+  while (alive() && Date.now() < gone) await pause();
+  assert.ok(!alive(), 'bw runs on, with the API key in its environment');
+  assert.deepEqual(readdirSync(machine.credentials).filter((name) => name.startsWith('.')), [], 'no data folder is left');
+});
+
+test('what a check says never holds the value it was given', async (t) => {
+  const machine = await vm(t);
+  const echoed = await opsToken(machine, ['discord-bot-token'], [{ after: /Paste/, type: 'echoed-value' }]);
+  assert.match(echoed.out, /Nothing changed: Discord refused it with 401: no such token: <the value>\.$/m);
+  assert.doesNotMatch(echoed.out, /echoed-value/);
+  machine.put('discord-bot-token', 'echoed-value');
+  const inPlace = await opsToken(machine, ['--check', 'discord-bot-token']);
+  assert.match(inPlace.out, /^discord-bot-token: DEAD \(Discord refused it with 401: no such token: <the value>\)/m);
+  assert.doesNotMatch(inPlace.out, /echoed-value/);
+
+  // Node refuses to hand on a value holding a NUL, and quotes the value in the error it throws.
+  placeBw(machine);
+  const thrown = await opsToken(machine, ['bitwarden-api-key'], typeApiKey('good\0part-of-the-secret'));
+  assert.match(thrown.out, /Nothing changed: the check failed: TypeError ERR_INVALID_ARG_VALUE\.$/m);
+  assert.doesNotMatch(thrown.out, /part-of-the-secret/);
+
+  // A service that can't be reached still says what kind of failure it was.
+  const nobody = createServer();
+  await new Promise<void>((resolve) => nobody.listen(0, '127.0.0.1', resolve));
+  const { port } = nobody.address() as AddressInfo;
+  await new Promise((resolve) => nobody.close(resolve));
+  const down = await opsToken(machine, ['healthchecks-ping-bot'], [{ after: /Paste/, type: `http://127.0.0.1:${port}/unreachable` }]);
+  assert.match(down.out, /Nothing changed: the check failed: TypeError ECONNREFUSED\.$/m);
 });
 
 test('ops/token names every token ADR 0009 lists, and the bot unit hands over each one the bot reads', async (t) => {

@@ -12,7 +12,7 @@
 //
 // With OPS_ROOT set (the tests), every fixed path is taken under it, systemctl and the rest come from PATH, and
 // OPS_ENDPOINTS may name other addresses for Google.
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { accessSync, constants, existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,6 +32,10 @@ const BW = `${ROOT}/opt/assistant/bw/node_modules/.bin/bw`;
 const BOT_UNIT = 'assistant.service';
 const HTTP_TIMEOUT_MS = 20_000;
 const COMMAND_TIMEOUT_MS = TESTING && process.env.OPS_COMMAND_TIMEOUT_MS ? Number(process.env.OPS_COMMAND_TIMEOUT_MS) : 60_000;
+/** What opens a command's stderr once `run` has killed it. */
+const KILLED = 'killed after';
+/** How much of a service's reason for a refusal is shown. */
+const REASON_MAX = 200;
 /** How long the deploy key's prompt waits for the person to add the key to GitHub. */
 const PERSON_WAIT_MS = 30 * 60_000;
 
@@ -141,7 +145,7 @@ const TOKENS: Token[] = [
         method: 'POST',
         body: new URLSearchParams({ grant_type: 'authorization_code', code: '4/not-a-real-code', redirect_uri: GMAIL_REDIRECT, code_verifier: 'x'.repeat(43), ...client }),
       });
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      const body = (await response.clone().json().catch(() => ({}))) as { error?: string };
       if (body.error === 'invalid_grant' || body.error === 'invalid_request') return { ok: true, note: 'Google accepts this client id and secret' };
       if (body.error === 'invalid_client') return { ok: false, why: 'Google refuses this client id and secret (invalid_client)' };
       return refusedBy('Google', response);
@@ -200,9 +204,9 @@ const TOKENS: Token[] = [
         if (!unlock.ok) return { ok: false, why: 'bw refuses this master password' };
         const session = { ...env, BW_SESSION: unlock.stdout.trim() };
         const sync = await run(BW, ['sync', '--nointeraction'], session);
-        if (!sync.ok) return { ok: false, why: `bw can't sync: ${lastLine(sync.stderr)}` };
+        if (!sync.ok) return { ok: false, why: `bw can't sync: ${bwReason(sync.stderr)}` };
         const listed = await run(BW, ['list', 'collections', '--nointeraction'], session);
-        if (!listed.ok) return { ok: false, why: `bw can't list the account's collections: ${lastLine(listed.stderr)}` };
+        if (!listed.ok) return { ok: false, why: `bw can't list the account's collections: ${bwReason(listed.stderr)}` };
         return registrationsOnly(listed.stdout);
       });
     },
@@ -252,8 +256,15 @@ function clientPair(text: string): { client_id: string; client_secret: string } 
   return undefined;
 }
 
-/** bw's own reason for a failure: on a new data folder, its stderr opens with lines saying it made one. */
-const lastLine = (stderr: string): string => (stderr.trim().split('\n').at(-1) ?? '').replace(/\.$/, '');
+/**
+ * Why bw failed: `run`'s kill when there was one, since a bw that hangs may have said only that it made its data folder,
+ * or else its last line, since on a new data folder its stderr opens with a line saying it made one.
+ */
+function bwReason(stderr: string): string {
+  const lines = stderr.split('\n').filter((line) => line.trim() && !line.startsWith('Could not find data file'));
+  const said = lines[0]?.startsWith(KILLED) ? lines[0] : lines.at(-1);
+  return said?.trim().replace(/\.$/, '') || 'it said nothing';
+}
 
 /**
  * Logs bw in with the API key in a throwaway data folder, as the bot logs in, asks `then` what it needs of the account,
@@ -266,7 +277,7 @@ async function loggedInBw(key: { client_id: string; client_secret: string }, the
   try {
     const env = { ...process.env, PATH: `${dirname(process.execPath)}:${process.env.PATH ?? ''}`, BITWARDENCLI_APPDATA_DIR: data };
     const login = await run(BW, ['login', '--apikey', '--nointeraction'], { ...env, BW_CLIENTID: key.client_id, BW_CLIENTSECRET: key.client_secret });
-    if (!login.ok) return { ok: false, why: `bw can't log in with the API key: ${lastLine(login.stderr)}` };
+    if (!login.ok) return { ok: false, why: `bw can't log in with the API key: ${bwReason(login.stderr)}` };
     try {
       return await then(env);
     } finally {
@@ -291,6 +302,11 @@ function registrationsOnly(listed: string): Checked {
 
 /** The folders holding a secret while ops/token works with it, each removed when it is done or stopped. */
 const secretDirs = new Set<string>();
+/**
+ * The commands running now, stopped with ops/token: they run in groups of their own, so they would outlive it, with
+ * Secrets in their environments, and a bw would write its data folder again once that folder was gone.
+ */
+const running = new Set<ChildProcess>();
 
 /**
  * A folder for a secret in the making, such as the deploy key while GitHub is asked: inside the credentials folder,
@@ -315,6 +331,7 @@ function forget(dir: string): void {
 // Ctrl-C at a prompt shown as typed, or an SSH app that drops, ends ops/token: no secret it holds stays behind.
 for (const [signal, code] of [['SIGINT', 130], ['SIGHUP', 129], ['SIGTERM', 143]] as const) {
   process.once(signal, () => {
+    for (const child of running) kill(child);
     for (const dir of secretDirs) rmSync(dir, { recursive: true, force: true });
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
     process.exit(code);
@@ -447,9 +464,34 @@ async function request(url: string, init: RequestInit = {}): Promise<Response> {
   return fetch(url, { ...init, signal: AbortSignal.timeout(HTTP_TIMEOUT_MS) });
 }
 
+/**
+ * Why a service refused, from the fields Google, Discord and new-api say it in, and no others: the rest of a body may
+ * echo what it was sent, and the person may paste this anywhere. It is one short line, or nothing.
+ */
+async function reasonIn(response: Response): Promise<string> {
+  const body = (await response.json().catch(() => undefined)) as { error?: unknown; error_description?: unknown; message?: unknown } | undefined;
+  const nested = typeof body?.error === 'object' && body.error !== null ? (body.error as { message?: unknown }).message : undefined;
+  const said = [body?.error, nested, body?.error_description, body?.message].filter((part): part is string => typeof part === 'string' && part !== '');
+  const reason = said.join('; ').replace(/[\s\x00-\x1f\x7f]+/g, ' ').trim().replace(/\.$/, '');
+  return reason.length > REASON_MAX ? `${reason.slice(0, REASON_MAX)}…` : reason;
+}
+
 async function refusedBy(who: string, response: Response): Promise<Checked> {
   const dead = response.status === 401 || response.status === 403;
-  return { ok: false, why: `${who} ${dead ? 'refused it' : 'answered'} with ${response.status}` };
+  const reason = await reasonIn(response);
+  return { ok: false, why: `${who} ${dead ? 'refused it' : 'answered'} with ${response.status}${reason ? `: ${reason}` : ''}` };
+}
+
+/** What a check that threw met: the error's kind, never its message, which can quote what it was handed, as spawn's does. */
+function kindOf(e: unknown): string {
+  const { name, code, cause } = (e ?? {}) as { name?: unknown; code?: unknown; cause?: { code?: unknown } };
+  return [name, typeof code === 'string' ? code : cause?.code].filter((part) => typeof part === 'string').join(' ');
+}
+
+/** A token's check, whose answer the person may paste anywhere, so it never holds the value it was given. */
+async function checkOf(token: Token, value: string, context: Context): Promise<Checked> {
+  const checked = await token.check(value, context).catch((e: unknown): Checked => ({ ok: false, why: `the check failed: ${kindOf(e)}` }));
+  return checked.ok || !value ? checked : { ok: false, why: checked.why.replaceAll(value, '<the value>') };
 }
 
 /**
@@ -464,11 +506,12 @@ function run(
 ): Promise<{ ok: boolean; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const child = spawn(command, args, { env, stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'], detached: true });
+    running.add(child);
     let stdout = '';
     let stderr = '';
     let waiting = typeof input === 'object' ? input : undefined;
     const killer = setTimeout(() => {
-      stderr = `killed after ${COMMAND_TIMEOUT_MS / 1000} seconds\n${stderr}`;
+      stderr = `${KILLED} ${COMMAND_TIMEOUT_MS / 1000} seconds\n${stderr}`;
       kill(child);
     }, COMMAND_TIMEOUT_MS);
     child.stdout!.on('data', (chunk: Buffer) => {
@@ -484,6 +527,7 @@ function run(
     child.once('error', (e) => (stderr += e.message));
     child.once('close', (code) => {
       clearTimeout(killer);
+      running.delete(child);
       resolve({ ok: code === 0, stdout, stderr });
     });
   });
@@ -633,7 +677,7 @@ async function main(args: string[]): Promise<number> {
         dead++;
         continue;
       }
-      const checked = await token.check(value, context).catch((e: unknown): Checked => ({ ok: false, why: `the check failed: ${(e as Error).message}` }));
+      const checked = await checkOf(token, value, context);
       say(checked.ok ? `${name}: works (${checked.note})` : `${name}: DEAD (${checked.why}); replace it with ops/token ${name}`);
       if (!checked.ok) dead++;
     }
@@ -663,7 +707,7 @@ async function main(args: string[]): Promise<number> {
     say('Nothing changed: nothing was pasted.');
     return 1;
   }
-  const checked = await token.check(obtained, context).catch((e: unknown): Checked => ({ ok: false, why: `the check failed: ${(e as Error).message}` }));
+  const checked = await checkOf(token, obtained, context);
   if (!checked.ok) {
     say(`Nothing changed: ${checked.why}.`);
     return 1;
