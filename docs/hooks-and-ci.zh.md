@@ -26,7 +26,7 @@
 
 GitHub Actions 在每次 push 和 pull request 时运行两个 workflow，所以浏览器那边的运行慢了或失败了，也不会遮住机器人的结果：
 
-- **Bot**（`.github/workflows/bot.yml`）：根目录的类型检查、文档配对检查、shell 检查和根目录的测试。测试分成三个分片，各是一个独立的 job（`TEST_SHARD`，`npm test` 把它作为 `--test-shard` 传给 `node --test`），第一个 job 还运行类型检查、文档配对检查和 shell 检查。在 #53 里，原来那一个 job 用掉了 15 分钟里的 11.5 分钟。每个 job 的摘要会列出它最慢的测试和它的总耗时（`scripts/slowest-tests.ts`），这样某个测试快到 60 秒、或者某个分片快到 15 分钟时，在失败之前就能看出来。在 #92 里，VM 上完整跑一次 `npm test` 用了 9.4 分钟，接近会话前台命令的 10 分钟上限。所以会话要把它放到后台跑；如果 diff 只有文档和某个检查的测试，就只跑那个测试，其余交给分支的 CI。
+- **Bot**（`.github/workflows/bot.yml`）：根目录的类型检查、文档配对检查、shell 检查和根目录的测试。测试分成三个分片，各是一个独立的 job（`TEST_SHARD`，`npm test` 把它作为 `--test-shard` 传给 `node --test`），第一个 job 还运行类型检查、文档配对检查和 shell 检查。在 #53 里，原来那一个 job 用掉了 15 分钟里的 11.5 分钟。每个 job 的摘要会列出它最慢的测试和它的总耗时（`scripts/slowest-tests.ts`），这样某个测试快到 60 秒、或者某个分片快到 15 分钟时，在失败之前就能看出来。在 #92 里，VM 上完整跑一次 `npm test` 用了 9.4 分钟，接近会话前台命令的 10 分钟上限。所以会话要把它放到后台跑；如果 diff 只有文档和某个检查的测试，就只跑那个测试，其余交给分支的 CI。测试进程死于原生错误时会留下 core file，因为 Node 的 `--report-on-fatalerror` 不覆盖 V8 自己的 `Check failed`，这一点 #105 试过。失败的 job 用 `gdb` 从 core file 打印每个线程的栈，并把它作为 artifact `core-files-shard-<n>` 保留 7 天。
 - **Browser**（`.github/workflows/browser.yml`）：在 `browser/` 里运行 `npm ci`、类型检查和测试。测试会构建镜像，并通过 Docker Compose 启动它。runner 是 amd64 的，所以测试的是固定 digest 里的 amd64 镜像，而 VM 上运行的是其中的 arm64 镜像。
 
 ## 测试
@@ -37,6 +37,6 @@ GitHub Actions 在每次 push 和 pull request 时运行两个 workflow，所以
 - `scripts/reply-language.test.ts`、`scripts/note-language.test.ts` 和 `scripts/review-committed.test.ts` 像会话那样运行每个 Claude Code hook，用的是一份用完即弃的会话记录或一个用完即弃的仓库。`scripts/slowest-tests.test.ts` 在一次运行的输出上运行 CI 摘要。
 - `scripts/doc-pairs.test.ts` 在用完即弃的文档对上运行文档配对检查，`scripts/check-shell.test.ts` 在用完即弃的目录上运行 shell 检查。
 - `scripts/bounded-waits.test.ts`：某个 `spawnSync`、`execSync` 或 `execFileSync` 调用自己的参数里没有 `timeout` 时，它就失败：同步的子进程会阻塞事件循环，所以别的定时器都结束不了它（`CODING_STANDARDS.md` 里的 **Every wait has a bound**）。
-- `scripts/bot-imports.test.ts`：`bot/src` 导入的某个模块既不是 Node 自己的（`node:`），也不是机器人自己的文件时，它就失败：机器人自己没有任何 npm 依赖（`bot/README.md`），`graphql` 只给测试和 schema 抓取用。
+- `scripts/bot-imports.test.ts`：`bot/src` 导入的某个模块既不是 Node 自己的（`node:`），也不是机器人自己的文件时，它就失败：机器人自己没有任何 npm 依赖（`bot/README.md`），`graphql` 只给测试和 schema 抓取用。它也会在那里遇到 `node:worker_threads` 时失败，因为第二个运行 Wasm 的线程可能让 Node 24 崩溃（#105）。
 - `scripts/bot-test-imports.test.ts`：`bot/test/` 下、`bot/test/harness/` 以外的某个文件导入 `bot/src` 下的文件时，它就失败：测试只经由 harness 接触机器人（`bot/README.md`），而从 `bot/src` 导入的测试断言的是机器人怎样构造某样东西。
 - `scripts/bot-test-store.test.ts`：`bot/test/` 下的某个文件写出 `node:sqlite` 时，它就失败，`bot/test/store-schema.test.ts` 和 `bot/test/health-ping.test.ts` 除外：机器人的测试不打开实时存储（`CODING_STANDARDS.md` 的 **What a test asserts on**）。

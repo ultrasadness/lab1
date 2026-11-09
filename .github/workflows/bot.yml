@@ -33,11 +33,41 @@ jobs:
       - run: command -v shellcheck || sudo apt-get install -y shellcheck
       - run: npm run check:shell
         if: ${{ matrix.shard == 1 }}
+      # A test process that dies of a native error prints little, and Node's report on a fatal error doesn't cover V8's
+      # own `Check failed` (tried on #105). So the kernel keeps a core file, which the last two steps read and keep.
+      - name: Have the kernel write core files
+        run: |
+          mkdir -p "$RUNNER_TEMP/cores"
+          sudo sysctl -w "kernel.core_pattern=$RUNNER_TEMP/cores/core.%e.%p"
       # bash runs with pipefail here, so a failing run still fails this step.
-      - run: npm test 2>&1 | tee test-output.txt
+      - run: |
+          ulimit -c unlimited
+          npm test 2>&1 | tee test-output.txt
         shell: bash
         env:
           TEST_SHARD: ${{ matrix.shard }}/3
       - name: List the slowest tests
         if: ${{ !cancelled() && hashFiles('test-output.txt') != '' }}
         run: node scripts/slowest-tests.ts < test-output.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Say what each thread of a crashed process was doing
+        if: ${{ failure() }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          cores=("$RUNNER_TEMP"/cores/core.*)
+          [ "${#cores[@]}" -gt 0 ] || exit 0
+          sudo apt-get update -q
+          sudo apt-get install -y gdb
+          for core in "${cores[@]}"; do
+            echo "::group::$core"
+            gdb --batch -ex 'info threads' -ex 'thread apply all bt' "$(command -v node)" "$core"
+            echo "::endgroup::"
+          done
+      - name: Keep the core files of a failed job
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: core-files-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/cores
+          if-no-files-found: ignore
+          retention-days: 7

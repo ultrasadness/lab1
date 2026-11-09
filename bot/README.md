@@ -85,7 +85,10 @@ no outside call beside it can't be reached this way. A kill differs from a crash
 handle closes cleanly, so no test exercises SQLite's recovery of its write-ahead log, and the next bot reads the same
 commits either way. And what the bot started ends at once, where on the VM a git command gets SIGTERM first, from
 systemd, and Pi, in its container, is told to end through its stdin and can no longer reach a model
-(`ops/README.md`). #96 says why the bot runs in a thread.
+(`ops/README.md`). #96 says why the bot runs in a thread. That thread makes two in the test's process that run Wasm,
+which can crash Node 24's V8 (#105), so `bot/test/harness/bot-thread.ts` turns off V8's Wasm code GC there, until a
+Node 24 release holds the fix (nodejs/node#66376). The bot on the VM has one such thread: `npm test` fails a `node:worker_threads` import under `bot/src`
+(`scripts/bot-imports.test.ts`).
 
 The fake browser service answers `read(url)` and `redirect(url)` on a Unix socket. Each Launch's website redirect leads
 to a plain site of its own on `.example`, with a pricing page and a signup page, unless a test serves a real Product's

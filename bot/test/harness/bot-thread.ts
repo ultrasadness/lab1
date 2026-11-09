@@ -5,10 +5,18 @@
 // frozen in the test's own thread, on its comments.
 import { execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
+import { setFlagsFromString } from 'node:v8';
 import { MessageChannel, receiveMessageOnPort, Worker, type MessagePort } from 'node:worker_threads';
 import type { Assistant, LogEntry } from '../../src/assistant.ts';
 import type { Config } from '../../src/config.ts';
 import type { Migration } from '../../src/store.ts';
+
+// Node 24's V8 can free one Wasm import wrapper twice once two threads run Wasm, and the process dies of it
+// (nodejs/node#66366, #105). The test's thread and the bot's both do, since Node strips types through Wasm and `fetch`
+// parses through it. With V8's Wasm code GC off nothing frees a wrapper, and dead code stays until the test's process
+// ends. The bot on the VM has no second thread, so this stays in the harness, until a Node 24 release holds the fix
+// (nodejs/node#66376).
+setFlagsFromString('--no-wasm-code-gc');
 
 /** What the bot's thread starts from. */
 export interface BotThreadData {
