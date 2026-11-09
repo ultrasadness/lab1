@@ -48,7 +48,7 @@
 
 ## 令牌
 
-`sudo ops/token <name>` 不回显地读取值，用一次无害的调用检查它，只有检查通过后才写入 `/etc/assistant/credentials/<name>`（归 root 所有，权限 600），并重启读取它的服务。检查不通过的值什么也不会改变。只有当机器人读取的每个令牌都已就位、Personal database 也已检出时，机器人才会重启；在那之前，`ops/token` 会说明它还在等什么。`ops/token --list` 列出每个令牌，`ops/token --check [<name>…]` 检查已就位的令牌，`ops/token --dry-run <name>` 读取并检查一个值，但不写入。
+`sudo ops/token <name>` 不回显地读取值，用一次无害的调用检查它，只有检查通过后才写入 `/etc/assistant/credentials/<name>`（归 root 所有，权限 600），并重启读取它的服务。检查不通过的值什么也不会改变。只有当机器人读取的每个令牌都已就位、Personal database 也已检出时，机器人才会重启；在那之前，`ops/token` 会说明它还在等什么。这期间运行中的机器人继续跑它启动时的代码，而它一旦停止或 VM 重启，就起不来了，因为它的单元缺了这些启动不了，`ops/install` 也会这样提示。`ops/token --list` 列出每个令牌，`ops/token --check [<name>…]` 检查已就位的令牌，`ops/token --dry-run <name>` 读取并检查一个值，但不写入。
 
 | 令牌 | 怎么获得 | 它的检查 |
 |---|---|---|

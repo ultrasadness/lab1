@@ -235,6 +235,7 @@ test('a first install puts everything in place, and a second changes nothing', a
   // Without its tokens and config, the bot isn't started, and the person hears what it waits on.
   assert.doesNotMatch(log, /systemctl (re)?start assistant\.service/);
   assert.match(first.out, /The bot waits on:\n  - the Personal database's checkout: run ops\/install --personal-database/);
+  assert.doesNotMatch(first.out, /The running bot/, 'no bot is running yet');
   assert.match(first.out, /^ {2}- config\/assistant\.json: discord\.personUserId must be the person's Discord user id$/m);
   assert.match(first.out, /^ {2}- discord-bot-token: ops\/token discord-bot-token$/m);
   // The bot pings its own check, so it waits on that ping URL too; without the ping URLs, the alerts can't go out.
@@ -375,6 +376,17 @@ test('a deploy key GitHub refuses leaves the checkout as it was, and says so', a
   assert.equal(ran.code, 1);
   assert.match(ran.out, /Problem: GitHub refused the deploy key/);
   assert.ok(!existsSync(join(machine.root, 'var/lib/assistant/personal-database/README.md')));
+});
+
+// On #54, --deploy brought two new tokens into the unit an hour before they were placed, and only the ticket said that
+// the bot could not have come back from a stop in that hour.
+test("while the bot waits on a token, ops/install says that a running bot won't come back if it stops", async (t) => {
+  const machine = await vm(t);
+  assert.equal((await startBot(machine)).code, 0);
+  rmSync(join(machine.root, 'etc/assistant/credentials/bitwarden-master-password'));
+  const ran = await install(machine);
+  assert.equal(ran.code, 0, ran.out);
+  assert.match(ran.out, /The bot waits on:\n  - bitwarden-master-password: ops\/token bitwarden-master-password\nThe running bot keeps the code it started with\. If it stops, or the VM reboots, it can't start again until these are done\.\n/);
 });
 
 test('the bot starts once its config and tokens are in place, and --deploy moves it to the landed main', async (t) => {

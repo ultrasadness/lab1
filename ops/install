@@ -444,6 +444,9 @@ fi
 if [ ${#waiting[@]} -gt 0 ]; then
   echo 'The bot waits on:'
   printf '  - %s\n' "${waiting[@]}"
+  if systemctl is-active --quiet assistant.service; then
+    echo "The running bot keeps the code it started with. If it stops, or the VM reboots, it can't start again until these are done."
+  fi
 fi
 if [ ${#alerts[@]} -gt 0 ]; then
   echo 'The alerts, when the bot or the backup gives up, wait on:'

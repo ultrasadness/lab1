@@ -73,7 +73,9 @@ the bot's checkout that git didn't make is a problem `ops/install` names, and it
 `sudo ops/token <name>` reads the value without echo, checks it with a harmless call, and only once that passes writes
 `/etc/assistant/credentials/<name>` (root, mode 600) and restarts the service that reads it. A value that fails its
 check changes nothing. The bot restarts only once every token it reads is in place and the Personal database is
-checked out; until then `ops/token` says what it waits on. `ops/token --list` names every token,
+checked out; until then `ops/token` says what it waits on. Meanwhile a running bot keeps the code it started with, and
+if it stops, or the VM reboots, it can't start again, since its unit needs what is missing, as `ops/install` says too.
+`ops/token --list` names every token,
 `ops/token --check [<name>…]` checks those in place, and `ops/token --dry-run <name>` reads and checks a value
 without writing it.
 
