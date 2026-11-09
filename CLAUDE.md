@@ -27,6 +27,13 @@ weighed, as a question for the person rather than a defect, and the Spec report 
 It also lets the Spec reviewer try a case it doubts in a scratch copy of the worktree, stopping only the processes it
 started, by pid.
 
+A Claude session's review also runs the outside review, so a model that didn't write the code reads it too. Read
+`.claude/skills/outside-review/SKILL.md` first. Start its `review.sh` in the message that spawns the two sub-agents,
+with the ticket and `main` as its ticket and base, and carry on from its step 3 once it exits. Leave the worktree as it
+is until all three have reported, since Codex reads it. Report step 5 as the review's `## Outside`, after `## Standards`
+and `## Spec`, saying why when Codex didn't run, as on a review with no ticket. The findings it confirms are fixes like
+any others.
+
 ## Branches
 
 A ticket's branch gets a worktree of its own: `git worktree add .claude/worktrees/<branch> -b <branch> main`, and the
