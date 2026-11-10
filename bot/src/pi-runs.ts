@@ -26,8 +26,10 @@ export interface RunRequest {
   /** The scope whose Rules the run loads beside the all scope's, when its kind has none of its own. */
   ruleScope?: RuleScope;
   prompt: string;
-  /** Takes one record the run's tool wrote, given the Rules the run loaded, and says whether it was kept. */
-  onRecord(record: unknown, runId: string, rules: readonly Rule[]): RecordResult;
+  /** Takes one record the run's tool wrote, given the Rules the run loaded, and says whether it was kept. A run with none, as a fill run, records nothing. */
+  onRecord?(record: unknown, runId: string, rules: readonly Rule[]): RecordResult;
+  /** For a fill run: carries out one of its fixed actions, and says what came of it. */
+  onAction?(action: unknown, runId: string, rules: readonly Rule[]): Promise<RecordResult>;
 }
 
 /** The cap a run passed, and its value. */
@@ -38,8 +40,8 @@ export interface RunCap {
 
 export interface RunResult {
   runId: string;
-  /** `stopped`: the Assistant stopped, and ended the run before it settled. */
-  outcome: 'settled' | 'failed' | 'capped' | 'stopped';
+  /** `stopped`: the Assistant stopped, and ended the run before it settled. `aborted`: `abort` ended it, as Stop does. */
+  outcome: 'settled' | 'failed' | 'capped' | 'stopped' | 'aborted';
   /** The cap that stopped the run, when it was capped. */
   cap?: RunCap;
   error?: string;
@@ -62,6 +64,9 @@ export class PiRunner {
   #log: Log;
   /** Each run's process, and when it has closed. */
   #running = new Map<ChildProcess, Promise<void>>();
+  /** Each run's process by what it is and works on, and those `abort` has ended. */
+  #runs = new Map<ChildProcess, { kind: RunKind; item: string }>();
+  #aborted = new Set<ChildProcess>();
   #stopped = false;
 
   constructor(options: {
@@ -115,9 +120,11 @@ export class PiRunner {
         return { commit, prompt };
       },
       onRecord: (record) => {
+        if (!request.onRecord) return { ok: false, error: `A ${kind} run records nothing.` };
         const checked = checkRulesApplied(record, rules);
         return checked.ok ? request.onRecord(checked.record, runId, rules) : checked;
       },
+      ...(request.onAction ? { onAction: (action: unknown) => request.onAction!(action, runId, rules) } : {}),
     });
     this.#log('run.started', { runId, kind, role, item, rulesCommit: commit });
 
@@ -162,6 +169,20 @@ export class PiRunner {
     );
   }
 
+  /**
+   * Ends each run of this kind on this item now, as Stop ends a Registration's fill run. The run's own `run` resolves
+   * as `aborted` once its process has closed, which the kill after the grace time bounds.
+   */
+  abort(kind: RunKind, item: string): void {
+    for (const [child, run] of this.#runs) {
+      if (run.kind !== kind || run.item !== item || this.#aborted.has(child)) continue;
+      this.#aborted.add(child);
+      signal(child, 'SIGTERM');
+      const killer = setTimeout(() => kill(child), KILL_GRACE_MS);
+      void this.#running.get(child)?.then(() => clearTimeout(killer));
+    }
+  }
+
   #drive(runId: string, token: string, request: RunRequest): Promise<RunResult> {
     const [command, ...args] = this.#command;
     const child = spawn(command!, args, {
@@ -179,6 +200,7 @@ export class PiRunner {
       },
     });
     this.#running.set(child, new Promise((resolve) => child.once('close', () => resolve())));
+    this.#runs.set(child, { kind: request.kind, item: request.item });
 
     const caps = this.#caps[request.kind];
     return new Promise<RunResult>((resolve) => {
@@ -257,6 +279,8 @@ export class PiRunner {
         cancelWallClock();
         clearTimeout(killer);
         this.#running.delete(child);
+        this.#runs.delete(child);
+        if (this.#aborted.delete(child) && !settled) return resolve({ runId, outcome: 'aborted', error: 'the run was stopped' });
         if (cap) return resolve({ runId, outcome: 'capped', cap, error: `the run passed its ${capText(cap)}` });
         if (this.#stopped && !settled) return resolve({ runId, outcome: 'stopped', error: 'the Assistant stopped' });
         error ??= modelError;

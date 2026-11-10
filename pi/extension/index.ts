@@ -2,10 +2,12 @@
 // - its only model provider is the bot's forwarder, reached with the run's own token (the container holds no key);
 // - it loads the run's Rules from the bot before the run starts and puts them all into the system prompt, so no Rule
 //   waits on the model choosing to read it (ADR 0002); a run whose Rules can't be loaded doesn't start;
-// - it offers the model only the record tool of its run kind, and blocks any other tool call;
-// - its record tool is schema-checked and writes each record to the bot as it is made.
+// - it offers the model only the tools of its run kind, and blocks any other tool call: a record tool, or for a fill
+//   run the fixed actions (ADR 0006), which the bot carries out on the browser service;
+// - each tool is schema-checked, and writes its record to the bot, or asks the bot for its action, as it is called.
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { dossierRun } from './dossier.ts';
+import { fillRun } from './fill.ts';
 import { minerJudging, type RunKind } from './miner.ts';
 import { correctionSorting } from './sorting.ts';
 import { walkthroughPreparation } from './walkthrough.ts';
@@ -15,6 +17,7 @@ const RUN_KINDS: Record<string, RunKind> = {
   dossier: dossierRun,
   'walkthrough-preparation': walkthroughPreparation,
   'correction-sorting': correctionSorting,
+  fill: fillRun,
 };
 
 function required(name: string): string {
@@ -59,19 +62,19 @@ export default async function assistant(pi: ExtensionAPI): Promise<void> {
     ],
   });
 
-  const record = async (body: unknown, signal: AbortSignal | undefined): Promise<string> => {
-    const response = await fetch(`${botUrl}/records`, {
+  const toBot = (path: string, done: string) => async (body: unknown, signal: AbortSignal | undefined): Promise<string> => {
+    const response = await fetch(`${botUrl}${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization },
       body: JSON.stringify(body),
       signal,
     });
     const answer = (await response.json().catch(() => ({}))) as { message?: string; error?: string };
-    if (!response.ok) throw new Error(answer.error ?? `The Assistant did not keep the record (${response.status})`);
-    return answer.message ?? 'Recorded.';
+    if (!response.ok) throw new Error(answer.error ?? `The Assistant refused it (${response.status})`);
+    return answer.message ?? done;
   };
 
-  const tools = kind.tools(record);
+  const tools = kind.tools(toBot('/records', 'Recorded.'), toBot('/actions', 'Done.'));
   for (const tool of tools) pi.registerTool(tool);
   const allowed = new Set(tools.map((t) => t.name));
 

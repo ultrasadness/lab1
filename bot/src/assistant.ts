@@ -22,6 +22,7 @@ import { PiRunner } from './pi-runs.ts';
 import { Providers } from './providers.ts';
 import { ProductHunt } from './product-hunt.ts';
 import { RawInputs } from './raw-inputs.ts';
+import { Registrations } from './registration/registrations.ts';
 import { Proposals } from './rules/proposals.ts';
 import { loadRules } from './rules/rules.ts';
 import { correctionOf } from './rules/sorting.ts';
@@ -103,7 +104,7 @@ export async function startAssistant(options: {
     token: discordToken,
     log,
     onInteraction: (interaction) => {
-      plainWork(answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct, proposals, walkthroughs }));
+      plainWork(answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct, proposals, walkthroughs, registrations }));
     },
   });
   // Plain-code work under way, which never queues in the lane: taps and pop-ups being answered, which may queue work or
@@ -163,7 +164,8 @@ export async function startAssistant(options: {
   const bitwardenDir = join(config.dataDir, 'bitwarden');
   mkdirSync(bitwardenDir, { recursive: true, mode: 0o700 });
   const passwordVault = new PasswordVault({ command: config.bitwarden.command, timeoutSeconds: config.bitwarden.timeoutSeconds, dataDir: bitwardenDir, apiKey: bitwardenApiKey, masterPassword: bitwardenMasterPassword, secrets, log });
-  // The background lane runs one job at a time (#11): Corrections, then Walkthrough preparation, then the Miner (#40 §8).
+  // The background lane runs one job at a time (#11): fill runs, then Corrections, then Walkthrough preparation, then
+  // the Miner (#40 §8).
   const lane = new Lane(log);
   const dossiers = new Dossiers({
     config,
@@ -217,10 +219,46 @@ export async function startAssistant(options: {
     passwordVault,
     walkthroughsDue: () => prepareWalkthroughs(),
     correctionsDue: () => correctWalkthroughs(),
+    registrationsDue: () => fill(),
+    registrationChanged: (productId) => registrations.changed(productId),
     plainWork: (work) => plainWork(work().catch((error: unknown) => log('walkthrough.work-failed', { error: errorText(error) }))),
     clock,
     log,
   });
+
+  const registrations = new Registrations({
+    config,
+    store,
+    browser,
+    pi,
+    discord,
+    needsYou,
+    dossiers,
+    personalDatabase,
+    passwordVault,
+    fillsDue: () => fill(),
+    correctionsDue: () => correctWalkthroughs(),
+    walkthroughsDue: () => prepareWalkthroughs(),
+    showApproval: (productId) => walkthroughs.showApproval(productId),
+    stoppedCard: (productId) => walkthroughs.stoppedCard(productId),
+    plainWork: (work) => plainWork(work().catch((error: unknown) => log('registration.work-failed', { error: errorText(error) }))),
+    clock,
+    log,
+  });
+  // Registrations are filled at each Approval, when a session closes, at every start, and every few minutes while one
+  // can't go on, such as while all 5 sessions are taken or Bitwarden is unavailable. That try starts no run a provider
+  // would serve unless it can go on, and each page's fill runs are counted in the store.
+  let cancelFillRetry = () => {};
+  const fill = () =>
+    lane.add('registrations', 'fill', async () => {
+      cancelFillRetry();
+      let left = true;
+      try {
+        left = await registrations.work();
+      } finally {
+        if (left && !stopped) cancelFillRetry = inMinutes(clock, FILL_RETRY_MINUTES, fill);
+      }
+    });
 
   const retry = (id: number) => {
     const tapped = miner.tapRetry(id);
@@ -327,6 +365,8 @@ export async function startAssistant(options: {
   // A Keep tapped before a stop, or a decision not yet shown, is done now; so is an Approval, Edit, dismissal or lapse.
   plainWork(proposals.resume());
   plainWork(walkthroughs.resume());
+  // A press left intended counts as pressed, a Stop not yet acted on is, and the lane takes up each Registration under way.
+  plainWork(registrations.resume());
   // Commits a refused push left in the checkout, and files queued before a stop, don't wait for the Miner's next run.
   void personalDatabase.sync();
 
@@ -345,6 +385,8 @@ export async function startAssistant(options: {
         cancelCorrectionsRetry();
         cancelWalkthroughsRetry();
         cancelWalkthroughCorrectionsRetry();
+        cancelFillRetry();
+        registrations.stop();
         walkthroughs.stop();
         passwordVault.stop();
         personalDatabase.stop();
@@ -360,6 +402,9 @@ export async function startAssistant(options: {
     },
   };
 }
+
+/** How long a Registration that can't go on for now waits before the lane tries it again. */
+const FILL_RETRY_MINUTES = 5;
 
 /** Calls `fn` at `time` Pacific every day: once a day, even when that time happens twice. */
 function everyPacificDay(clock: Clock, time: string, fn: () => void): () => void {
@@ -451,6 +496,8 @@ async function answer(
     proposals: Proposals;
     /** Approve, Edit, Correct, Dismiss and Prepare again on Walkthroughs' cards. */
     walkthroughs: Walkthroughs;
+    /** Stop, Correct and Start again on Registrations' status messages. */
+    registrations: Registrations;
   },
 ): Promise<void> {
   const { personUserId, discord, log } = options;
@@ -499,9 +546,11 @@ async function answer(
     }
     const walkthrough =
       interaction.type === 3
-        ? options.walkthroughs.tap(customId, { userId: userId!, interactionId: interaction.id, messageId: interaction.message?.id })
+        ? (options.registrations.tap(customId, { messageId: interaction.message?.id }) ??
+          options.walkthroughs.tap(customId, { userId: userId!, interactionId: interaction.id, messageId: interaction.message?.id }))
         : interaction.type === 5
-          ? options.walkthroughs.submit(customId, (field) => popupField(interaction, field), interaction.message?.id)
+          ? (options.registrations.submit(customId, (field) => popupField(interaction, field)) ??
+            options.walkthroughs.submit(customId, (field) => popupField(interaction, field), interaction.message?.id))
           : undefined;
     if (walkthrough) {
       if ('refused' in walkthrough) return await reply(walkthrough.refused);
@@ -515,7 +564,6 @@ async function answer(
         await walkthrough.work?.();
       }
     }
-    if (/^stop:registration:\d+$/.test(customId)) return await reply("Stop isn't wired up yet. It arrives with filling the form.");
     if (customId.startsWith('correct:dossier:') || customId.startsWith('add-offer:dossier:')) {
       return await reply("Correct and Add Offer aren't wired up yet. They arrive with Corrections to Dossiers.");
     }

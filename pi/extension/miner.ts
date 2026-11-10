@@ -5,9 +5,13 @@
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+/** Sends the bot something from a tool, and returns what it answers for the model to read. */
+export type ToBot = (body: unknown, signal: AbortSignal | undefined) => Promise<string>;
+
 export interface RunKind {
   systemPrompt: string;
-  tools(record: (body: unknown, signal: AbortSignal | undefined) => Promise<string>): ToolDefinition[];
+  /** The run's tools: `record` writes a record to the bot, and `act` asks the bot for one of a fill run's fixed actions. */
+  tools(record: ToBot, act: ToBot): ToolDefinition[];
 }
 
 const SYSTEM_PROMPT = `You judge Launches from Product Hunt for one person, against their Interest scope.

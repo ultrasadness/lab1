@@ -17,6 +17,7 @@ import { FakeGitRemote } from './fake-git-remote.ts';
 import { FakeHealthchecks } from './fake-healthchecks.ts';
 import { FakeModelProvider } from './fake-model.ts';
 import { FakeProductHunt } from './fake-product-hunt.ts';
+import { pressesWithoutMark } from './presses.ts';
 
 export type { Config };
 
@@ -281,9 +282,15 @@ export async function startWorld(options: {
     },
     processesRunning: botProcessesRunning,
     async stop() {
-      await bot.stop();
-      worldsUp -= 1;
-      await close();
+      try {
+        await bot.stop();
+      } finally {
+        worldsUp -= 1;
+        await close();
+      }
+      // No test may ever see two presses for one *intended* mark (#56).
+      const unmarked = pressesWithoutMark(logs, browser.presses);
+      if (unmarked.length > 0) throw new Error(`The pages received ${unmarked.join('; ')}`);
     },
   };
   return world;

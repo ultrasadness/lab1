@@ -88,7 +88,7 @@ export TRIAL_PASSWORD
 created=$(node -e '
   const [organizationId, collection, name, username, uri] = process.argv.slice(1);
   const login = { uris: [{ match: null, uri }], username, password: process.env.TRIAL_PASSWORD, totp: null };
-  process.stdout.write(Buffer.from(JSON.stringify({ organizationId, collectionIds: [collection], folderId: null, type: 1, name, notes: null, favorite: false, fields: [], login, reprompt: 0 })).toString("base64"));
+  process.stdout.write(Buffer.from(JSON.stringify({ organizationId, collectionIds: [collection], folderId: null, type: 1, name, notes: "Made by ops/bitwarden/trial. Delete it.", favorite: false, fields: [], login, reprompt: 0 })).toString("base64"));
 ' "$organization" "$collection" "$name" "$username" "$website" | "$bw" create item --nointeraction)
 left='the item'
 printf '%s' "$created" | shape
@@ -105,6 +105,7 @@ verdict=$(printf '%s' "$items" | node -e '
   const problem = found.length !== 1 ? `the new item found by name, username and website: ${found.length}`
     : password === null ? "bw answers the password as null: is this account on *Can edit, except passwords*?"
     : password !== process.env.TRIAL_PASSWORD ? "bw answers the new item with another password than it was given"
+    : found[0].notes !== "Made by ops/bitwarden/trial. Delete it." ? "bw answers the new item without the notes it was given"
     : "";
   console.log(`${items.filter((i) => i.name === name).length}\t${problem}`);
 ' "$(printf '%s' "$created" | field id)" "$name" "$username" "$website")

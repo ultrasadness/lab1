@@ -24,17 +24,37 @@ function standingFrom(store: Store, product: Product, needsYouChannelId: string)
   const noAccount = dossier?.record.state === 'no-account';
   if (product.withdrawnAt) return { tags: [...(noAccount ? ['no account'] : []), 'skipped'], registerNote: null };
   if (!dossier || noAccount) return { tags: noAccount ? ['no account'] : [], registerNote: null };
-  const registration = store.registration(product.id);
-  if (registration) {
-    const approved = `Walkthrough v${registration.version} approved`;
-    if (registration.state === 'held') return { tags: ['walkthrough'], registerNote: `${approved}; waiting for Bitwarden.` };
-    return registration.state === 'handed-off'
-      ? { tags: ['handed off'], registerNote: `${approved}; handed off to you.` }
-      : { tags: ['registering'], registerNote: `${approved}; registering.` };
-  }
   const none = store.noWalkthrough(product.id);
-  if (none) return { tags: [], registerNote: `No Walkthrough: ${none.why}.` };
   const latest = store.latestWalkthrough(product.id);
+  const registration = store.registration(product.id);
+  // An abandoned Registration with a later Walkthrough waiting on the person stands as that Walkthrough does, below.
+  const later = latest && registration && latest.version > registration.version && !none && !latest.dismissedAt && !(latest.lapsedAt && !latest.againTappedAt);
+  if (registration && !(registration.state === 'abandoned' && later)) {
+    const approved = `Walkthrough v${registration.version} approved`;
+    switch (registration.state) {
+      case 'held':
+        return { tags: ['walkthrough'], registerNote: `${approved}; waiting for Bitwarden.` };
+      case 'handed-off':
+        return { tags: ['handed off'], registerNote: `${approved}; handed off to you.` };
+      case 'queued':
+      case 'filling':
+      case 'checking':
+      case 'pressing':
+        return { tags: ['registering'], registerNote: `${approved}; registering.` };
+      case 'check-failed':
+      case 'at-wall':
+        return { tags: ['needs you'], registerNote: `${approved}; registering, and waiting for you: see its status below.` };
+      case 'awaiting-verification':
+        return { tags: ['registering'], registerNote: `${approved}; submitted, awaiting verification.` };
+      case 'registered':
+        return { tags: ['registered'], registerNote: `${approved}; registered.` };
+      case 'waitlisted':
+        return { tags: ['waitlisted'], registerNote: `${approved}; on the waitlist.` };
+      case 'abandoned':
+        return { tags: ['abandoned'], registerNote: `${approved}; abandoned: ${registration.endNote ?? 'nothing submitted'}.${none ? ` No Walkthrough is offered any more: ${none.why}.` : ''}` };
+    }
+  }
+  if (none) return { tags: [], registerNote: `No Walkthrough: ${none.why}.` };
   if (!latest) return { tags: [], registerNote: null };
   if (latest.dismissedAt) return { tags: [], registerNote: 'Walkthrough dismissed.' };
   if (latest.lapsedAt && !latest.againTappedAt) return { tags: [], registerNote: 'Walkthrough lapsed, unanswered for 14 days.' };

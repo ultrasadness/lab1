@@ -363,6 +363,11 @@ export interface WalkthroughCorrection {
   unapplied: string | null;
   /** When the cards, the copy, the Dossier and `registration.md` showed what came of it. */
   doneAt: string | null;
+  /**
+   * For a Correction of an approved Walkthrough (#11): `before-final-press` stopped its Registration and prepares a new
+   * version, and `after-final-press` fixes only the record, so no run prepares anything. Null for one not approved.
+   */
+  ofApproved: 'before-final-press' | 'after-final-press' | null;
 }
 
 /** The person's yes to one exact version of an item (ADR 0007), such as a Walkthrough. */
@@ -376,13 +381,64 @@ export interface Approval {
   approvedAt: string;
 }
 
+/**
+ * Where a Registration stands (#11's state table):
+ * - `held`: its Approval is kept, and it starts once the Password vault has its password (ADR 0004);
+ * - `queued`: it waits for one of the 5 sessions; `filling`: a fill run fills page `page`; `checking` and `pressing`:
+ *   plain code checks that page and presses its button;
+ * - `check-failed` and `at-wall`: it waits on the person, as `waitsOn` says;
+ * - `awaiting-verification`: the final button is pressed, and the Product's verification mail is waited for;
+ * - `registered`, `waitlisted`, `handed-off`, `abandoned`: its outcome.
+ */
+export type RegistrationState =
+  | 'held'
+  | 'queued'
+  | 'filling'
+  | 'checking'
+  | 'pressing'
+  | 'check-failed'
+  | 'at-wall'
+  | 'awaiting-verification'
+  | 'registered'
+  | 'waitlisted'
+  | 'handed-off'
+  | 'abandoned';
+
+/** What a Registration that isn't moving waits on: a wall, a fill run that ended stuck, or a page check that failed. */
+export type WaitsOn =
+  | { kind: 'wall'; wall: string; note: string | null }
+  | { kind: 'stuck'; reason: string; note: string | null }
+  | { kind: 'check'; failures: string[] }
+  /** Why it can't go on for now, by itself: Bitwarden is unavailable, or its signup page won't load. */
+  | { kind: 'held'; why: string };
+
+/** A press of one button, written before plain code presses it and marked done after (ADR 0007). */
+export interface PressMark {
+  id: number;
+  productId: number;
+  /** The Walkthrough version whose Approval it is pressed under. */
+  version: number;
+  /** The browser session it is pressed in. */
+  session: string;
+  page: number;
+  /** The button's label. */
+  button: string;
+  /** The fingerprint of the page as plain code pressed it. */
+  fingerprint: string;
+  /** Whether the button's label makes it the final press, rather than one that leads to a next page. */
+  final: boolean;
+  intendedAt: string;
+  doneAt: string | null;
+  /** Why the press may not have gone through, when that isn't known. It counts as done all the same. */
+  uncertain: string | null;
+}
+
 /** A Product's one Registration, from its Approval on. */
 export interface StoredRegistration {
   productId: number;
   /** The Walkthrough version approved. */
   version: number;
-  /** `held`: its Approval is kept, and it starts once the Password vault has its password (ADR 0004). */
-  state: 'held' | 'queued' | 'handed-off';
+  state: RegistrationState;
   approvedAt: string;
   /** Whether a vault item may have been created: from here on the Password vault is read before another is made (ADR 0007). */
   vaultItemIntended: boolean;
@@ -393,7 +449,112 @@ export interface StoredRegistration {
   statusMessageId: string | null;
   /** When the status message, the post's tags, `registration.md` and the shrunk card showed the Approval. */
   shownAt: string | null;
+  /** The page being filled, checked or pressed, 1 first; 0 until its session opens. */
+  page: number;
+  /** How many fill runs this page has had that count, which bounds them: one no provider served, or that a shutdown or crash cut off, doesn't. */
+  fillRuns: number;
+  /** How many sessions were asked for under this Approval, which names each one and bounds them. */
+  sessionsOpened: number;
+  /** Its session in the browser service, while it has one. */
+  sessionId: string | null;
+  /** Whether the form refused `+`, so the plain address fills the email field. */
+  plainAddress: boolean;
+  /** A replacement vault item that may have been created: the Password vault is read for it first (ADR 0007). */
+  replacementIntended: Replacement | null;
+  /** The vault items a replacement took the place of, oldest first, each with what the form refused and when. */
+  replacedItems: { itemId: string; refused: Refused; at: string }[];
+  /**
+   * What the form refused, which the page's next fill run must fill again before it may name a button: the new
+   * password, the email field with the plain address, or both. Cleared once a press leaves the page.
+   */
+  refill: Refill[];
+  /** The stop mark, which plain code checks right before every press: when the person stopped it, and whether by Stop or by Correct. */
+  stopAt: string | null;
+  stopCause: 'stop' | 'correct' | null;
+  waitsOn: WaitsOn | null;
+  /** The label of the button being pressed, or last pressed. */
+  button: string | null;
+  /** When the final button was pressed. From then on the account may exist. */
+  submittedAt: string | null;
+  /** When it reached its outcome, and for an *abandoned* one, why. */
+  endedAt: string | null;
+  endNote: string | null;
+  /** What was uncertain about its final press, when a restart or a failed click left it unknown. */
+  uncertain: string | null;
+  /** Whether the notice telling the person of it was sent, or may have been. */
+  uncertainTold: boolean;
+  /**
+   * When the person tapped Start again on it, *abandoned*: the latest Walkthrough version then. A newer version is the
+   * one Start again asked for, so until one is prepared, one is due.
+   */
+  startAgainFrom: number | null;
+  /** What the status message, the tags and `registration.md` last showed of it. */
+  shownKey: string | null;
+  /** How each earlier Approval of it ended, oldest first, before Start again's Approval started it again. */
+  history: { version: number; endedAt: string; endNote: string }[];
 }
+
+/** What a form refused, which a replacement vault item answers (ADR 0014). */
+export type Refused = 'password' | 'plus';
+
+/** A field a fill run must fill again after the form refused what it held. */
+export type Refill = 'password' | 'email';
+
+/** A replacement vault item to be made, kept before `bw` is asked for it. */
+export interface Replacement {
+  /** The new item's notes, naming the item it replaces and why, by which a create whose answer never came is found. */
+  notes: string;
+  refused: Refused;
+  /** Which narrower password a refused password's replacement gets: 1 for the first, 2 for the next. */
+  shape: number;
+}
+
+/** The fields of a Registration that filling and pressing change. */
+export type RegistrationChange = Partial<
+  Pick<
+    StoredRegistration,
+    | 'state'
+    | 'page'
+    | 'fillRuns'
+    | 'sessionsOpened'
+    | 'sessionId'
+    | 'plainAddress'
+    | 'replacementIntended'
+    | 'refill'
+    | 'waitsOn'
+    | 'button'
+    | 'submittedAt'
+    | 'endedAt'
+    | 'endNote'
+    | 'uncertain'
+    | 'uncertainTold'
+    | 'shownKey'
+  >
+>;
+
+const REGISTRATION_COLUMNS: Record<keyof RegistrationChange, string> = {
+  state: 'state',
+  page: 'page',
+  fillRuns: 'fill_runs',
+  sessionsOpened: 'sessions_opened',
+  sessionId: 'session_id',
+  plainAddress: 'plain_address',
+  replacementIntended: 'replacement_intended',
+  refill: 'refill',
+  waitsOn: 'waits_on',
+  button: 'button',
+  submittedAt: 'submitted_at',
+  endedAt: 'ended_at',
+  endNote: 'end_note',
+  uncertain: 'uncertain',
+  uncertainTold: 'uncertain_told',
+  shownKey: 'shown_key',
+};
+
+/** The states in which nothing final is pressed, so a Registration can still be stopped (#11). */
+export const BEFORE_FINAL_PRESS: readonly RegistrationState[] = ['held', 'queued', 'filling', 'checking', 'pressing', 'check-failed', 'at-wall'];
+
+export const beforeFinalPress = (r: Pick<StoredRegistration, 'state'>) => BEFORE_FINAL_PRESS.includes(r.state);
 
 /** A change to the schema of a store that earlier code left, run once, in order, when the store opens (#98). */
 export interface Migration {
@@ -440,6 +601,43 @@ ALTER TABLE registrations ADD COLUMN vault_item_id TEXT;`,
 );
 CREATE UNIQUE INDEX provider_dropouts_open ON provider_dropouts(provider, role) WHERE back_at IS NULL;
 ALTER TABLE dossier_tries ADD COLUMN waiting INTEGER NOT NULL DEFAULT 0;`,
+  },
+  {
+    name: "add what filling and pressing a Registration keeps: its page, session, stop mark and outcome, the presses' intended and done marks, and whether a Correction was of an approved Walkthrough (#56)",
+    sql: `ALTER TABLE registrations ADD COLUMN page INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE registrations ADD COLUMN fill_runs INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE registrations ADD COLUMN sessions_opened INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE registrations ADD COLUMN session_id TEXT;
+ALTER TABLE registrations ADD COLUMN plain_address INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE registrations ADD COLUMN replacement_intended TEXT;
+ALTER TABLE registrations ADD COLUMN replaced_items TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE registrations ADD COLUMN stop_at TEXT;
+ALTER TABLE registrations ADD COLUMN stop_cause TEXT;
+ALTER TABLE registrations ADD COLUMN waits_on TEXT;
+ALTER TABLE registrations ADD COLUMN button TEXT;
+ALTER TABLE registrations ADD COLUMN submitted_at TEXT;
+ALTER TABLE registrations ADD COLUMN ended_at TEXT;
+ALTER TABLE registrations ADD COLUMN end_note TEXT;
+ALTER TABLE registrations ADD COLUMN uncertain TEXT;
+ALTER TABLE registrations ADD COLUMN uncertain_told INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE registrations ADD COLUMN start_again_from INTEGER;
+ALTER TABLE registrations ADD COLUMN shown_key TEXT;
+ALTER TABLE registrations ADD COLUMN refill TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE registrations ADD COLUMN history TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE walkthrough_corrections ADD COLUMN of_approved TEXT;
+CREATE TABLE presses (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  version INTEGER NOT NULL,
+  session TEXT NOT NULL,
+  page INTEGER NOT NULL,
+  button TEXT NOT NULL,
+  fingerprint TEXT NOT NULL,
+  final INTEGER NOT NULL,
+  intended_at TEXT NOT NULL,
+  done_at TEXT,
+  uncertain TEXT
+);`,
   },
 ];
 
@@ -631,7 +829,8 @@ CREATE TABLE IF NOT EXISTS walkthrough_corrections (
   redone_version INTEGER,
   withdrawn TEXT,
   unapplied TEXT,
-  done_at TEXT
+  done_at TEXT,
+  of_approved TEXT
 );
 CREATE TABLE IF NOT EXISTS approvals (
   item TEXT NOT NULL,
@@ -651,7 +850,40 @@ CREATE TABLE IF NOT EXISTS registrations (
   status_message_id TEXT,
   shown_at TEXT,
   vault_item_intended INTEGER NOT NULL DEFAULT 0,
-  vault_item_id TEXT
+  vault_item_id TEXT,
+  page INTEGER NOT NULL DEFAULT 0,
+  fill_runs INTEGER NOT NULL DEFAULT 0,
+  sessions_opened INTEGER NOT NULL DEFAULT 0,
+  session_id TEXT,
+  plain_address INTEGER NOT NULL DEFAULT 0,
+  replacement_intended TEXT,
+  replaced_items TEXT NOT NULL DEFAULT '[]',
+  stop_at TEXT,
+  stop_cause TEXT,
+  waits_on TEXT,
+  button TEXT,
+  submitted_at TEXT,
+  ended_at TEXT,
+  end_note TEXT,
+  uncertain TEXT,
+  uncertain_told INTEGER NOT NULL DEFAULT 0,
+  start_again_from INTEGER,
+  shown_key TEXT,
+  refill TEXT NOT NULL DEFAULT '[]',
+  history TEXT NOT NULL DEFAULT '[]'
+);
+CREATE TABLE IF NOT EXISTS presses (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  version INTEGER NOT NULL,
+  session TEXT NOT NULL,
+  page INTEGER NOT NULL,
+  button TEXT NOT NULL,
+  fingerprint TEXT NOT NULL,
+  final INTEGER NOT NULL,
+  intended_at TEXT NOT NULL,
+  done_at TEXT,
+  uncertain TEXT
 );
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
@@ -774,6 +1006,7 @@ const walkthroughCorrectionOf = (row: Row): WalkthroughCorrection => ({
   withdrawn: textOrNull(row.withdrawn),
   unapplied: textOrNull(row.unapplied),
   doneAt: textOrNull(row.done_at),
+  ofApproved: textOrNull(row.of_approved) as WalkthroughCorrection['ofApproved'],
 });
 
 const registrationOf = (row: Row): StoredRegistration => ({
@@ -786,6 +1019,40 @@ const registrationOf = (row: Row): StoredRegistration => ({
   statusIntended: Boolean(row.status_intended),
   statusMessageId: textOrNull(row.status_message_id),
   shownAt: textOrNull(row.shown_at),
+  page: Number(row.page),
+  fillRuns: Number(row.fill_runs),
+  sessionsOpened: Number(row.sessions_opened),
+  sessionId: textOrNull(row.session_id),
+  plainAddress: Boolean(row.plain_address),
+  replacementIntended: row.replacement_intended === null ? null : (JSON.parse(String(row.replacement_intended)) as Replacement),
+  replacedItems: JSON.parse(String(row.replaced_items)) as StoredRegistration['replacedItems'],
+  refill: JSON.parse(String(row.refill)) as Refill[],
+  history: JSON.parse(String(row.history)) as StoredRegistration['history'],
+  stopAt: textOrNull(row.stop_at),
+  stopCause: textOrNull(row.stop_cause) as StoredRegistration['stopCause'],
+  waitsOn: row.waits_on === null ? null : (JSON.parse(String(row.waits_on)) as WaitsOn),
+  button: textOrNull(row.button),
+  submittedAt: textOrNull(row.submitted_at),
+  endedAt: textOrNull(row.ended_at),
+  endNote: textOrNull(row.end_note),
+  uncertain: textOrNull(row.uncertain),
+  uncertainTold: Boolean(row.uncertain_told),
+  startAgainFrom: row.start_again_from === null ? null : Number(row.start_again_from),
+  shownKey: textOrNull(row.shown_key),
+});
+
+const pressOf = (row: Row): PressMark => ({
+  id: Number(row.id),
+  productId: Number(row.product_id),
+  version: Number(row.version),
+  session: String(row.session),
+  page: Number(row.page),
+  button: String(row.button),
+  fingerprint: String(row.fingerprint),
+  final: Boolean(row.final),
+  intendedAt: String(row.intended_at),
+  doneAt: textOrNull(row.done_at),
+  uncertain: textOrNull(row.uncertain),
 });
 
 const approvalOf = (row: Row): Approval => ({
@@ -1559,7 +1826,9 @@ export class Store {
 
   /**
    * The Products that wait on a Walkthrough being prepared: each open or waitlisted Product whose Dossier is posted and
-   * not withdrawn, with no Walkthrough yet, or one the person tapped Prepare again on, and no wall that rules one out.
+   * not withdrawn, with no wall that rules one out, and either no Registration and no Walkthrough yet, or one the
+   * person tapped Prepare again on, or an *abandoned* Registration the person tapped Start again on with no newer
+   * Walkthrough yet, or whose later Walkthrough lapsed and got Prepare again.
    */
   productsDueWalkthrough(): Product[] {
     return this.#db
@@ -1569,9 +1838,15 @@ export class Store {
            AND (SELECT json_extract(dossier, '$.record.state') FROM dossiers WHERE dossiers.product_id = products.id
                 ORDER BY version DESC LIMIT 1) IN ('open', 'waitlisted')
            AND NOT EXISTS (SELECT 1 FROM no_walkthroughs WHERE no_walkthroughs.product_id = products.id)
-           AND NOT EXISTS (SELECT 1 FROM registrations WHERE registrations.product_id = products.id)
-           AND COALESCE((SELECT again_tapped_at IS NOT NULL FROM walkthroughs WHERE walkthroughs.product_id = products.id
-                         ORDER BY version DESC LIMIT 1), 1)
+           AND CASE WHEN EXISTS (SELECT 1 FROM registrations WHERE registrations.product_id = products.id)
+               THEN EXISTS (SELECT 1 FROM registrations r WHERE r.product_id = products.id AND r.state = 'abandoned' AND (
+                      r.start_again_from = (SELECT MAX(version) FROM walkthroughs WHERE walkthroughs.product_id = products.id)
+                      OR EXISTS (SELECT 1 FROM walkthroughs w WHERE w.product_id = products.id AND w.version > r.version
+                                 AND w.again_tapped_at IS NOT NULL
+                                 AND w.version = (SELECT MAX(version) FROM walkthroughs WHERE walkthroughs.product_id = products.id))))
+               ELSE COALESCE((SELECT again_tapped_at IS NOT NULL FROM walkthroughs WHERE walkthroughs.product_id = products.id
+                              ORDER BY version DESC LIMIT 1), 1)
+               END
          ORDER BY products.id`,
       )
       .all()
@@ -1645,7 +1920,8 @@ export class Store {
 
   /**
    * The latest version of each Walkthrough still waiting on the person: not approved, dismissed or lapsed, not under a
-   * Correction, and of a Dossier not withdrawn.
+   * Correction, and of a Dossier not withdrawn. A version prepared after its Product's Registration was *abandoned*
+   * waits like any other.
    */
   openWalkthroughs(): StoredWalkthrough[] {
     return this.#db
@@ -1654,7 +1930,7 @@ export class Store {
          WHERE w.version = (SELECT MAX(version) FROM walkthroughs WHERE product_id = w.product_id)
            AND w.dismissed_at IS NULL AND w.lapsed_at IS NULL
            AND NOT EXISTS (SELECT 1 FROM products p WHERE p.id = w.product_id AND p.withdrawn_at IS NOT NULL)
-           AND NOT EXISTS (SELECT 1 FROM registrations r WHERE r.product_id = w.product_id)
+           AND NOT EXISTS (SELECT 1 FROM registrations r WHERE r.product_id = w.product_id AND (r.state != 'abandoned' OR r.version >= w.version))
            AND NOT EXISTS (SELECT 1 FROM no_walkthroughs n WHERE n.product_id = w.product_id)
            AND NOT EXISTS (SELECT 1 FROM walkthrough_corrections c WHERE c.product_id = w.product_id AND c.version = w.version AND c.done_at IS NULL)
          ORDER BY w.prepared_at, w.product_id`,
@@ -1742,10 +2018,10 @@ export class Store {
   }
 
   /** Keeps the person's Correction of a version, and returns its id. */
-  saveWalkthroughCorrection(c: { productId: number; version: number; text: string; submittedAt: string }): number {
+  saveWalkthroughCorrection(c: { productId: number; version: number; text: string; submittedAt: string; ofApproved?: WalkthroughCorrection['ofApproved'] }): number {
     const result = this.#db
-      .prepare('INSERT INTO walkthrough_corrections (product_id, version, text, submitted_at) VALUES (?, ?, ?, ?)')
-      .run(c.productId, c.version, c.text, c.submittedAt);
+      .prepare('INSERT INTO walkthrough_corrections (product_id, version, text, submitted_at, of_approved) VALUES (?, ?, ?, ?, ?)')
+      .run(c.productId, c.version, c.text, c.submittedAt, c.ofApproved ?? null);
     return Number(result.lastInsertRowid);
   }
 
@@ -1763,12 +2039,15 @@ export class Store {
     return this.#db.prepare('SELECT * FROM walkthrough_corrections WHERE done_at IS NULL ORDER BY id').all().map(walkthroughCorrectionOf);
   }
 
-  /** Walkthrough Corrections whose item is redone, or found to need no Walkthrough, and whose sort isn't shown yet. */
+  /**
+   * Walkthrough Corrections whose item is redone, or found to need no Walkthrough, or which fix only the record, and
+   * whose sort isn't shown yet.
+   */
   unsortedWalkthroughCorrections(): WalkthroughCorrection[] {
     return this.#db
       .prepare(
         `SELECT c.* FROM walkthrough_corrections c LEFT JOIN sorts ON sorts.correction = 'walkthrough:' || c.id
-         WHERE c.done_at IS NOT NULL AND (c.redone_version IS NOT NULL OR c.withdrawn IS NOT NULL) AND sorts.shown_at IS NULL
+         WHERE c.done_at IS NOT NULL AND (c.redone_version IS NOT NULL OR c.withdrawn IS NOT NULL OR c.of_approved = 'after-final-press') AND sorts.shown_at IS NULL
          ORDER BY c.id`,
       )
       .all()
@@ -1784,6 +2063,11 @@ export class Store {
     });
   }
 
+  /** Records that a Correction of an approved Walkthrough came too late to stop its Registration, so it fixes only the record. */
+  saveWalkthroughCorrectionRecordOnly(id: number): void {
+    this.#db.prepare("UPDATE walkthrough_corrections SET of_approved = 'after-final-press' WHERE id = ?").run(id);
+  }
+
   saveWalkthroughCorrectionUnapplied(id: number, why: string): void {
     this.#db.prepare('UPDATE walkthrough_corrections SET unapplied = ? WHERE id = ?').run(why, id);
   }
@@ -1795,27 +2079,50 @@ export class Store {
   /**
    * Records the person's Approval of one version of a Product's Walkthrough, and the Registration it starts, at once.
    * Only one Approval counts per version, and a Product has at most one Registration: a later tap returns the Approval
-   * already kept.
+   * already kept. An *abandoned* Registration is the one a later version's Approval starts again (#11), from its first
+   * page, keeping its vault item and its status message.
    */
-  approveWalkthrough(a: Omit<Approval, 'item'> & { productId: number; state: StoredRegistration['state'] }): 'approved' | { already: Approval } {
+  approveWalkthrough(a: Omit<Approval, 'item'> & { productId: number; state: RegistrationState }): 'approved' | { already: Approval } {
     const item = `walkthrough:${a.productId}`;
     return this.#transaction(() => {
-      const kept = this.#db.prepare('SELECT * FROM approvals WHERE item = ? ORDER BY approved_at LIMIT 1').get(item);
-      if (kept) return { already: approvalOf(kept) };
+      const latest = this.#db.prepare('SELECT * FROM approvals WHERE item = ? ORDER BY approved_at DESC LIMIT 1').get(item);
+      const registration = this.registration(a.productId);
+      const again = registration?.state === 'abandoned' && a.version > registration.version;
+      if (latest && !again) return { already: approvalOf(latest) };
+      const same = this.#db.prepare('SELECT * FROM approvals WHERE item = ? AND version_hash = ?').get(item, a.versionHash);
+      if (same) return { already: approvalOf(same) };
       this.#db
         .prepare('INSERT INTO approvals (item, version_hash, version, user_id, interaction_id, approved_at) VALUES (?, ?, ?, ?, ?, ?)')
         .run(item, a.versionHash, a.version, a.userId, a.interactionId, a.approvedAt);
-      this.#db
-        .prepare('INSERT INTO registrations (product_id, version, state, approved_at) VALUES (?, ?, ?, ?)')
-        .run(a.productId, a.version, a.state, a.approvedAt);
+      if (again) {
+        // How the earlier Approval ended stays in the Registration's history, which `registration.md` shows.
+        const history = [...registration.history, { version: registration.version, endedAt: registration.endedAt!, endNote: registration.endNote ?? 'nothing submitted' }];
+        this.#db
+          .prepare(
+            `UPDATE registrations SET version = ?, state = ?, approved_at = ?, shown_at = NULL, page = 0, fill_runs = 0, sessions_opened = 0,
+               stop_at = NULL, stop_cause = NULL, waits_on = NULL, button = NULL, ended_at = NULL, end_note = NULL, refill = '[]',
+               start_again_from = NULL, shown_key = NULL, history = ?
+             WHERE product_id = ?`,
+          )
+          .run(a.version, a.state, a.approvedAt, JSON.stringify(history), a.productId);
+      } else {
+        this.#db
+          .prepare('INSERT INTO registrations (product_id, version, state, approved_at) VALUES (?, ?, ?, ?)')
+          .run(a.productId, a.version, a.state, a.approvedAt);
+      }
       return 'approved';
     });
   }
 
-  /** The Approval of a Product's Walkthrough, once it has one. */
+  /** The latest Approval of a Product's Walkthrough, once it has one. */
   walkthroughApproval(productId: number): Approval | undefined {
-    const row = this.#db.prepare('SELECT * FROM approvals WHERE item = ?').get(`walkthrough:${productId}`);
+    const row = this.#db.prepare('SELECT * FROM approvals WHERE item = ? ORDER BY approved_at DESC LIMIT 1').get(`walkthrough:${productId}`);
     return row ? approvalOf(row) : undefined;
+  }
+
+  /** Every Approval of a Product's Walkthroughs, oldest first. */
+  walkthroughApprovals(productId: number): Approval[] {
+    return this.#db.prepare('SELECT * FROM approvals WHERE item = ? ORDER BY approved_at').all(`walkthrough:${productId}`).map(approvalOf);
   }
 
   registration(productId: number): StoredRegistration | undefined {
@@ -1838,8 +2145,9 @@ export class Store {
   }
 
   /** Keeps the id of the vault item holding the password, and starts the Registration in the state given. */
-  saveRegistrationVaultItem(productId: number, itemId: string, state: Exclude<StoredRegistration['state'], 'held'>): void {
-    this.#db.prepare('UPDATE registrations SET vault_item_id = ?, state = ? WHERE product_id = ?').run(itemId, state, productId);
+  saveRegistrationVaultItem(productId: number, itemId: string, state: 'queued' | 'handed-off'): void {
+    // One the person stopped while it was held stays *abandoned*, and keeps the item made for it.
+    this.#db.prepare("UPDATE registrations SET vault_item_id = ?, state = CASE WHEN state = 'held' THEN ? ELSE state END WHERE product_id = ?").run(itemId, state, productId);
   }
 
   /** Marks the Registration's status message as about to be sent, or as not sent after all. */
@@ -1853,6 +2161,121 @@ export class Store {
 
   saveRegistrationShown(productId: number, at: string): void {
     this.#db.prepare('UPDATE registrations SET shown_at = ? WHERE product_id = ?').run(at, productId);
+  }
+
+  // ---------- Filling and pressing a Registration (#56) ----------
+
+  /** The Registrations in these states, oldest Approval first. */
+  registrationsIn(states: RegistrationState[]): StoredRegistration[] {
+    return this.#db
+      .prepare(`SELECT * FROM registrations WHERE state IN (${states.map(() => '?').join(', ')}) ORDER BY approved_at, product_id`)
+      .all(...states)
+      .map(registrationOf);
+  }
+
+  /**
+   * Changes what filling and pressing keep of a Registration. One *abandoned* meanwhile, as by Stop, keeps what it has,
+   * unless `evenIfAbandoned`, as for what was shown of it or a session closed.
+   */
+  saveRegistration(productId: number, change: RegistrationChange, options: { evenIfAbandoned?: boolean } = {}): void {
+    const entries = Object.entries(change) as [keyof RegistrationChange, unknown][];
+    if (entries.length === 0) return;
+    const value = (v: unknown) => (typeof v === 'boolean' ? (v ? 1 : 0) : typeof v === 'object' && v !== null ? JSON.stringify(v) : (v as string | number | null));
+    const guard = options.evenIfAbandoned ? '' : " AND state != 'abandoned'";
+    this.#db
+      .prepare(`UPDATE registrations SET ${entries.map(([key]) => `${REGISTRATION_COLUMNS[key]} = ?`).join(', ')} WHERE product_id = ?${guard}`)
+      .run(...entries.map(([, v]) => value(v)), productId);
+  }
+
+  /**
+   * Writes the person's stop mark, unless it is there already (`stopped-already`, as for an *abandoned* Registration),
+   * the final button is being pressed or was (`too-late`), or the Registration has reached its outcome otherwise
+   * (`over`).
+   */
+  stopRegistration(productId: number, at: string, cause: 'stop' | 'correct'): 'stopped' | 'stopped-already' | 'too-late' | 'over' {
+    return this.#transaction(() => {
+      const r = this.registration(productId);
+      if (!r) return 'over';
+      if (r.state === 'abandoned' || (r.stopAt && beforeFinalPress(r))) return 'stopped-already';
+      if (r.state === 'registered' || r.state === 'waitlisted' || r.state === 'handed-off') return 'over';
+      if (!beforeFinalPress(r) || (r.state === 'pressing' && this.openPress(productId)?.final)) return 'too-late';
+      this.#db.prepare('UPDATE registrations SET stop_at = ?, stop_cause = ? WHERE product_id = ?').run(at, cause, productId);
+      return 'stopped';
+    });
+  }
+
+  /**
+   * Ends a stopped Registration *abandoned*, once: false when it isn't stopped or has ended already, and while a press
+   * is under way, whose outcome decides it. Its session stays named until it is closed.
+   */
+  abandonStopped(productId: number, note: string, at: string): boolean {
+    return this.#transaction(() => {
+      const r = this.registration(productId);
+      if (!r?.stopAt || !beforeFinalPress(r) || r.state === 'pressing') return false;
+      this.#db
+        .prepare("UPDATE registrations SET state = 'abandoned', ended_at = ?, end_note = ?, waits_on = NULL, refill = '[]' WHERE product_id = ?")
+        .run(at, note, productId);
+      return true;
+    });
+  }
+
+  /**
+   * Writes the *intended* mark of a press, right before it, and moves the Registration to pressing, unless the stop
+   * mark is there: `stopped` then, and nothing is pressed.
+   */
+  intendPress(mark: Omit<PressMark, 'id' | 'doneAt' | 'uncertain'>): number | 'stopped' {
+    return this.#transaction(() => {
+      if (this.registration(mark.productId)?.stopAt) return 'stopped';
+      const result = this.#db
+        .prepare('INSERT INTO presses (product_id, version, session, page, button, fingerprint, final, intended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(mark.productId, mark.version, mark.session, mark.page, mark.button, mark.fingerprint, mark.final ? 1 : 0, mark.intendedAt);
+      this.#db.prepare("UPDATE registrations SET state = 'pressing', button = ? WHERE product_id = ?").run(mark.button, mark.productId);
+      return Number(result.lastInsertRowid);
+    });
+  }
+
+  /** Marks a press done, with what was uncertain about it, if anything. */
+  savePressDone(id: number, at: string, uncertain: string | null): void {
+    this.#db.prepare('UPDATE presses SET done_at = ?, uncertain = ? WHERE id = ?').run(at, uncertain, id);
+  }
+
+  /** Takes back the mark of a press the browser service refused, so that nothing was pressed. */
+  dropPress(id: number): void {
+    this.#db.prepare('DELETE FROM presses WHERE id = ? AND done_at IS NULL').run(id);
+  }
+
+  /** The Registration's press that is intended and not done, if it has one. */
+  openPress(productId: number): PressMark | undefined {
+    const row = this.#db.prepare('SELECT * FROM presses WHERE product_id = ? AND done_at IS NULL ORDER BY id DESC LIMIT 1').get(productId);
+    return row ? pressOf(row) : undefined;
+  }
+
+  /** Whether any button was pressed under this Approval, or may have been: a refused press leaves no mark. */
+  pressedUnder(productId: number, version: number): boolean {
+    return Boolean(this.#db.prepare('SELECT 1 FROM presses WHERE product_id = ? AND version = ?').get(productId, version));
+  }
+
+  /** The Registration's latest press. */
+  lastPress(productId: number): PressMark | undefined {
+    const row = this.#db.prepare('SELECT * FROM presses WHERE product_id = ? ORDER BY id DESC LIMIT 1').get(productId);
+    return row ? pressOf(row) : undefined;
+  }
+
+  /** Records Start again on an *abandoned* Registration; false on any other. */
+  saveStartAgain(productId: number, from: number): boolean {
+    const result = this.#db.prepare("UPDATE registrations SET start_again_from = ? WHERE product_id = ? AND state = 'abandoned'").run(from, productId);
+    return Number(result.changes) > 0;
+  }
+
+  /** Makes a replacement the Registration's vault item, keeping the one it replaces and what the form refused. */
+  saveReplacementItem(productId: number, itemId: string, refused: Refused, at: string): void {
+    this.#transaction(() => {
+      const r = this.registration(productId)!;
+      const replaced = r.vaultItemId ? [...r.replacedItems, { itemId: r.vaultItemId, refused, at }] : r.replacedItems;
+      this.#db
+        .prepare('UPDATE registrations SET vault_item_id = ?, replaced_items = ?, replacement_intended = NULL WHERE product_id = ?')
+        .run(itemId, JSON.stringify(replaced), productId);
+    });
   }
 
   // ---------- Runs and model requests ----------

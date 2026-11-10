@@ -2,7 +2,8 @@
 // the bot's own account reaches through the `bw` command, one process per operation, so nothing listens. The session
 // key lives only in this object's memory and reaches `bw` through its environment. A password reaches `bw` on stdin,
 // never on a command line, and the bot makes it here, never a model. The Assistant only creates items: this offers no
-// way to change or delete one.
+// way to change or delete one, so a form that refuses a password, or the plus-address, gets a new item whose notes name
+// the one it replaces (ADR 0014). A fill reads the password back, and holds it at the last door from that moment.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomInt } from 'node:crypto';
 import { errorText, type Log } from './log.ts';
@@ -20,7 +21,14 @@ export interface VaultLogin {
   website: string;
   /** The Signup identity's address. */
   username: string;
+  /** For a replacement: which item it replaces and why. The first item of a Registration has none. */
+  notes?: string;
+  /** For a replacement of a refused password: which narrower password it gets, 1 for the first. The first item gets the default. */
+  replacement?: number;
 }
+
+/** What a new item is made with: a new password, or for a replacement that keeps it, the password the bot read back. */
+export type NewItem = VaultLogin & { password?: string };
 
 /** The bot's Bitwarden API key, which logs `bw` in without a prompt. */
 export interface ApiKey {
@@ -36,11 +44,16 @@ const PASSWORD_CHARS = 24;
 /** Every character class, with the symbols forms take most widely: no quote, backslash, angle bracket or space. */
 const PASSWORD_CLASSES = ['abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '0123456789', '!@#$%^&*-_=+?'];
 
-/** A new random password, 24 characters with every character class (ADR 0004). */
-function newPassword(): string {
+/**
+ * A new random password: 24 characters with every character class (ADR 0004). A form refused that one, so a
+ * replacement is narrower: letters and digits alone, 24 of them first, then 16 for a form that caps the length.
+ */
+function newPassword(replacement = 0): string {
   const pick = (from: string) => from[randomInt(from.length)]!;
-  const every = PASSWORD_CLASSES.join('');
-  const chars = [...PASSWORD_CLASSES.map(pick), ...Array.from({ length: PASSWORD_CHARS - PASSWORD_CLASSES.length }, () => pick(every))];
+  const classes = replacement === 0 ? PASSWORD_CLASSES : PASSWORD_CLASSES.slice(0, 3);
+  const length = replacement <= 1 ? PASSWORD_CHARS : 16;
+  const every = classes.join('');
+  const chars = [...classes.map(pick), ...Array.from({ length: length - classes.length }, () => pick(every))];
   for (let i = chars.length - 1; i > 0; i--) {
     const j = randomInt(i + 1);
     [chars[i], chars[j]] = [chars[j]!, chars[i]!];
@@ -115,15 +128,15 @@ export class PasswordVault {
     if (this.#running) kill(this.#running);
   }
 
-  /** Makes a new password and saves it as a new item. Returns the item's id: the password goes nowhere but `bw`. */
-  createItem(item: VaultLogin): Promise<string> {
+  /**
+   * Saves a new item, with a new password unless one is given, as a replacement for a refused `+` keeps the password
+   * already filled (ADR 0014). Returns the item's id: the password goes nowhere but `bw`.
+   */
+  createItem(item: NewItem): Promise<string> {
     return this.#unlocked(async (session) => {
       const collection = await this.#collection(session);
-      const password = newPassword();
-      this.#secrets.hold(password, {
-        name: `the password of ${item.name}`,
-        replace: `Change it at ${item.name}, and in Bitwarden › ${COLLECTION} › ${item.name}.`,
-      });
+      const password = item.password ?? newPassword(item.replacement);
+      this.#hold(password, item.name);
       const encoded = Buffer.from(
         JSON.stringify({
           organizationId: collection.organizationId,
@@ -131,7 +144,7 @@ export class PasswordVault {
           folderId: null,
           type: 1,
           name: item.name,
-          notes: null,
+          notes: item.notes ?? null,
           favorite: false,
           fields: [],
           login: { uris: [{ match: null, uri: item.website }], username: item.username, password, totp: null },
@@ -150,11 +163,41 @@ export class PasswordVault {
       const collection = await this.#collection(session);
       const items = this.#json(await this.#bw(['list', 'items', '--collectionid', collection.id, '--nointeraction'], { session }), 'list items');
       if (!Array.isArray(items)) throw new PasswordVaultUnavailable('bw list items answered with no list');
-      const found = (items as { id?: unknown; name?: unknown; login?: { username?: unknown; uris?: { uri?: unknown }[] | null } | null }[]).find(
-        (i) => i?.name === item.name && i.login?.username === item.username && Array.isArray(i.login.uris) && i.login.uris.some((u) => u?.uri === item.website),
+      const found = (items as { id?: unknown; name?: unknown; notes?: unknown; login?: { username?: unknown; uris?: { uri?: unknown }[] | null } | null }[]).find(
+        (i) =>
+          i?.name === item.name &&
+          (i.notes ?? null) === (item.notes ?? null) &&
+          i.login?.username === item.username &&
+          Array.isArray(i.login.uris) &&
+          i.login.uris.some((u) => u?.uri === item.website),
       );
       return typeof found?.id === 'string' ? found.id : undefined;
     });
+  }
+
+  /**
+   * Reads an item's password back for a fill by reference, and holds it at the last door from that moment. An account
+   * that can't see passwords gets each one as null (#54's trial), which is Bitwarden being unavailable, never a value
+   * to fill, and so is an item that isn't there.
+   */
+  readPassword(itemId: string, name: string): Promise<string> {
+    return this.#unlocked(async (session) => {
+      const collection = await this.#collection(session);
+      const items = this.#json(await this.#bw(['list', 'items', '--collectionid', collection.id, '--nointeraction'], { session }), 'list items');
+      if (!Array.isArray(items)) throw new PasswordVaultUnavailable('bw list items answered with no list');
+      const item = (items as { id?: unknown; login?: { password?: unknown } | null }[]).find((i) => i?.id === itemId);
+      if (!item) throw new PasswordVaultUnavailable(`the Password vault holds no item ${itemId}`);
+      const password = item.login?.password;
+      if (typeof password !== 'string' || !password) {
+        throw new PasswordVaultUnavailable("bw answers the item's password as null: the bot's account may not see passwords");
+      }
+      this.#hold(password, name);
+      return password;
+    });
+  }
+
+  #hold(password: string, name: string): void {
+    this.#secrets.hold(password, { name: `the password of ${name}`, replace: `Change it at ${name}, and in Bitwarden › ${COLLECTION} › ${name}.` });
   }
 
   /** Runs one operation on a synced, unlocked Password vault, after any before it. A failure forgets the session key. */

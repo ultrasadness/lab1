@@ -50,11 +50,11 @@ test('approving a Walkthrough with a password field creates one vault item, and 
   // Nothing listens, and nothing changes or deletes an item.
   assert.deepEqual(world.bitwarden.calls.map((call) => call.args[0]).filter((command) => ['serve', 'edit', 'delete', 'restore', 'move'].includes(command!)), []);
 
-  // The Registration then starts as it did: the card locks, and the post and git say so.
+  // The Registration then starts, and its form is filled (#56): the card locks, and the post and git say so.
   const [post] = world.discord.forumPosts(PRODUCTS_FORUM);
   assert.equal(world.discord.cards(NEEDS_YOU)[0]!.text, `✅ Approved v1 09:03 · **Codemind** · <#${post!.id}>`);
   assert.deepEqual(post!.tags, ['Registering']);
-  assert.ok(post!.messages.at(-1)!.text.startsWith('**Registration** · queued · Walkthrough v1 approved 09:03 PT Mon Oct 12'));
+  assert.ok(post!.messages.at(-1)!.text.startsWith('**Registration** · submitted 09:03 PT Mon Oct 12 · awaiting verification · Walkthrough v1 approved 09:03 PT Mon Oct 12'));
   assert.ok(
     world.git.file('products/codemindhq.dev/registration.md')!.includes(`- 2026-10-12 09:03 PT · Walkthrough v1 approved · you+codemind@gmail.com · password in the Password vault, item ${item!.id}\n`),
     'the record holds the item id',
@@ -68,10 +68,12 @@ test('a Walkthrough with no password field creates no item, and never runs `bw`'
   await approve(world);
   await world.assistant.whenIdle();
 
+  // Its form is filled with no password, so nothing reads one back either (#56).
   assert.equal(world.bitwarden.calls.length, 0);
   const [post] = world.discord.forumPosts(PRODUCTS_FORUM);
   assert.deepEqual(post!.tags, ['Registering']);
-  assert.ok(post!.messages.at(-1)!.text.startsWith('**Registration** · queued'));
+  assert.match(post!.messages.at(-1)!.text, /^\*\*Registration\*\* · submitted [^·]+ · awaiting verification · Walkthrough v1 approved/);
+  assert.equal(world.browser.presses.length, 1);
   assert.ok(!world.git.file('products/codemindhq.dev/registration.md')!.includes('Password vault'));
 });
 
@@ -97,7 +99,11 @@ test('while Bitwarden is unavailable an Approval is held, Approve says it waits,
 
   const card = world.discord.cards(NEEDS_YOU)[0]!;
   assert.ok(card.text.endsWith('-# Approved 09:03. Waiting for Bitwarden: the Registration starts once its new password is saved.'), card.text);
-  assert.deepEqual(card.buttons.map((b) => b.disabled), [true, true, true], 'the Approval is kept, so nothing on the card can be tapped');
+  assert.deepEqual(
+    card.buttons.map((b) => [b.label, b.disabled]),
+    [['Approve', true], ['Correct', false], ['Dismiss', true], ['Stop', false]],
+    'the Approval is kept, so only its Registration\'s Stop and Correct can be tapped (#56)',
+  );
   assert.equal(world.bitwarden.items.length, 0);
   const held = world.discord.forumPosts(PRODUCTS_FORUM)[0]!;
   assert.equal(held.messages.length, before.messages.length, 'the Registration has not started: no status message');
@@ -122,7 +128,10 @@ test('while Bitwarden is unavailable an Approval is held, Approve says it waits,
   assert.equal(world.bitwarden.items.length, 1);
   const started = world.discord.forumPosts(PRODUCTS_FORUM)[0]!;
   assert.deepEqual(started.tags, ['Registering']);
-  assert.ok(started.messages.at(-1)!.text.startsWith('**Registration** · queued · Walkthrough v1 approved 09:03 PT Mon Oct 12'), 'approved when it was tapped');
+  assert.ok(
+    started.messages.at(-1)!.text.startsWith('**Registration** · submitted 09:13 PT Mon Oct 12 · awaiting verification · Walkthrough v1 approved 09:03 PT Mon Oct 12'),
+    'approved when it was tapped, and filled once Bitwarden was back',
+  );
   assert.equal(world.discord.cards(NEEDS_YOU)[0]!.text, `✅ Approved v1 09:03 · **Codemind** · <#${started.id}>`);
   assert.deepEqual(world.discord.refused, []);
 });

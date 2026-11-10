@@ -220,7 +220,7 @@ the bot applies *Skipped* too.
   outside `node_modules`) for it and for what it replaces, and read the sentences that describe it;
 - "for now", "only", "alone", "not yet" or "until #<number>" in a doc sentence about what the diff changes;
 - an "until" that names no ticket or condition, such as "until their sprint": a later diff can't check it, so the
-  sentence names what it waits on, as `bot/README.md` keeps Walkthroughs off "until #56 lets an Approval fill the
+  sentence names what it waits on, as `bot/README.md` kept Walkthroughs off "until #56 lets an Approval fill the
   form" (#99).
 
 ## A Chinese side says what its English side says

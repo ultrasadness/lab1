@@ -5,7 +5,6 @@
 // every field gives the later ones none, and says Correct changes them. Once handled, the card shrinks to one line.
 import {
   Accent,
-  actionRow,
   button,
   ButtonStyle,
   container,
@@ -21,12 +20,17 @@ import {
   type TextDisplay,
 } from '../discord/components.ts';
 import { needsYouCard } from '../needs-you.ts';
+import { correctId, stopId } from '../registration/status.ts';
 import { pacificTime, shortTime } from '../pacific.ts';
 import { PROFILE_PATH } from './prompt.ts';
 import { hasPasswordField, offDomain, type Walkthrough, type WalkthroughField } from './walkthrough.ts';
 
-/** What made a version: a preparation, the person's Edit of one field, their Correction, or Prepare again after a lapse. */
+/**
+ * What made a version: a preparation, the person's Edit of one field, their Correction, Prepare again after a lapse, or
+ * Start again on an abandoned Registration.
+ */
 export type VersionCause =
+  | { kind: 'started-again' }
   | { kind: 'prepared' }
   | { kind: 'edited'; field: string }
   | { kind: 'corrected'; text: string }
@@ -83,10 +87,13 @@ const QUOTE_CHARS = 300;
 export function walkthroughCard(v: VersionShown, state: CardState): { heading: string; body: (TextDisplay | Section)[]; buttons: Button[] } {
   const heading = `Walkthrough v${v.version} · ${productName(v.walkthrough)}`;
   const on = state.kind === 'open';
+  // An Approval held on Bitwarden has no status message yet, so its Registration's Stop and Correct are here (#56).
+  const held = state.kind === 'waiting-for-bitwarden';
   const buttons = [
     button(walkthroughId('approve', v), 'Approve', ButtonStyle.Success, !on),
-    button(walkthroughId('correct', v), 'Correct', ButtonStyle.Secondary, !on),
+    held ? button(correctId(v.productId, v.version), 'Correct', ButtonStyle.Secondary) : button(walkthroughId('correct', v), 'Correct', ButtonStyle.Secondary, !on),
     button(walkthroughId('dismiss', v), 'Dismiss', ButtonStyle.Secondary, !on),
+    ...(held ? [button(stopId(v.productId, v.version), 'Stop', ButtonStyle.Danger)] : []),
     ...(state.kind === 'lapsed' ? [button(walkthroughId('again', v), 'Prepare again', ButtonStyle.Primary)] : []),
   ];
   const note = stateNote(state);
@@ -197,6 +204,8 @@ function causeLine(v: VersionShown): string[] {
       return [`-# v${version}: prepared again after your Correction: “${cut(escapeMarkdown(cause.text), QUOTE_CHARS)}”`];
     case 'prepared-again':
       return [`-# v${version}: prepared again from a fresh read, after v${version - 1} lapsed.`];
+    case 'started-again':
+      return [`-# v${version}: prepared from a fresh read, after you tapped Start again on the Registration.`];
   }
 }
 
@@ -293,23 +302,3 @@ export const preparedAgainLine = (w: Walkthrough, lapsed: number, version: numbe
 
 export const withdrawnLine = (w: Walkthrough, version: number, why: string, threadId: string) =>
   `No Walkthrough after your Correction of v${version}: ${escapeMarkdown(why)} · **${productName(w)}** · <#${threadId}>`;
-
-/** The Registration's status message in the Product's post: silent, with Stop until the final press. */
-export function statusMessage(input: { productId: number; walkthrough: Walkthrough; version: number; approvedAt: Date; state: 'queued' | 'handed-off' }): MessagePayload {
-  const { walkthrough: w } = input;
-  const approved = `Walkthrough v${input.version} approved ${shortTime(input.approvedAt)}`;
-  if (input.state === 'handed-off') {
-    return silentMessage([
-      container(Accent.progress, [
-        text(`**Registration** · handed off · ${approved}. Its terms ban accounts made by a bot, so you finish it on your own device, as ${w.identity.plusAddress}.`),
-      ]),
-    ]);
-  }
-  return silentMessage([
-    container(Accent.progress, [text(`**Registration** · queued · ${approved}, as ${w.identity.plusAddress}`)]),
-    actionRow([button(stopId(input.productId), 'Stop', ButtonStyle.Danger)]),
-  ]);
-}
-
-/** Stop is wired in #56. */
-export const stopId = (productId: number) => `stop:registration:${productId}`;

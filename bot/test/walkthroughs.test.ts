@@ -246,6 +246,8 @@ test('Edit makes a new version of the same card with a fresh Approve, and Approv
   );
 
   await world.advanceTo('2026-10-12T16:03:00Z'); // 09:03 PDT
+  // Every browser session is taken, so the Registration stays as Approve starts it, queued for one (#56).
+  world.browser.occupy(5);
   const approved = await tapCard(world, cardIn(world), 'Approve');
   const locking = updateOf(approved)!;
   assert.deepEqual(locking.buttons.map((b) => b.disabled), [true, true, true], 'the tap answers with the buttons off');
@@ -257,9 +259,12 @@ test('Edit makes a new version of the same card with a fresh Approve, and Approv
   const after = world.discord.forumPosts(PRODUCTS_FORUM)[0]!;
   assert.deepEqual(after.tags, ['Registering']);
   const status = after.messages.at(-1)!;
-  assert.equal(status.text, '**Registration** · queued · Walkthrough v3 approved 09:03 PT Mon Oct 12, as you+codemind@gmail.com');
+  assert.equal(
+    status.text,
+    '**Registration** · queued · Walkthrough v3 approved 09:03 PT Mon Oct 12, as you+codemind@gmail.com\n-# Waiting: all 5 browser sessions are in use. It is tried again by itself.',
+  );
   assert.ok(status.silent && status.mentionsNobody, 'progress is silent');
-  assert.deepEqual(status.buttons.map((b) => b.label), ['Stop']);
+  assert.deepEqual(status.buttons.map((b) => b.label), ['Stop', 'Correct']);
   assert.ok(after.messages[0]!.text.includes('No card.⁴ ⁵ Walkthrough v3 approved; registering.'), after.messages[0]!.text);
   assert.equal(
     world.git.file('products/codemindhq.dev/registration.md'),
@@ -273,9 +278,11 @@ test('Edit makes a new version of the same card with a fresh Approve, and Approv
   );
   assert.equal(world.git.subjects().at(-1), 'Registration file: Codemind (codemindhq.dev), Walkthrough v3 approved');
 
-  // Stop arrives with filling the form (#56).
-  const stop = await world.discord.tap({ userId: PERSON, customId: status.buttons[0]!.customId, channelId: after.id, messageId: status.id });
-  assert.equal(stop.data?.content, "Stop isn't wired up yet. It arrives with filling the form.");
+  // Stop ends a queued Registration before it has a session (#56).
+  await world.discord.tap({ userId: PERSON, customId: status.buttons[0]!.customId, channelId: after.id, messageId: status.id });
+  await world.assistant.whenIdle();
+  assert.ok(world.discord.forumPosts(PRODUCTS_FORUM)[0]!.messages.at(-1)!.text.startsWith('**Registration** · **abandoned** · stopped by you; nothing submitted'));
+  assert.deepEqual(world.browser.presses, []);
   assert.deepEqual(world.discord.refused, []);
 });
 
@@ -650,7 +657,7 @@ test('an Approval whose work Discord cut short is kept, and finished at the next
   assert.equal(cardIn(world).text, `✅ Approved v1 09:03 · **Codemind** · <#${post!.id}>`);
   const after = world.discord.forumPosts(PRODUCTS_FORUM)[0]!;
   assert.deepEqual(after.tags, ['Registering']);
-  assert.equal(after.messages.filter((m) => m.text.startsWith('**Registration** · queued')).length, 1);
+  assert.equal(after.messages.filter((m) => m.text.startsWith('**Registration** · ')).length, 1, 'one status message');
   assert.ok(world.git.file('products/codemindhq.dev/registration.md')!.includes(`- 2026-10-12 09:03 PT · Walkthrough v1 approved · Alex Example, you+codemind@gmail.com · password in the Password vault, item ${world.bitwarden.items[0]!.id}\n`));
   assert.equal(world.model.walkthroughRuns.length, 1, 'nothing is prepared again');
   assert.deepEqual(world.discord.refused, []);

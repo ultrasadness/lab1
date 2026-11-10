@@ -80,6 +80,13 @@ test('a password read back that is not the one it was given fails the trial', (t
   assert.match(ran.out, /TRIAL FAILED: bw answers the new item with another password than it was given/);
 });
 
+test('an item read back without the notes it was given fails the trial: a replacement is found by them (#56)', (t) => {
+  const vm = machine(t, (fake) => `case "$1 $2" in "list items") ${fake} | sed 's/"notes":"[^"]*",//'; exit 0 ;; esac`);
+  const ran = vm.trial();
+  assert.equal(ran.code, 1, ran.out);
+  assert.match(ran.out, /TRIAL FAILED: bw answers the new item without the notes it was given/);
+});
+
 test('an account that sees another collection fails the trial before it creates anything', (t) => {
   const vm = machine(t);
   vm.bitwarden.addCollection('Everything');

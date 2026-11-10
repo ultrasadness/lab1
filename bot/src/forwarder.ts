@@ -3,7 +3,8 @@
 // the role's `role@provider` names on new-api that can serve it, moving on past any that answers it can't, and counts
 // the exact tokens of the reply, in notional dollars at the list price of the model that provider serves. Our Pi
 // extension asks here for the run's Rules as the run starts, and the run's record tool also writes through here, so a
-// record reaches the bot while the run goes on.
+// record reaches the bot while the run goes on. A fill run's fixed actions (ADR 0006) come through here too, for the bot
+// to carry out on the browser service.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { randomBytes } from 'node:crypto';
@@ -23,6 +24,8 @@ export interface RunRegistration {
   rules(): { commit: string; prompt: string };
   /** Takes one record the run's tool wrote, and says whether it was kept. */
   onRecord(record: unknown): RecordResult;
+  /** Carries out one of a fill run's fixed actions, and says what came of it. Only a fill run has it. */
+  onAction?(action: unknown): Promise<RecordResult>;
 }
 
 /** One of a role's providers, with the list price of the model it serves. */
@@ -88,6 +91,18 @@ export async function startForwarder(options: {
         return json(res, 400, { error: 'The record is not JSON' });
       }
       const result = run.onRecord(record);
+      return result.ok ? json(res, 200, { message: result.message }) : json(res, 422, { error: result.error });
+    }
+
+    if (req.method === 'POST' && req.url === '/actions') {
+      if (!run.onAction) return json(res, 404, { error: 'This run has no actions' });
+      let action: unknown;
+      try {
+        action = JSON.parse(body);
+      } catch {
+        return json(res, 400, { error: 'The action is not JSON' });
+      }
+      const result = await run.onAction(action);
       return result.ok ? json(res, 200, { message: result.message }) : json(res, 422, { error: result.error });
     }
 

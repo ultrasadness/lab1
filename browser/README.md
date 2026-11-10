@@ -6,8 +6,10 @@ Playwright in its own hardened container (ADR 0006), run as-is through Node's ty
 client is the bot, through a Unix socket: it listens on no port, and its network is its own, so the Pi
 container can't reach it. #43 brought up the container and the read-only `read(url)` that Dossiers and
 Walkthroughs use to read Product pages before any Approval. #55 adds a Registration's session: the fixed actions a
-fill run may use through the bot, and plain code's page check, press and fills by reference. Until #56 fills a
-Registration, the bot uses only `read(url)` and `redirect(url)`, which #101 added.
+fill run may use through the bot, and plain code's page check, press and fills by reference. #101 added
+`redirect(url)`. Since #56 the bot drives a session: it opens one, switches drivers, carries out a fill run's actions,
+and asks for the check, the fingerprint and the press. It doesn't yet ask for a screenshot, which #59's Submit tap
+needs, or for `fill-code` and `open-link`, which #58's verification needs.
 
 | Path | What it is |
 |---|---|

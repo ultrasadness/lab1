@@ -10,13 +10,17 @@
 // - dismisses it, which ends it with no Correction;
 // - or approves it, with one tap that locks the card and starts the Registration as *queued*, or as *handed off* when
 //   its terms ban accounts made by a bot. A Walkthrough with a password field first gets its vault item, and while
-//   Bitwarden is unavailable its Approval is held, the card saying so, until the item is saved (ADR 0004).
+//   Bitwarden is unavailable its Approval is held, the card saying so, with Stop, until the item is saved (ADR 0004).
 // An unanswered Walkthrough lapses after 14 days, with Prepare again. Every step is kept in the store before its work,
 // so a stop picks up where it left off.
+// Filling the approved form is `registration/registrations.ts`'s (#56). It comes back here twice: Start again on an
+// abandoned Registration prepares a fresh Walkthrough, whose Approval starts the same Registration again; and Correct
+// on an approved Walkthrough prepares a new version once the Registration is stopped, or, after the final press, fixes
+// only the record.
 import type { BrowserService, PageRead } from '../browser.ts';
 import { inMinutes, type Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
-import { cut, Flags, popup, text, type MessagePayload, type Popup } from '../discord/components.ts';
+import { asEdit, cut, Flags, popup, text, type MessagePayload, type Popup } from '../discord/components.ts';
 import { refused, type DiscordRest } from '../discord/rest.ts';
 import type { Dossier } from '../dossier/dossier.ts';
 import type { Dossiers } from '../dossier/dossiers.ts';
@@ -31,7 +35,7 @@ import type { RawInputs } from '../raw-inputs.ts';
 import type { Proposals } from '../rules/proposals.ts';
 import { runSort, unrecorded } from '../rules/sort-run.ts';
 import { decidedText, INTEREST_SCOPE_PATH, sortingPrompt, sortKey, type SortedItem } from '../rules/sorting.ts';
-import type { Product, StoredRegistration, StoredWalkthrough, Store, WalkthroughCorrection } from '../store.ts';
+import { beforeFinalPress, type Product, type StoredRegistration, type StoredWalkthrough, type Store, type WalkthroughCorrection } from '../store.ts';
 import { PasswordVaultUnavailable, type PasswordVault } from '../password-vault.ts';
 import {
   approvedLine,
@@ -42,7 +46,6 @@ import {
   editId,
   preparedAgainLine,
   replacedLine,
-  statusMessage,
   walkthroughAction,
   walkthroughCard,
   walkthroughCopy,
@@ -51,6 +54,7 @@ import {
   type VersionCause,
   type VersionShown,
 } from './card.ts';
+import { registrationStatus, stoppedLine } from '../registration/status.ts';
 import { PROFILE_PATH, walkthroughPrompt } from './prompt.ts';
 import { registrationFileOf } from './registration-file.ts';
 import { hasPasswordField, identityOf, plusTagOf, readWalkthrough, VALUE_CHARS, versionHash, type Prepared, type Walkthrough, type WalkthroughField } from './walkthrough.ts';
@@ -85,6 +89,8 @@ export class Walkthroughs {
   #passwordVault: PasswordVault;
   #walkthroughsDue: () => void;
   #correctionsDue: () => void;
+  #registrationsDue: () => void;
+  #registrationChanged: (productId: number) => Promise<void>;
   #plainWork: (work: () => Promise<void>) => void;
   #clock: Clock;
   #log: Log;
@@ -112,6 +118,10 @@ export class Walkthroughs {
     walkthroughsDue(): void;
     /** Queues the work of the Walkthrough Corrections sent, in the background lane. */
     correctionsDue(): void;
+    /** Queues the filling of each Registration now due, in the background lane. */
+    registrationsDue(): void;
+    /** Shows a Registration again where what its status message says may have changed, such as its new Walkthrough. */
+    registrationChanged(productId: number): Promise<void>;
     /** Does plain-code work at once, outside the lane, such as a lapse. */
     plainWork(work: () => Promise<void>): void;
     clock: Clock;
@@ -130,6 +140,8 @@ export class Walkthroughs {
     this.#passwordVault = options.passwordVault;
     this.#walkthroughsDue = options.walkthroughsDue;
     this.#correctionsDue = options.correctionsDue;
+    this.#registrationsDue = options.registrationsDue;
+    this.#registrationChanged = options.registrationChanged;
     this.#plainWork = options.plainWork;
     this.#clock = options.clock;
     this.#log = options.log;
@@ -208,7 +220,8 @@ export class Walkthroughs {
       walkthrough,
       hash: versionHash(walkthrough),
       read: read.page,
-      cause: previous ? { kind: 'prepared-again' } : { kind: 'prepared' },
+      // Prepare again on a lapsed version, Start again on an abandoned Registration, or the first preparation.
+      cause: previous?.againTappedAt ? { kind: 'prepared-again' } : this.#store.registration(product.id) ? { kind: 'started-again' } : { kind: 'prepared' },
       runId,
       preparedAt: at,
     });
@@ -287,6 +300,7 @@ export class Walkthroughs {
     await this.#dossiers.restand(v.productId);
     this.#store.saveWalkthroughShown(v.productId, v.version, this.#clock.now().toISOString());
     this.#log('walkthrough.shown', { productId: v.productId, version: v.version });
+    await this.#registrationChanged(v.productId);
     this.#armLapse();
   }
 
@@ -310,6 +324,7 @@ export class Walkthroughs {
     this.#personalDatabase.queue(registrationFileOf(this.#store, productId, 'no Walkthrough'));
     await this.#personalDatabase.sync();
     this.#store.saveNoWalkthroughShown(productId, this.#clock.now().toISOString());
+    await this.#registrationChanged(productId);
   }
 
   /** Shows a version dismissed or lapsed: its card as such, and the Dossier and the post's tags. */
@@ -321,18 +336,36 @@ export class Walkthroughs {
     }
     await this.#dossiers.restand(v.productId);
     this.#store.saveWalkthroughEndShown(v.productId, v.version, this.#clock.now().toISOString());
+    await this.#registrationChanged(v.productId);
   }
 
   /**
    * Starts a Registration its Approval asked for: its vault item first, if it is held on one, then showing it. While
-   * Bitwarden is unavailable it stays held, and is tried again.
+   * Bitwarden is unavailable it stays held, and is tried again. One the person stopped while it was held is shown
+   * as that.
    */
+  showApproval(productId: number): Promise<void> {
+    return this.#startRegistration(productId);
+  }
+
+  /** What the card of an Approval held on Bitwarden becomes once the person stops it. */
+  stoppedCard(productId: number): MessagePayload {
+    const registration = this.#store.registration(productId)!;
+    const { walkthrough } = this.#store.walkthrough(productId, registration.version)!;
+    return this.#needsYou.shrunk(stoppedLine(walkthrough, registration.version, this.#store.product(productId)!.threadId!));
+  }
+
   async #startRegistration(productId: number): Promise<void> {
     if (this.#starting.has(productId)) return;
     this.#starting.add(productId);
     try {
       const registration = this.#store.registration(productId)!;
-      if (registration.state === 'held' && !(await this.#saveVaultItem(registration))) return;
+      // One the person stopped while it was held is abandoned by the Registration's own work, and shown from there.
+      if (registration.state === 'held' && !registration.stopAt && !(await this.#saveVaultItem(registration))) {
+        // A Stop while Bitwarden was asked abandoned it meanwhile, which is shown now.
+        if (this.#store.registration(productId)!.state !== 'abandoned') return;
+      }
+      if (this.#store.registration(productId)!.state === 'held') return;
       await this.#showRegistration(productId);
     } finally {
       this.#starting.delete(productId);
@@ -363,7 +396,8 @@ export class Walkthroughs {
       if (!(error instanceof PasswordVaultUnavailable)) throw error;
       this.#log('password-vault.unavailable', { productId, why: error.message });
       this.#armHeldRetry();
-      await this.#showWaiting(v, registration);
+      const now = this.#store.registration(productId)!;
+      if (now.state === 'held' && !now.stopAt) await this.#showWaiting(v, registration);
       return false;
     }
     this.#store.saveRegistrationVaultItem(productId, itemId, startingState(w));
@@ -390,18 +424,27 @@ export class Walkthroughs {
     );
   }
 
-  /** Shows a Registration its Approval started: the card locked to its line, the status message, the tags and git. */
+  /**
+   * Shows a Registration its Approval started: the card locked to its line, the status message, the tags and git. An
+   * Approval that starts an abandoned Registration again edits the status message it has. From then on the Registration
+   * is the fill lane's.
+   */
   async #showRegistration(productId: number): Promise<void> {
     const registration = this.#store.registration(productId)!;
     if (registration.shownAt) return;
     const v = this.#store.walkthrough(productId, registration.version)!;
     const product = this.#store.product(productId)!;
     const approvedAt = new Date(registration.approvedAt);
-    if (v.cardMessageId) await this.#needsYou.shrink(v.cardMessageId, approvedLine(v.walkthrough, v.version, approvedAt, product.threadId!));
-    if (!registration.statusIntended) {
+    if (v.cardMessageId) {
+      const line = registration.state === 'abandoned' ? stoppedLine(v.walkthrough, v.version, product.threadId!) : approvedLine(v.walkthrough, v.version, approvedAt, product.threadId!);
+      await this.#needsYou.shrink(v.cardMessageId, line);
+    }
+    const status = registrationStatus({ registration, walkthrough: v.walkthrough, next: { kind: 'none' }, needsYouChannelId: this.#config.discord.needsYouChannelId });
+    if (registration.statusMessageId) {
+      await this.#discord.editMessage(product.threadId!, registration.statusMessageId, asEdit(status));
+    } else if (!registration.statusIntended) {
       this.#store.saveRegistrationStatusIntended(productId, true);
       try {
-        const status = statusMessage({ productId, walkthrough: v.walkthrough, version: v.version, approvedAt, state: registration.state === 'handed-off' ? 'handed-off' : 'queued' });
         const { messageId } = await this.#discord.sendMessage(product.threadId!, status);
         this.#store.saveRegistrationStatus(productId, messageId);
       } catch (error) {
@@ -414,6 +457,7 @@ export class Walkthroughs {
     await this.#personalDatabase.sync();
     this.#store.saveRegistrationShown(productId, this.#clock.now().toISOString());
     this.#log('registration.shown', { productId, version: v.version, state: registration.state });
+    this.#registrationsDue();
   }
 
   /**
@@ -489,7 +533,8 @@ export class Walkthroughs {
           userId: interaction.userId,
           interactionId: interaction.interactionId,
           approvedAt: at,
-          state: hasPasswordField(v.walkthrough) ? 'held' : startingState(v.walkthrough),
+          // An abandoned Registration that starts again keeps the vault item it has.
+          state: hasPasswordField(v.walkthrough) && !this.#store.registration(productId)?.vaultItemId ? 'held' : startingState(v.walkthrough),
         });
         if (approved !== 'approved') return { refused: `Already approved at ${pacificTime(new Date(approved.already.approvedAt))}.` };
         this.#log('walkthrough.approved', { productId, version, interactionId: interaction.interactionId });
@@ -548,8 +593,12 @@ export class Walkthroughs {
     const latest = this.#store.latestWalkthrough(productId);
     if (!latest || version > latest.version) return { refused: 'That Walkthrough is no longer on record.' };
     const approval = this.#store.walkthroughApproval(productId);
-    if (approval) {
+    const registration = this.#store.registration(productId);
+    // A version prepared after its Registration was abandoned is open like any other, and its Approval starts it again.
+    const startedAgain = registration?.state === 'abandoned' && latest.version > registration.version;
+    if (approval && !startedAgain) {
       const at = pacificTime(new Date(approval.approvedAt));
+      if (registration?.state === 'abandoned') return { refused: `v${approval.version} was approved at ${at}, and its Registration was stopped. Start again is on its status message.` };
       return { refused: approving && approval.version === version ? `Already approved at ${at}.` : `v${approval.version} was approved at ${at}; nothing on it changes now.` };
     }
     const none = this.#store.noWalkthrough(productId);
@@ -668,6 +717,23 @@ export class Walkthroughs {
     let c = this.#store.walkthroughCorrection(id)!;
     const corrected = this.#store.walkthrough(c.productId, c.version)!;
     const product = this.#store.product(c.productId)!;
+    if (c.ofApproved === 'before-final-press') {
+      const registration = this.#store.registration(c.productId)!;
+      if (registration.state !== 'abandoned') {
+        // A press under way when the person corrected it settles first: it may turn out to have been the final one.
+        if (beforeFinalPress(registration)) return { problem: 'its Registration is still being stopped' };
+        this.#store.saveWalkthroughCorrectionRecordOnly(id);
+        c = this.#store.walkthroughCorrection(id)!;
+      }
+    }
+    if (c.ofApproved === 'after-final-press') {
+      // Nothing sent can be unsent (#11): no run prepares anything, and `registration.md` keeps what the person wrote.
+      this.#store.saveWalkthroughCorrectionDone(id, this.#clock.now().toISOString());
+      this.#personalDatabase.queue(registrationFileOf(this.#store, c.productId, `Walkthrough v${c.version} corrected`));
+      await this.#personalDatabase.sync();
+      await this.#registrationChanged(c.productId);
+      return 'done';
+    }
     if (c.redoneVersion === null && c.withdrawn === null && c.unapplied === null) {
       const { dossier } = this.#store.latestDossier(c.productId)!;
       const ran = await this.#run(product, dossier, corrected.read, new Date(corrected.walkthrough.readAt), {
@@ -695,12 +761,14 @@ export class Walkthroughs {
     } else if (c.withdrawn !== null) {
       if (corrected.cardMessageId) await this.#needsYou.shrink(corrected.cardMessageId, withdrawnLine(corrected.walkthrough, c.version, c.withdrawn, product.threadId!));
       await this.#showNone(c.productId);
-    } else if (corrected.cardMessageId) {
+    } else if (corrected.cardMessageId && !c.ofApproved) {
+      // An approved version's card stays the line it shrank to: its Registration is stopped, with Start again.
       await this.#needsYou.edit(corrected.cardMessageId, this.#cardPayload(corrected, { kind: 'open', note: unappliedNote(c.unapplied!) }));
     }
     this.#store.saveWalkthroughCorrectionDone(id, this.#clock.now().toISOString());
     this.#personalDatabase.queue(registrationFileOf(this.#store, c.productId, `Walkthrough v${c.version} corrected`));
     await this.#personalDatabase.sync();
+    await this.#registrationChanged(c.productId);
     this.#armLapse();
     return 'done';
   }
@@ -745,7 +813,12 @@ export class Walkthroughs {
       scope: 'registration',
       correction: c.text,
     };
-    const after = c.redoneVersion !== null ? cardText(this.#shown(this.#store.walkthrough(c.productId, c.redoneVersion)!)) : `No Walkthrough: ${c.withdrawn}.`;
+    const after =
+      c.redoneVersion !== null
+        ? cardText(this.#shown(this.#store.walkthrough(c.productId, c.redoneVersion)!))
+        : c.ofApproved === 'after-final-press'
+          ? 'Nothing was prepared again: the form was already submitted, so the Correction fixes only the record.'
+          : `No Walkthrough: ${c.withdrawn}.`;
     await this.#personalDatabase.sync();
     const interestScope = this.#personalDatabase.read(INTEREST_SCOPE_PATH);
     const prompt = sortingPrompt({
@@ -781,7 +854,7 @@ export class Walkthroughs {
   /** Where a version's card stands, from the store. */
   #cardState(v: StoredWalkthrough): CardState {
     const registration = this.#store.registration(v.productId);
-    if (registration?.state === 'held') return { kind: 'waiting-for-bitwarden', approvedAt: new Date(registration.approvedAt) };
+    if (registration?.state === 'held' && registration.version === v.version) return { kind: 'waiting-for-bitwarden', approvedAt: new Date(registration.approvedAt) };
     if (v.lapsedAt) return v.againTappedAt ? { kind: 'preparing-again' } : { kind: 'lapsed' };
     if (this.#underCorrection(v)) return { kind: 'correcting' };
     const unapplied = this.#store

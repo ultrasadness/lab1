@@ -19,7 +19,7 @@
 ## 后果
 
 - **没有任何模型会看到密码。** 机器人的接口只给模型两件事可做：为这个 Registration 创建密码，以及把它按引用填进某个字段。Walkthrough 写明 Password vault 里的条目，但从不显示密码的值。Registration 记录和机器人的日志只保存条目 ID。
-- **每个条目**以 Product 命名。它的网站是 Product 的根域名（自动填充需要这个），用户名是 Signup identity 的地址。默认密码为 24 个字符，包含所有字符类别。如果表单拒绝它，机器人会在同一个 Approval 之内生成一个新的。Walkthrough 里没有密码字段时，不创建条目。
-- **Assistant 只创建条目。** 它从不修改或删除条目。_abandoned_ 的 Registration 的条目会留下，备注里写着结果。Registration 之后修改密码，是这个人自己的事。
+- **每个条目**以 Product 命名。它的网站是 Product 的根域名（自动填充需要这个），用户名是 Signup identity 的地址。默认密码为 24 个字符，包含所有字符类别。如果表单拒绝它，机器人会在同一个 Approval 之内生成一个新的，放在一个新条目里（[ADR 0014](./0014-a-replacement-password-or-address-is-a-new-vault-item.zh.md)）。Walkthrough 里没有密码字段时，不创建条目。
+- **Assistant 只创建条目。** 它从不修改或删除条目。_abandoned_ 的 Registration 的条目会留下，备注里写着结果。ADR 0014 收窄了这一点：结果只写进 `registration.md`，因为写进备注就要修改条目。Registration 之后修改密码，是这个人自己的事。
 - **机器人的账号不在 Signup mailbox 上。** 当初决定时，它用的是 Signup mailbox 的一个加号地址，这样 Bitwarden 发给它的邮件会触发一张卡片（#57）。这个人在 #54 上决定改用一个已有的账号，所以这些邮件会发到那个账号自己的地址。
 - **VM 保存机器人账号的 API 密钥和解锁密码**，放在机器人的凭据目录里。机器人每次操作都运行一次 `bw`，会话密钥只在内存里，所以没有本地 Bitwarden API（`bw serve`）在监听。在 [Assistant 的 Secret 和令牌放在哪里，每一个又如何获取和更换？](https://github.com/ultrasadness/lab1/issues/25) 中决定；见 [ADR 0009](./0009-the-bot-runs-as-its-own-user-and-holds-every-token-outside-the-containers.zh.md)。

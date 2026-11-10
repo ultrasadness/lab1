@@ -70,7 +70,7 @@ deploy key 的私钥从不离开 VM（在 #71 上确定）：在询问 GitHub �
 `bw list collections` 不会说明账号能对集合做什么，所以这个检查分辨不出两种错误的授权：
 
 - 只读授权：第一个 Approval 会被扣住，日志行会写明原因；
-- *Can edit, except passwords*：创建能成功，但 `bw` 把每个密码都答成 null，所以按引用填写（#56）会没有东西可填。#54 的试验在 2026-11-08 遇到了这种情况。
+- *Can edit, except passwords*：创建能成功，但 `bw` 把每个密码都答成 null，所以按引用填写（#56）没有东西可填，会被扣住。#54 的试验在 2026-11-08 遇到了这种情况。
 
 `sudo ops/bitwarden/trial` 在真实账号上运行机器人的 `bw` 命令：它创建一个条目再读回来，遇到第一个机器人用不了的答复就报 TRIAL FAILED，而且不打印任何值。每次运行只要走到创建这一步，就会留下一个名为 `lab1 bw trial` 的条目，由这个人删除。
 

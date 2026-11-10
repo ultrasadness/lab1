@@ -108,7 +108,7 @@ hold every Approval on it.
 
 - on a view-only grant, the first Approval would be held, its log line saying why;
 - on *Can edit, except passwords*, a create works and `bw` answers each password as null, so a fill by reference (#56)
-  would have nothing to fill. The trial on #54 met this on 2026-11-08.
+  has nothing to fill, and is held. The trial on #54 met this on 2026-11-08.
 
 `sudo ops/bitwarden/trial` runs the bot's `bw` commands on the real account: it creates an item and reads it back, says
 TRIAL FAILED at the first answer the bot couldn't use, and prints no value. Each run that gets as far as creating leaves

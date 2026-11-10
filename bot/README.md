@@ -12,27 +12,29 @@ sorts each Correction into fix only, an Interest scope change or a Rule, and loa
 can't be written. #98 gives the live store a schema version, and migrations the bot runs at start. #71 installs it on
 the VM as its own user (`ops/README.md`), and #85 gives it its healthchecks.io ping. #54 saves a Registration's password
 in the Password vault at its Approval, and refuses any model request, Discord message or commit holding a Secret.
+#56 fills an approved Registration's form page by page and presses each button by plain code.
 
 | Path | What it is |
 |---|---|
-| `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane, which runs Corrections, then Walkthrough preparation, then the Miner, and the plain-code work that never waits in it, such as a Keep or an Approve; who may tap |
+| `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane, which runs fill runs, then Corrections, then Walkthrough preparation, then the Miner, and the plain-code work that never waits in it, such as a Keep or an Approve; who may tap |
 | `bot/src/miner/` | Judging runs, the Day's line, the day post and `days/` file, the 3-date catch-up and Retry, and Corrections of a day's judgments with their sorting runs |
 | `bot/src/rules/` | Rules: each run's Rule files, its prompt's Rules section and the Rule budget; a Correction's sorting run; and the cards of proposed Rules and Interest scope changes, with Keep, Edit and Discard |
 | `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, the Product's folder in the Personal database, and the tries at one that can't be written |
 | `bot/src/walkthrough/` | Walkthroughs: the read of the signup page, its run's prompt and record, the card in `#needs-you` and its copy in the Product's post, Edit, Correct, Dismiss, the 14-day lapse and Prepare again, the Approval that starts the Registration, where the Product stands, and `registration.md` |
-| `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)` and `redirect(url)` over its Unix socket, and the root domain a Product is keyed by |
+| `bot/src/registration/` | Registrations after Approval: the wait for one of 5 sessions, a fill run per page and the fixed actions it acts through, plain code's page check and press under an *intended* mark, the outcome from "what happens on submit", the status message, and Stop, Correct and Start again |
+| `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)`, `redirect(url)` and a Registration's session over its Unix socket, and the root domain a Product is keyed by |
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
 | `bot/src/needs-you.ts` | Cards in the `#needs-you` text channel, each mentioning the person |
 | `bot/src/health-ping.ts` | The healthchecks.io ping, every 5 minutes while the bot is logged in to Discord and its store takes a write |
-| `bot/src/password-vault.ts` | The Password vault: `bw` run once per operation, the password the bot makes, and the item it goes in |
+| `bot/src/password-vault.ts` | The Password vault: `bw` run once per operation, the password the bot makes, the item it goes in, the item that replaces one a form refused, and the read of a password for a fill by reference |
 | `bot/src/secret-guard.ts` | The last door: each Secret the bot holds, looked for by its exact value in every model request, Discord message and commit, and the notice to replace it |
-| `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, each sent to the first of its role's providers that can serve it and priced in notional dollars, and run records |
+| `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, each sent to the first of its role's providers that can serve it and priced in notional dollars, run records, and a fill run's fixed actions |
 | `bot/src/providers.ts` | Which of a role's providers can serve a request now, why each that can't has dropped out, and the `#status` lines and `#needs-you` card that say so |
 | `bot/src/pi-runs.ts` | One `pi --mode rpc` process per run, capped on wall clock, turns and tokens |
 | `bot/src/store.ts` | The live store (SQLite), with its schema and migrations |
 | `bot/src/product-hunt.ts`, `bot/src/discord/` | Product Hunt API v2 and Discord |
-| `pi/extension/` | Our Pi extension: the forwarder as provider, the run's Rules, and each run kind's record tool and prompt. It is copied alone into the Pi container, so it and `bot/src` import nothing from each other |
+| `pi/extension/` | Our Pi extension: the forwarder as provider, the run's Rules, and each run kind's record tool and prompt, or a fill run's fixed actions. It is copied alone into the Pi container, so it and `bot/src` import nothing from each other |
 | `pi/pi-run`, `pi/Dockerfile` | How a run starts, and the Pi container image |
 | `config/assistant.json` | Settings, changed only through `ops/upgrade`; until #72 brings it, through a commit and `ops/install --deploy` |
 | `ops/`, `compose.yaml` | The VM's install, tokens, nightly backup and browser firewall, the Docker helper, and the compose project of Pi and the browser service (`ops/README.md`) |
@@ -69,7 +71,9 @@ person's own commits, merges and tags. Only the harness imports from `bot/src`: 
 live store's file with `node:sqlite`, as #98 asks of it, and `bot/test/health-ping.test.ts` holds the store's write
 lock through it, to show a store that can't take a write. `npm test` fails any other file under `bot/test/` that names
 `node:sqlite` (`scripts/bot-test-store.test.ts`). What else a test may assert on is **What a test asserts on** in
-`CODING_STANDARDS.md`.
+`CODING_STANDARDS.md`. No test may see two presses for one *intended* mark (#56): `world.stop()` fails a test whose
+pages received more presses than the bot's `registration.press-intended` lines, less its `registration.press-refused`
+ones, since a refused press reached no page.
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.
@@ -80,7 +84,7 @@ can. It terminates the bot's thread and kills each run, git command and `bw` com
 The old bot never acts again, whatever a fake answers
 or the clock does, and `restart` or `outage` then starts a fresh one on the same live store, data dir and Personal
 database checkout. A test chooses the point through the outside world, never by reaching into `bot/src`: it has a fake
-take a request and never answer, with `world.model.hold`, `world.git.holdPushes` or `world.bitwarden.holdCreate`,
+take a request and never answer, with `world.model.hold`, `world.model.holdFills`, `world.git.holdPushes`, `world.bitwarden.holdCreate` or `world.browser.holdPresses`,
 waits until the fake has it, and kills the bot. A request held stays held once the hold is off, so the fresh bot's requests get answered. A point with
 no outside call beside it can't be reached this way. A kill differs from a crash on the VM in two ways. The store's
 handle closes cleanly, so no test exercises SQLite's recovery of its write-ahead log, and the next bot reads the same
@@ -91,9 +95,13 @@ which can crash Node 24's V8 (#105), so `bot/test/harness/bot-thread.ts` turns o
 Node 24 release holds the fix (nodejs/node#66376). The bot on the VM has one such thread: `npm test` fails a `node:worker_threads` import under `bot/src`
 (`scripts/bot-imports.test.ts`).
 
-The fake browser service answers `read(url)` and `redirect(url)` on a Unix socket. Each Launch's website redirect leads
-to a plain site of its own on `.example`, with a pricing page and a signup page, unless a test serves a real Product's
-pages from `bot/test/harness/dossier-fixtures.ts`. A HEAD answers 403 unless a test sets its answer.
+The fake browser service answers `read(url)`, `redirect(url)` and a Registration's session on a Unix socket. Each
+Launch's website redirect leads to a plain site of its own on `.example`, with a pricing page and a signup page, unless a
+test serves a real Product's pages from `bot/test/harness/dossier-fixtures.ts`. A HEAD answers 403 unless a test sets its
+answer. A session answers as `browser/src/sessions.ts` does, its comment saying what it leaves out, on pages a test sets:
+where each press leads, and what the page says of the values it holds. `world.browser.presses` is what the pages
+received, and `pause(path)`, `failCloses`, `holdPresses`, `uncertainPress` and `loseSessions()` choose how the service
+answers.
 
 The fake `bw` (`bot/test/harness/fake-bw.ts`) is one process per command, as the real one is, and `world.bitwarden` reads
 what it keeps: the Password vault's items, each command's arguments and which `BW_` variables it was given, and each
@@ -216,9 +224,10 @@ token). The card then says why and stays open.
 
 Dossiers go to the Products forum, `discord.productsForumId`, whose tags the person makes: *Walkthrough*,
 *Registering*, *Needs you*, *registered*, *waitlisted*, *handed off*, *abandoned*, *no account* and *Skipped*. The bot
-finds a tag by its name, so only the names matter, and for now applies *no account*; *Walkthrough* while a
-Walkthrough waits on the person; *Registering*, or *handed off*, once one is approved; and *Skipped* to the post of a
-Dossier a Correction withdraws. A Dossier reads its Product's pages through the browser service's socket at
+finds a tag by its name, so only the names matter, and applies *no account*; *Walkthrough* while a
+Walkthrough waits on the person; *Registering* once one is approved, until its outcome; *Needs you* while its
+Registration waits at a wall or a failed page check; *registered*, *waitlisted*, *handed off* or *abandoned* at its
+outcome; and *Skipped* to the post of a Dossier a Correction withdraws. A Dossier reads its Product's pages through the browser service's socket at
 `browser.socketPath` (`browser/README.md`), and each read is kept for 90 days under `pages/`, beside the other raw
 inputs. When a read of its Launch's website redirect stops at a bot check on Product Hunt, a HEAD of that redirect may
 give the landing page's address, which logs `dossier.redirect-head`. One that doesn't logs `dossier.redirect-unread` with
@@ -243,8 +252,9 @@ list then links it. Raising `dossiers.tries` through `ops/upgrade` lets the bot 
 as after an outage that stopped Dossiers.
 
 Walkthroughs come only while `walkthroughs.on` is `true`, changed like any setting through `ops/upgrade`.
-`config/assistant.json` ships with them off, and the go-live (#85) keeps them off until #56 lets an Approval fill the
-form. While they are off, the bot prepares no new Walkthrough: no signup page is read for one and no run prepares
+`config/assistant.json` ships with them off, as the go-live (#85) left them until #56 let an Approval fill the form.
+Turning them on, with `signupMailbox` set, is the person's call, and the first fill after that is the first time `bw`
+runs under the bot's unit (#54). While they are off, the bot prepares no new Walkthrough: no signup page is read for one and no run prepares
 one, so no card goes to `#needs-you`, no post is tagged *Walkthrough*, and a Dossier's Register line says nothing of
 one; the bot also starts without `signupMailbox`. The start that turns them on prepares a Walkthrough for each open
 or waitlisted Product whose Dossier was posted while they were off, however old it is, oldest first, in the
@@ -260,7 +270,56 @@ page, or a wall the run names that nothing can get past, mean no Walkthrough, an
 version of the same card, Correct a new card from another run, and Dismiss ends it. One left unanswered lapses after
 14 days, with **Prepare again**. Approve records the Approval and starts the Registration as *queued*, or as *handed
 off* when the Product's terms ban accounts made by a bot, with a silent status message in the post and a line in
-`registration.md`. Filling the form is #56's, and **Stop** on the status message is wired with it.
+`registration.md`.
+
+A *queued* Registration then waits for one of the browser service's 5 sessions, which opens at the signup URL
+(ADR 0006). Each page gets a fill run: a Pi run with no built-in tool, MCP server or session, whose only tools are the
+fixed actions `snapshot`, `fill`, `fill_secret`, `choose`, `open` and `finish`, each run on its own even when the model
+calls several in one turn. It is given the approved Walkthrough as keys, each with its approved value, the
+Walkthrough/Registration and all-scope Rules, and each snapshot. The bot carries each action out on the session,
+supplying the approved value a key names and the password by reference, so the model types nothing of its own and never
+sees the password, and a snapshot shows what filled a field, never its value. The run ends with `finish`, naming the
+Rules it applied: a button, a wall from #10's list, or *stuck* with one of `password-refused`, `plus-refused`,
+`no-button`, `value-missing`, `page-error` or `other`.
+
+Plain code then runs the page check on the named button (ADR 0005). On a pass it writes an *intended* mark, with the
+page's fingerprint, presses, and writes *done* (ADR 0007). A button whose label starts with Continue or Next leads to
+the next page's fill run, unless plain code's own read of the page it led to shows no form with a visible field: that
+press was the final one. A page plain code can't read, such as one on a host off the Walkthrough's domains, leaves the
+press uncertain. Any other label is final (settled by the person on #56). After the final press no model reads
+the Registration's pages. The Walkthrough's "what happens on submit" decides what follows: a verification email leaves
+it *awaiting verification* with its session open, a waitlist ends it *waitlisted*, and logging straight in ends it
+*registered*, each of the last two closing the session. A wall, a *stuck* fill run, a failed check or a sixth page
+(`too-many-pages`) leaves the Registration waiting on the person, its session open, with only Stop and Correct until
+#59 brings their cards.
+
+The status message is edited in place, silently, through *queued*, *filling page n*, *checking page n*, *pressing
+<button>* and *submitted* to the outcome, and `registration.md` gets the submitted line and the outcome, in bold.
+**Stop** is on it until the final press. It writes a mark that the store write marking a press *intended* checks, ends
+the fill run, closes the session and leaves the Registration *abandoned* ("stopped by you; nothing submitted") with
+**Start again**. Start again prepares a fresh Walkthrough from a new read, and its Approval starts the same Registration
+again in a new session, with the vault item it had, once any session the earlier Approval left open is closed;
+`registration.md` keeps how the earlier Approval ended. **Correct**
+on the status message, or on the card of an Approval held on Bitwarden, before the final press is Stop plus a new
+version from the Correction's run, which needs its own Approval. After the final press it fixes only the record: no run
+prepares anything, `registration.md` keeps what the person wrote, and the Correction is sorted as any other. A Stop or
+a Correction that meets a press which turns out to be the final one comes too late, and the status message says so. A
+Stop, Correct or Start again shown for an earlier Approval, such as a pop-up left open across Start again, is refused
+(settled by the person on #56).
+
+After a restart, a fill run that died is run again on the same page under the same Approval. A press left *intended*
+and not *done* counts as pressed: it is never pressed again, the Registration waits for verification, and a
+`#needs-you` notice says what was uncertain. So does a press the browser service answers as uncertain, or doesn't
+answer. A session lost before the final press, as when the browser service restarts or ends an action at its 60-second limit,
+opens again at page 1 while nothing
+of this Approval has been pressed. After a press it leaves the Registration waiting on the person, stuck as
+`session-lost`, since a new session would press that button again (settled by the person on #56). Each page gets at
+most 3 fill runs, and each Approval at most 3 sessions, counted in the store. A run no provider served, and one the
+Assistant stopped as it shut down or a crash cut off, doesn't count, as a Dossier's doesn't (#100). A Registration that
+can't go on for now, such as while all 5 sessions are taken, its signup page won't open, no provider is left or
+Bitwarden is unavailable, says so on its status message and is tried again every 5 minutes, with no run started and no
+limit (settled by the person on #56). A session an outcome left open, and a status message, tags, file or notice that
+Discord or GitHub didn't take, are tried again 5 minutes on, and at the next start.
 
 Approve on a Walkthrough with a password field first saves a new password in the Password vault, the *Registrations*
 collection of the person's Bitwarden organization (ADR 0004), with one item per Registration. The bot makes the
@@ -274,8 +333,16 @@ While Bitwarden is unavailable, the Approval is held: it is kept, but the Regist
 fails, takes longer than `bitwarden.timeoutSeconds` (60 to start) or isn't there, or the bot's account sees anything but
 the *Registrations* collection. The card says it waits, and the bot tries again every 5 minutes and at each start. A create that may have
 reached the Password vault, because the bot died during one or its answer never came, is read back before another is made, so a
-Registration has one item. Fills by reference, a replacement password for a form that refuses one, and fills held while
-Bitwarden is unavailable are #56's (settled by the person on #54).
+Registration has one item. The card of a held Approval has **Stop**, which abandons the Registration before it starts
+(settled by the person on #56).
+
+A fill reads the password back with `bw list items`, holds it at the last door from that moment, and hands it only to
+the browser service. While Bitwarden is unavailable, or answers the password as null, as it does to an account that
+may not see passwords, the fill is held and no fill run starts. A form whose page says it refuses the password gets a
+narrower one: letters and digits alone, 24 of them, then 16. One that refuses `+` gets the plain address, with the
+password the page holds already. Each is a new vault item whose notes name the item it replaces, since the bot only
+creates items, and the first item stays for the person to delete (ADR 0014). The page is then filled again under the
+same Approval, and its next fill run names no button until it has filled that field again.
 
 The bot refuses any model request, at the forwarder, any Discord message and any commit to the Personal database
 holding the exact value of a Secret it holds: each token it reads, its Bitwarden session key, and each password it has made since it started (ADR 0009). It
@@ -365,7 +432,17 @@ line names the commit a run's Rules were read at, the Rules by name, and about h
 `walkthrough.prepared` line names a Walkthrough's version and the run that prepared it, a `walkthrough.none` line why
 a Product gets none, and a `walkthrough.approved` line the Discord interaction an Approval came in. A
 `vault-item.created` line names a Registration's vault item by its id, a `vault-item.found` line one read back after a
-create whose answer never came, and a `password-vault.unavailable` line why an Approval is held. A `secret.refused` line names the
+create whose answer never came, a `vault-item.replaced` line the item that replaces one a form refused, and a
+`password-vault.unavailable` line why an Approval or a fill is held. A `registration.session-opened` line names a
+Registration's session, `registration.session-lost` and `registration.session-unclosed` lines one gone or not closed, a
+`registration.fill-run` line each fill run with its page, how it finished and the Rules it applied, a
+`registration.next-page` line whether the page a Continue or Next led to showed a form, none, or nothing plain code
+could read, a
+`registration.action` line each fixed action by name, never a value, a `registration.checked` line the page check's
+result, and `registration.press-intended`, `registration.pressed` and `registration.press-refused` lines each press. A
+`registration.submitted` line names the final press and the state it led to, a `registration.uncertain-press` line a
+press that counts as pressed without being known, a `registration.waiting` line what a Registration waits on, and
+`registration.stopped` and `registration.abandoned` lines a Stop and its end. A `secret.refused` line names the
 door a Secret was stopped at, and the Secret by its name. A `personal-database.lock-removed` line names a git lock
 file a sync found left in the checkout and removed.
 
