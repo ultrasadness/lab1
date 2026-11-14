@@ -120,7 +120,10 @@ The fake Gmail (`bot/test/harness/fake-gmail.ts`) serves Google's token endpoint
 mailbox. Its comment says what the trial on the real mailbox (#17) saw, and what comes from Google's documentation
 alone. `world.gmail.deliver` delivers a mail as Gmail receives it, with its own `Authentication-Results`, labels and
 history record. `forgetHistory`, `limitNext`, `limitTokenRefresh`, `revokeAccessTokens`, `remove`, `corrupt` and
-`holdMessage` choose how it answers, and `changes` holds any request that would change the mailbox.
+`holdMessage` choose how it answers, and `changes` holds any request that would change the mailbox. Mail Gmail received
+before the bot's first read counts as seen, as after a lost store, so a test delivers it with `delivered` from
+`bot/test/harness/signup-mail.ts`, which waits for that read, and `registered` there brings Codemind's Registration to
+the point where its mail arrives.
 
 The fake Product Hunt answers only a query that the real API's live schema accepts, with variables that fit it, and
 refuses any other with GraphQL errors and no data, so a wrong field, argument or enum value fails a test instead of

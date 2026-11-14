@@ -5,28 +5,27 @@
 // or with import(), whose quoted path or file: URL resolves to a file under bot/src. The harness's own files may import
 // bot/src, as world.ts imports startAssistant. What a test asserts on stays with review, and so does what text can't
 // show: a specifier the test computes, as with new URL() or import.meta.resolve(), and a value the harness re-exports.
-// It reads them as text, as scripts/bot-imports.test.ts does, so a quoted path into bot/src after "from" in a comment
-// or a string also counts as an import: that fails loudly, and none is there today.
+// It reads them as text, with scripts/imports.ts as scripts/bot-imports.test.ts does, which takes a `from` only in an
+// import or export statement.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { importsIn } from './imports.ts';
 
 const BOT_TEST = join(import.meta.dirname, '..', 'bot', 'test');
 const BOT_SRC = join(import.meta.dirname, '..', 'bot', 'src');
 const HARNESS = join(BOT_TEST, 'harness');
-const IMPORT = /\bfrom\s*['"`]([^'"`]+)['"`]|\bimport\s*\(?\s*['"`]([^'"`]+)['"`]/g;
 
 /** Each import in `source`, the text of `file` under bot/test, that resolves to a file under bot/src. */
 function importsPastHarness(file: string, source: string): string[] {
   if (join(BOT_TEST, file).startsWith(HARNESS + sep)) return [];
   const pastHarness: string[] = [];
-  for (const match of source.matchAll(IMPORT)) {
-    const specifier = match[1] ?? match[2]!;
+  for (const { specifier, line } of importsIn(source)) {
     const path = specifier.startsWith('file:') ? fileURLToPath(specifier) : specifier;
     if (!resolve(dirname(join(BOT_TEST, file)), path).startsWith(BOT_SRC + sep)) continue;
-    pastHarness.push(`bot/test/${file}:${source.slice(0, match.index).split('\n').length} imports ${specifier}`);
+    pastHarness.push(`bot/test/${file}:${line} imports ${specifier}`);
   }
   return pastHarness;
 }
@@ -69,4 +68,18 @@ test('the check refuses a test that names bot/src by a file: URL', () => {
   const url = pathToFileURL(join(BOT_SRC, 'miner', 'judging.ts')).href;
   const source = `import { judgingPrompt } from '${url}';`;
   assert.deepEqual(importsPastHarness('judging.test.ts', source), [`bot/test/judging.test.ts:1 imports ${url}`]);
+});
+
+test('the check refuses an import of bot/src split over lines, at the line its statement starts on', () => {
+  const source = ["import { test } from 'node:test';", 'import {', '  judgingPrompt,', "} from '../src/miner/judging.ts';"].join('\n');
+  assert.deepEqual(importsPastHarness('judging.test.ts', source), ['bot/test/judging.test.ts:2 imports ../src/miner/judging.ts']);
+});
+
+test('the check reads a `from` outside an import or export statement as no import', () => {
+  const source = [
+    '/** Mail received from `../src/mail/gmail.ts`, up to `to`. */',
+    "const sender = header('from')[0] ?? '../src/store.ts';",
+    "const note = `sent from '../src/assistant.ts'`;",
+  ].join('\n');
+  assert.deepEqual(importsPastHarness('mail.test.ts', source), []);
 });

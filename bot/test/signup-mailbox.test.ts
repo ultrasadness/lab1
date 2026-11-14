@@ -8,30 +8,16 @@ import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { NEEDS_YOU, PERSON, SIGNUP_MAILBOX, startWorld, type World } from './harness/world.ts';
 import { GRANTED_SCOPES, type Mail } from './harness/fake-gmail.ts';
-import { approve, walkthroughPut, WITH_PASSWORD } from './harness/walkthrough-day.ts';
+import { delivered, PLUS_ADDRESS, registered } from './harness/signup-mail.ts';
 import { whereItShows } from './harness/secrets.ts';
 import { until } from './harness/miner-day.ts';
 import { updateOf } from './harness/fake-discord.ts';
-
-/** Codemind's Signup identity, as its Approval leaves it (#53). */
-const PLUS_ADDRESS = 'you+codemind@gmail.com';
 
 /** What the ledger recorded of each mail, as the bot logs it. */
 const recorded = (world: World) =>
   world.logs
     .filter((l) => l.event === 'mail.recorded')
     .map(({ messageId, product, matchedBy, disposition, reason }) => ({ messageId, product, matchedBy, disposition, ...(reason ? { reason } : {}) }));
-
-/**
- * Delivers mail to the Signup mailbox once the bot's work is done, its first read among it, and waits for the bot's
- * next read, a poll later.
- */
-async function delivered(world: World, ...mail: Mail[]): Promise<string[]> {
-  await world.assistant.whenIdle();
-  const ids = mail.map((m) => world.gmail.deliver(m));
-  await world.advanceTo(new Date(world.clock.now().getTime() + 5000).toISOString());
-  return ids;
-}
 
 /** A security alert from Google, as its sign-in alerts come. */
 const GOOGLE_ALERT: Mail = {
@@ -51,13 +37,6 @@ function tapDone(world: World, index: number) {
   return world.discord.tap({ userId: PERSON, customId: done.customId, channelId: NEEDS_YOU, messageId: card.id });
 }
 
-/** Codemind's Walkthrough approved, and its Registration waiting for verification after the final press. */
-async function registered(t: { after(fn: () => Promise<void>): void }, onSubmit?: 'logged-in'): Promise<World> {
-  const world = await walkthroughPut(t, WITH_PASSWORD, onSubmit ? { change: (w) => ({ ...w, onSubmit }) } : {});
-  await approve(world);
-  await world.assistant.whenIdle();
-  return world;
-}
 
 test('a Gmail token for another mailbox is refused: the bot reads none of its mail, and the person is told to replace it', async (t) => {
   const world = await startWorld({ now: '2026-11-14T15:00:00Z', gmail: { emailAddress: 'someone.else@gmail.com' } });

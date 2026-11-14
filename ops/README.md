@@ -97,6 +97,19 @@ the credentials folder, removed even when the SSH session drops. A key GitHub st
 changes nothing: remove it from the repo and run `ops/token` again. CPA's ChatGPT login, pasted as the failed
 `localhost:1455` address, comes with CPA itself in #72.
 
+The Gmail OAuth client is the Desktop app client of the Google Cloud project `barium-nation-511668-t0`, which the
+Signup mailbox owns: #17 made it, and #31 published it. The VM keeps its id and secret as `CLIENT_ID` and
+`CLIENT_SECRET` in `~/lab1-gmail-spike/.env`, so this places `gmail-client-secret` from there, with nothing pasted or
+shown:
+
+```sh
+node -e 'const t=require("fs").readFileSync(process.env.HOME+"/lab1-gmail-spike/.env","utf8");const e=Object.fromEntries(t.split("\n").filter(l=>l.includes("=")).map(l=>[l.slice(0,l.indexOf("=")),l.slice(l.indexOf("=")+1)]));process.stdout.write(JSON.stringify({installed:{client_id:e.CLIENT_ID,client_secret:e.CLIENT_SECRET}})+"\n")' | sudo ops/token gmail-client-secret
+```
+
+`ops/token gmail-refresh-token` then asks for the address Safari can't load, so it runs in a terminal of the person's
+own, such as an SSH session from the iPhone: a command an agent runs, or `!` in Claude Code, has no keyboard to paste
+into.
+
 Before `ops/token bitwarden-api-key`, the person sets up the Password vault once (ADR 0004): their own Bitwarden account
 owns a free organization with a *Registrations* collection, and the bot's own account, with nothing else in its personal
 vault, is its second member, with *Can edit* on that collection and nothing else. Both are on bitwarden.com, the server

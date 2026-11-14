@@ -47,6 +47,8 @@ export const TOKENS = {
 
 /** The Signup mailbox's address (ADR 0003). */
 export const SIGNUP_MAILBOX = 'you@gmail.com';
+/** How often the bot reads the Signup mailbox's history, as the world configures it. */
+export const GMAIL_POLL_SECONDS = 5;
 
 /** The Interest scope the Personal database starts with. */
 export const INTEREST_SCOPE = readFileSync(new URL('../fixtures/interest-scope.md', import.meta.url), 'utf8');
@@ -192,7 +194,7 @@ export async function startWorld(options: {
     bitwarden: { command: bitwarden.command, timeoutSeconds: 60 },
     walkthroughs: { on: true },
     signupMailbox: SIGNUP_MAILBOX,
-    gmail: { apiUrl: gmail.apiUrl, tokenUrl: gmail.tokenUrl, pollSeconds: 5, alertDomains: { 'google.com': 'Google' } },
+    gmail: { apiUrl: gmail.apiUrl, tokenUrl: gmail.tokenUrl, pollSeconds: GMAIL_POLL_SECONDS, alertDomains: { 'google.com': 'Google' } },
     gateway: { baseUrl: model.baseUrl, retryMinutes: 30 },
     providers: { openrouter: { label: 'OpenRouter', mailGroup: true } },
     roles: {

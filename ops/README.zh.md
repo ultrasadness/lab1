@@ -65,6 +65,14 @@
 
 deploy key 的私钥从不离开 VM（在 #71 上确定）：在询问 GitHub 期间，它待在凭据目录里面的一个目录里，即使 SSH 会话断开，这个目录也会被删除。试了五次 GitHub 仍然拒绝的密钥，什么也不会改变：从仓库里删掉它，再运行一次 `ops/token`。CPA 的 ChatGPT 登录，也就是粘贴那个打不开的 `localhost:1455` 地址，随 CPA 本身在 #72 里到来。
 
+Gmail 的 OAuth 客户端是 Google Cloud 项目 `barium-nation-511668-t0` 里的 Desktop app 客户端，这个项目归 Signup mailbox 所有：#17 创建了它，#31 发布了它。VM 把它的 id 和 secret 以 `CLIENT_ID` 和 `CLIENT_SECRET` 存在 `~/lab1-gmail-spike/.env` 里，所以下面这条命令从那里放置 `gmail-client-secret`，不用粘贴，也不显示任何值：
+
+```sh
+node -e 'const t=require("fs").readFileSync(process.env.HOME+"/lab1-gmail-spike/.env","utf8");const e=Object.fromEntries(t.split("\n").filter(l=>l.includes("=")).map(l=>[l.slice(0,l.indexOf("=")),l.slice(l.indexOf("=")+1)]));process.stdout.write(JSON.stringify({installed:{client_id:e.CLIENT_ID,client_secret:e.CLIENT_SECRET}})+"\n")' | sudo ops/token gmail-client-secret
+```
+
+之后 `ops/token gmail-refresh-token` 要粘贴 Safari 打不开的那个地址，所以要在这个人自己的终端里运行，比如从 iPhone 连上的 SSH 会话：agent 运行的命令，或者 Claude Code 里的 `!`，都没有可以粘贴的键盘。
+
 运行 `ops/token bitwarden-api-key` 之前，这个人要先设置一次 Password vault（ADR 0004）：这个人自己的 Bitwarden 账号拥有一个免费组织，里面有 *Registrations* 集合；机器人自己的账号个人密码库里没有别的东西，作为组织的第二个成员，对那个集合有 *Can edit* 权限，别的什么都碰不到。两个账号都在 bitwarden.com 上，`bw` 没有另行设置时用的就是这个服务器。被邀请的成员要先接受邮件里的链接，再由所有者确认，之后才能看到内容。账号能看到别的集合时，`ops/token bitwarden-master-password` 的检查就会失败，因为机器人会因此扣住每个 Approval。
 
 `bw list collections` 不会说明账号能对集合做什么，所以这个检查分辨不出两种错误的授权：
