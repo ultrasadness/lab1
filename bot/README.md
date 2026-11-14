@@ -8,7 +8,7 @@ The spec is #41. Its first slice (#42) brought up the Miner's path from Product 
 #47 adds a Dossier for each Launch at or above the Day's line, #48 lets the person correct a Miner judgment, #49
 sorts each Correction into fix only, an Interest scope change or a Rule, and loads each kept Rule into later runs, and
 #53 puts a Walkthrough to the person for each open or waitlisted Product, whose Approval starts its Registration.
-#99 lets the config switch Walkthroughs off, and it ships with them off. #100 bounds the tries at a Dossier that
+#99 lets the config switch Walkthroughs off, and #109 turns them on. #100 bounds the tries at a Dossier that
 can't be written. #98 gives the live store a schema version, and migrations the bot runs at start. #71 installs it on
 the VM as its own user (`ops/README.md`), and #85 gives it its healthchecks.io ping. #54 saves a Registration's password
 in the Password vault at its Approval, and refuses any model request, Discord message or commit holding a Secret.
@@ -251,10 +251,9 @@ names the Dossier and why its last try failed. A Dossier written on a later try 
 list then links it. Raising `dossiers.tries` through `ops/upgrade` lets the bot try such a Dossier again, however old,
 as after an outage that stopped Dossiers.
 
-Walkthroughs come only while `walkthroughs.on` is `true`, changed like any setting through `ops/upgrade`.
-`config/assistant.json` ships with them off, as the go-live (#85) left them until #56 let an Approval fill the form.
-Turning them on, with `signupMailbox` set, is the person's call, and the first fill after that is the first time `bw`
-runs under the bot's unit (#54). While they are off, the bot prepares no new Walkthrough: no signup page is read for one and no run prepares
+Walkthroughs come only while `walkthroughs.on` is `true`, changed like any setting through `ops/upgrade`. The go-live
+(#85) left them off until #56 let an Approval fill the form, and #109 turns them on, with `signupMailbox` set, for the
+first real Registration. While they are off, the bot prepares no new Walkthrough: no signup page is read for one and no run prepares
 one, so no card goes to `#needs-you`, no post is tagged *Walkthrough*, and a Dossier's Register line says nothing of
 one; the bot also starts without `signupMailbox`. The start that turns them on prepares a Walkthrough for each open
 or waitlisted Product whose Dossier was posted while they were off, however old it is, oldest first, in the

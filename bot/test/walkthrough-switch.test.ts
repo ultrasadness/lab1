@@ -1,7 +1,7 @@
 // The Walkthroughs switch (#99): `walkthroughs.on` in the config, changed through ops/upgrade. While Walkthroughs are
 // off, a Dossier says nothing of one and nothing prepares one, and the bot starts without the Signup mailbox's
 // address. Turning them on prepares a Walkthrough for each open or waitlisted Dossier posted while they were off,
-// however old it is.
+// however old it is. The config shipped with them off from go-live (#85) until #109 turned them on.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,11 +9,11 @@ import { NEEDS_YOU, PERSON, PRODUCTS_FORUM, SIGNUP_MAILBOX, startWorld } from '.
 import { fixtureDay, websiteOf } from './harness/fake-product-hunt.ts';
 import { ACYCLIC, CODEMIND, serveProduct } from './harness/dossier-fixtures.ts';
 
-/** The config the bot ships with, which go-live (#85) keeps as it is for Walkthroughs. */
+/** The config the bot ships with. */
 const SHIPPED = JSON.parse(readFileSync(new URL('../../config/assistant.json', import.meta.url), 'utf8')) as { walkthroughs: { on: boolean }; signupMailbox: string };
 
-/** Starts the bot with the shipped config's Walkthroughs and Signup mailbox. */
-const asShipped = <C extends object>(config: C) => Object.assign(config, { walkthroughs: { ...SHIPPED.walkthroughs }, signupMailbox: SHIPPED.signupMailbox });
+/** Walkthroughs off and the Signup mailbox's address not set, as the config shipped from go-live (#85) until #109. */
+const withWalkthroughsOff = <C extends object>(config: C) => Object.assign(config, { walkthroughs: { on: false }, signupMailbox: 'set when Walkthroughs turn on' });
 
 const REGISTER = '**Register:** Sign in with an emailed link or Google at app.codemindhq.dev; signing in creates the account. No card.⁴ ⁵';
 
@@ -45,23 +45,28 @@ test('with Walkthroughs off, an Open Product’s Dossier says nothing of a Walkt
   assert.deepEqual(world.discord.refused, []);
 });
 
-test('the config ships with Walkthroughs off, and the bot starts with it though the Signup mailbox’s address isn’t set', async (t) => {
-  assert.deepEqual(SHIPPED.walkthroughs, { on: false });
-  assert.doesNotMatch(SHIPPED.signupMailbox, /@/, 'the address is left until Walkthroughs are turned on');
+test('the config ships with Walkthroughs on and the Signup mailbox’s address (#109); off, the bot starts without the address', async (t) => {
+  assert.deepEqual(SHIPPED.walkthroughs, { on: true });
+  const shipped = await startWorld({
+    now: '2026-10-12T07:30:00Z',
+    configure: (config) => Object.assign(config, { walkthroughs: { ...SHIPPED.walkthroughs }, signupMailbox: SHIPPED.signupMailbox }),
+  });
+  t.after(() => shipped.stop());
+  assert.ok(shipped.logs.some((l) => l.event === 'assistant.started'));
 
-  const world = await startWorld({ now: '2026-10-12T07:30:00Z', configure: asShipped });
-  t.after(() => world.stop());
-  assert.ok(world.logs.some((l) => l.event === 'assistant.started'));
+  const off = await startWorld({ now: '2026-10-12T07:30:00Z', configure: withWalkthroughsOff });
+  t.after(() => off.stop());
+  assert.ok(off.logs.some((l) => l.event === 'assistant.started'));
 
-  // With Walkthroughs on, the same address is a config error at start-up.
+  // With Walkthroughs on, the same unset address is a config error at start-up.
   await assert.rejects(
-    startWorld({ now: '2026-10-12T07:30:00Z', configure: (config) => (asShipped(config).walkthroughs.on = true) }),
+    startWorld({ now: '2026-10-12T07:30:00Z', configure: (config) => (withWalkthroughsOff(config).walkthroughs.on = true) }),
     /signupMailbox must be the Signup mailbox's address, with no \+, while Walkthroughs are on/,
   );
 });
 
 test('turning Walkthroughs on prepares one for each Open Product whose Dossier was posted while they were off, oldest first', async (t) => {
-  const world = await startWorld({ now: '2026-10-12T07:30:00Z', configure: asShipped }); // 00:30 PDT
+  const world = await startWorld({ now: '2026-10-12T07:30:00Z', configure: withWalkthroughsOff }); // 00:30 PDT
   t.after(() => world.stop());
   for (const date of ['2026-10-12', '2026-10-13', '2026-10-14']) world.productHunt.addFeatured(fixtureDay(date), `${date}T07:01:00Z`);
   world.model.onlyDossiers([CODEMIND.postId, ACYCLIC.postId]);

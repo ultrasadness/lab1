@@ -24,9 +24,9 @@
     "timeoutSeconds": 60
   },
   "walkthroughs": {
-    "on": false
+    "on": true
   },
-  "signupMailbox": "set when Walkthroughs turn on",
+  "signupMailbox": "gemini4barium@gmail.com",
   "gateway": {
     "baseUrl": "http://127.0.0.1:3000/v1",
     "retryMinutes": 30
