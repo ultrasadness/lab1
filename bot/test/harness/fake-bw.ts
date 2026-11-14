@@ -5,9 +5,9 @@
 // key for a null it was sent (`notes`, `folderId`, a URI's `match`). With --nointeraction, `login` prints a session key
 // inside its message, which nothing needs. The first command on a new data folder says on stderr that it made a data
 // file, even when it goes on to succeed. An account on *Can edit, except passwords* gets each password as null, and its
-// create still works. A replacement's item is sent with notes (#56), which no trial has sent yet: the fake prints them
-// back under `notes`, as the CLI's source builds the answer from the item, and `ops/bitwarden/trial` now sends some, so its
-// next run on the VM shows the real answer.
+// create still works. An item sent with notes, as a replacement's is (#56), is answered with them under `notes`, after
+// `organizationId`, by `create` and by `list items` alike: the trial's run on the real account on 2026-11-14 (#109) was
+// the first to send notes, and `ops/test/bitwarden-trial.test.ts` holds what it printed.
 //
 // What a failure says rests on less, and each one seen was on stderr with exit code 1. "You are not logged in." and a
 // wrong API key's line were seen on 2026-11-03, with no account and a made-up key. A login that can't reach the server
@@ -49,13 +49,13 @@ const hold = async () => {
 const answer = (item: VaultItem) => ({
   type: item.type,
   name: item.name,
-  ...(item.notes === null ? {} : { notes: item.notes }),
   favorite: false,
   reprompt: 0,
   id: item.id,
   collectionIds: item.collectionIds,
   object: 'item',
   organizationId: item.organizationId,
+  ...(item.notes === null ? {} : { notes: item.notes }),
   fields: [],
   login: { uris: item.login.uris.map(({ uri }) => ({ uri })), fido2Credentials: [], username: item.login.username, password: control.hidesPasswords ? null : item.login.password, passwordRevisionDate: null },
   passwordHistory: [],

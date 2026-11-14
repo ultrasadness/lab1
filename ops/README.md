@@ -246,7 +246,8 @@ system's commands and of every outside service, and dummy tokens only:
 - `token.test.ts` types each kind of token, including one under a terminal that would echo it, and checks what is
   written and restarted;
 - `bitwarden-trial.test.ts` runs `ops/bitwarden/trial` against the fake `bw` the bot's tests use, and checks when it
-  fails and that it prints no value;
+  fails, that it prints no value, and that it prints each of `bw`'s answers in the shape the real account gave on
+  2026-11-14 (#109);
 - `docker-helper.test.ts` runs the helper behind `systemd-socket-activate`, as systemd does, with a fake `docker`;
 - `alert.test.ts` runs the alert against a fake healthchecks.io that fails as often as the test says;
 - `backup.test.ts` and `firewall.test.ts`, the latter in a network namespace of the test's own.

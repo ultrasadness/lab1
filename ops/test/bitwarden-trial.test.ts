@@ -64,6 +64,67 @@ test('on an account that can do what the bot needs, the trial passes, says what 
   assert.match(second.out, /Now delete the 2 items named "lab1 bw trial"/);
 });
 
+/**
+ * What the trial printed on stdout on the real account on 2026-11-14 (#109), with @bitwarden/cli 2026.10.0: the first
+ * run that sent an item with notes. Its one line on stderr, that `bw` made a data file, isn't here.
+ */
+const SEEN_ON_THE_VM = String.raw`--- status
+{
+ "serverUrl": "null",
+ "lastSync": "null",
+ "status": "string"
+}
+--- login --apikey
+ok
+--- unlock --raw
+a session key of 88 characters
+--- sync
+ok
+--- list collections
+"array(1) of {\"object\":\"string\",\"id\":\"string\",\"organizationId\":\"string\",\"name\":\"string\"}"
+ok
+--- create item, on stdin
+{
+ "type": "number",
+ "name": "string",
+ "favorite": "boolean",
+ "reprompt": "number",
+ "id": "string",
+ "collectionIds": "array(1) of \"string\"",
+ "object": "string",
+ "organizationId": "string",
+ "notes": "string",
+ "fields": "array(0)",
+ "login": {
+  "uris": "array(1) of {\"uri\":\"string\"}",
+  "fido2Credentials": "array(0)",
+  "username": "string",
+  "password": "string",
+  "passwordRevisionDate": "null"
+ },
+ "passwordHistory": "array(0)",
+ "creationDate": "string",
+ "revisionDate": "string",
+ "attachments": "array(0)"
+}
+--- list items --collectionid
+"array(1) of {\"type\":\"number\",\"name\":\"string\",\"favorite\":\"boolean\",\"reprompt\":\"number\",\"id\":\"string\",\"collectionIds\":\"array(1) of \\\"string\\\"\",\"object\":\"string\",\"organizationId\":\"string\",\"notes\":\"string\",\"fields\":\"array(0)\",\"login\":{\"uris\":\"array(1) of {\\\"uri\\\":\\\"string\\\"}\",\"fido2Credentials\":\"array(0)\",\"username\":\"string\",\"password\":\"string\",\"passwordRevisionDate\":\"null\"},\"passwordHistory\":\"array(0)\",\"creationDate\":\"string\",\"revisionDate\":\"string\",\"attachments\":\"array(0)\"}"
+the new item found by name, username and website, with the password it was given: 1
+Now delete the item named "lab1 bw trial" from the Registrations collection in Bitwarden: the bot has no way to.
+`;
+
+/**
+ * The shapes of `bw`'s answers in what the trial printed: the lines of `shape()`'s JSON, each opening with a brace, a
+ * quote or a space. The trial's own lines, which a later change may reword, are left out.
+ */
+const answerShapes = (printed: string) => printed.split('\n').filter((line) => /^[{}" ]/.test(line));
+
+test('against the fake, the trial prints each of bw’s answers in the shape the real account gave on 2026-11-14 (#109)', (t) => {
+  const ran = machine(t).trial();
+  assert.equal(ran.code, 0, ran.out);
+  assert.deepEqual(answerShapes(ran.out), answerShapes(SEEN_ON_THE_VM));
+});
+
 test('an account on *Can edit, except passwords* fails the trial, which ops/token has no way to see', (t) => {
   const vm = machine(t);
   vm.bitwarden.hidesPasswords = true;

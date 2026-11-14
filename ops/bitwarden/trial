@@ -6,7 +6,8 @@
 #
 # It runs what the bot runs, in the bot's order, in a throwaway data folder. It prints only each answer's shape and what
 # it checked, never a value, so its output can go in a ticket. bot/test/harness/fake-bw.ts rests on the shapes this
-# printed on 2026-11-08, so a new shape means that fake changes too.
+# printed on 2026-11-08 and 2026-11-14, and ops/test/bitwarden-trial.test.ts holds the latter, so a new shape means that
+# fake and that test change too.
 #
 # It stops with TRIAL FAILED and exit code 1 at the first answer the bot couldn't use. Each run that gets as far as
 # creating leaves one item, named "lab1 bw trial", for the person to delete: the bot has no way to.

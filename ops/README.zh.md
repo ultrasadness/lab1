@@ -144,7 +144,7 @@ sudo docker start new-api
 
 - `install.test.ts` 安装两次，检查第二次什么都不改；它还覆盖试运行、经过一个只放行已添加的 deploy key 的假 GitHub 的 Personal database、`--deploy`、`systemd-analyze verify` 读到的单元文件，以及 `ops/install` 不在 bash 忽略 `set -e` 的地方做任何改动；
 - `token.test.ts` 输入每一种令牌，包括在一个会回显输入的终端下输入，并检查写入了什么、重启了什么；
-- `bitwarden-trial.test.ts` 让 `ops/bitwarden/trial` 对着机器人测试用的假 `bw` 运行，并检查它什么时候失败、是否不打印任何值；
+- `bitwarden-trial.test.ts` 让 `ops/bitwarden/trial` 对着机器人测试用的假 `bw` 运行，并检查它什么时候失败、是否不打印任何值，以及它打印的 `bw` 每个回答的结构是否和 2026-11-14 真实账号给出的一样（#109）；
 - `docker-helper.test.ts` 像 systemd 那样，在 `systemd-socket-activate` 后面运行辅助程序，配一个假的 `docker`；
 - `alert.test.ts` 让告警对着一个假的 healthchecks.io 运行，它按测试说的次数失败；
 - `backup.test.ts` 和 `firewall.test.ts`，后者在测试自己的一个网络命名空间里运行。
