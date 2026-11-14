@@ -12,7 +12,8 @@ sorts each Correction into fix only, an Interest scope change or a Rule, and loa
 can't be written. #98 gives the live store a schema version, and migrations the bot runs at start. #71 installs it on
 the VM as its own user (`ops/README.md`), and #85 gives it its healthchecks.io ping. #54 saves a Registration's password
 in the Password vault at its Approval, and refuses any model request, Discord message or commit holding a Secret.
-#56 fills an approved Registration's form page by page and presses each button by plain code.
+#56 fills an approved Registration's form page by page and presses each button by plain code. #57 reads the Signup
+mailbox, recording each mail in the ledger once.
 
 | Path | What it is |
 |---|---|
@@ -27,6 +28,7 @@ in the Password vault at its Approval, and refuses any model request, Discord me
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
 | `bot/src/needs-you.ts` | Cards in the `#needs-you` text channel, each mentioning the person |
 | `bot/src/health-ping.ts` | The healthchecks.io ping, every 5 minutes while the bot is logged in to Discord and its store takes a write |
+| `bot/src/mail/` | The Signup mailbox: the Gmail API, the reader that records each mail in the ledger once, matching, the cap on bulk mail, the placeholders for Secrets, and the cards of security alerts |
 | `bot/src/password-vault.ts` | The Password vault: `bw` run once per operation, the password the bot makes, the item it goes in, the item that replaces one a form refused, and the read of a password for a fill by reference |
 | `bot/src/secret-guard.ts` | The last door: each Secret the bot holds, looked for by its exact value in every model request, Discord message and commit, and the notice to replace it |
 | `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, each sent to the first of its role's providers that can serve it and priced in notional dollars, run records, and a fill run's fixed actions |
@@ -63,8 +65,8 @@ The hooks and CI that check each commit and push, and how to turn the hooks on i
 `docs/hooks-and-ci.md`. `npm test` also runs the ops scripts' tests, in `ops/test/` (`ops/README.md`).
 
 The bot's tests go through seam 1 only (`bot/test/harness/`): the real bot in a worker thread of its own, with real Pi
-and our extension as local processes, against fake Discord, Product Hunt, browser service, model provider and
-healthchecks.io servers, a fake `bw`, a fake GitHub holding the Personal database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
+and our extension as local processes, against fake Discord, Product Hunt, browser service, model provider,
+healthchecks.io and Gmail servers, a fake `bw`, a fake GitHub holding the Personal database, and a clock the test moves. The fake GitHub is a local bare repo that git reaches through
 `bot/test/harness/fake-ssh.ts` in place of ssh. It lets in only the deploy key, can refuse or hold pushes, and takes the
 person's own commits, merges and tags. Only the harness imports from `bot/src`: `npm test` fails any other file under
 `bot/test/` whose import names a file there (`scripts/bot-test-imports.test.ts`). `bot/test/store-schema.test.ts` also reads the
@@ -84,7 +86,7 @@ can. It terminates the bot's thread and kills each run, git command and `bw` com
 The old bot never acts again, whatever a fake answers
 or the clock does, and `restart` or `outage` then starts a fresh one on the same live store, data dir and Personal
 database checkout. A test chooses the point through the outside world, never by reaching into `bot/src`: it has a fake
-take a request and never answer, with `world.model.hold`, `world.model.holdFills`, `world.git.holdPushes`, `world.bitwarden.holdCreate` or `world.browser.holdPresses`,
+take a request and never answer, with `world.model.hold`, `world.model.holdFills`, `world.git.holdPushes`, `world.bitwarden.holdCreate`, `world.browser.holdPresses` or `world.gmail.holdMessage`,
 waits until the fake has it, and kills the bot. A request held stays held once the hold is off, so the fresh bot's requests get answered. A point with
 no outside call beside it can't be reached this way. A kill differs from a crash on the VM in two ways. The store's
 handle closes cleanly, so no test exercises SQLite's recovery of its write-ahead log, and the next bot reads the same
@@ -113,6 +115,12 @@ runs, and, as the harness starts the bot with Walkthroughs on, one more for each
 Walkthrough, so the fixture days' Dossiers cost every test that posts a day. A test that isn't about Dossiers keeps
 its day to the few it needs with `world.model.onlyDossiers(postIds)`, which judges every other Launch below the Day's
 line.
+
+The fake Gmail (`bot/test/harness/fake-gmail.ts`) serves Google's token endpoint and the Gmail API of the Signup
+mailbox. Its comment says what the trial on the real mailbox (#17) saw, and what comes from Google's documentation
+alone. `world.gmail.deliver` delivers a mail as Gmail receives it, with its own `Authentication-Results`, labels and
+history record. `forgetHistory`, `limitNext`, `limitTokenRefresh`, `revokeAccessTokens`, `remove`, `corrupt` and
+`holdMessage` choose how it answers, and `changes` holds any request that would change the mailbox.
 
 The fake Product Hunt answers only a query that the real API's live schema accepts, with variables that fit it, and
 refuses any other with GraphQL errors and no data, so a wrong field, argument or enum value fails a test instead of
@@ -187,8 +195,9 @@ rows arrive.
 The bot reads `config/assistant.json` (or `$ASSISTANT_CONFIG`), and its tokens from `$CREDENTIALS_DIRECTORY`, as
 systemd's `LoadCredential=` hands them over: `discord-bot-token`, `producthunt-token`, one `newapi-key-<role>` per
 role, `personal-database-deploy-key`, the Personal database repo's deploy key, `healthchecks-ping-bot`, the ping
-URL of the bot's check on healthchecks.io, and `bitwarden-api-key` and `bitwarden-master-password`, its Bitwarden
-account's.
+URL of the bot's check on healthchecks.io, `bitwarden-api-key` and `bitwarden-master-password`, its Bitwarden
+account's, and `gmail-client-secret` and `gmail-refresh-token`, the Gmail OAuth client and the Signup mailbox's refresh
+token.
 
 The bot's checkout of the Personal database sits at `personalDatabase.dir`: a clone of the person's repo with `main`
 checked out and its `origin` at the repo's ssh URL. The bot runs git in it with no git config but the checkout's own,
@@ -206,8 +215,8 @@ one by then: syncs run one at a time, and the part of git's auto gc that outlive
 The person's Profile is `profile/profile.md` there, in whatever Markdown they write. A Walkthrough's run reads the
 names it fills from it, and while there is no such file, a Walkthrough leaves the names empty and says where to add
 them. Each Product's Signup identity is a plus-address of `signupMailbox`, the Signup mailbox's own address, with that
-address as the fallback for a form that refuses `+` (ADR 0003). The bot needs it while Walkthroughs are on, or while
-one is still in `#needs-you`.
+address as the fallback for a form that refuses `+` (ADR 0003). The bot always needs it, since the Gmail token must read
+that mailbox (#57).
 
 Each run loads its Rules from the checkout's last commit (ADR 0002): every file in `rules/all/`, and every one in its
 own scope's folder, `miner`, `dossier`, `registration` or `mail`, as `rules/<scope>/<slug>.md`. Our extension asks the
@@ -255,11 +264,11 @@ Walkthroughs come only while `walkthroughs.on` is `true`, changed like any setti
 (#85) left them off until #56 let an Approval fill the form, and #109 turns them on, with `signupMailbox` set, for the
 first real Registration. While they are off, the bot prepares no new Walkthrough: no signup page is read for one and no run prepares
 one, so no card goes to `#needs-you`, no post is tagged *Walkthrough*, and a Dossier's Register line says nothing of
-one; the bot also starts without `signupMailbox`. The start that turns them on prepares a Walkthrough for each open
+one. The start that turns them on prepares a Walkthrough for each open
 or waitlisted Product whose Dossier was posted while they were off, however old it is, oldest first, in the
 background lane. Turning them off again only stops that preparation, Prepare again's included, and holds back a
 version whose card didn't go out (settled by the person on #99): one already in `#needs-you` can still be approved,
-edited, corrected or dismissed, and a Correction's run still needs `signupMailbox`.
+edited, corrected or dismissed.
 
 While they are on, once an open or waitlisted Product's post is up, the bot reads its signup page again, live: the
 one its landing page links to, or the landing page itself when it links to none. A registration-role run prepares the
@@ -344,12 +353,45 @@ creates items, and the first item stays for the person to delete (ADR 0014). The
 same Approval, and its next fill run names no button until it has filled that field again.
 
 The bot refuses any model request, at the forwarder, any Discord message and any commit to the Personal database
-holding the exact value of a Secret it holds: each token it reads, its Bitwarden session key, and each password it has made since it started (ADR 0009). It
+holding the exact value of a Secret it holds: each token it reads, its Bitwarden session key, each Gmail access token,
+and each password it has made since it started (ADR 0009). It
 looks for the value as it stands, inside a JSON string, and as a URL carries it. A refused model request fails its run,
 with a 403 Pi doesn't retry, and a refused Discord message counts as one Discord refused, so the work it belonged to
 goes on as after any refusal. A refused file isn't committed, and the Personal database keeps that file as it was until
 the next write of it holds no such value (settled by the person on #54). The first refusal of each Secret since the bot started posts one `#needs-you` notice,
-naming it and how to replace it. A verification code joins them once #57 reads the Signup mailbox.
+naming it and how to replace it. The verification codes and links in mail don't join them (settled by the person on
+#57): each is short-lived, and placeholders keep it from a model and from Discord.
+
+The bot reads the Signup mailbox through the Gmail API (#57), as plain code outside the background lane. Before its first
+read, it checks that the token holds exactly `gmail.readonly` and `gmail.compose` and reads `signupMailbox`. A token
+that doesn't gets a `#needs-you` card saying which token to replace, and no mail is read until the bot starts with
+another. The bot then reads the mailbox's history every `gmail.pollSeconds`, 5 to start, from the history id the live
+store holds, and records each mail added in the ledger by its Gmail message id: Spam is read like the Inbox, and the
+Trash, drafts and sent mail are left out. The history id advances only once the whole batch is in the ledger, so a
+restart in the middle of one reads it again and skips what the ledger holds. When Gmail no longer serves the history
+since that id, a 404, the bot searches for the mail Gmail received since an hour before its last read, Spam and Trash
+searched too, and records it the same way. A store with no history id, new or lost, starts from the mailbox's history
+id now, and older mail counts as seen (ADR 0007). A read Gmail refuses for its rate, or one that fails, is tried again
+after 1 second, then twice as long each time up to 15 minutes, or as long as a `Retry-After` asks.
+
+Each mail is matched to a Registration by the tag of the plus-address it went to, in `Delivered-To`, `To` or `Cc`, and
+then by its sender's root domain, the Product's key. Sender addresses the person matched come with #64. Mail that
+matches none is recorded as *unmatched*, and nothing more is done with it: no model, Discord message or file holds its
+text. Mail whose DMARC passes, by the topmost `Authentication-Results` that `mx.google.com` added, for a domain in
+`gmail.alertDomains` or one of its subdomains, is put to the person. That list holds Google alone (settled by the person
+on #57). A card in `#needs-you` names only the sender and whether the mail is in Spam, with **Done**, and lapses to one
+line after 14 days, an edit Discord doesn't take being tried again 5 minutes on. It goes out beside the read, so a
+Discord that never answers can't stop the mailbox being read. Mail
+from such a domain without that pass may be spoofed, and is *unmatched* whatever address it went to. Matched bulk mail,
+with a `List-Unsubscribe` header, is capped at 3 a Product in any 7 days, counted by Gmail's receive time across Inbox
+and Spam, and the 4th is recorded as *held · over the cap*, though history gives it after a later one. Mail to a
+Registration awaiting verification is never capped or counted, and mail in a thread with a Reply draft joins it with
+#62. Matched mail within the cap waits for the mail run that sorts it, which #61 adds. Its text waits for that run under
+`raw/gmail/` in `dataDir`, for 90 days like every raw input, with each verification code and each link that carries a
+token replaced by a placeholder such as `[code 1]` or `[link 1]`, so no copy of a Secret is kept. A raw input the live
+store doesn't index, as after the store was lost, goes by the time its file's name holds. The ledger holds no
+mail text: the ids, Gmail's receive time, whether the mail is in Spam or bulk, its match and disposition, and the sender
+of an alert.
 
 ```sh
 sudo ops/install   # on the VM, from the main checkout: ops/README.md
@@ -443,7 +485,13 @@ result, and `registration.press-intended`, `registration.pressed` and `registrat
 press that counts as pressed without being known, a `registration.waiting` line what a Registration waits on, and
 `registration.stopped` and `registration.abandoned` lines a Stop and its end. A `secret.refused` line names the
 door a Secret was stopped at, and the Secret by its name. A `personal-database.lock-removed` line names a git lock
-file a sync found left in the checkout and removed.
+file a sync found left in the checkout and removed. A `mail.history-started` line names the history id a store with none
+starts from, and a `mail.recorded` line each mail the ledger records, with its match, its disposition and whether it is
+bulk or in Spam. A `mail.history-expired` line names the search a 404 started, with how many mails it found, and
+`mail.gone` and `mail.unreadable` lines a mail deleted before it was read and one Gmail sent malformed, which is left out
+while the rest of its batch is read. A `gmail.read-failed` line says why a read failed and when the next comes, and a `gmail.token-refused` line why
+the token was refused. `mail.alert-done` and `mail.alert-lapsed` lines name an alert's card that Done or its lapse
+ended.
 
 Every 5 minutes the bot pings its check on healthchecks.io, at the URL in `healthchecks-ping-bot`, but only while it
 is logged in to Discord and its store takes a write: it writes the time to the store first. A ping withheld gets a

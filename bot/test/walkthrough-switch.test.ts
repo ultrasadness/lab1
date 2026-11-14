@@ -1,19 +1,19 @@
 // The Walkthroughs switch (#99): `walkthroughs.on` in the config, changed through ops/upgrade. While Walkthroughs are
-// off, a Dossier says nothing of one and nothing prepares one, and the bot starts without the Signup mailbox's
-// address. Turning them on prepares a Walkthrough for each open or waitlisted Dossier posted while they were off,
+// off, a Dossier says nothing of one and nothing prepares one. The bot needs the Signup mailbox's address either way,
+// since it reads that mailbox (#57). Turning them on prepares a Walkthrough for each open or waitlisted Dossier posted while they were off,
 // however old it is. The config shipped with them off from go-live (#85) until #109 turned them on.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { NEEDS_YOU, PERSON, PRODUCTS_FORUM, SIGNUP_MAILBOX, startWorld } from './harness/world.ts';
+import { NEEDS_YOU, PERSON, PRODUCTS_FORUM, startWorld } from './harness/world.ts';
 import { fixtureDay, websiteOf } from './harness/fake-product-hunt.ts';
 import { ACYCLIC, CODEMIND, serveProduct } from './harness/dossier-fixtures.ts';
 
 /** The config the bot ships with. */
 const SHIPPED = JSON.parse(readFileSync(new URL('../../config/assistant.json', import.meta.url), 'utf8')) as { walkthroughs: { on: boolean }; signupMailbox: string };
 
-/** Walkthroughs off and the Signup mailbox's address not set, as the config shipped from go-live (#85) until #109. */
-const withWalkthroughsOff = <C extends object>(config: C) => Object.assign(config, { walkthroughs: { on: false }, signupMailbox: 'set when Walkthroughs turn on' });
+/** Walkthroughs off, as the config shipped from go-live (#85) until #109. */
+const withWalkthroughsOff = <C extends object>(config: C) => Object.assign(config, { walkthroughs: { on: false } });
 
 const REGISTER = '**Register:** Sign in with an emailed link or Google at app.codemindhq.dev; signing in creates the account. No card.⁴ ⁵';
 
@@ -45,7 +45,7 @@ test('with Walkthroughs off, an Open Product’s Dossier says nothing of a Walkt
   assert.deepEqual(world.discord.refused, []);
 });
 
-test('the config ships with Walkthroughs on and the Signup mailbox’s address (#109); off, the bot starts without the address', async (t) => {
+test('the config ships with Walkthroughs on and the Signup mailbox’s address (#109), which the bot needs whether they are on or off (#57)', async (t) => {
   assert.deepEqual(SHIPPED.walkthroughs, { on: true });
   const shipped = await startWorld({
     now: '2026-10-12T07:30:00Z',
@@ -54,15 +54,13 @@ test('the config ships with Walkthroughs on and the Signup mailbox’s address (
   t.after(() => shipped.stop());
   assert.ok(shipped.logs.some((l) => l.event === 'assistant.started'));
 
-  const off = await startWorld({ now: '2026-10-12T07:30:00Z', configure: withWalkthroughsOff });
-  t.after(() => off.stop());
-  assert.ok(off.logs.some((l) => l.event === 'assistant.started'));
-
-  // With Walkthroughs on, the same unset address is a config error at start-up.
-  await assert.rejects(
-    startWorld({ now: '2026-10-12T07:30:00Z', configure: (config) => (withWalkthroughsOff(config).walkthroughs.on = true) }),
-    /signupMailbox must be the Signup mailbox's address, with no \+, while Walkthroughs are on/,
-  );
+  // An unset address is a config error at start-up, with Walkthroughs on or off.
+  for (const on of [true, false]) {
+    await assert.rejects(
+      startWorld({ now: '2026-10-12T07:30:00Z', configure: (config) => Object.assign(config, { walkthroughs: { on }, signupMailbox: 'set when Walkthroughs turn on' }) }),
+      /signupMailbox must be the Signup mailbox's address, with no \+/,
+    );
+  }
 });
 
 test('turning Walkthroughs on prepares one for each Open Product whose Dossier was posted while they were off, oldest first', async (t) => {
@@ -87,7 +85,7 @@ test('turning Walkthroughs on prepares one for each Open Product whose Dossier w
 
   // ops/upgrade turns them on, with the Signup mailbox's address, at 09:00 PST Thu Nov 12, a month on.
   world.clock.advanceTo('2026-10-14T09:00:00Z');
-  await world.outage('2026-11-12T17:00:00Z', (config) => Object.assign(config, { walkthroughs: { on: true }, signupMailbox: SIGNUP_MAILBOX }));
+  await world.outage('2026-11-12T17:00:00Z', (config) => Object.assign(config, { walkthroughs: { on: true } }));
 
   assert.deepEqual(world.model.walkthroughRuns.map((r) => r.rootDomain), ['codemindhq.dev', 'acyclic.dev'], 'the oldest Dossier’s first');
   const cards = world.discord.cards(NEEDS_YOU);

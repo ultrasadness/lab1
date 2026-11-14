@@ -30,6 +30,8 @@ import { SecretGuard, secretNotice } from './secret-guard.ts';
 import { Store, type Migration } from './store.ts';
 import { apiKeyOf, PasswordVault } from './password-vault.ts';
 import { Walkthroughs } from './walkthrough/walkthroughs.ts';
+import { Gmail } from './mail/gmail.ts';
+import { SignupMailbox } from './mail/signup-mailbox.ts';
 
 export type { LogEntry };
 
@@ -48,6 +50,8 @@ const tokenFile = {
   healthPing: 'healthchecks-ping-bot',
   bitwardenApiKey: 'bitwarden-api-key',
   bitwardenMasterPassword: 'bitwarden-master-password',
+  gmailClient: 'gmail-client-secret',
+  gmailRefreshToken: 'gmail-refresh-token',
 };
 
 export async function startAssistant(options: {
@@ -93,6 +97,9 @@ export async function startAssistant(options: {
   const bitwardenApiKey = apiKeyOf(token(tokenFile.bitwardenApiKey));
   if (bitwardenApiKey) secrets.hold(bitwardenApiKey.clientSecret, replaceToken(tokenFile.bitwardenApiKey));
   const bitwardenMasterPassword = token(tokenFile.bitwardenMasterPassword);
+  const gmailClient = apiKeyOf(token(tokenFile.gmailClient));
+  if (gmailClient) secrets.hold(gmailClient.clientSecret, replaceToken(tokenFile.gmailClient));
+  const gmailRefreshToken = token(tokenFile.gmailRefreshToken);
 
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
   const store = Store.open(join(config.dataDir, 'assistant.sqlite'), options.migrations);
@@ -104,7 +111,7 @@ export async function startAssistant(options: {
     token: discordToken,
     log,
     onInteraction: (interaction) => {
-      plainWork(answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct, proposals, walkthroughs, registrations }));
+      plainWork(answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct, proposals, walkthroughs, registrations, mailReader }));
     },
   });
   // Plain-code work under way, which never queues in the lane: taps and pop-ups being answered, which may queue work or
@@ -245,6 +252,18 @@ export async function startAssistant(options: {
     clock,
     log,
   });
+  const mailReader = new SignupMailbox({
+    gmail: gmailClient && new Gmail({ apiUrl: config.gmail.apiUrl, tokenUrl: config.gmail.tokenUrl, client: gmailClient, refreshToken: gmailRefreshToken, secrets, clock }),
+    signupMailbox: config.signupMailbox,
+    pollSeconds: config.gmail.pollSeconds,
+    alertDomains: config.gmail.alertDomains,
+    store,
+    rawInputs,
+    needsYou,
+    plainWork: (work) => plainWork(work().catch((error: unknown) => log('mail.work-failed', { error: errorText(error) }))),
+    clock,
+    log,
+  });
   // Registrations are filled at each Approval, when a session closes, at every start, and every few minutes while one
   // can't go on, such as while all 5 sessions are taken or Bitwarden is unavailable. That try starts no run a provider
   // would serve unless it can go on, and each page's fill runs are counted in the store.
@@ -367,6 +386,8 @@ export async function startAssistant(options: {
   plainWork(walkthroughs.resume());
   // A press left intended counts as pressed, a Stop not yet acted on is, and the lane takes up each Registration under way.
   plainWork(registrations.resume());
+  // The Signup mailbox is read now, and every few seconds from then on, outside the lane.
+  mailReader.start();
   // Commits a refused push left in the checkout, and files queued before a stop, don't wait for the Miner's next run.
   void personalDatabase.sync();
 
@@ -388,6 +409,7 @@ export async function startAssistant(options: {
         cancelFillRetry();
         registrations.stop();
         walkthroughs.stop();
+        mailReader.stop();
         passwordVault.stop();
         personalDatabase.stop();
         lane.close();
@@ -498,6 +520,8 @@ async function answer(
     walkthroughs: Walkthroughs;
     /** Stop, Correct and Start again on Registrations' status messages. */
     registrations: Registrations;
+    /** Done on the cards of security alerts in the Signup mailbox. */
+    mailReader: SignupMailbox;
   },
 ): Promise<void> {
   const { personUserId, discord, log } = options;
@@ -563,6 +587,11 @@ async function answer(
         // the answer, since the tap is kept already.
         await walkthrough.work?.();
       }
+    }
+    const alert = interaction.type === 3 ? options.mailReader.tap(customId, interaction.message?.id) : undefined;
+    if (alert) {
+      if ('refused' in alert) return await reply(alert.refused);
+      return await discord.respond(interaction.id, interaction.token, { type: 7, data: { ...alert.update } });
     }
     if (customId.startsWith('correct:dossier:') || customId.startsWith('add-offer:dossier:')) {
       return await reply("Correct and Add Offer aren't wired up yet. They arrive with Corrections to Dossiers.");

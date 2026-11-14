@@ -24,6 +24,8 @@ const BOT_TOKENS = [
   'healthchecks-ping-bot',
   'bitwarden-api-key',
   'bitwarden-master-password',
+  'gmail-client-secret',
+  'gmail-refresh-token',
 ];
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose';
 
@@ -136,6 +138,8 @@ async function vm(t: TestContext): Promise<Vm> {
   config.productHunt!.apiUrl = `${base}/producthunt`;
   config.gateway!.baseUrl = `${base}/newapi/v1`;
   config.personalDatabase = { ...config.personalDatabase, dir: checkout, ssh: [process.execPath, join(REPO, 'ops/test/fake-github.ts'), github] };
+  // The mailbox the fake Gmail's profile names.
+  (config as Record<string, unknown>).signupMailbox = 'signup@example.com';
   writeFileSync(join(root, 'assistant.json'), JSON.stringify(config));
 
   return {
@@ -248,7 +252,7 @@ test("the bot isn't started while another of its tokens is missing, and the pers
   const ran = await opsToken(machine, ['newapi-key-miner'], [{ after: /Paste/, type: 'good-key' }]);
   assert.equal(ran.code, 0, ran.out);
   assert.match(ran.out, /new-api lets it reach miner@openrouter/);
-  assert.match(ran.out, /assistant\.service waits on: discord-bot-token, producthunt-token, newapi-key-registration, personal-database-deploy-key, healthchecks-ping-bot, bitwarden-api-key, bitwarden-master-password\./);
+  assert.match(ran.out, /assistant\.service waits on: discord-bot-token, producthunt-token, newapi-key-registration, personal-database-deploy-key, healthchecks-ping-bot, bitwarden-api-key, bitwarden-master-password, gmail-client-secret, gmail-refresh-token\./);
   assert.equal(machine.systemctl(), '');
 });
 
@@ -327,6 +331,22 @@ test('Gmail: the client JSON, then a consent whose failed address is pasted back
   assert.equal(refresh.code, 0, refresh.out);
   assert.match(refresh.out, /It works: it reads and drafts in signup@example\.com\./);
   assert.equal(readFileSync(join(machine.credentials, 'gmail-refresh-token'), 'utf8'), 'good-refresh');
+});
+
+test('Gmail: a refresh token for a mailbox other than the Signup mailbox is refused, as the bot would refuse it', async (t) => {
+  const machine = await vm(t);
+  const config = JSON.parse(readFileSync(machine.env.ASSISTANT_CONFIG!, 'utf8')) as Record<string, unknown>;
+  writeFileSync(machine.env.ASSISTANT_CONFIG!, JSON.stringify({ ...config, signupMailbox: 'another@example.com' }));
+  machine.put('gmail-client-secret', JSON.stringify({ client_id: 'client.apps.googleusercontent.com', client_secret: 'good-secret' }));
+  const safari = (out: string) => {
+    const link = new URL(out.match(/^http\S+\/google\/auth\?\S+$/m)![0]);
+    machine.consents.set(link.searchParams.get('state')!, link.searchParams.get('code_challenge')!);
+    return `http://127.0.0.1:8765/?state=${link.searchParams.get('state')}&code=good-code&scope=${encodeURIComponent(GMAIL_SCOPE)}`;
+  };
+  const ran = await opsToken(machine, ['gmail-refresh-token'], [{ after: /Paste the address/, type: safari }]);
+  assert.equal(ran.code, 1, ran.out);
+  assert.match(ran.out, /Nothing changed: it reads signup@example\.com, not the Signup mailbox, another@example\.com/);
+  assert.ok(!existsSync(join(machine.credentials, 'gmail-refresh-token')));
 });
 
 test('Gmail: an address from another consent changes nothing', async (t) => {

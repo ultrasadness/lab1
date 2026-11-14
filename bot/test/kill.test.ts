@@ -20,6 +20,7 @@ const outside = (world: World) => ({
   browserReads: world.browser.reads.length + world.browser.heads.length,
   gitConnections: world.git.connections().length,
   pings: world.healthchecks.pings.length,
+  gmailRequests: world.gmail.requests.length,
   logLines: world.logs.length,
 });
 

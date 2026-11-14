@@ -5,7 +5,9 @@
 // without one, Products by root domain with their Launches, Dossiers and posts, each Product's Walkthrough versions
 // and the person's Corrections of them, Approvals and Registrations, run and model-request records with each run's
 // Rule-set commit and each request's notional dollars, the providers that dropped out, the index of raw inputs kept
-// outside git, the files waiting to be written to the Personal database, and the times its history diverged.
+// outside git, the files waiting to be written to the Personal database, the times its history diverged, and the mail
+// ledger: the Signup mailbox's history id, each mail by its Gmail message id with its dispositions, and the cards of
+// security alerts.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
 import type { PageRead } from './browser.ts';
@@ -556,6 +558,54 @@ export const BEFORE_FINAL_PRESS: readonly RegistrationState[] = ['held', 'queued
 
 export const beforeFinalPress = (r: Pick<StoredRegistration, 'state'>) => BEFORE_FINAL_PRESS.includes(r.state);
 
+/**
+ * Where a mail stands, by the rows of the ledger (ADR 0007): *unmatched*; *held*, with why; *put to the person*.
+ * A mail matched to a Registration and within the cap has none until the mail run that sorts it, which #61 adds.
+ */
+export type MailDisposition = 'unmatched' | 'held' | 'put-to-person';
+
+/** Why a mail is held, set on its arrival and never checked again (ADR 0007). */
+export type HoldReason = 'over-the-cap';
+
+/** One mail of the Signup mailbox as the ledger records it on arrival, by its Gmail message id. */
+export interface RecordedMail {
+  messageId: string;
+  threadId: string;
+  /** When Gmail received it (`internalDate`). */
+  receivedAt: string;
+  recordedAt: string;
+  spam: boolean;
+  /** Whether it carries `List-Unsubscribe`. */
+  bulk: boolean;
+  /** The Product of the Registration it is matched to, and how; none for mail that matches none. */
+  productId: number | null;
+  matchedBy: 'tag' | 'domain' | null;
+  /** Whether it counts toward its Product's cap of bulk mail. */
+  counted: boolean;
+  /** Its disposition on arrival, if it gets one then. */
+  disposition: { disposition: MailDisposition; reason: HoldReason | 'alert' | null } | null;
+  /** The card a security alert raises, naming only its sender (#38 §8). */
+  alert: { name: string; sender: string } | null;
+}
+
+/** The card of mail with DMARC pass from a domain on the config's list, in `#needs-you`. */
+export interface MailAlert {
+  messageId: string;
+  /** What the card calls the sender's domain, such as Google. */
+  name: string;
+  /** The sender's address. */
+  sender: string;
+  spam: boolean;
+  recordedAt: string;
+  cardIntended: boolean;
+  cardMessageId: string | null;
+  /** When Done or the 14-day lapse ended it, and which. */
+  endedAt: string | null;
+  endedBy: 'done' | 'lapse' | null;
+  /** When the card was shrunk to one line after the lapse. */
+  shrunkAt: string | null;
+}
+
 /** A change to the schema of a store that earlier code left, run once, in order, when the store opens (#98). */
 export interface Migration {
   /** What it changes, for the error that names it if it fails. */
@@ -637,6 +687,45 @@ CREATE TABLE presses (
   intended_at TEXT NOT NULL,
   done_at TEXT,
   uncertain TEXT
+);`,
+  },
+  {
+    name: "add the mail ledger: the Signup mailbox's history id, each mail by its Gmail message id, the rows of its dispositions, and the cards of security alerts (#57)",
+    sql: `CREATE TABLE mailbox (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  history_id TEXT NOT NULL,
+  checked_at TEXT NOT NULL
+);
+CREATE TABLE mail (
+  message_id TEXT PRIMARY KEY,
+  thread_id TEXT NOT NULL,
+  received_at TEXT NOT NULL,
+  recorded_at TEXT NOT NULL,
+  spam INTEGER NOT NULL,
+  bulk INTEGER NOT NULL,
+  product_id INTEGER REFERENCES products(id),
+  matched_by TEXT,
+  counted INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX mail_by_product ON mail(product_id, received_at);
+CREATE TABLE mail_dispositions (
+  id INTEGER PRIMARY KEY,
+  message_id TEXT NOT NULL REFERENCES mail(message_id),
+  disposition TEXT NOT NULL,
+  reason TEXT,
+  cause TEXT NOT NULL,
+  at TEXT NOT NULL
+);
+CREATE INDEX mail_dispositions_by_message ON mail_dispositions(message_id);
+CREATE TABLE mail_alerts (
+  message_id TEXT PRIMARY KEY REFERENCES mail(message_id),
+  name TEXT NOT NULL,
+  sender TEXT NOT NULL,
+  card_intended INTEGER NOT NULL DEFAULT 0,
+  card_message_id TEXT,
+  ended_at TEXT,
+  ended_by TEXT,
+  shrunk_at TEXT
 );`,
   },
 ];
@@ -957,6 +1046,42 @@ CREATE TABLE IF NOT EXISTS personal_database_divergences (
 CREATE TABLE IF NOT EXISTS ping_write (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   written_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS mailbox (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  history_id TEXT NOT NULL,
+  checked_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS mail (
+  message_id TEXT PRIMARY KEY,
+  thread_id TEXT NOT NULL,
+  received_at TEXT NOT NULL,
+  recorded_at TEXT NOT NULL,
+  spam INTEGER NOT NULL,
+  bulk INTEGER NOT NULL,
+  product_id INTEGER REFERENCES products(id),
+  matched_by TEXT,
+  counted INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS mail_by_product ON mail(product_id, received_at);
+CREATE TABLE IF NOT EXISTS mail_dispositions (
+  id INTEGER PRIMARY KEY,
+  message_id TEXT NOT NULL REFERENCES mail(message_id),
+  disposition TEXT NOT NULL,
+  reason TEXT,
+  cause TEXT NOT NULL,
+  at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS mail_dispositions_by_message ON mail_dispositions(message_id);
+CREATE TABLE IF NOT EXISTS mail_alerts (
+  message_id TEXT PRIMARY KEY REFERENCES mail(message_id),
+  name TEXT NOT NULL,
+  sender TEXT NOT NULL,
+  card_intended INTEGER NOT NULL DEFAULT 0,
+  card_message_id TEXT,
+  ended_at TEXT,
+  ended_by TEXT,
+  shrunk_at TEXT
 );
 `;
 
@@ -2441,6 +2566,108 @@ export class Store {
 
   removeRawInput(id: number): void {
     this.#db.prepare('DELETE FROM raw_inputs WHERE id = ?').run(id);
+  }
+
+  // ---------- The mail ledger ----------
+
+  /** The Signup mailbox's history id the next read starts after, and when the bot last read its history. */
+  mailbox(): { historyId: string; checkedAt: string } | undefined {
+    const row = this.#db.prepare('SELECT history_id, checked_at FROM mailbox WHERE id = 1').get();
+    return row ? { historyId: String(row.history_id), checkedAt: String(row.checked_at) } : undefined;
+  }
+
+  saveMailbox(historyId: string, checkedAt: string): void {
+    this.#db
+      .prepare('INSERT INTO mailbox (id, history_id, checked_at) VALUES (1, ?, ?) ON CONFLICT (id) DO UPDATE SET history_id = excluded.history_id, checked_at = excluded.checked_at')
+      .run(historyId, checkedAt);
+  }
+
+  /** Whether the ledger holds this mail. */
+  mailRecorded(messageId: string): boolean {
+    return Boolean(this.#db.prepare('SELECT 1 FROM mail WHERE message_id = ?').get(messageId));
+  }
+
+  /** Records a mail on arrival, with its first disposition and its card's row if it has them, in one transaction. */
+  recordMail(m: RecordedMail): void {
+    this.#transaction(() => {
+      this.#db
+        .prepare('INSERT INTO mail (message_id, thread_id, received_at, recorded_at, spam, bulk, product_id, matched_by, counted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(m.messageId, m.threadId, m.receivedAt, m.recordedAt, m.spam ? 1 : 0, m.bulk ? 1 : 0, m.productId, m.matchedBy, m.counted ? 1 : 0);
+      if (m.disposition) {
+        this.#db
+          .prepare("INSERT INTO mail_dispositions (message_id, disposition, reason, cause, at) VALUES (?, ?, ?, 'arrival', ?)")
+          .run(m.messageId, m.disposition.disposition, m.disposition.reason, m.recordedAt);
+      }
+      if (m.alert) this.#db.prepare('INSERT INTO mail_alerts (message_id, name, sender) VALUES (?, ?, ?)').run(m.messageId, m.alert.name, m.alert.sender);
+    });
+  }
+
+  /** When Gmail received each of a Product's mails that count toward its cap, received after `after` and before `before`. */
+  countedMailTimes(productId: number, after: string, before: string): string[] {
+    return this.#db
+      .prepare('SELECT received_at FROM mail WHERE product_id = ? AND counted = 1 AND received_at > ? AND received_at < ? ORDER BY received_at')
+      .all(productId, after, before)
+      .map((row) => String(row.received_at));
+  }
+
+  /** The Product whose Signup identity's plus-address carries this tag, in any case. */
+  productOfTag(tag: string): number | undefined {
+    const row = this.#db.prepare('SELECT product_id FROM signup_tags WHERE tag = ? COLLATE NOCASE').get(tag);
+    return row ? Number(row.product_id) : undefined;
+  }
+
+  #mailAlerts(where: string, ...params: SQLInputValue[]): MailAlert[] {
+    return this.#db
+      .prepare(`SELECT a.*, m.spam, m.recorded_at FROM mail_alerts a JOIN mail m ON m.message_id = a.message_id WHERE ${where} ORDER BY m.recorded_at, a.message_id`)
+      .all(...params)
+      .map((row) => ({
+        messageId: String(row.message_id),
+        name: String(row.name),
+        sender: String(row.sender),
+        spam: Boolean(row.spam),
+        recordedAt: String(row.recorded_at),
+        cardIntended: Boolean(row.card_intended),
+        cardMessageId: textOrNull(row.card_message_id),
+        endedAt: textOrNull(row.ended_at),
+        endedBy: textOrNull(row.ended_by) as MailAlert['endedBy'],
+        shrunkAt: textOrNull(row.shrunk_at),
+      }));
+  }
+
+  mailAlert(messageId: string): MailAlert | undefined {
+    return this.#mailAlerts('a.message_id = ?', messageId)[0];
+  }
+
+  /** The cards not yet sent, nor possibly sent. */
+  unsentMailAlerts(): MailAlert[] {
+    return this.#mailAlerts('a.card_intended = 0 AND a.ended_at IS NULL');
+  }
+
+  /** The cards still waiting on the person, oldest first. */
+  openMailAlerts(): MailAlert[] {
+    return this.#mailAlerts('a.ended_at IS NULL');
+  }
+
+  /** The cards that lapsed and whose message isn't shrunk yet. */
+  unshrunkMailAlerts(): MailAlert[] {
+    return this.#mailAlerts("a.ended_by = 'lapse' AND a.shrunk_at IS NULL AND a.card_message_id IS NOT NULL");
+  }
+
+  saveMailAlertCardIntended(messageId: string, intended: boolean): void {
+    this.#db.prepare('UPDATE mail_alerts SET card_intended = ? WHERE message_id = ?').run(intended ? 1 : 0, messageId);
+  }
+
+  saveMailAlertCard(messageId: string, cardMessageId: string): void {
+    this.#db.prepare('UPDATE mail_alerts SET card_intended = 1, card_message_id = ? WHERE message_id = ?').run(cardMessageId, messageId);
+  }
+
+  /** Ends a card by Done or its lapse, unless it ended already. Returns whether this ended it. */
+  endMailAlert(messageId: string, by: 'done' | 'lapse', at: string): boolean {
+    return this.#db.prepare('UPDATE mail_alerts SET ended_at = ?, ended_by = ? WHERE message_id = ? AND ended_at IS NULL').run(at, by, messageId).changes > 0;
+  }
+
+  saveMailAlertShrunk(messageId: string, at: string): void {
+    this.#db.prepare('UPDATE mail_alerts SET shrunk_at = ? WHERE message_id = ?').run(at, messageId);
   }
 
   // ---------- Files waiting to be written to the Personal database ----------

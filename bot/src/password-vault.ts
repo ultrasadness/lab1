@@ -61,7 +61,10 @@ function newPassword(replacement = 0): string {
   return chars.join('');
 }
 
-/** The bot's Bitwarden API key from its token file, or undefined when the file isn't one. */
+/**
+ * A client id and secret from a token file, as ops/token places the bot's Bitwarden API key and Gmail's OAuth client, or
+ * undefined when the file isn't one.
+ */
 export function apiKeyOf(text: string): ApiKey | undefined {
   try {
     const key = JSON.parse(text) as { client_id?: unknown; client_secret?: unknown } | null;

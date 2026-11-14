@@ -184,7 +184,7 @@ async function startBot(machine: Vm): Promise<Ran> {
   machine.land();
   await install(machine, '--personal-database', 'git@github.com:person/personal-database.git');
   deployKey(machine);
-  for (const name of ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'healthchecks-ping-bot', 'bitwarden-api-key', 'bitwarden-master-password']) {
+  for (const name of ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'healthchecks-ping-bot', 'bitwarden-api-key', 'bitwarden-master-password', 'gmail-client-secret', 'gmail-refresh-token']) {
     writeFileSync(join(machine.root, 'etc/assistant/credentials', name), 'dummy', { mode: 0o600 });
   }
   return install(machine);
@@ -241,7 +241,7 @@ test('a first install puts everything in place, and a second changes nothing', a
   // The bot pings its own check, so it waits on that ping URL too; without the ping URLs, the alerts can't go out.
   assert.match(
     first.out,
-    /^ {2}- healthchecks-ping-bot: ops\/token healthchecks-ping-bot\n {2}- bitwarden-api-key: ops\/token bitwarden-api-key\n {2}- bitwarden-master-password: ops\/token bitwarden-master-password\nThe alerts, when the bot or the backup gives up, wait on:\n {2}- healthchecks-ping-backup: ops\/token healthchecks-ping-backup\n {2}- healthchecks-ping-bot: ops\/token healthchecks-ping-bot$/m,
+    /^ {2}- healthchecks-ping-bot: ops\/token healthchecks-ping-bot\n {2}- bitwarden-api-key: ops\/token bitwarden-api-key\n {2}- bitwarden-master-password: ops\/token bitwarden-master-password\n {2}- gmail-client-secret: ops\/token gmail-client-secret\n {2}- gmail-refresh-token: ops\/token gmail-refresh-token\nThe alerts, when the bot or the backup gives up, wait on:\n {2}- healthchecks-ping-backup: ops\/token healthchecks-ping-backup\n {2}- healthchecks-ping-bot: ops\/token healthchecks-ping-bot$/m,
   );
 
   const second = await install(machine);

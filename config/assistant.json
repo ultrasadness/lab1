@@ -27,6 +27,12 @@
     "on": true
   },
   "signupMailbox": "gemini4barium@gmail.com",
+  "gmail": {
+    "apiUrl": "https://gmail.googleapis.com/gmail/v1/users/me",
+    "tokenUrl": "https://oauth2.googleapis.com/token",
+    "pollSeconds": 5,
+    "alertDomains": { "google.com": "Google" }
+  },
   "gateway": {
     "baseUrl": "http://127.0.0.1:3000/v1",
     "retryMinutes": 30

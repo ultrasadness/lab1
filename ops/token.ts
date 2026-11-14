@@ -19,6 +19,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { loadConfig, type Config } from '../bot/src/config.ts';
+import { GMAIL_SCOPES } from '../bot/src/mail/gmail.ts';
 import { onlyCollection } from '../bot/src/password-vault.ts';
 import { kill } from '../bot/src/process-group.ts';
 
@@ -46,7 +47,6 @@ const ENDPOINTS = {
   ...(TESTING && process.env.OPS_ENDPOINTS ? (JSON.parse(process.env.OPS_ENDPOINTS) as Record<string, string>) : {}),
 };
 /** The Signup mailbox's only scopes (#16): reading and drafting, so the Assistant can't delete mail. */
-const GMAIL_SCOPES = ['https://www.googleapis.com/auth/gmail.compose', 'https://www.googleapis.com/auth/gmail.readonly'];
 /** Where Google sends Safari after the consent. Nothing listens there, so Safari shows its address and an error. */
 const GMAIL_REDIRECT = 'http://127.0.0.1:8765';
 
@@ -170,7 +170,10 @@ const TOKENS: Token[] = [
       const profile = await request(`${ENDPOINTS.gmail}/profile`, { headers: { authorization: `Bearer ${access_token}` } });
       if (!profile.ok) return refusedBy('Gmail', profile);
       const { emailAddress } = (await profile.json()) as { emailAddress?: string };
-      return { ok: true, note: `it reads and drafts in ${emailAddress ?? 'an unnamed mailbox'}` };
+      // The bot refuses a token for any other mailbox (#57), so this check does too.
+      const mailbox = context.config.signupMailbox;
+      if ((emailAddress ?? '').toLowerCase() !== mailbox.toLowerCase()) return { ok: false, why: `it reads ${emailAddress ?? 'an unnamed mailbox'}, not the Signup mailbox, ${mailbox}` };
+      return { ok: true, note: `it reads and drafts in ${emailAddress}` };
     },
   },
   {

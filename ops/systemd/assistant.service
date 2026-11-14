@@ -27,6 +27,8 @@ LoadCredential=personal-database-deploy-key:/etc/assistant/credentials/personal-
 LoadCredential=healthchecks-ping-bot:/etc/assistant/credentials/healthchecks-ping-bot
 LoadCredential=bitwarden-api-key:/etc/assistant/credentials/bitwarden-api-key
 LoadCredential=bitwarden-master-password:/etc/assistant/credentials/bitwarden-master-password
+LoadCredential=gmail-client-secret:/etc/assistant/credentials/gmail-client-secret
+LoadCredential=gmail-refresh-token:/etc/assistant/credentials/gmail-refresh-token
 # No view of /home, and nothing to write but its own data: the live store, the raw inputs and the Personal
 # database's checkout.
 NoNewPrivileges=yes

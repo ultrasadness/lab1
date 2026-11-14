@@ -86,7 +86,7 @@ without writing it.
 | `newapi-key-<role>`, for `miner`, `registration`, `mail`, `question` and `checks` | a key new-api makes for the role (below) | new-api's `/models`, which must list each `<role>@<provider>` the role asks for |
 | `newapi-key-probe` | a key new-api makes for the daily probe | new-api's `/models` |
 | `gmail-client-secret` | the JSON Google Cloud's Credentials page downloads for the Desktop app client | Google takes the client, refusing only a made-up code |
-| `gmail-refresh-token` | a consent in Safari: open the link `ops/token` shows, signed in to the Signup mailbox's account, then paste the address Safari can't load | a refresh, exactly `gmail.readonly` and `gmail.compose`, and the mailbox's address |
+| `gmail-refresh-token` | a consent in Safari: open the link `ops/token` shows, signed in to the Signup mailbox's account, then paste the address Safari can't load | a refresh, exactly `gmail.readonly` and `gmail.compose`, and that it reads the Signup mailbox, `signupMailbox` |
 | `bitwarden-api-key` | the bot's Bitwarden account's personal API key: its `client_id`, then its `client_secret` | in a throwaway data folder, `bw` logs in with it |
 | `bitwarden-master-password` | the bot's Bitwarden account | in a throwaway data folder, `bw` logs in, unlocks with it and syncs, and the account must see only the *Registrations* collection |
 | `healthchecks-ping-bot`, `-miner`, `-backup`, `-weekly` | each check's ping URL on healthchecks.io; the bot's check has a 5-minute period and 10 minutes' grace | a log event on the check, which changes nothing else |
@@ -116,7 +116,7 @@ one item, named `lab1 bw trial`, for the person to delete.
 
 The bot's unit hands over only the tokens the bot reads today: `discord-bot-token`, `producthunt-token`,
 `newapi-key-miner`, `newapi-key-registration`, `personal-database-deploy-key`, `healthchecks-ping-bot`,
-`bitwarden-api-key` and `bitwarden-master-password`. A later
+`bitwarden-api-key`, `bitwarden-master-password`, `gmail-client-secret` and `gmail-refresh-token`. A later
 ticket that reads another adds its `LoadCredential=` line to `ops/systemd/assistant.service`: `ops/test/token.test.ts`
 fails while the unit and the names the bot reads differ.
 

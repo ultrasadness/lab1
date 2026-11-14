@@ -3,6 +3,7 @@
 import type { Launch } from './store.ts';
 import type { Log } from './log.ts';
 import { pacificDay } from './pacific.ts';
+import { htmlToText } from './html-text.ts';
 
 const DAY_QUERY = `query FeaturedLaunches($postedAfter: DateTime!, $postedBefore: DateTime!, $after: String) {
   posts(featured: true, postedAfter: $postedAfter, postedBefore: $postedBefore, order: NEWEST, first: 20, after: $after) {
@@ -162,25 +163,4 @@ function makerComments(makers: { id: string }[], comments: Comment[]): Pick<Laun
       return { id: c.id, text: text.length > MAKER_COMMENT_CHARS ? `${text.slice(0, MAKER_COMMENT_CHARS)}…` : text };
     });
   return { makerComment: kept[0]?.text ?? null, makerComments: kept };
-}
-
-const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
-
-function htmlToText(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|h\d)>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '\n- ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
-      if (code[0] === '#') {
-        const n = code[1]?.toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
-        // As a browser does, a code that names no character reads as the replacement character.
-        return n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : '�';
-      }
-      return ENTITIES[code.toLowerCase()] ?? whole;
-    })
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 }

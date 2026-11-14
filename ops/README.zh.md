@@ -57,7 +57,7 @@
 | `newapi-key-<role>`，用于 `miner`、`registration`、`mail`、`question` 和 `checks` | new-api 为这个角色生成的密钥（见下文） | new-api 的 `/models`，其中必须列出这个角色请求的每个 `<role>@<provider>` |
 | `newapi-key-probe` | new-api 为每日探测生成的密钥 | new-api 的 `/models` |
 | `gmail-client-secret` | Google Cloud 的 Credentials 页面为桌面应用客户端下载的 JSON | Google 接受这个客户端，只拒绝一个编造的授权码 |
-| `gmail-refresh-token` | 在 Safari 里授权一次：登录 Signup mailbox 的账号，打开 `ops/token` 显示的链接，再把 Safari 打不开的那个地址粘贴回来 | 刷新一次，权限恰好是 `gmail.readonly` 和 `gmail.compose`，以及这个邮箱的地址 |
+| `gmail-refresh-token` | 在 Safari 里授权一次：登录 Signup mailbox 的账号，打开 `ops/token` 显示的链接，再把 Safari 打不开的那个地址粘贴回来 | 刷新一次，权限恰好是 `gmail.readonly` 和 `gmail.compose`，并且它读取的是 Signup mailbox，即 `signupMailbox` |
 | `bitwarden-api-key` | 机器人的 Bitwarden 账号的个人 API 密钥：先是它的 `client_id`，再是它的 `client_secret` | 在一个一次性的数据目录里，`bw` 用它登录 |
 | `bitwarden-master-password` | 机器人的 Bitwarden 账号 | 在一个一次性的数据目录里，`bw` 登录、用它解锁并同步，账号必须只能看到 *Registrations* 集合 |
 | `healthchecks-ping-bot`, `-miner`, `-backup`, `-weekly` | healthchecks.io 上每个检查的 ping URL；机器人那个检查的周期是 5 分钟，宽限 10 分钟 | 在这个检查上记一条日志事件，其他什么都不改 |
@@ -74,7 +74,7 @@ deploy key 的私钥从不离开 VM（在 #71 上确定）：在询问 GitHub �
 
 `sudo ops/bitwarden/trial` 在真实账号上运行机器人的 `bw` 命令：它创建一个条目再读回来，遇到第一个机器人用不了的答复就报 TRIAL FAILED，而且不打印任何值。每次运行只要走到创建这一步，就会留下一个名为 `lab1 bw trial` 的条目，由这个人删除。
 
-机器人的单元只交付机器人现在读取的令牌：`discord-bot-token`、`producthunt-token`、`newapi-key-miner`、`newapi-key-registration`、`personal-database-deploy-key`、`healthchecks-ping-bot`、`bitwarden-api-key` 和 `bitwarden-master-password`。之后读取别的令牌的 ticket，会在 `ops/systemd/assistant.service` 里加上它的 `LoadCredential=` 一行：只要这个单元和机器人读取的名字不一致，`ops/test/token.test.ts` 就会失败。
+机器人的单元只交付机器人现在读取的令牌：`discord-bot-token`、`producthunt-token`、`newapi-key-miner`、`newapi-key-registration`、`personal-database-deploy-key`、`healthchecks-ping-bot`、`bitwarden-api-key`、`bitwarden-master-password`、`gmail-client-secret` 和 `gmail-refresh-token`。之后读取别的令牌的 ticket，会在 `ops/systemd/assistant.service` 里加上它的 `LoadCredential=` 一行：只要这个单元和机器人读取的名字不一致，`ops/test/token.test.ts` 就会失败。
 
 ### new-api 的渠道和角色密钥
 

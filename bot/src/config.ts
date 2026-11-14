@@ -75,16 +75,29 @@ export interface Config {
     timeoutSeconds: number;
   };
   /**
-   * Whether Walkthroughs are on (#99). While they are off, no Walkthrough is prepared and `signupMailbox` may be left
-   * unset. Turning them on prepares one for each open or waitlisted Product posted while they were off.
+   * Whether Walkthroughs are on (#99). While they are off, no Walkthrough is prepared. Turning them on prepares one for
+   * each open or waitlisted Product posted while they were off.
    */
   walkthroughs: { on: boolean };
   /**
    * The Signup mailbox's own address (ADR 0003). Each Product's Signup identity is its plus-address, with this one as
-   * the fallback for a form that refuses `+`. Needed while Walkthroughs are on, and by the Correction of one still out
-   * after they are turned off.
+   * the fallback for a form that refuses `+`, and the Gmail token must read this mailbox (#57).
    */
   signupMailbox: string;
+  /** How the bot reads the Signup mailbox (#57). */
+  gmail: {
+    /** The Gmail API for the token's own mailbox: `https://gmail.googleapis.com/gmail/v1/users/me`. */
+    apiUrl: string;
+    /** Google's token endpoint, which trades the refresh token for an access token. */
+    tokenUrl: string;
+    /** How often the bot reads the mailbox's history for new mail. */
+    pollSeconds: number;
+    /**
+     * The domains whose mail with DMARC pass raises a card at once in `#needs-you`, naming only the sender, each with
+     * the name the card calls it by (#38 §8). Google alone, as the person settled on #57.
+     */
+    alertDomains: Record<string, string>;
+  };
   gateway: {
     /** new-api's OpenAI-compatible base URL, reached only by the forwarder. */
     baseUrl: string;
@@ -181,8 +194,12 @@ export function checkConfig(config: Config): string[] {
   if (!(config.bitwarden?.command?.length > 0)) problems.push('bitwarden.command must name the command that runs bw');
   if (!(config.bitwarden?.timeoutSeconds > 0)) problems.push('bitwarden.timeoutSeconds must be above 0');
   if (typeof config.walkthroughs?.on !== 'boolean') problems.push('walkthroughs.on must be true or false');
-  if (config.walkthroughs?.on && !/^[^\s@+]+@[^\s@]+\.[^\s@]+$/.test(config.signupMailbox ?? '')) {
-    problems.push("signupMailbox must be the Signup mailbox's address, with no +, while Walkthroughs are on");
+  if (!/^[^\s@+]+@[^\s@]+\.[^\s@]+$/.test(config.signupMailbox ?? '')) problems.push("signupMailbox must be the Signup mailbox's address, with no +");
+  if (!/^https?:\/\//.test(config.gmail?.apiUrl ?? '')) problems.push("gmail.apiUrl must be the Gmail API's URL for the token's own mailbox");
+  if (!/^https?:\/\//.test(config.gmail?.tokenUrl ?? '')) problems.push("gmail.tokenUrl must be Google's token endpoint");
+  if (!(config.gmail?.pollSeconds > 0)) problems.push('gmail.pollSeconds must be above 0');
+  for (const [domain, name] of Object.entries<unknown>(config.gmail?.alertDomains ?? {})) {
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain) || typeof name !== 'string' || !name) problems.push(`gmail.alertDomains: ${domain} needs to be a domain, with the name its card calls it by`);
   }
   if (!(config.personalDatabase?.ssh?.length > 0)) problems.push('personalDatabase.ssh must name the ssh command');
   if (!(config.personalDatabase?.retryMinutes > 0)) problems.push('personalDatabase.retryMinutes must be above 0');

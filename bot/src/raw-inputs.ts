@@ -1,8 +1,8 @@
 // Raw inputs exactly as a source returned them, kept for 90 days outside git (for Rule cases and the Miner Fit
 // check), indexed by the store, then deleted.
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import type { Clock } from './clock.ts';
 import type { Log } from './log.ts';
 import type { Store } from './store.ts';
@@ -43,13 +43,32 @@ export class RawInputs {
     });
   }
 
-  /** Deletes every raw input past its keep date. */
+  /**
+   * Deletes every raw input past its keep date. A file the store doesn't index, as after the store was lost or a stop
+   * between writing a file and indexing it, goes by the time its name holds, so no copy outlives its keep date.
+   */
   expire(): void {
-    const expired = this.#store.expiredRawInputs(this.#clock.now().toISOString());
+    const now = this.#clock.now();
+    const expired = this.#store.expiredRawInputs(now.toISOString());
     for (const raw of expired) {
       rmSync(raw.path, { force: true });
       this.#store.removeRawInput(raw.id);
     }
-    if (expired.length > 0) this.#log('raw-inputs.expired', { count: expired.length });
+    const unindexed = existsSync(this.#dir)
+      ? readdirSync(this.#dir, { recursive: true, encoding: 'utf8' }).filter((file) => {
+          const kept = keptAt(basename(file));
+          return kept !== undefined && kept + this.#keepDays * DAY_MS <= now.getTime();
+        })
+      : [];
+    for (const file of unindexed) rmSync(join(this.#dir, file), { force: true });
+    if (expired.length + unindexed.length > 0) this.#log('raw-inputs.expired', { count: expired.length + unindexed.length });
   }
+}
+
+/** When a raw input was kept, from its file's name as `keep` writes it, or undefined for a name it didn't write. */
+function keptAt(name: string): number | undefined {
+  const stamp = name.match(/^(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})Z-[0-9a-f-]{36}\.json$/);
+  if (!stamp) return undefined;
+  const time = Date.parse(`${stamp[1]}:${stamp[2]}:${stamp[3]}.${stamp[4]}Z`);
+  return Number.isNaN(time) ? undefined : time;
 }

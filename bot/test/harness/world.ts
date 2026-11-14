@@ -1,6 +1,6 @@
 // Seam 1: the Assistant's outside world. Starts the real bot in a thread of its own, with real Pi and our extension as
-// local processes, against fakes for Discord, Product Hunt, the browser service, the model provider and healthchecks.io,
-// on a clock the test moves.
+// local processes, against fakes for Discord, Product Hunt, the browser service, the model provider, healthchecks.io and
+// Gmail, on a clock the test moves.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,6 +14,7 @@ import { FakeBrowser } from './fake-browser.ts';
 import { FakeClock } from './fake-clock.ts';
 import { FakeDiscord } from './fake-discord.ts';
 import { FakeGitRemote } from './fake-git-remote.ts';
+import { FakeGmail } from './fake-gmail.ts';
 import { FakeHealthchecks } from './fake-healthchecks.ts';
 import { FakeModelProvider } from './fake-model.ts';
 import { FakeProductHunt } from './fake-product-hunt.ts';
@@ -39,6 +40,9 @@ export const TOKENS = {
   bitwardenClientSecret: 'bitwarden-client-secret-test',
   /** With characters a URL and JSON each carry differently, as a master password may have. */
   bitwardenMasterPassword: 'correct "horse"/battery+staple!',
+  gmailClientId: '123456789012-fake.apps.googleusercontent.com',
+  gmailClientSecret: 'GOCSPX-gmail-client-secret-test',
+  gmailRefreshToken: '1//gmail-refresh-token-test',
 };
 
 /** The Signup mailbox's address (ADR 0003). */
@@ -65,6 +69,8 @@ export interface World {
   /** GitHub, holding the person's Personal database repo. */
   git: FakeGitRemote;
   healthchecks: FakeHealthchecks;
+  /** The Signup mailbox, as Google's token endpoint and the Gmail API serve it. */
+  gmail: FakeGmail;
   /** Where the bot keeps its live store and raw inputs on the VM. */
   dataDir: string;
   /** The bot's checkout of the Personal database. */
@@ -113,6 +119,11 @@ export async function startWorld(options: {
   migrations?: Migration[];
   /** What the bot's `bitwarden-api-key` token file holds, in place of its good key. */
   bitwardenApiKey?: string;
+  /**
+   * The mailbox the Gmail token belongs to, and the scopes it holds, in place of the Signup mailbox and exactly its two;
+   * and what the `gmail-client-secret` token file holds, in place of the client's id and secret.
+   */
+  gmail?: { emailAddress?: string; scopes?: string[]; clientFile?: string };
 }): Promise<World> {
   const dir = mkdtempSync(join(tmpdir(), 'assistant-test-'));
   const credentials = join(dir, 'credentials');
@@ -128,6 +139,9 @@ export async function startWorld(options: {
   writeFileSync(join(credentials, 'personal-database-deploy-key'), TOKENS.deployKey, { mode: 0o600 });
   writeFileSync(join(credentials, 'bitwarden-api-key'), options.bitwardenApiKey ?? JSON.stringify({ client_id: TOKENS.bitwardenClientId, client_secret: TOKENS.bitwardenClientSecret }));
   writeFileSync(join(credentials, 'bitwarden-master-password'), TOKENS.bitwardenMasterPassword);
+  // As ops/token places them: the client's id and secret, and the refresh token alone.
+  writeFileSync(join(credentials, 'gmail-client-secret'), options.gmail?.clientFile ?? JSON.stringify({ client_id: TOKENS.gmailClientId, client_secret: TOKENS.gmailClientSecret }));
+  writeFileSync(join(credentials, 'gmail-refresh-token'), TOKENS.gmailRefreshToken);
   const bitwarden = new FakeBitwarden(join(dir, 'bitwarden'), {
     clientId: TOKENS.bitwardenClientId,
     clientSecret: TOKENS.bitwardenClientSecret,
@@ -153,6 +167,13 @@ export async function startWorld(options: {
   const browser = await FakeBrowser.start(join(dir, 'browser.sock'));
   const model = await FakeModelProvider.start({ apiKeys: [TOKENS.minerKey, TOKENS.registrationKey] });
   const healthchecks = await FakeHealthchecks.start(clock);
+  const gmail = await FakeGmail.start({
+    clock,
+    client: { id: TOKENS.gmailClientId, secret: TOKENS.gmailClientSecret },
+    refreshToken: TOKENS.gmailRefreshToken,
+    emailAddress: options.gmail?.emailAddress ?? SIGNUP_MAILBOX,
+  });
+  if (options.gmail?.scopes) gmail.scopes = options.gmail.scopes;
   writeFileSync(join(credentials, 'healthchecks-ping-bot'), `${healthchecks.pingUrl('bot')}\n`);
 
   const config: Config = {
@@ -171,6 +192,7 @@ export async function startWorld(options: {
     bitwarden: { command: bitwarden.command, timeoutSeconds: 60 },
     walkthroughs: { on: true },
     signupMailbox: SIGNUP_MAILBOX,
+    gmail: { apiUrl: gmail.apiUrl, tokenUrl: gmail.tokenUrl, pollSeconds: 5, alertDomains: { 'google.com': 'Google' } },
     gateway: { baseUrl: model.baseUrl, retryMinutes: 30 },
     providers: { openrouter: { label: 'OpenRouter', mailGroup: true } },
     roles: {
@@ -220,7 +242,7 @@ export async function startWorld(options: {
     return started;
   };
   const close = async () => {
-    await Promise.all([discord.close(), productHunt.close(), browser.close(), model.close(), healthchecks.close()]);
+    await Promise.all([discord.close(), productHunt.close(), browser.close(), model.close(), healthchecks.close(), gmail.close()]);
     rmSync(dir, { recursive: true, force: true });
   };
   let bot: BotThread;
@@ -241,6 +263,7 @@ export async function startWorld(options: {
     model,
     git,
     healthchecks,
+    gmail,
     dataDir,
     checkout: personalDatabase,
     get logs() {
