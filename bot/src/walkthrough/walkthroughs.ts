@@ -439,7 +439,7 @@ export class Walkthroughs {
       const line = registration.state === 'abandoned' ? stoppedLine(v.walkthrough, v.version, product.threadId!) : approvedLine(v.walkthrough, v.version, approvedAt, product.threadId!);
       await this.#needsYou.shrink(v.cardMessageId, line);
     }
-    const status = registrationStatus({ registration, walkthrough: v.walkthrough, next: { kind: 'none' }, needsYouChannelId: this.#config.discord.needsYouChannelId });
+    const status = registrationStatus({ registration, walkthrough: v.walkthrough, next: { kind: 'none' }, verification: null, needsYouChannelId: this.#config.discord.needsYouChannelId });
     if (registration.statusMessageId) {
       await this.#discord.editMessage(product.threadId!, registration.statusMessageId, asEdit(status));
     } else if (!registration.statusIntended) {

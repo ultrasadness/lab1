@@ -35,7 +35,7 @@ function standingFrom(store: Store, product: Product, needsYouChannelId: string)
       case 'held':
         return { tags: ['walkthrough'], registerNote: `${approved}; waiting for Bitwarden.` };
       case 'handed-off':
-        return { tags: ['handed off'], registerNote: `${approved}; handed off to you.` };
+        return { tags: ['handed off'], registerNote: registration.handedOffAt ? `${approved}; submitted, and handed off to you: no verification mail yet.` : `${approved}; handed off to you.` };
       case 'queued':
       case 'filling':
       case 'checking':

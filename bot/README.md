@@ -13,7 +13,7 @@ can't be written. #98 gives the live store a schema version, and migrations the 
 the VM as its own user (`ops/README.md`), and #85 gives it its healthchecks.io ping. #54 saves a Registration's password
 in the Password vault at its Approval, and refuses any model request, Discord message or commit holding a Secret.
 #56 fills an approved Registration's form page by page and presses each button by plain code. #57 reads the Signup
-mailbox, recording each mail in the ledger once.
+mailbox, recording each mail in the ledger once, and #58 verifies a Registration from its verification mail.
 
 | Path | What it is |
 |---|---|
@@ -22,7 +22,7 @@ mailbox, recording each mail in the ledger once.
 | `bot/src/rules/` | Rules: each run's Rule files, its prompt's Rules section and the Rule budget; a Correction's sorting run; and the cards of proposed Rules and Interest scope changes, with Keep, Edit and Discard |
 | `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, the Product's folder in the Personal database, and the tries at one that can't be written |
 | `bot/src/walkthrough/` | Walkthroughs: the read of the signup page, its run's prompt and record, the card in `#needs-you` and its copy in the Product's post, Edit, Correct, Dismiss, the 14-day lapse and Prepare again, the Approval that starts the Registration, where the Product stands, and `registration.md` |
-| `bot/src/registration/` | Registrations after Approval: the wait for one of 5 sessions, a fill run per page and the fixed actions it acts through, plain code's page check and press under an *intended* mark, the outcome from "what happens on submit", the status message, and Stop, Correct and Start again |
+| `bot/src/registration/` | Registrations after Approval: the wait for one of 5 sessions, a fill run per page and the fixed actions it acts through, plain code's page check and press under an *intended* mark, the outcome from "what happens on submit", the verification mail's code or link used by plain code or put to the person, the status message, and Stop, Correct and Start again |
 | `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)`, `redirect(url)` and a Registration's session over its Unix socket, and the root domain a Product is keyed by |
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
@@ -75,7 +75,9 @@ lock through it, to show a store that can't take a write. `npm test` fails any o
 `node:sqlite` (`scripts/bot-test-store.test.ts`). What else a test may assert on is **What a test asserts on** in
 `CODING_STANDARDS.md`. No test may see two presses for one *intended* mark (#56): `world.stop()` fails a test whose
 pages received more presses than the bot's `registration.press-intended` lines, less its `registration.press-refused`
-ones, since a refused press reached no page.
+ones, since a refused press reached no page. A press of a verification code counts the same way, by its
+`registration.verify-intended` and `registration.verify-refused` lines (#58). The fake browser service keeps each
+verification link a session opened in `linksOpened`, as what the Product received.
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
 a repeating timer, step through each firing with `stepThrough`.
@@ -119,11 +121,13 @@ line.
 The fake Gmail (`bot/test/harness/fake-gmail.ts`) serves Google's token endpoint and the Gmail API of the Signup
 mailbox. Its comment says what the trial on the real mailbox (#17) saw, and what comes from Google's documentation
 alone. `world.gmail.deliver` delivers a mail as Gmail receives it, with its own `Authentication-Results`, labels and
-history record. `forgetHistory`, `limitNext`, `limitTokenRefresh`, `revokeAccessTokens`, `remove`, `corrupt` and
-`holdMessage` choose how it answers, and `changes` holds any request that would change the mailbox. Mail Gmail received
-before the bot's first read counts as seen, as after a lost store, so a test delivers it with `delivered` from
+history record. `forgetHistory`, `limitNext`, `limitTokenRefresh`, `revokeAccessTokens`, `remove`, `corrupt`,
+`holdMessage`, and for a read after the bot's first of a message, `removeAfterReads` and `limitAfterReads` (#58), choose
+how it answers, and `changes` holds any request that would change the mailbox. Mail Gmail received before the bot's
+first read counts as seen, as after a lost store, so a test delivers it with `delivered` from
 `bot/test/harness/signup-mail.ts`, which waits for that read, and `registered` there brings Codemind's Registration to
-the point where its mail arrives.
+the point where its mail arrives. `bot/test/verification.test.ts` delivers once the first read is done too, at each
+mail's own receive time after the final press, and moves the clock 5 s past it.
 
 The fake Product Hunt answers only a query that the real API's live schema accepts, with variables that fit it, and
 refuses any other with GraphQL errors and no data, so a wrong field, argument or enum value fails a test instead of
@@ -305,7 +309,8 @@ it *awaiting verification* with its session open, a waitlist ends it *waitlisted
 #59 brings their cards.
 
 The status message is edited in place, silently, through *queued*, *filling page n*, *checking page n*, *pressing
-<button>* and *submitted* to the outcome, and `registration.md` gets the submitted line and the outcome, in bold.
+<button>*, *submitted* and *verified* to the outcome, and `registration.md` gets the submitted line, how the
+verification mail was used, and the outcome, in bold.
 **Stop** is on it until the final press. It writes a mark that the store write marking a press *intended* checks, ends
 the fill run, closes the session and leaves the Registration *abandoned* ("stopped by you; nothing submitted") with
 **Start again**. Start again prepares a fresh Walkthrough from a new read, and its Approval starts the same Registration
@@ -331,6 +336,32 @@ can't go on for now, such as while all 5 sessions are taken, its signup page won
 Bitwarden is unavailable, says so on its status message and is tried again every 5 minutes, with no run started and no
 limit (settled by the person on #56). A session an outcome left open, and a status message, tags, file or notice that
 Discord or GitHub didn't take, are tried again 5 minutes on, and at the next start.
+
+A Registration *awaiting verification* takes as its verification mail the first mail matched to its Product, received
+from its final press's *intended* mark on, in which plain code finds a code or a link; a mail with neither, such as a
+welcome, stays ordinary mail (#58). After each read of the Signup mailbox, outside the lane and one piece of work at a
+time for each Registration, plain code reads that mail again from Gmail, with its codes and links held in memory alone,
+and uses it only when all of these hold (ADR 0005):
+Gmail's own DMARC check, in the topmost `Authentication-Results` that `mx.google.com` added, passed for the Product's
+root domain or one of its subdomains; Gmail received it within 1 minute of that mark; plain code finds exactly one
+code or link in it; and plain code acts within 2 minutes of Gmail receiving it. Spam doesn't matter (both settled by
+the person on #58). A code goes into the page its session shows, read once it has held still: into the only form
+whose only field is named for a code, by `autocomplete="one-time-code"` or its label or name, by reference, and that
+form's one button is pressed under the page check. A page that still asks for the code once it holds still again
+refused it, and the mail goes to the person; one plain code can't read leaves it unknown whether the Product took the
+code, as a page a press led to does (#56). A link is opened by reference, and the browser service closes the session
+after it. Each step is
+under an *intended* mark, written right before it and taken back only on a refusal that comes before it begins, so a
+step the bot stopped during, or whose answer never came, counts as done, and a `#needs-you` notice says what was
+uncertain (ADR 0007). The Registration is then *registered*, its session closed, and the status message shows
+*verified*. Any other mail, and a step the browser service refused before it began, such as a page that splits the
+code across one box a digit, is put to the person: a card in `#needs-you` names the Product, when the mail came,
+whether it is in Spam and why plain code didn't use it, and asks them to tap it in Gmail, or, if it has expired, to log
+in to the Product with the password AutoFill gives them and have it send a new one. **Done** shrinks it to one line,
+and the mail's arrival makes the Registration *registered* all the same. A Registration with no mail 24 hours after its
+final press, judged only once a read of the mailbox shows none came, is *handed off* ("submitted; no verification mail
+yet"), its session closed, and never *abandoned*, since the account may exist. A mail matched to it later moves it on
+to *registered* the same way, and `registration.md` keeps the hand-off (settled by the person on #58).
 
 Approve on a Walkthrough with a password field first saves a new password in the Password vault, the *Registrations*
 collection of the person's Bitwarden organization (ADR 0004), with one item per Registration. The bot makes the
@@ -374,8 +405,13 @@ Trash, drafts and sent mail are left out. The history id advances only once the 
 restart in the middle of one reads it again and skips what the ledger holds. When Gmail no longer serves the history
 since that id, a 404, the bot searches for the mail Gmail received since an hour before its last read, Spam and Trash
 searched too, and records it the same way. A store with no history id, new or lost, starts from the mailbox's history
-id now, and older mail counts as seen (ADR 0007). A read Gmail refuses for its rate, or one that fails, is tried again
-after 1 second, then twice as long each time up to 15 minutes, or as long as a `Retry-After` asks.
+id now, and older mail counts as seen (ADR 0007). A read then searches the same way for the mail since the earliest
+final press of a Registration awaiting verification that has taken no mail, when that press came before the bot run's
+first read: once, and again for one whose press is earlier still. So a mail which came before the bot could read the
+mailbox is in the ledger too, without moving the history id (#58). A read Gmail refuses for its rate, or one that fails, is tried again
+after 1 second, then twice as long each time up to 15 minutes, or as long as a `Retry-After` asks. A rate-limit reply to
+plain code's read of a verification mail holds the reads the same way, and while Gmail asks the bot to wait, nothing
+asks it anything (#58).
 
 Each mail is matched to a Registration by the tag of the plus-address it went to, in `Delivered-To`, `To` or `Cc`, and
 then by its sender's root domain, the Product's key. Sender addresses the person matched come with #64. Mail that
@@ -494,7 +530,15 @@ bulk or in Spam. A `mail.history-expired` line names the search a 404 started, w
 `mail.gone` and `mail.unreadable` lines a mail deleted before it was read and one Gmail sent malformed, which is left out
 while the rest of its batch is read. A `gmail.read-failed` line says why a read failed and when the next comes, and a `gmail.token-refused` line why
 the token was refused. `mail.alert-done` and `mail.alert-lapsed` lines name an alert's card that Done or its lapse
-ended.
+ended. A `mail.looked-back` line names the search a bot run's first read made for the mail of Registrations waiting for
+it, with how many mails it found. A `registration.verification-mail` line names the mail a Registration took as its
+verification mail, with its delay from the final press to Gmail's receipt in `delaySeconds`, whether it is in Spam, how
+plain code uses it and, for one put to the person, why, and a `registration.mail-not-verification` line a mail it
+passed over, deleted, malformed or holding no code or link. `registration.verify-intended`, `registration.verify-done`
+and `registration.verify-refused` lines each step of plain code's, a `registration.verification-put-to-person` line a
+mail plain code meant to use and put to the person after all, with why, a `registration.verified` line the
+Registration it made *registered*, a `registration.handed-off` line one with no mail 24 hours after its final press,
+and a `registration.verification-card-done` line a card that Done ended.
 
 Every 5 minutes the bot pings its check on healthchecks.io, at the URL in `healthchecks-ping-bot`, but only while it
 is logged in to Discord and its store takes a write: it writes the time to the store first. A ping withheld gets a

@@ -2,7 +2,8 @@
 // never read back. Until the Product has a Registration it says so, or why no Walkthrough is offered. Each Correction
 // of its Walkthrough gets a line, with what came of its sort once that has settled, and each Approval gets one naming
 // the Signup identity and the vault item then holding the password, never the password (ADR 0004). A vault item that
-// replaces another gets a line, then the final press as *submitted*, and the outcome, in bold (#56). An Approval that
+// replaces another gets a line, then the final press as *submitted*, and the outcome, in bold (#56), with how its
+// verification mail was used or put to the person, and its hand-off for want of one (#58). An Approval that
 // Start again's Approval followed keeps how it ended. A line, once written, says the same thing whatever happens after,
 // and every date carries its year and zone (#37).
 import { sortKey, sortNote } from '../rules/sorting.ts';
@@ -58,7 +59,7 @@ export function registrationFileOf(store: Store, productId: number, change: stri
       const approved = store.walkthrough(productId, a.version)?.walkthrough ?? walkthrough;
       const item = hasPasswordField(approved) ? itemAt(a.approvedAt) : undefined;
       const vaultItem = item ? ` · password in the Password vault, item ${item}` : '';
-      const handedOff = a.version === r.version && r.state === 'handed-off' ? ' · handed off: its terms ban accounts made by a bot' : '';
+      const handedOff = a.version === r.version && r.state === 'handed-off' && !r.handedOffAt ? ' · handed off: its terms ban accounts made by a bot' : '';
       dated.push({ at: a.approvedAt, line: `${fullTime(new Date(a.approvedAt))} · Walkthrough v${a.version} approved · ${identityText(approved)}${vaultItem}${handedOff}` });
     }
     for (const [i, replaced] of r.replacedItems.entries()) {
@@ -73,6 +74,16 @@ export function registrationFileOf(store: Store, productId: number, change: stri
         at: r.submittedAt,
         line: `${fullTime(new Date(r.submittedAt))} · submitted: pressed "${plain(r.button ?? 'its button')}" on ${walkthrough.signupHost}, as ${address}${uncertain}`,
       });
+    }
+    if (r.handedOffAt) dated.push({ at: r.handedOffAt, line: `${fullTime(new Date(r.handedOffAt))} · **handed off**: submitted; no verification mail yet` });
+    const v = store.verification(productId);
+    // Only a state and a date from the mail, never what it says or why plain code didn't use it (ADR 0010).
+    if (v?.way === 'person') {
+      dated.push({ at: v.receivedAt, line: `${fullTime(new Date(v.receivedAt))} · verification mail came${v.spam ? ', in Spam' : ''}, and you verify it in Gmail` });
+    } else if (v?.doneAt) {
+      const how = v.way === 'code' ? `filled the emailed code and pressed "${plain(v.button ?? 'its button')}"` : 'opened the verification link';
+      const uncertain = v.uncertain ? ` · it isn't known whether that went through (${plain(v.uncertain)}), so it counts as done` : '';
+      dated.push({ at: v.doneAt, line: `${fullTime(new Date(v.doneAt))} · verified: plain code ${how}${uncertain}` });
     }
     if (r.endedAt && (r.state === 'registered' || r.state === 'waitlisted')) dated.push({ at: r.endedAt, line: `${fullTime(new Date(r.endedAt))} · **${r.state}**` });
     if (r.endedAt && r.state === 'abandoned') dated.push({ at: r.endedAt, line: `${fullTime(new Date(r.endedAt))} · **abandoned**: ${plain(r.endNote ?? 'nothing submitted')}` });

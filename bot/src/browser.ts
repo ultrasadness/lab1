@@ -1,7 +1,7 @@
 // The browser service (ADR 0006), reached only through its Unix socket. Its throwaway `read(url)` reads one page
 // before any Approval: a Dossier's pages, and the signup page a Walkthrough is prepared from. A Registration's session
 // (#56) is one in-memory context there, which a fill run drives through the fixed actions and plain code through its
-// own: the page check, the fingerprint and the press. The bot imports nothing from browser/, so the part of the
+// own: the page check, the fingerprint and the press, and an emailed code or link (#58). The bot imports nothing from browser/, so the part of the
 // socket's API it reads is written out here (browser/src/api.ts holds the whole of it).
 import http from 'node:http';
 
@@ -224,6 +224,19 @@ export class BrowserService {
     if (!answer.ok) return answer;
     const { uncertain } = (answer.body ?? {}) as { uncertain?: unknown };
     return { ok: true, ...(isString(uncertain) ? { uncertain } : {}) };
+  }
+
+  /** Fills an emailed code into a field by reference, for plain code once the account may exist (#58). */
+  async fillCode(session: string, field: string, value: string): Promise<SessionAnswer> {
+    return plain(await this.#session('/plain-code/fill-code', { session, field, value }));
+  }
+
+  /**
+   * Opens a verification link by reference, and the service closes the session after it. A link that won't load is
+   * refused, and the request may have reached the Product all the same.
+   */
+  async openLink(session: string, url: string): Promise<SessionAnswer> {
+    return plain(await this.#session('/plain-code/open-link', { session, url }));
   }
 
   async #session(path: string, payload: unknown): Promise<{ ok: true; body: unknown } | { ok: false; error: Refusal }> {

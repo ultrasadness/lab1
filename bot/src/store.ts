@@ -494,6 +494,11 @@ export interface StoredRegistration {
   shownKey: string | null;
   /** How each earlier Approval of it ended, oldest first, before Start again's Approval started it again. */
   history: { version: number; endedAt: string; endNote: string }[];
+  /**
+   * When it was handed off for want of a verification mail 24 hours after its final press (#58). Kept once a later
+   * mail makes it *registered*, so that `registration.md` still says it.
+   */
+  handedOffAt: string | null;
 }
 
 /** What a form refused, which a replacement vault item answers (ADR 0014). */
@@ -531,6 +536,7 @@ export type RegistrationChange = Partial<
     | 'uncertain'
     | 'uncertainTold'
     | 'shownKey'
+    | 'handedOffAt'
   >
 >;
 
@@ -551,6 +557,7 @@ const REGISTRATION_COLUMNS: Record<keyof RegistrationChange, string> = {
   uncertain: 'uncertain',
   uncertainTold: 'uncertain_told',
   shownKey: 'shown_key',
+  handedOffAt: 'handed_off_at',
 };
 
 /** The states in which nothing final is pressed, so a Registration can still be stopped (#11). */
@@ -604,6 +611,38 @@ export interface MailAlert {
   endedBy: 'done' | 'lapse' | null;
   /** When the card was shrunk to one line after the lapse. */
   shrunkAt: string | null;
+}
+
+/** How plain code used a Registration's verification mail (#58): it filled its code, opened its link, or put it to the person. */
+export type VerificationWay = 'code' | 'link' | 'person';
+
+/** The mail a Registration took as its verification mail, and what came of it (#58). */
+export interface Verification {
+  productId: number;
+  /** The mail, by its Gmail message id, when Gmail received it, and whether it is in Spam. */
+  messageId: string;
+  receivedAt: string;
+  spam: boolean;
+  /** How long after the final press's *intended* mark Gmail received it. */
+  delaySeconds: number;
+  way: VerificationWay;
+  /** Why plain code didn't use it, when it is put to the person. */
+  why: string | null;
+  /** The label of the button plain code pressed with the code, and the fingerprint of the page as it pressed it. */
+  button: string | null;
+  fingerprint: string | null;
+  /** The *intended* mark of plain code's step, the press of Verify or the link's opening, written right before it (ADR 0007). */
+  intendedAt: string | null;
+  /** When the step was done, or counted as done. */
+  doneAt: string | null;
+  /** Why the step may not have gone through, when that isn't known. It counts as done all the same. */
+  uncertain: string | null;
+  /** Whether the notice telling the person of it was sent, or may have been. */
+  uncertainTold: boolean;
+  /** The card that puts the mail to the person, marked before it is sent, and when Done ended it. */
+  cardIntended: boolean;
+  cardMessageId: string | null;
+  cardDoneAt: string | null;
 }
 
 /** A change to the schema of a store that earlier code left, run once, in order, when the store opens (#98). */
@@ -727,6 +766,28 @@ CREATE TABLE mail_alerts (
   ended_by TEXT,
   shrunk_at TEXT
 );`,
+  },
+  {
+    name: "add each Registration's verification mail, with plain code's step and the card that puts the mail to the person, and when a Registration with no mail in 24 hours was handed off (#58)",
+    sql: `CREATE TABLE verifications (
+  product_id INTEGER PRIMARY KEY REFERENCES products(id),
+  message_id TEXT NOT NULL REFERENCES mail(message_id),
+  received_at TEXT NOT NULL,
+  spam INTEGER NOT NULL,
+  delay_seconds REAL NOT NULL,
+  way TEXT NOT NULL,
+  why TEXT,
+  button TEXT,
+  fingerprint TEXT,
+  intended_at TEXT,
+  done_at TEXT,
+  uncertain TEXT,
+  uncertain_told INTEGER NOT NULL DEFAULT 0,
+  card_intended INTEGER NOT NULL DEFAULT 0,
+  card_message_id TEXT,
+  card_done_at TEXT
+);
+ALTER TABLE registrations ADD COLUMN handed_off_at TEXT;`,
   },
 ];
 
@@ -959,7 +1020,8 @@ CREATE TABLE IF NOT EXISTS registrations (
   start_again_from INTEGER,
   shown_key TEXT,
   refill TEXT NOT NULL DEFAULT '[]',
-  history TEXT NOT NULL DEFAULT '[]'
+  history TEXT NOT NULL DEFAULT '[]',
+  handed_off_at TEXT
 );
 CREATE TABLE IF NOT EXISTS presses (
   id INTEGER PRIMARY KEY,
@@ -1083,6 +1145,24 @@ CREATE TABLE IF NOT EXISTS mail_alerts (
   ended_by TEXT,
   shrunk_at TEXT
 );
+CREATE TABLE IF NOT EXISTS verifications (
+  product_id INTEGER PRIMARY KEY REFERENCES products(id),
+  message_id TEXT NOT NULL REFERENCES mail(message_id),
+  received_at TEXT NOT NULL,
+  spam INTEGER NOT NULL,
+  delay_seconds REAL NOT NULL,
+  way TEXT NOT NULL,
+  why TEXT,
+  button TEXT,
+  fingerprint TEXT,
+  intended_at TEXT,
+  done_at TEXT,
+  uncertain TEXT,
+  uncertain_told INTEGER NOT NULL DEFAULT 0,
+  card_intended INTEGER NOT NULL DEFAULT 0,
+  card_message_id TEXT,
+  card_done_at TEXT
+);
 `;
 
 type Row = Record<string, SQLInputValue>;
@@ -1164,6 +1244,26 @@ const registrationOf = (row: Row): StoredRegistration => ({
   uncertainTold: Boolean(row.uncertain_told),
   startAgainFrom: row.start_again_from === null ? null : Number(row.start_again_from),
   shownKey: textOrNull(row.shown_key),
+  handedOffAt: textOrNull(row.handed_off_at),
+});
+
+const verificationOf = (row: Row): Verification => ({
+  productId: Number(row.product_id),
+  messageId: String(row.message_id),
+  receivedAt: String(row.received_at),
+  spam: Boolean(row.spam),
+  delaySeconds: Number(row.delay_seconds),
+  way: String(row.way) as VerificationWay,
+  why: textOrNull(row.why),
+  button: textOrNull(row.button),
+  fingerprint: textOrNull(row.fingerprint),
+  intendedAt: textOrNull(row.intended_at),
+  doneAt: textOrNull(row.done_at),
+  uncertain: textOrNull(row.uncertain),
+  uncertainTold: Boolean(row.uncertain_told),
+  cardIntended: Boolean(row.card_intended),
+  cardMessageId: textOrNull(row.card_message_id),
+  cardDoneAt: textOrNull(row.card_done_at),
 });
 
 const pressOf = (row: Row): PressMark => ({
@@ -2668,6 +2768,90 @@ export class Store {
 
   saveMailAlertShrunk(messageId: string, at: string): void {
     this.#db.prepare('UPDATE mail_alerts SET shrunk_at = ? WHERE message_id = ?').run(at, messageId);
+  }
+
+  // ---------- Verifying a Registration (#58) ----------
+
+  /**
+   * The Registrations still waiting for a verification mail, oldest Approval first: those *awaiting verification*, and
+   * those handed off for want of one, which a later mail moves on, that have taken none yet.
+   */
+  registrationsWaitingForMail(): StoredRegistration[] {
+    return this.#db
+      .prepare(
+        `SELECT r.* FROM registrations r WHERE (r.state = 'awaiting-verification' OR (r.state = 'handed-off' AND r.handed_off_at IS NOT NULL))
+           AND NOT EXISTS (SELECT 1 FROM verifications v WHERE v.product_id = r.product_id) ORDER BY r.approved_at, r.product_id`,
+      )
+      .all()
+      .map(registrationOf);
+  }
+
+  /** The mail matched to this Product that Gmail received at or after `since`, by receive time. */
+  mailOf(productId: number, since: string): { messageId: string; receivedAt: string; spam: boolean }[] {
+    return this.#db
+      .prepare('SELECT message_id, received_at, spam FROM mail WHERE product_id = ? AND received_at >= ? ORDER BY received_at, message_id')
+      .all(productId, since)
+      .map((row) => ({ messageId: String(row.message_id), receivedAt: String(row.received_at), spam: Boolean(row.spam) }));
+  }
+
+  verification(productId: number): Verification | undefined {
+    const row = this.#db.prepare('SELECT * FROM verifications WHERE product_id = ?').get(productId);
+    return row ? verificationOf(row) : undefined;
+  }
+
+  /** Every Registration's verification mail, in the order taken. */
+  verifications(): Verification[] {
+    return this.#db.prepare('SELECT * FROM verifications ORDER BY rowid').all().map(verificationOf);
+  }
+
+  /** Records the mail a Registration takes as its verification mail, and how plain code will use it. */
+  takeVerificationMail(v: Pick<Verification, 'productId' | 'messageId' | 'receivedAt' | 'spam' | 'delaySeconds' | 'way' | 'why'>): void {
+    this.#db
+      .prepare('INSERT INTO verifications (product_id, message_id, received_at, spam, delay_seconds, way, why) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(v.productId, v.messageId, v.receivedAt, v.spam ? 1 : 0, v.delaySeconds, v.way, v.why);
+  }
+
+  /**
+   * Puts a verification mail to the person after all, saying why: before plain code's step was marked, or once it is
+   * done and the page still asks for the code.
+   */
+  saveVerificationPutToPerson(productId: number, why: string): void {
+    this.#db.prepare("UPDATE verifications SET way = 'person', why = ? WHERE product_id = ? AND (intended_at IS NULL OR done_at IS NOT NULL)").run(why, productId);
+  }
+
+  /** Writes the *intended* mark of plain code's step, right before it, with the button it presses and the page's fingerprint, if any. */
+  intendVerification(productId: number, at: string, press: { button: string; fingerprint: string } | null): void {
+    this.#db
+      .prepare('UPDATE verifications SET intended_at = ?, button = ?, fingerprint = ? WHERE product_id = ?')
+      .run(at, press?.button ?? null, press?.fingerprint ?? null, productId);
+  }
+
+  /** Takes back the mark of a step the browser service refused, so that nothing was pressed or opened. */
+  dropVerificationIntended(productId: number): void {
+    this.#db.prepare('UPDATE verifications SET intended_at = NULL WHERE product_id = ? AND done_at IS NULL').run(productId);
+  }
+
+  /** Marks plain code's step done, with what was uncertain about it, if anything. */
+  saveVerificationDone(productId: number, at: string, uncertain: string | null): void {
+    this.#db.prepare('UPDATE verifications SET done_at = ?, uncertain = ? WHERE product_id = ?').run(at, uncertain, productId);
+  }
+
+  saveVerificationUncertainTold(productId: number, told: boolean): void {
+    this.#db.prepare('UPDATE verifications SET uncertain_told = ? WHERE product_id = ?').run(told ? 1 : 0, productId);
+  }
+
+  /** Marks the card as about to be sent, or as not sent after all. */
+  saveVerificationCardIntended(productId: number, intended: boolean): void {
+    this.#db.prepare('UPDATE verifications SET card_intended = ? WHERE product_id = ?').run(intended ? 1 : 0, productId);
+  }
+
+  saveVerificationCard(productId: number, messageId: string): void {
+    this.#db.prepare('UPDATE verifications SET card_intended = 1, card_message_id = ? WHERE product_id = ?').run(messageId, productId);
+  }
+
+  /** Ends the card by Done, unless it ended already. Returns whether this ended it. */
+  endVerificationCard(productId: number, at: string): boolean {
+    return this.#db.prepare('UPDATE verifications SET card_done_at = ? WHERE product_id = ? AND card_done_at IS NULL').run(at, productId).changes > 0;
   }
 
   // ---------- Files waiting to be written to the Personal database ----------

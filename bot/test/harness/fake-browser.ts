@@ -9,8 +9,11 @@
 // browser-seam tests of #55 saw against real Chromium (`browser/test/`): the limit of 5 (`full`, 429) and one session a
 // Registration (`already-open`); a driver for each action's path (`not-driving`); refs from the latest snapshot, gone
 // (`stale`) after a navigation; a snapshot that shows what filled a field and never its value, with each Secret filled
-// into the session removed from its text; the page check's rules on the form the named button submits; and a press that
-// is refused with the failed check, or for a button that is disabled or not its form's only one. A page here is one a
+// into the session removed from its text; the page check's rules on the form the named button submits; a press that
+// is refused with the failed check, or for a button that is disabled or not its form's only one; `fill-code`, which
+// fills an emailed code by reference into a text-like field, a textarea or a password field alone and shows it as
+// `[code]`; and `open-link`,
+// which loads a verification link and closes the session, whether the link loads or not. A page here is one a
 // test sets: `next` says where a press leads, and `errors` what the page says of the values it holds, as a form's own
 // script would. Not modelled: the check's wait for the page to hold still, cookie banners, `open`'s domain refusal of a
 // link's target, screenshots, card fields, the 60-second action limit and the 24-hour close. `holdPresses` takes a press
@@ -87,7 +90,7 @@ export interface SeenSession {
 }
 
 interface Fill {
-  /** What a snapshot shows: the key, or `[password]`. */
+  /** What a snapshot shows: the key, `[password]` or `[code]`. */
   mark: string;
   value: string;
 }
@@ -104,6 +107,9 @@ interface Session extends SeenSession {
 }
 
 const MAX_SESSIONS = 5;
+
+/** The fields `fill-code` takes, as `describe` in browser/src/sessions.ts kinds them: text-like inputs, a textarea, a password. */
+const CODE_FIELD_TYPES = ['text', 'email', 'tel', 'url', 'search', 'number', 'date', 'datetime-local', 'month', 'week', 'time', 'textarea', 'password'];
 
 export type FakeReadFailure = { kind: 'load-failed' | 'timeout' | 'download'; message: string };
 
@@ -142,6 +148,8 @@ export class FakeBrowser {
   readonly sessions: Session[] = [];
   /** Every press a page received, oldest first: one the service never answered is here too. */
   readonly presses: SeenPress[] = [];
+  /** Every verification link a session opened, as the Product received it, oldest first: one never answered is here too. */
+  readonly linksOpened: { registration: string; url: string }[] = [];
   /** Every request on a session, with its body, oldest first. */
   readonly sessionRequests: { path: string; body: Record<string, unknown> }[] = [];
   /** While true, a press reaches its page, and the service never answers it. */
@@ -458,6 +466,30 @@ export class FakeBrowser {
         if (!href) return refuse('stale', `${String(body.link)} is no link of the latest snapshot`);
         if (!this.#pageAt(this.#resolve(href))) return refuse('load-failed', `net::ERR_NAME_NOT_RESOLVED at ${href}`);
         this.#navigate(s, this.#resolve(href));
+        return {};
+      }
+      case 'fill-code': {
+        if (!onDomain) return refuse('off-domain', `the page is on ${new URL(s.url).hostname}, not on ${s.domains.join(' or ')}`);
+        const found = field();
+        if (!found) return refuse('stale', `${String(body.field)} is no field of the latest snapshot`);
+        if (!CODE_FIELD_TYPES.includes(found.field.type)) return refuse('not-allowed', 'a code goes only into a text or password field');
+        const value = String(body.value);
+        if (!s.secrets.includes(value)) s.secrets.push(value);
+        s.fills.set(`${found.at.form}:${found.at.field}`, { mark: '[code]', value });
+        return {};
+      }
+      case 'open-link': {
+        let target: URL;
+        try {
+          target = new URL(String(body.url));
+        } catch {
+          return refuse('bad-request', 'url must be an http or https URL with no username or password');
+        }
+        if (!/^https?:$/.test(target.protocol) || target.username || target.password) return refuse('bad-request', 'url must be an http or https URL with no username or password');
+        // The session closes right after the link is opened, whether it loads or not (browser/src/sessions.ts).
+        this.linksOpened.push({ registration: s.registration, url: target.href });
+        s.open = false;
+        if (!this.#pageAt(this.#resolve(target.href))) return refuse('load-failed', "the verification link didn't load (load-failed)");
         return {};
       }
       case 'fingerprint':

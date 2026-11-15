@@ -142,6 +142,10 @@ export class FakeGmail {
   #historyFrom = 0;
   #limited: { status: 429 | 403; retryAfterSeconds?: number }[] = [];
   #held = new Set<string>();
+  /** Messages deleted once they have been read so many more times. */
+  #removeAfter = new Map<string, number>();
+  /** Messages whose next read, once they have been read so many more times, is refused for a rate limit. */
+  #limitAfter = new Map<string, { reads: number; retryAfterSeconds: number }>();
   #heldRequests: http.ServerResponse[] = [];
   #next = 1;
 
@@ -234,6 +238,22 @@ export class FakeGmail {
     this.#messages.delete(id);
   }
 
+  /**
+   * The message is deleted once it has been read this many more times, as when the person deletes it in Gmail between
+   * the bot's reads. A deleted message's `messages.get` answers 404, as `remove` has it.
+   */
+  removeAfterReads(id: string, reads: number): void {
+    this.#removeAfter.set(id, reads);
+  }
+
+  /**
+   * Once the message has been read this many more times, its next read is refused for a rate limit, `429` with this
+   * `Retry-After`, as `limitNext` refuses any request.
+   */
+  limitAfterReads(id: string, reads: number, retryAfterSeconds: number): void {
+    this.#limitAfter.set(id, { reads, retryAfterSeconds });
+  }
+
   /** Changes the message as Gmail would serve it, to stand for one sent malformed. */
   corrupt(id: string, change: (message: Record<string, unknown>) => void): void {
     change(this.#messages.get(id) as unknown as Record<string, unknown>);
@@ -318,7 +338,20 @@ export class FakeGmail {
       }
       const message = this.#messages.get(one[1]!);
       if (!message) return json(404, errorBody(404, 'NOT_FOUND', 'notFound', 'Requested entity was not found.'));
+      const limitAfter = this.#limitAfter.get(message.id);
+      if (limitAfter && limitAfter.reads === 0) {
+        this.#limitAfter.delete(message.id);
+        return json(429, errorBody(429, 'RESOURCE_EXHAUSTED', 'rateLimitExceeded', 'Rate Limit Exceeded'), { 'retry-after': String(limitAfter.retryAfterSeconds) });
+      }
+      if (limitAfter) limitAfter.reads -= 1;
       if ((url.searchParams.get('format') ?? 'full') !== 'full') return json(400, errorBody(400, 'INVALID_ARGUMENT', 'invalidArgument', 'This fake serves format=full only'));
+      const left = this.#removeAfter.get(message.id);
+      if (left !== undefined && left <= 1) {
+        this.#removeAfter.delete(message.id);
+        this.#messages.delete(message.id);
+      } else if (left !== undefined) {
+        this.#removeAfter.set(message.id, left - 1);
+      }
       return json(200, message);
     }
     return json(404, errorBody(404, 'NOT_FOUND', 'notFound', 'Not Found'));

@@ -8,8 +8,8 @@ container can't reach it. #43 brought up the container and the read-only `read(u
 Walkthroughs use to read Product pages before any Approval. #55 adds a Registration's session: the fixed actions a
 fill run may use through the bot, and plain code's page check, press and fills by reference. #101 added
 `redirect(url)`. Since #56 the bot drives a session: it opens one, switches drivers, carries out a fill run's actions,
-and asks for the check, the fingerprint and the press. It doesn't yet ask for a screenshot, which #59's Submit tap
-needs, or for `fill-code` and `open-link`, which #58's verification needs.
+and asks for the check, the fingerprint and the press. Since #58 it asks for `fill-code` and `open-link` to verify a
+Registration. It doesn't yet ask for a screenshot, which #59's Submit tap needs.
 
 | Path | What it is |
 |---|---|

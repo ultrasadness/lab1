@@ -8,7 +8,11 @@
 // in `#needs-you` names only its sender, with Done, and lapses after 14 days (#38 §8). Matched bulk mail, with a
 // `List-Unsubscribe` header, is capped at 3 a Product in a rolling 7 days by Gmail's receive time; the rest is held,
 // its reason set on arrival (#16). Matched mail within the cap waits for the mail run that sorts it, which #61 adds,
-// and its text is kept for that run, outside git for 90 days, with each Secret in it replaced by a placeholder.
+// and its text is kept for that run, outside git for 90 days, with each Secret in it replaced by a placeholder. After
+// each read it hands over to the verification of Registrations (#58). First it searches for mail since the earliest
+// final press of a Registration still waiting for its mail, when that press came before this bot run's first read,
+// once and again for one whose press is earlier still, so a mail that came before the reader could read the mailbox
+// is in the ledger too. A press since that first read has its mail in the history the reader reads.
 import { button, ButtonStyle, text, type MessagePayload } from '../discord/components.ts';
 import { refused } from '../discord/rest.ts';
 import type { Clock } from '../clock.ts';
@@ -48,6 +52,12 @@ const DONE_PREFIX = 'mail-alert:done:';
 /** What the person may tap, and what the tap does: the card's new look, or why it changes nothing. */
 export type AlertTapped = { update: MessagePayload } | { refused: string };
 
+/**
+ * A mail of the ledger read again from Gmail, for the verification of a Registration (#58): its fields, and the codes
+ * and links found in its subject and text, held in memory alone; or `gone` or `unreadable`.
+ */
+export type MailContent = { mail: ReadMail; codes: string[]; links: string[] } | 'gone' | 'unreadable';
+
 /** A security alert as its card names it: the sender alone, never what the mail says. */
 const alertHeading = (a: Pick<MailAlert, 'name' | 'sender'>) => `Mail from ${a.name} (\`${a.sender.replaceAll('`', '')}\`) in the Signup mailbox`;
 
@@ -65,13 +75,20 @@ export class SignupMailbox {
   #rawInputs: RawInputs;
   #needsYou: NeedsYou;
   #plainWork: (work: () => Promise<void>) => void;
+  #lookBackFrom: () => Date | undefined;
+  #onRead: () => void;
   #clock: Clock;
   #log: Log;
   /** Whether the token passed its check since the bot started. */
   #checked = false;
+  /** When this bot run first read the mailbox, and the earliest time it searched for mail from since, if it has. */
+  #firstReadAt: number | undefined;
+  #lookedBackFrom: number | undefined;
   /** Why the token was refused, if it was: nothing is read until the bot starts again with another. */
   #refused: string | undefined;
   #backoffMs = 0;
+  /** Until when Gmail asked the bot to wait, by a rate-limit reply to any request of its: none goes before then. */
+  #limitedUntil = 0;
   #cancelNext = () => {};
   #cancelLapse = () => {};
   #stopped = false;
@@ -90,6 +107,10 @@ export class SignupMailbox {
     needsYou: NeedsYou;
     /** Does plain-code work at once, outside the lane. */
     plainWork(work: () => Promise<void>): void;
+    /** Whence a read searches for mail: the earliest final press still waiting for its mail, if any (#58). */
+    lookBackFrom(): Date | undefined;
+    /** Called after each read, once the ledger holds every mail Gmail received until then (#58). */
+    onRead(): void;
     clock: Clock;
     log: Log;
   }) {
@@ -101,6 +122,8 @@ export class SignupMailbox {
     this.#rawInputs = options.rawInputs;
     this.#needsYou = options.needsYou;
     this.#plainWork = options.plainWork;
+    this.#lookBackFrom = options.lookBackFrom;
+    this.#onRead = options.onRead;
     this.#clock = options.clock;
     this.#log = options.log;
   }
@@ -142,17 +165,35 @@ export class SignupMailbox {
     if (this.#stopped || this.#refused) return;
     let waitMs = this.#pollMs;
     try {
+      const limited = this.#limitedUntil - this.#clock.now().getTime();
+      if (limited > 0) {
+        waitMs = limited;
+        return;
+      }
       if (!this.#gmail) return await this.#refuse('gmail-client-secret', 'it holds no client id and secret');
       if (!this.#checked) {
         const why = await this.#check(this.#gmail);
         if (why) return await this.#refuse('gmail-refresh-token', why);
         this.#checked = true;
       }
+      const readAt = this.#clock.now().getTime();
       await this.#read(this.#gmail);
+      this.#firstReadAt ??= readAt;
+      // In the poll itself, so that it never records a mail beside the read. A Registration that starts waiting later,
+      // as once the lane settles a press a restart cut off, gets a search of its own if its press came earlier.
+      const since = this.#lookBackFrom();
+      if (since && since.getTime() < this.#firstReadAt && !(this.#lookedBackFrom !== undefined && this.#lookedBackFrom <= since.getTime())) {
+        const found = await this.#find(this.#gmail, since);
+        this.#log('mail.looked-back', { since: since.toISOString(), found: found.length });
+        await this.#recordEach(this.#gmail, found);
+        this.#lookedBackFrom = since.getTime();
+      }
       this.#backoffMs = 0;
+      this.#onRead();
     } catch (error) {
       this.#backoffMs = this.#backoffMs === 0 ? FIRST_BACKOFF_MS : Math.min(this.#backoffMs * 2, MAX_BACKOFF_MS);
       waitMs = Math.max(this.#backoffMs, error instanceof GmailRateLimited ? (error.retryAfterMs ?? 0) : 0);
+      if (error instanceof GmailRateLimited) this.#limitedUntil = Math.max(this.#limitedUntil, this.#clock.now().getTime() + waitMs);
       this.#log('gmail.read-failed', { error: errorText(error), retryInSeconds: waitMs / 1000 });
     } finally {
       if (!this.#stopped && !this.#refused) {
@@ -218,6 +259,14 @@ export class SignupMailbox {
    */
   async #readSince(gmail: Gmail, since: Date, checkedAt: string): Promise<void> {
     const { historyId } = await gmail.profile();
+    const found = await this.#find(gmail, since);
+    this.#log('mail.history-expired', { since: since.toISOString(), found: found.length });
+    await this.#recordEach(gmail, found);
+    this.#store.saveMailbox(historyId, checkedAt);
+  }
+
+  /** The mail Gmail received since a time, Spam and Trash searched too, in the order it came. */
+  async #find(gmail: Gmail, since: Date): Promise<MessageRef[]> {
     const found: MessageRef[] = [];
     let pageToken: string | undefined;
     do {
@@ -225,10 +274,38 @@ export class SignupMailbox {
       found.push(...page.found);
       pageToken = page.nextPageToken;
     } while (pageToken);
-    this.#log('mail.history-expired', { since: since.toISOString(), found: found.length });
     // Gmail lists the newest first; the ledger records them in the order they came.
-    await this.#recordEach(gmail, found.reverse());
-    this.#store.saveMailbox(historyId, checkedAt);
+    return found.reverse();
+  }
+
+  /**
+   * A mail the ledger holds, read again from Gmail for what plain code needs to verify a Registration (#58): its
+   * fields, and the codes and links found in its subject and text, held in memory alone. `gone` when it was deleted
+   * since, and `unreadable` when Gmail sends it malformed. Throws until the token has passed its check, and once it
+   * is refused, so that a token for another mailbox never answers for this one. While Gmail asks the bot to wait, it
+   * throws without asking, and a rate-limit reply to it holds the reads of the mailbox too (ADR 0011).
+   */
+  async content(messageId: string): Promise<MailContent> {
+    if (!this.#gmail || !this.#checked || this.#refused) throw new Error('no checked Gmail token reads the Signup mailbox yet');
+    const limited = this.#limitedUntil - this.#clock.now().getTime();
+    if (limited > 0) throw new GmailRateLimited(429, limited, `Gmail asked the bot to wait ${Math.ceil(limited / 1000)} s more`);
+    let message: Awaited<ReturnType<Gmail['message']>>;
+    try {
+      message = await this.#gmail.message(messageId);
+    } catch (error) {
+      if (error instanceof GmailRateLimited) this.#limitedUntil = Math.max(this.#limitedUntil, this.#clock.now().getTime() + (error.retryAfterMs ?? FIRST_BACKOFF_MS));
+      throw error;
+    }
+    if (message === 'gone') return 'gone';
+    let mail: ReadMail | undefined;
+    try {
+      mail = readMail(message);
+    } catch {
+      return 'unreadable';
+    }
+    if (!mail) return 'unreadable';
+    const { codes, links } = withPlaceholders([mail.subject, mail.text]);
+    return { mail, codes, links };
   }
 
   /** Reads and records each mail the ledger doesn't hold yet, in the order given. */

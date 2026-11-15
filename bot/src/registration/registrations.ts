@@ -20,7 +20,7 @@
 // run that died is run again on the same page, a press that was intended and never marked done counts as pressed, and a
 // session an outcome left open is closed.
 import { createHash } from 'node:crypto';
-import type { BrowserService, Refusal } from '../browser.ts';
+import type { BrowserService, Refusal, Snapshot } from '../browser.ts';
 import { inMinutes, type Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
 import { asEdit, cut, escapeMarkdown, popup, text, type MessagePayload } from '../discord/components.ts';
@@ -65,7 +65,7 @@ const NEXT_PAGE = /^\s*(continue|next)\b/i;
  * The refusals of a press that mean nothing was pressed: each is made before the click begins (browser/src/sessions.ts).
  * Any other answer, or none, may be a press.
  */
-const NOT_PRESSED = ['check-failed', 'not-pressable', 'blocked', 'off-domain', 'stale', 'not-allowed', 'not-driving', 'bad-request', 'unknown-session'];
+export const NOT_PRESSED = ['check-failed', 'not-pressable', 'blocked', 'off-domain', 'stale', 'not-allowed', 'not-driving', 'bad-request', 'unknown-session'];
 /** The page after a press is read once it has held still this long, or as it stands at the limit (CODING_STANDARDS.md). */
 const SETTLE = { stillMs: 1_500, readMs: 500, limitMs: 5_000 };
 /** How long what Discord, GitHub or the browser service didn't take waits before it is tried again: a showing, a notice, a close. */
@@ -610,25 +610,9 @@ export class Registrations {
    * taken for one with nothing to fill: a form with a visible field, none, or nothing it could read.
    */
   async #nextPage(session: string): Promise<NextPage> {
-    const start = Date.now();
-    const read = async (): Promise<string | null> => {
-      try {
-        const shot = await this.#browser.snapshot(session, 'plain-code');
-        return shot.ok ? JSON.stringify([shot.snapshot.url, shot.snapshot.forms.map((f) => f.fields.map((x) => [x.type, x.label]))]) : null;
-      } catch {
-        return null;
-      }
-    };
-    let seen = await read();
-    let still = Date.now();
-    while (!this.#stopped && Date.now() - still < SETTLE.stillMs && Date.now() - start < SETTLE.limitMs) {
-      await new Promise((resolve) => setTimeout(resolve, SETTLE.readMs));
-      const next = await read();
-      if (next !== seen) still = Date.now();
-      seen = next;
-    }
-    if (seen === null) return 'unreadable';
-    return (JSON.parse(seen) as [string, unknown[][]])[1].some((fields) => fields.length > 0) ? 'form' : 'no-form';
+    const shot = await settledSnapshot(this.#browser, session, () => this.#stopped);
+    if (!shot) return 'unreadable';
+    return shot.forms.some((f) => f.fields.length > 0) ? 'form' : 'no-form';
   }
 
   /** As after a stop during a press: an *intended* mark without *done* counts as pressed, and is never pressed again. */
@@ -705,6 +689,12 @@ export class Registrations {
     // A session is free, so a queued Registration can have it.
     this.#fillsDue();
     return true;
+  }
+
+  /** Closes the session of a Registration whose verification is over (#58), if it has one. */
+  async closeSession(productId: number): Promise<void> {
+    const r = this.#store.registration(productId);
+    if (r?.sessionId) await this.#close(productId, r.sessionId);
   }
 
   /** Closes each session an outcome left open. Returns whether every one is closed. */
@@ -868,7 +858,13 @@ export class Registrations {
 
   #status(productId: number): MessagePayload {
     const registration = this.#store.registration(productId)!;
-    return registrationStatus({ registration, walkthrough: this.#walkthrough(registration), next: this.#next(registration), needsYouChannelId: this.#config.discord.needsYouChannelId });
+    return registrationStatus({
+      registration,
+      walkthrough: this.#walkthrough(registration),
+      next: this.#next(registration),
+      verification: this.#store.verification(productId) ?? null,
+      needsYouChannelId: this.#config.discord.needsYouChannelId,
+    });
   }
 
   /**
@@ -983,6 +979,32 @@ export class Registrations {
     }
     this.#fillsDue();
   }
+}
+
+/**
+ * The session's page as plain code reads it once it has held still (CODING_STANDARDS.md): read until its URL and its
+ * forms' fields and buttons stay the same for 1.5 s, or as it stands 5 s on. Null when the last read got no page.
+ */
+export async function settledSnapshot(browser: BrowserService, session: string, stopped: () => boolean): Promise<Snapshot | null> {
+  const start = Date.now();
+  const read = async (): Promise<Snapshot | null> => {
+    try {
+      const shot = await browser.snapshot(session, 'plain-code');
+      return shot.ok ? shot.snapshot : null;
+    } catch {
+      return null;
+    }
+  };
+  const shape = (s: Snapshot | null) => (s ? JSON.stringify([s.url, s.forms.map((f) => [f.fields.map((x) => [x.type, x.label]), f.submits.map((b) => [b.label, b.disabled])])]) : null);
+  let seen = await read();
+  let still = Date.now();
+  while (!stopped() && Date.now() - still < SETTLE.stillMs && Date.now() - start < SETTLE.limitMs) {
+    await new Promise((resolve) => setTimeout(resolve, SETTLE.readMs));
+    const next = await read();
+    if (shape(next) !== shape(seen)) still = Date.now();
+    seen = next;
+  }
+  return seen;
 }
 
 /** Why a tap or a pop-up from an earlier Approval does nothing. */

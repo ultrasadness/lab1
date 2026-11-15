@@ -1,9 +1,10 @@
 // A Registration's status message in the Product's post (#12): one silent message, edited in place as the Registration
-// moves, from queued through each page's filling, checking and pressing to submitted and its outcome. It carries Stop
-// until the final press, Correct while there is something to correct, and Start again once it is abandoned.
+// moves, from queued through each page's filling, checking and pressing to submitted, verified and its outcome (#58).
+// It carries Stop until the final press, Correct while there is something to correct, and Start again once it is
+// abandoned.
 import { Accent, actionRow, button, ButtonStyle, container, cut, escapeMarkdown, silentMessage, text, type Button, type MessagePayload } from '../discord/components.ts';
 import { shortTime } from '../pacific.ts';
-import { beforeFinalPress, type StoredRegistration, type WaitsOn } from '../store.ts';
+import { beforeFinalPress, type StoredRegistration, type Verification, type WaitsOn } from '../store.ts';
 import type { Walkthrough } from '../walkthrough/walkthrough.ts';
 
 // Each button names the Approval it was shown for, by its version, so that a tap or a pop-up from an earlier one is
@@ -30,6 +31,8 @@ export interface StatusInput {
    * #needs-you, or none offered any more and why.
    */
   next: { kind: 'none' } | { kind: 'preparing' } | { kind: 'waiting' } | { kind: 'no-walkthrough'; why: string };
+  /** The mail it took as its verification mail, and what came of it, once it has taken one (#58). */
+  verification: Verification | null;
   needsYouChannelId: string;
 }
 
@@ -52,11 +55,11 @@ function waiting(waitsOn: WaitsOn, page: number): { what: string; lines: string[
 }
 
 export function registrationStatus(input: StatusInput): MessagePayload {
-  const { registration: r, walkthrough: w } = input;
+  const { registration: r, walkthrough: w, verification: v } = input;
   const address = r.plainAddress ? w.identity.plainAddress : w.identity.plusAddress;
   const approved = `Walkthrough v${r.version} approved ${shortTime(new Date(r.approvedAt))}`;
   // A Product whose terms ban accounts made by a bot is the person's to finish from its Approval on.
-  if (r.state === 'handed-off') {
+  if (r.state === 'handed-off' && !r.handedOffAt) {
     return silentMessage([
       container(Accent.progress, [
         text(`**Registration** · handed off · ${approved}. Its terms ban accounts made by a bot, so you finish it on your own device, as ${w.identity.plusAddress}.`),
@@ -93,8 +96,14 @@ export function registrationStatus(input: StatusInput): MessagePayload {
       what = `${submitted} · awaiting verification`;
       break;
     case 'registered':
+      // Plain code used its verification mail, or put it to the person to tap in Gmail (#58).
+      what = v?.way === 'person' ? `${submitted} · **registered** · verify it in Gmail` : `${submitted} · ${v?.doneAt ? 'verified · ' : ''}**registered**`;
+      break;
     case 'waitlisted':
       what = `${submitted} · **${r.state}**`;
+      break;
+    case 'handed-off':
+      what = `${submitted} · **handed off** · no verification mail yet`;
       break;
     case 'abandoned':
       what = `**abandoned** · ${escapeMarkdown(r.endNote ?? 'nothing submitted')}`;
@@ -102,6 +111,15 @@ export function registrationStatus(input: StatusInput): MessagePayload {
   }
   if (r.waitsOn && r.state !== 'abandoned') lines.push(...waiting(r.waitsOn, r.page).lines);
   if (r.uncertain) lines.push(`It isn't known whether the last press went through: ${escapeMarkdown(cut(r.uncertain, 300))}. It counts as pressed, and is never pressed again.`);
+  if (r.state === 'handed-off') {
+    lines.push("No verification mail came within 24 hours of the final press. The account may exist, so it isn't abandoned: a mail that comes later moves it on by itself.");
+  }
+  if (v?.way === 'person' && r.state === 'registered') {
+    lines.push(
+      `Its verification mail came ${shortTime(new Date(v.receivedAt))}${v.spam ? ', in Spam' : ''}. The Assistant didn't use it: ${escapeMarkdown(cut(v.why ?? '', 300))}. A card in <#${input.needsYouChannelId}> asks you to tap it in Gmail.`,
+    );
+  }
+  if (v?.uncertain) lines.push(`It isn't known whether the verification went through: ${escapeMarkdown(cut(v.uncertain, 300))}. It counts as done, and is never done again.`);
   // A Stop or a Correction that met a press which turned out to be the final one came too late to stop anything.
   if (r.stopAt && !beforeFinalPress(r) && r.state !== 'abandoned') {
     lines.push(
@@ -119,7 +137,7 @@ export function registrationStatus(input: StatusInput): MessagePayload {
     lines.push('-# Stopping…');
   } else if (beforeFinalPress(r)) {
     buttons.push(stop, correct);
-  } else {
+  } else if (r.state !== 'handed-off') {
     buttons.push(correct);
   }
   return silentMessage([

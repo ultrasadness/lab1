@@ -25,8 +25,9 @@
   - Gmail 自己对这封邮件的认证结论显示，Product 的域名或它的某个子域名 DMARC 通过。光看 From 头永远不算数。
   - Gmail 在表单提交后 1 分钟之内收到它。
   - 它恰好包含一个验证码或一个链接。
+  - 普通代码在 Gmail 收到它之后 2 分钟之内动手，因为验证码或链接几分钟内就会过期。读得晚了的邮件，比如停机之后才读到的，交给这个人。
 
-  在 [Assistant 持有哪些 Gmail 权限，可以用它们做什么？](https://github.com/ultrasadness/lab1/issues/16) 中明确。
+  在 [Assistant 持有哪些 Gmail 权限，可以用它们做什么？](https://github.com/ultrasadness/lab1/issues/16) 中明确，最后一项条件在 [由普通代码验证一个 Registration](https://github.com/ultrasadness/lab1/issues/58) 中明确。
 - **仍归这个人的事**：
   - OAuth 授权同意（“Sign in with Google”），实际上就是一次 Handoff。
   - 条款禁止机器人创建账号的 Product，直接转为 Handoff。条款只禁止自动化访问的 Product 走正常路线，并在它的 Dossier 里引用该条款。

@@ -23,6 +23,7 @@ import { Providers } from './providers.ts';
 import { ProductHunt } from './product-hunt.ts';
 import { RawInputs } from './raw-inputs.ts';
 import { Registrations } from './registration/registrations.ts';
+import { Verifications } from './registration/verification.ts';
 import { Proposals } from './rules/proposals.ts';
 import { loadRules } from './rules/rules.ts';
 import { correctionOf } from './rules/sorting.ts';
@@ -111,7 +112,7 @@ export async function startAssistant(options: {
     token: discordToken,
     log,
     onInteraction: (interaction) => {
-      plainWork(answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct, proposals, walkthroughs, registrations, mailReader }));
+      plainWork(answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct, proposals, walkthroughs, registrations, mailReader, verifications }));
     },
   });
   // Plain-code work under way, which never queues in the lane: taps and pop-ups being answered, which may queue work or
@@ -261,6 +262,19 @@ export async function startAssistant(options: {
     rawInputs,
     needsYou,
     plainWork: (work) => plainWork(work().catch((error: unknown) => log('mail.work-failed', { error: errorText(error) }))),
+    lookBackFrom: () => verifications.lookBackFrom(),
+    onRead: () => verifications.read(),
+    clock,
+    log,
+  });
+  // Each Registration awaiting verification takes its mail after each read of the Signup mailbox, outside the lane (#58).
+  const verifications = new Verifications({
+    store,
+    browser,
+    content: (messageId) => mailReader.content(messageId),
+    needsYou,
+    registrations,
+    plainWork: (work) => plainWork(work().catch((error: unknown) => log('registration.verify-failed', { error: errorText(error) }))),
     clock,
     log,
   });
@@ -386,6 +400,8 @@ export async function startAssistant(options: {
   plainWork(walkthroughs.resume());
   // A press left intended counts as pressed, a Stop not yet acted on is, and the lane takes up each Registration under way.
   plainWork(registrations.resume());
+  // A verification step left intended counts as done, and its card or notice goes out if it didn't (#58).
+  verifications.start();
   // The Signup mailbox is read now, and every few seconds from then on, outside the lane.
   mailReader.start();
   // Commits a refused push left in the checkout, and files queued before a stop, don't wait for the Miner's next run.
@@ -410,6 +426,7 @@ export async function startAssistant(options: {
         registrations.stop();
         walkthroughs.stop();
         mailReader.stop();
+        verifications.stop();
         passwordVault.stop();
         personalDatabase.stop();
         lane.close();
@@ -522,6 +539,8 @@ async function answer(
     registrations: Registrations;
     /** Done on the cards of security alerts in the Signup mailbox. */
     mailReader: SignupMailbox;
+    /** Done on the cards that put a verification mail to the person. */
+    verifications: Verifications;
   },
 ): Promise<void> {
   const { personUserId, discord, log } = options;
@@ -588,10 +607,10 @@ async function answer(
         await walkthrough.work?.();
       }
     }
-    const alert = interaction.type === 3 ? options.mailReader.tap(customId, interaction.message?.id) : undefined;
-    if (alert) {
-      if ('refused' in alert) return await reply(alert.refused);
-      return await discord.respond(interaction.id, interaction.token, { type: 7, data: { ...alert.update } });
+    const doneCard = interaction.type === 3 ? (options.mailReader.tap(customId, interaction.message?.id) ?? options.verifications.tap(customId, interaction.message?.id)) : undefined;
+    if (doneCard) {
+      if ('refused' in doneCard) return await reply(doneCard.refused);
+      return await discord.respond(interaction.id, interaction.token, { type: 7, data: { ...doneCard.update } });
     }
     if (customId.startsWith('correct:dossier:') || customId.startsWith('add-offer:dossier:')) {
       return await reply("Correct and Add Offer aren't wired up yet. They arrive with Corrections to Dossiers.");

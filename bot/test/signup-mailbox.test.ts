@@ -114,9 +114,10 @@ test('mail is matched to a Registration by its plus-address tag, then by its sen
   assert.deepEqual(world.discord.cards(NEEDS_YOU).filter((c) => c.text.includes('Mail from Google')), [], 'and it raises no card');
   assert.deepEqual(world.gmail.changes, [], 'nothing in the mailbox is changed: no draft, no label, no move');
 
-  // The next read starts after them, so each is read once.
+  // The next read starts after them, so the reader reads each once. Each mail matched to the Registration awaiting
+  // verification is read once more, for a code or link that would make it its verification mail (#58).
   await world.advanceTo(new Date(world.clock.now().getTime() + 5000).toISOString());
-  for (const id of ids) assert.equal(world.gmail.readsOf(id).length, 1);
+  for (const id of ids) assert.equal(world.gmail.readsOf(id).length, id === byTag || id === byDomain ? 2 : 1, id);
   assert.equal(recorded(world).length, 5);
 });
 
@@ -441,9 +442,10 @@ test('a mail deleted before it is read, one Gmail sends malformed, and the mailb
   assert.equal(whereItShows(world, 'Read as UTF-8: café, whatever the charset says.').length, 1, 'its text is kept, read as UTF-8');
   assert.deepEqual(whereItShows(world, 'A draft of the mailbox’s own.'), []);
 
-  // The batch went through: the next read starts after it.
+  // The batch went through: the next read starts after it. The one mail recorded, matched to the Registration awaiting
+  // verification, is read once more for a code or link (#58).
   await world.advanceTo(new Date(world.clock.now().getTime() + 5000).toISOString());
-  for (const id of [gone, malformed, draft, sent, fine]) assert.equal(world.gmail.readsOf(id).length, 1, id);
+  for (const id of [gone, malformed, draft, sent, fine]) assert.equal(world.gmail.readsOf(id).length, id === fine ? 2 : 1, id);
 });
 
 test('the text of a mail kept before the store was lost still goes after 90 days', async (t) => {

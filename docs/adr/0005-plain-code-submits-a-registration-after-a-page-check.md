@@ -25,8 +25,10 @@ After the person approves a Walkthrough, the Assistant fills the form and submit
   - Gmail's own authentication verdict on the mail shows DMARC pass for the Product's domain or one of its subdomains. The From header alone never counts.
   - Gmail received it within 1 minute of the form being submitted.
   - It holds exactly one code or link.
+  - Plain code acts within 2 minutes of Gmail receiving it, since a code or link expires within minutes. A mail read
+    late, as after an outage, goes to the person.
 
-  Sharpened in [Which Gmail permissions does the Assistant hold, and what may it do with them?](https://github.com/ultrasadness/lab1/issues/16).
+  Sharpened in [Which Gmail permissions does the Assistant hold, and what may it do with them?](https://github.com/ultrasadness/lab1/issues/16), and the last condition in [Verify a Registration by plain code](https://github.com/ultrasadness/lab1/issues/58).
 - **What stays the person's:**
   - OAuth consent ("Sign in with Google"), which in practice is a Handoff.
   - A Product whose terms ban bot-made accounts, which goes straight to a Handoff. A Product whose terms ban only automated access takes the normal route, with the clause quoted in its Dossier.
