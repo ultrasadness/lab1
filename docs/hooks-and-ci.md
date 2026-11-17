@@ -29,7 +29,7 @@ the scripts) and `browser/`'s (the browser service). In a fresh clone, turn on t
   `main`, but a ticket closes by hand once it has landed (**Close** in `docs/agents/issue-tracker.md`). Write the
   reference as `(#88)` instead.
 - **pre-push** refuses a push that moves `main` to a commit unless GitHub Actions has run on it and every run has
-  passed: GitHub Free has no branch protection for a private repo, so nothing on the server would refuse it. The hook
+  passed: the repo sets no branch rule on GitHub, so nothing on the server would refuse it. The hook
   asks GitHub through `gh`, so `gh` must be signed in.
 
 ## Claude Code hooks

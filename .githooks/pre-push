@@ -1,7 +1,7 @@
 #!/bin/sh
 # Runs before each push once `git config core.hooksPath .githooks` turns it on (docs/hooks-and-ci.md). It refuses a
-# push that moves main to a commit GitHub Actions hasn't passed: GitHub Free has no branch protection for a private
-# repo, so nothing on the server would (#88). A ticket lands by fast-forwarding main to its branch
+# push that moves main to a commit GitHub Actions hasn't passed: the repo sets no branch rule on GitHub, so nothing on
+# the server would (#88). A ticket lands by fast-forwarding main to its branch
 # (docs/agents/issue-tracker.md, Land a ticket), so the runs that count are the branch's, on that same commit.
 set -eu
 
