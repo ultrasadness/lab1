@@ -4,7 +4,7 @@ description: Review a ticket's commits with Codex, a different model, in a sandb
 disable-model-invocation: true
 ---
 
-An outside review: Codex, a model other than the one that wrote the code, reviews a ticket's commits. `review.sh` does the mechanics. It gathers the ticket, its spec and the spec's other open tickets, runs Codex read-only inside `bwrap` with the home folder and `/tmp` hidden but for what it needs, and an empty environment, and audits every command Codex ran. Your part is pinning the review and checking what comes back. A Claude session's code review runs it beside its two reviewers, as the Code review section of `CLAUDE.md` says, and the person can start it alone with `/outside-review`.
+An outside review: Codex, a model other than the one that wrote the code, reviews a ticket's commits. `review.sh` does the mechanics. It gathers the ticket, its spec and the spec's other open tickets, with only the text of the repo's owner and collaborators, as `npm run ticket` prints it, runs Codex read-only inside `bwrap` with the home folder and `/tmp` hidden but for what it needs, and an empty environment, and audits every command Codex ran. Your part is pinning the review and checking what comes back. A Claude session's code review runs it beside its two reviewers, as the Code review section of `CLAUDE.md` says, and the person can start it alone with `/outside-review`.
 
 1. **Pin the review**: a ticket number and a base commit; the head defaults to `HEAD`. Take them from the person's message. When the base is missing, propose the commit just before the ticket's first one and confirm it. Done when the ticket, base and head are named.
 
@@ -19,7 +19,7 @@ An outside review: Codex, a model other than the one that wrote the code, review
    - plausible ones, saying what would settle each;
    - wrong ones, each with the code that shows it, so the person can overrule you;
    - findings owned by later tickets, with the ticket;
-   - Codex's questions for the person;
+   - Codex's questions for the person, among them each text the tracker withheld from Codex, which is the person's to read and relay: ask them for it, rather than reading it on GitHub;
    - the ADRs Codex checked, what it found sound, and what nobody verified.
 
    When the person started this with `/outside-review`, the fixes wait until they ask for them.

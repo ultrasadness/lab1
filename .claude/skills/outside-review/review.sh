@@ -50,27 +50,16 @@ out=${OUT:-$(mktemp -d "${TMPDIR:-/tmp}/outside-review-$ticket-XXXXXX")}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 
-# A code review waits on this script, so GitHub has a bound as Codex does.
-github() {
-  timeout --signal=KILL "${OUTSIDE_REVIEW_GITHUB_LIMIT:-60s}" gh "$@" || {
-    echo "gh $1 $2 failed or ran past its limit (exit $?)." >&2
-    exit 1
-  }
-}
-
 # What the reviewer reads besides the repo: the commits, the ticket and its parent spec with their comments, where the
 # person's settled questions are, and the spec's other open tickets, so a finding a later ticket owns is marked as that
-# ticket's.
+# ticket's. tracker.ts writes the ticket and the spec as `npm run ticket` prints them, and the other tickets' acceptance
+# criteria, all with only the text of the repo's owner and collaborators (#114). A code review waits on this script, so
+# reading GitHub has a bound as Codex does: each gh call has a minute, and the whole read this limit.
 git log --format='%h %s' "$base..$head" > "$out/commits.txt"
-github issue view "$ticket" --json number,title,body,comments > "$out/ticket.json"
-body=$(github issue view "$ticket" --json body --jq .body)
-parent=$(sed -n '/^## Parent/,/^## [^P]/p' <<< "$body" | grep -o -m1 '#[0-9]\+' | tr -d '#' || true)
-if [[ -n $parent ]]; then
-  github issue view "$parent" --json number,title,body,comments > "$out/spec.json"
-  github issue list --state open --limit 500 --json number,title,body | node "$here/siblings.ts" "$ticket" "$parent" > "$out/siblings.md"
-else
-  echo "Ticket #$ticket has no parent spec, so it has no sibling tickets." > "$out/siblings.md"
-fi
+timeout --signal=KILL "${OUTSIDE_REVIEW_GITHUB_LIMIT:-5m}" node "$here/tracker.ts" "$ticket" "$out" || {
+  echo "Reading #$ticket from GitHub failed or ran past its limit (exit $?)." >&2
+  exit 1
+}
 sed -e "s|{{REPO}}|$repo|g" -e "s|{{OUT}}|$out|g" -e "s|{{BASE}}|$base|g" -e "s|{{HEAD}}|$head|g" \
   -e "s|{{TICKET}}|$ticket|g" "$here/prompt.md" > "$out/prompt.md"
 

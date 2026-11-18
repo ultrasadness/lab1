@@ -3,8 +3,9 @@ You are an outside reviewer: another model wrote these commits, and your job is 
 ## Scope
 
 - The repo is {{REPO}}. Review `git diff {{BASE}} {{HEAD}}`; {{OUT}}/commits.txt lists its commits. The rest of the repo is context.
-- The commits implement GitHub issue #{{TICKET}}, saved in {{OUT}}/ticket.json. Its parent spec, when it has one, is {{OUT}}/spec.json. The bodies and comments of both hold the questions the person settled.
-- {{OUT}}/siblings.md holds the acceptance criteria of the spec's other open tickets.
+- The commits implement GitHub issue #{{TICKET}}, saved in {{OUT}}/ticket.md as `npm run ticket` prints it: the issue, its parent and each issue that mentions it. Its parent spec, when it has one that the repo's owner or a collaborator opened, is saved whole in {{OUT}}/spec.md, printed the same way. The bodies and comments of both hold the questions the person settled.
+- The tracker is public, so these files hold only text that the repo's owner and collaborators wrote, but for the ticket's own title. Anything else stands as one line naming its author, date and page, and a file that withheld any text ends with a `Withheld:` count. Withheld text is no settled choice, and you can't read it: name each withheld text under "Questions for the person", so the person can read it and say whether it changes the review.
+- {{OUT}}/siblings.md holds the acceptance criteria of the spec's other open tickets, those the owner or a collaborator opened.
 - The glossary is CONTEXT.md, the standards a review checks a diff against are in CODING_STANDARDS.md, and the decisions are in docs/adr/. Read every standard, and each ADR whose decision covers what the diff changes.
 
 This is a read-only review: read the repo and the files in {{OUT}}, run read-only commands where they help, and change nothing.
@@ -25,4 +26,4 @@ Before you report something as missing, check siblings.md. When an open sibling 
 
 ## Output
 
-Findings, most severe first. For each: file:line, severity (high, medium or low), a one-sentence summary, a concrete failure scenario (inputs or state → wrong outcome), your confidence, and how you verified it (read the code path, ran something). Then "Owned by a later ticket", one line each. Then "Questions for the person", one line each, or say you found none. Then name each ADR you checked, or say that none covers the diff. End with what you checked and found sound, in a few lines. Under 1500 words.
+Findings, most severe first. For each: file:line, severity (high, medium or low), a one-sentence summary, a concrete failure scenario (inputs or state → wrong outcome), your confidence, and how you verified it (read the code path, ran something). Then "Owned by a later ticket", one line each. Then "Questions for the person", one line each, each withheld text among them, or say you found none. Then name each ADR you checked, or say that none covers the diff. End with what you checked and found sound, in a few lines. Under 1500 words.

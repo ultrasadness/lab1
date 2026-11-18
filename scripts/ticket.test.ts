@@ -1,141 +1,16 @@
 // `npm run ticket -- <number>` (#87): prints a ticket whole, with its parent and each issue that mentions it, or with
 // `--heading`, only the parts of it the ticket names (the #48 retro). Each test runs the script as its own process,
-// with no terminal, against a fake `gh` on PATH that answers `gh api` from the issues the test gives it, so no test
-// reaches GitHub.
+// with no terminal, against the fake `gh` of scripts/fake-gh.ts on PATH, which answers `gh api` from the issues the
+// test gives it, so no test reaches GitHub.
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fakeGh, type Issue, type Tracker } from './fake-gh.ts';
 
 const SCRIPT = join(import.meta.dirname, 'ticket.ts');
-
-/**
- * `gh api [--paginate [--slurp]] ENDPOINT`, answered from the issues in $FAKE_GH_ISSUES as GitHub's REST API would:
- * an issue, its comments, its parent and its timeline, where each other issue whose body or comments name `#N` is a
- * cross-reference, and the repo's collaborators: its owner, then the logins in $FAKE_GH_COLLABORATORS. `{owner}/{repo}`
- * is owner/repo, and an issue with a `repo` of its own is in that repo instead. An issue and a comment name their
- * author as `user.login` and their page as `html_url`, and the collaborators list holds the repo's owner, as lab1's
- * answers did on 2026-11-17 (#112). Two cases lab1 has never shown come from GitHub's REST description
- * (github/rest-api-description, read on 2026-11-17): an issue's and a comment's `user` is a `nullable-simple-user`, so
- * an author given as null comes as `user: null`, and a sub-issue "must belong to the same repository owner as the
- * parent issue", so a parent can be in another of the owner's repos, as `parentRepo` puts it. A list comes in pages
- * of two, so a caller that doesn't paginate sees only the first. An unknown issue is a 404, as gh prints one. Each call's endpoint is appended to the file $FAKE_GH_LOG names,
- * one to a line. With $FAKE_GH_ERROR set, every call fails with that error instead.
- */
-const FAKE_GH = String.raw`#!${process.execPath}
-const args = process.argv.slice(2);
-if (args[0] !== 'api') {
-  process.stderr.write('fake gh: only api is faked, not: ' + args.join(' ') + '\n');
-  process.exit(2);
-}
-if (process.env.FAKE_GH_ERROR) {
-  process.stderr.write(process.env.FAKE_GH_ERROR + '\n');
-  process.exit(1);
-}
-const paginate = args.includes('--paginate');
-const slurp = args.includes('--slurp');
-const endpoint = args.slice(1).find((arg) => !arg.startsWith('--'));
-require('node:fs').appendFileSync(process.env.FAKE_GH_LOG, endpoint + '\n');
-const issues = JSON.parse(process.env.FAKE_GH_ISSUES);
-const HOME = 'owner/repo';
-const find = (repo, n) => issues.find((issue) => (issue.repo ?? HOME) === repo && issue.number === n);
-const page = (issue) => 'https://github.com/' + (issue.repo ?? HOME) + '/issues/' + issue.number;
-const shown = (issue) => ({
-  url: 'https://api.github.com/repos/' + (issue.repo ?? HOME) + '/issues/' + issue.number,
-  html_url: page(issue),
-  number: issue.number,
-  title: issue.title,
-  state: issue.state ?? 'open',
-  labels: (issue.labels ?? []).map((name) => ({ name })),
-  body: issue.body ?? null,
-  user: issue.author === null ? null : { login: issue.author ?? 'owner' },
-  created_at: issue.at ?? '2026-10-01T00:00:00Z',
-  comments: (issue.comments ?? []).length,
-  comments_url: 'https://api.github.com/repos/' + (issue.repo ?? HOME) + '/issues/' + issue.number + '/comments',
-  repository_url: 'https://api.github.com/repos/' + (issue.repo ?? HOME),
-  ...(issue.pullRequest ? { pull_request: { url: 'https://api.github.com/repos/' + HOME + '/pulls/' + issue.number } } : {}),
-});
-const notFound = (message) => {
-  process.stdout.write(JSON.stringify({ message, status: '404' }));
-  process.stderr.write('gh: ' + message + ' (HTTP 404)\n');
-  process.exit(1);
-};
-const list = (items) => {
-  const pages = [];
-  for (let i = 0; i < items.length; i += 2) pages.push(items.slice(i, i + 2));
-  if (pages.length === 0) pages.push([]);
-  if (!paginate) process.stdout.write(JSON.stringify(pages[0]));
-  else if (slurp) process.stdout.write(JSON.stringify(pages));
-  else for (const page of pages) process.stdout.write(JSON.stringify(page));
-  process.exit(0);
-};
-if (endpoint === 'repos/{owner}/{repo}/collaborators') {
-  const logins = ['owner', ...JSON.parse(process.env.FAKE_GH_COLLABORATORS)];
-  list(logins.map((login, i) => ({ login, role_name: i === 0 ? 'admin' : 'write' })));
-}
-const match = /^(?:repos\/\{owner\}\/\{repo\}|https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+))\/issues\/(\d+)(?:\/(comments|parent|timeline))?$/.exec(endpoint ?? '');
-const issue = match && find(match[1] ?? HOME, Number(match[2]));
-if (!issue) notFound('Not Found');
-const mentions = (text, n) => new RegExp('#' + n + '\\b').test(text ?? '');
-switch (match[3]) {
-  case undefined:
-    process.stdout.write(JSON.stringify(shown(issue)));
-    break;
-  case 'comments':
-    list(
-      (issue.comments ?? []).map((comment, i) => ({
-        user: comment.author === null ? null : { login: comment.author },
-        created_at: comment.at,
-        html_url: page(issue) + '#issuecomment-' + (issue.number * 100 + i + 1),
-        body: comment.body,
-      })),
-    );
-    break;
-  case 'parent': {
-    const parent = issue.parent && find(issue.parentRepo ?? issue.repo ?? HOME, issue.parent);
-    if (!parent) notFound('No parent issue found');
-    process.stdout.write(JSON.stringify(shown(parent)));
-    break;
-  }
-  case 'timeline':
-    list([
-      { event: 'labeled', label: { name: 'ready-for-agent' } },
-      ...issues
-        .filter((other) => other !== issue && [other.body, ...(other.comments ?? []).map((c) => c.body)].some((text) => mentions(text, issue.number)))
-        .map((other) => ({ event: 'cross-referenced', source: { type: 'issue', issue: shown(other) } })),
-      { event: 'commented', body: 'Mentions #' + issue.number + ' in a comment on the ticket itself.' },
-    ]);
-}
-`;
-
-interface Comment {
-  /** Its author's login, or null for a comment GitHub names no author for. */
-  author: string | null;
-  /** When it was posted, as GitHub writes it. */
-  at: string;
-  body: string;
-}
-
-interface Issue {
-  number: number;
-  title: string;
-  /** The login of whoever opened it, `owner` by default: the repo's owner, or null when GitHub names no one. */
-  author?: string | null;
-  /** When it was opened, as GitHub writes it. */
-  at?: string;
-  state?: 'open' | 'closed';
-  labels?: string[];
-  body?: string | null;
-  comments?: Comment[];
-  /** The number of the issue this one is a sub-issue of, in the same repo unless `parentRepo` names another. */
-  parent?: number;
-  parentRepo?: string;
-  /** The repo it is in, as owner/name, when it isn't the one `{owner}/{repo}` names. */
-  repo?: string;
-  pullRequest?: boolean;
-}
 
 interface Run {
   code: number | null;
@@ -145,29 +20,13 @@ interface Run {
   calls: string[];
 }
 
-/**
- * Runs the script on `args`, without a terminal, against a `gh` that knows `issues`, or fails with `error`. The repo's
- * collaborators are its owner and `collaborators`: by default ana and bo, who write the tests' comments.
- */
-function ticket(
-  t: TestContext,
-  args: string[],
-  gh: { issues?: Issue[]; error?: string; collaborators?: string[] },
-): Promise<Run> {
+/** Runs the script on `args`, without a terminal, against a `gh` that serves `tracker`. */
+function ticket(t: TestContext, args: string[], tracker: Tracker): Promise<Run> {
   const root = mkdtempSync(join(tmpdir(), 'ticket-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const bin = join(root, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'gh'), FAKE_GH);
-  chmodSync(join(bin, 'gh'), 0o755);
-  const env = {
-    ...process.env,
-    PATH: `${bin}:${process.env.PATH}`,
-    FAKE_GH_ISSUES: JSON.stringify(gh.issues ?? []),
-    FAKE_GH_ERROR: gh.error ?? '',
-    FAKE_GH_COLLABORATORS: JSON.stringify(gh.collaborators ?? ['ana', 'bo']),
-    FAKE_GH_LOG: join(root, 'calls'),
-  };
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, ...fakeGh(bin, tracker, join(root, 'calls')) };
   return new Promise((resolve) => {
     execFile(process.execPath, [SCRIPT, ...args], { env, timeout: 30_000 }, (error, stdout, stderr) => {
       const log = join(root, 'calls');

@@ -5,7 +5,7 @@
 // only text that the repo's owner and collaborators wrote in the repo, since the tracker is public (#112): anything
 // else stands as one line naming its author, date and page, and the output ends by counting it. It asks GitHub through
 // `gh api`, whose JSON is the same with or without a terminal, and prints nothing until every answer is in, so a
-// failure prints only why.
+// failure prints only why. The outside review reads the tracker through it too (#114), with what this exports.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -18,7 +18,7 @@ const USAGE =
   'give one issue number, as in npm run ticket -- 87, and any parts of it by heading, as in npm run ticket -- 40 --heading "8."';
 
 /** The fields of a REST issue this reads. */
-interface Issue {
+export interface Issue {
   /** Its API URL, which names its repo too. */
   url: string;
   /** Its page on GitHub. */
@@ -38,7 +38,7 @@ interface Issue {
 }
 
 /** The fields of a REST user this reads. */
-interface User {
+export interface User {
   login: string;
 }
 
@@ -59,7 +59,7 @@ interface TimelineEvent {
 }
 
 /** What `gh api` answers on `args`, parsed, or `undefined` when GitHub answers 404. Throws with gh's error otherwise. */
-async function api(args: string[]): Promise<unknown> {
+export async function api(args: string[]): Promise<unknown> {
   const call = `gh api ${args.at(-1)}`;
   let stdout: string;
   try {
@@ -76,7 +76,7 @@ async function api(args: string[]): Promise<unknown> {
 }
 
 /** Every item of a paged list, across all its pages. */
-async function apiList<T>(endpoint: string): Promise<T[]> {
+export async function apiList<T>(endpoint: string): Promise<T[]> {
   const pages = (await api(['--paginate', '--slurp', endpoint])) as T[][] | undefined;
   if (!pages) throw new Error(`gh api ${endpoint} found nothing there (HTTP 404)`);
   return pages.flat();
@@ -124,7 +124,7 @@ interface Withheld {
  * at the end. An issue in another repo is withheld whole, since that repo's writers can edit any comment in it, the
  * owner's too, and it still shows the owner as its author (asked on #112).
  */
-class Trust {
+export class Trust {
   /** The ticket's repo, as its API URL. */
   readonly home: string;
   /** The ticket's repo, as `owner/name`. */
@@ -318,13 +318,17 @@ function mention(n: number, mentioner: Issue, comments: Comment[], trust: Trust)
   return text;
 }
 
-/** Whose text this prints, for a ticket in the repo whose API URL is `home`. It asks GitHub once a run. */
-async function trustIn(home: string): Promise<Trust> {
-  return new Trust(home, await apiList<User>('repos/{owner}/{repo}/collaborators'));
+/** The repo's collaborators, asked of GitHub once a run, however many issues the run prints. */
+let collaborators: Promise<User[]> | undefined;
+
+/** Whose text this prints, for a ticket in the repo whose API URL is `home`. */
+export async function trustIn(home: string): Promise<Trust> {
+  collaborators ??= apiList<User>('repos/{owner}/{repo}/collaborators');
+  return new Trust(home, await collaborators);
 }
 
 /** Issue `n`, which GitHub must have and which can't be a pull request. */
-async function issueNumbered(n: number): Promise<Issue> {
+export async function issueNumbered(n: number): Promise<Issue> {
   const issue = (await api([`repos/{owner}/{repo}/issues/${n}`])) as Issue | undefined;
   if (!issue) throw new Error(`#${n} names no issue in this repo (gh api answered 404)`);
   if (issue.pull_request) throw new Error(`#${n} is a pull request, not an issue: see it with gh pr view ${n}`);
@@ -364,8 +368,8 @@ async function parts(n: number, words: string[]): Promise<string> {
   return `${text}\nPrint it whole with npm run ticket -- ${n}.\n${withheld}`;
 }
 
-/** Ticket `n` whole, then its parent, then each issue that mentions it. */
-async function ticket(n: number): Promise<string> {
+/** Ticket `n` whole, then its parent, then each issue that mentions it: what `npm run ticket -- <n>` prints. */
+export async function ticket(n: number): Promise<string> {
   const issue = await issueNumbered(n);
   const [trust, comments, parent, timeline] = await Promise.all([
     trustIn(issue.repository_url),
@@ -401,19 +405,21 @@ async function ticket(n: number): Promise<string> {
   ].join('\n') + trust.summary();
 }
 
-try {
-  const [number, ...rest] = process.argv.slice(2);
-  const n = /^#?([1-9]\d*)$/.exec(number ?? '')?.[1];
-  // Each heading asked for comes as `--heading <words>`.
-  const words: string[] = [];
-  for (let i = 0; i < rest.length; i += 2) {
-    const word = rest[i + 1]?.trim();
-    if (rest[i] !== '--heading' || !word) throw new Error(USAGE);
-    words.push(word);
+if (import.meta.main) {
+  try {
+    const [number, ...rest] = process.argv.slice(2);
+    const n = /^#?([1-9]\d*)$/.exec(number ?? '')?.[1];
+    // Each heading asked for comes as `--heading <words>`.
+    const words: string[] = [];
+    for (let i = 0; i < rest.length; i += 2) {
+      const word = rest[i + 1]?.trim();
+      if (rest[i] !== '--heading' || !word) throw new Error(USAGE);
+      words.push(word);
+    }
+    if (!n) throw new Error(USAGE);
+    process.stdout.write(words.length > 0 ? await parts(Number(n), words) : await ticket(Number(n)));
+  } catch (error) {
+    process.stderr.write(`ticket: ${(error as Error).message}\n`);
+    process.exitCode = 1;
   }
-  if (!n) throw new Error(USAGE);
-  process.stdout.write(words.length > 0 ? await parts(Number(n), words) : await ticket(Number(n)));
-} catch (error) {
-  process.stderr.write(`ticket: ${(error as Error).message}\n`);
-  process.exitCode = 1;
 }
