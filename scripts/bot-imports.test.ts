@@ -38,3 +38,13 @@ test('the bot starts no worker thread', () => {
     .map(({ at }) => at);
   assert.deepEqual(threads, [], `a second thread running Wasm can crash Node 24 (#105), but ${threads.join(', ')} imports node:worker_threads`);
 });
+
+test("a quoted 'from', as an export's type may name the field, is no import, and a real one beside it still is", () => {
+  // #61's kept-mail.ts read as an import of everything from `'from'>` to the next quote, two lines on.
+  const source = [
+    "export const replyAddress = (mail: Pick<KeptMail, 'replyTo' | 'from'>) => mail.replyTo ?? mail.from;",
+    "export const at = (address: string) => address.lastIndexOf('@');",
+    "export { keptCopy } from './kept-mail.ts';",
+  ].join('\n');
+  assert.deepEqual(importsIn(source), [{ specifier: './kept-mail.ts', line: 3 }]);
+});

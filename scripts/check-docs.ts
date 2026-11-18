@@ -68,6 +68,7 @@ const RENDERINGS: Rendering[] = [
   { en: 'dropped out', zh: '掉线' },
   { en: 'dropping out', zh: '掉线' },
   { en: 'out of balance', zh: '余额不足' },
+  { en: 'mail run', zh: '邮件运行' },
 ];
 
 const { ok, output } = checkDocs(process.argv.slice(2), join(import.meta.dirname, '..'), PAIRS, UNPAIRED, RENDERINGS);
