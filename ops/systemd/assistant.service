@@ -23,6 +23,7 @@ LoadCredential=discord-bot-token:/etc/assistant/credentials/discord-bot-token
 LoadCredential=producthunt-token:/etc/assistant/credentials/producthunt-token
 LoadCredential=newapi-key-miner:/etc/assistant/credentials/newapi-key-miner
 LoadCredential=newapi-key-registration:/etc/assistant/credentials/newapi-key-registration
+LoadCredential=newapi-key-mail:/etc/assistant/credentials/newapi-key-mail
 LoadCredential=personal-database-deploy-key:/etc/assistant/credentials/personal-database-deploy-key
 LoadCredential=healthchecks-ping-bot:/etc/assistant/credentials/healthchecks-ping-bot
 LoadCredential=bitwarden-api-key:/etc/assistant/credentials/bitwarden-api-key

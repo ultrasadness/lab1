@@ -128,7 +128,7 @@ TRIAL FAILED at the first answer the bot couldn't use, and prints no value. Each
 one item, named `lab1 bw trial`, for the person to delete.
 
 The bot's unit hands over only the tokens the bot reads today: `discord-bot-token`, `producthunt-token`,
-`newapi-key-miner`, `newapi-key-registration`, `personal-database-deploy-key`, `healthchecks-ping-bot`,
+`newapi-key-miner`, `newapi-key-registration`, `newapi-key-mail`, `personal-database-deploy-key`, `healthchecks-ping-bot`,
 `bitwarden-api-key`, `bitwarden-master-password`, `gmail-client-secret` and `gmail-refresh-token`. A later
 ticket that reads another adds its `LoadCredential=` line to `ops/systemd/assistant.service`: `ops/test/token.test.ts`
 fails while the unit and the names the bot reads differ.
@@ -147,7 +147,10 @@ admin page:
 - a token for the role alone, whose model limit names each of the role's `<role>@<provider>` names, with 4 weeks of
   the role's budget as its quota (ADR 0011); a mail role's token goes in the `mail` group (ADR 0010), and `mailGroup` in
   `providers` marks each route that group holds. The role's name must be available to the group its token uses, or
-  new-api answers 503 with `model_not_found`.
+  new-api answers 503 with `model_not_found`;
+- for a route in the `mail` group on OpenRouter, the channel's parameter override `{"provider": {"data_collection":
+  "deny"}}`, so that no request of the mail role goes to an endpoint that may train on it (ADR 0010). A model with no
+  such endpoint answers 404, and the mail role's runs then stop on it: try the name in the Playground first.
 
 A role's second provider is one more of each, and the forwarder fails over between them in the order `roles` lists
 them (`bot/README.md`).

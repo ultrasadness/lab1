@@ -14,6 +14,10 @@ export interface ReadMail {
   headers: { name: string; value: string }[];
   /** The address in `From`, in lower case. */
   from: string | undefined;
+  /** `From` as the mail writes it, its name included, such as `Codemind <hello@codemindhq.dev>`. */
+  sender: string | undefined;
+  /** The address in `Reply-To`, in lower case, when it has one. */
+  replyTo: string | undefined;
   /** The addresses it was delivered and sent to: `Delivered-To`, `To` and `Cc`, in lower case. */
   recipients: string[];
   /** Whether it carries `List-Unsubscribe`, which makes it bulk mail (#16). */
@@ -47,6 +51,8 @@ export function readMail(m: GmailMessage): ReadMail | undefined {
     receivedAt: new Date(received).toISOString(),
     headers,
     from: addressesIn(all('From')[0] ?? '')[0],
+    sender: all('From')[0]?.trim() || undefined,
+    replyTo: addressesIn(all('Reply-To')[0] ?? '')[0],
     recipients: ['Delivered-To', 'To', 'Cc'].flatMap((name) => all(name).flatMap(addressesIn)),
     bulk: all('List-Unsubscribe').length > 0,
     subject: all('Subject')[0] ?? '',

@@ -14,7 +14,7 @@ const DAY = fixtureDay('2026-10-12').slice(0, 8);
 /** guilds.run's Launch on Oct 12, a second Dossier beside Codemind's. */
 const GUILDS = '1274741';
 
-/** Both roles on ChatGPT Plus first, then OpenRouter, each with a model of its own. */
+/** The Miner and registration roles on ChatGPT Plus first, then OpenRouter, each with a model of its own; mail stays on OpenRouter. */
 function plusThenOpenRouter(config: Config): void {
   config.providers.plus = { label: 'ChatGPT Plus', mailGroup: true };
   config.prices['judge-model-2'] = { input: 1, cached: 0.1, output: 5 };
@@ -224,7 +224,7 @@ test('a role with no provider left starts no run, and the 06:00 PT line names wh
   assert.deepEqual(asked(world).slice(0, 2), ['miner@plus', 'miner@openrouter']);
   assert.deepEqual(statusLines(world), [
     'ChatGPT Plus at its limit, trying again at 01:30 PT · Miner and registration on OpenRouter',
-    'OpenRouter at its limit, trying again at 01:30 PT · Miner and registration have no provider left',
+    'OpenRouter at its limit, trying again at 01:30 PT · Miner, registration and mail have no provider left',
   ]);
   const started = world.logs.filter((l) => l.event === 'run.started').length;
 
@@ -243,7 +243,7 @@ test('a role with no provider left starts no run, and the 06:00 PT line names wh
   world.model.fault = () => undefined;
   await world.advanceTo('2026-10-12T13:30:00Z');
   assert.equal(titles(world).length, 1);
-  assert.deepEqual(statusLines(world).filter((l) => l.includes('is back')), ['ChatGPT Plus is back · Miner and registration on ChatGPT Plus', 'OpenRouter is back']);
+  assert.deepEqual(statusLines(world).filter((l) => l.includes('is back')), ['ChatGPT Plus is back · Miner and registration on ChatGPT Plus', 'OpenRouter is back · mail on OpenRouter']);
 });
 
 test('an empty balance that leaves a role with no provider gets one card, which shrinks to a line once it is back', async (t) => {
@@ -255,7 +255,7 @@ test('an empty balance that leaves a role with no provider gets one card, which 
   const cards = world.discord.cards(NEEDS_YOU);
   assert.equal(cards.length, 1);
   assert.match(cards[0]!.text, new RegExp(`<@${PERSON}> \\*\\*OpenRouter is out of balance\\*\\*`));
-  assert.match(cards[0]!.text, /Miner and registration have no provider left\. Work waits, and the bot tries again every 30 minutes, so topping it up is all this needs\./);
+  assert.match(cards[0]!.text, /Miner, registration and mail have no provider left\. Work waits, and the bot tries again every 30 minutes, so topping it up is all this needs\./);
 
   // Passes go by, still empty: no second card.
   await world.stepThrough('2026-10-12T09:30:00Z', 30);
@@ -275,7 +275,7 @@ test('a role’s only provider out of balance leaves it with none: a card, and t
 
   await world.advanceTo('2026-10-12T08:00:00Z');
   assert.equal(world.discord.cards(NEEDS_YOU).length, 1);
-  assert.deepEqual(statusLines(world), ['OpenRouter out of balance, top it up, trying again at 01:30 PT · Miner and registration have no provider left']);
+  assert.deepEqual(statusLines(world), ['OpenRouter out of balance, top it up, trying again at 01:30 PT · Miner, registration and mail have no provider left']);
 
   await world.advanceTo('2026-10-12T13:00:00Z');
   assert.equal(world.discord.cards(NEEDS_YOU).length, 1);
@@ -402,13 +402,13 @@ test('new-api’s 403 for its user’s quota takes every role at once, with one 
 
   await world.advanceTo('2026-10-12T08:00:00Z');
   assert.deepEqual(asked(world), ['miner@plus'], 'the next provider is behind the same user, and is not asked');
-  assert.deepEqual(statusLines(world), ['Gateway quota spent for Miner and registration, top it up in new-api, trying again at 01:30 PT · Miner and registration have no provider left']);
+  assert.deepEqual(statusLines(world), ['Gateway quota spent for Miner, registration and mail, top it up in new-api, trying again at 01:30 PT · Miner, registration and mail have no provider left']);
   assert.equal(world.discord.cards(NEEDS_YOU).length, 1);
 
   world.model.fault = () => undefined;
   await world.advanceTo('2026-10-12T08:30:00Z');
-  assert.deepEqual(statusLines(world).slice(1), ['Gateway quota is back for Miner and registration']);
-  assert.match(world.discord.cards(NEEDS_YOU)[0]!.text, /^Gateway quota for Miner and registration is back, at 01:30 PT\.$/);
+  assert.deepEqual(statusLines(world).slice(1), ['Gateway quota is back for Miner, registration and mail']);
+  assert.match(world.discord.cards(NEEDS_YOU)[0]!.text, /^Gateway quota for Miner, registration and mail is back, at 01:30 PT\.$/);
 });
 
 test('new-api’s 403 for a key’s quota takes only that role’s providers', async (t) => {
@@ -580,7 +580,7 @@ test('a provider further down its role’s list is still tried again: a request 
   const before = asked(world).length;
   await world.advanceTo('2026-10-12T08:30:00Z');
   assert.deepEqual(asked(world).slice(before), ['miner@plus', 'miner@openrouter']);
-  assert.deepEqual(statusLines(world).slice(2), ['ChatGPT Plus is back · Miner and registration on ChatGPT Plus', 'OpenRouter is back']);
+  assert.deepEqual(statusLines(world).slice(2), ['ChatGPT Plus is back · Miner and registration on ChatGPT Plus', 'OpenRouter is back · mail on OpenRouter']);
   assert.match(world.discord.cards(NEEDS_YOU)[0]!.text, /^OpenRouter's balance is back, at 01:30 PT\.$/);
 
   // Nothing is due now, so the order is the order again.
@@ -651,7 +651,7 @@ test('a card Discord wouldn’t shrink is shrunk at the bot’s next start', asy
   world.discord.uneditable.add(NEEDS_YOU);
   world.model.fault = () => undefined;
   await world.advanceTo('2026-10-12T08:30:00Z');
-  assert.ok(statusLines(world).includes('OpenRouter is back · Miner and registration on OpenRouter'), 'it is back');
+  assert.ok(statusLines(world).includes('OpenRouter is back · Miner, registration and mail on OpenRouter'), 'it is back');
   assert.match(card(), /OpenRouter is out of balance/, 'and Discord took no edit');
 
   world.discord.uneditable.delete(NEEDS_YOU);

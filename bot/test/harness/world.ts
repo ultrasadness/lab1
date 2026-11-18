@@ -35,6 +35,7 @@ export const TOKENS = {
   productHunt: 'product-hunt-test-token',
   minerKey: 'new-api-key-miner-test',
   registrationKey: 'new-api-key-registration-test',
+  mailKey: 'new-api-key-mail-test',
   deployKey: '-----BEGIN OPENSSH PRIVATE KEY-----\nthe Personal database deploy key\n-----END OPENSSH PRIVATE KEY-----\n',
   bitwardenClientId: 'user.0b1c2d3e-0000-4000-8000-000000000001',
   bitwardenClientSecret: 'bitwarden-client-secret-test',
@@ -138,6 +139,7 @@ export async function startWorld(options: {
   writeFileSync(join(credentials, 'producthunt-token'), `${TOKENS.productHunt}\n`);
   writeFileSync(join(credentials, 'newapi-key-miner'), `${TOKENS.minerKey}\n`);
   writeFileSync(join(credentials, 'newapi-key-registration'), `${TOKENS.registrationKey}\n`);
+  writeFileSync(join(credentials, 'newapi-key-mail'), `${TOKENS.mailKey}\n`);
   writeFileSync(join(credentials, 'personal-database-deploy-key'), TOKENS.deployKey, { mode: 0o600 });
   writeFileSync(join(credentials, 'bitwarden-api-key'), options.bitwardenApiKey ?? JSON.stringify({ client_id: TOKENS.bitwardenClientId, client_secret: TOKENS.bitwardenClientSecret }));
   writeFileSync(join(credentials, 'bitwarden-master-password'), TOKENS.bitwardenMasterPassword);
@@ -167,7 +169,7 @@ export async function startWorld(options: {
   });
   const productHunt = await FakeProductHunt.start({ token: TOKENS.productHunt });
   const browser = await FakeBrowser.start(join(dir, 'browser.sock'));
-  const model = await FakeModelProvider.start({ apiKeys: [TOKENS.minerKey, TOKENS.registrationKey] });
+  const model = await FakeModelProvider.start({ apiKeys: [TOKENS.minerKey, TOKENS.registrationKey, TOKENS.mailKey] });
   const healthchecks = await FakeHealthchecks.start(clock);
   const gmail = await FakeGmail.start({
     clock,
@@ -200,9 +202,10 @@ export async function startWorld(options: {
     roles: {
       miner: { providers: [{ name: 'openrouter', model: 'judge-model-1' }] },
       registration: { providers: [{ name: 'openrouter', model: 'judge-model-1' }] },
+      mail: { providers: [{ name: 'openrouter', model: 'judge-model-1' }] },
     },
     prices: { 'judge-model-1': { input: 2, cached: 0.2, output: 10 } },
-    budgets: { miner: 6, registration: 20 },
+    budgets: { miner: 6, registration: 20, mail: 5 },
     forwarder: { host: '127.0.0.1', port: 0 },
     pi: {
       command: options.piCommand?.(join(root, 'pi/pi-run')) ?? ['sh', join(root, 'pi/pi-run')],

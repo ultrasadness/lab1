@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 /** The model roles brought up so far. Each maps to `role@provider` names in new-api. */
-export const ROLES = ['miner', 'registration'] as const;
+export const ROLES = ['miner', 'registration', 'mail'] as const;
 export type Role = (typeof ROLES)[number];
 
-/** The roles that read mail text (ADR 0010). The mail role itself arrives with #61. */
+/** The roles that read mail text (ADR 0010): the mail role, of mail runs and Corrections of mail (#61). */
 export const MAIL_CLEARED_ROLES = ['mail'];
 
 /** Every kind of Pi run the Assistant makes. Each one is capped. */
@@ -111,8 +111,8 @@ export interface Config {
   /** The list price of each model a role's provider serves, by model, which notional dollars are counted at. */
   prices: Record<string, ListPrice>;
   /**
-   * What each role may spend, in notional dollars (ADR 0011): the Miner per Miner date, and registration per Pacific
-   * day. Only the Miner's holds runs yet; the registration budget does from #69.
+   * What each role may spend, in notional dollars (ADR 0011): the Miner per Miner date, and registration and mail per
+   * Pacific day. Only the Miner's holds runs yet; the registration and mail budgets do from #69.
    */
   budgets: Record<Role, number>;
   /** Where the forwarder listens for the Pi container, and the URL Pi uses to reach it. */

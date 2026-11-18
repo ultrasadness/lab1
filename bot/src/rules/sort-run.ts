@@ -8,7 +8,7 @@ import { capText, type PiRunner, type RunResult } from '../pi-runs.ts';
 import type { Store } from '../store.ts';
 import { cardFits } from './proposals.ts';
 import type { RuleScope } from './rules.ts';
-import { readSort, type SortedItem } from './sorting.ts';
+import { readSort, type Proposal, type SortedItem } from './sorting.ts';
 
 export async function runSort(options: {
   pi: PiRunner;
@@ -24,6 +24,8 @@ export async function runSort(options: {
   item: SortedItem;
   interestScope: string;
   prompt: string;
+  /** Why a proposal can't go to the person as it stands, if it can't, which the run is told so it may sort again. */
+  check?: (proposal: Proposal) => string | undefined;
 }): Promise<'stopped' | void> {
   const { pi, store, clock, log, correction, item, interestScope, scope } = options;
   const result = await pi.run({
@@ -36,6 +38,8 @@ export async function runSort(options: {
       const read = readSort(record, { scope, rules, interestScope });
       if (!read.ok) return read;
       const { sort: s, rulesApplied } = read;
+      const problem = s.outcome === 'proposed' ? options.check?.(s.proposal) : undefined;
+      if (problem) return { ok: false, error: problem };
       if (s.outcome === 'proposed' && !cardFits(s.proposal, item, rulesApplied)) {
         return { ok: false, error: 'That proposal is too long to show on one Discord card. Sort the Correction otherwise.' };
       }

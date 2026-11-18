@@ -4,8 +4,8 @@
 // more if the bot says the Dossier is too long; for a Walkthrough preparation run, one record_walkthrough call, and
 // another if the bot refuses it and the test scripts one; for a Correction's sorting run, one record_sort call, and
 // another if the bot refuses it and the test scripts one; for a fill run, a snapshot, then the fixed actions the test
-// scripts from what that snapshot shows, one a turn or several in one, until one of them is finish. Usage is scripted
-// too.
+// scripts from what that snapshot shows, one a turn or several in one, until one of them is finish; for a mail run, one
+// record_mail call, and another if the bot refuses it and the test scripts one. Usage is scripted too.
 //
 // A test can also have new-api answer a `role@provider` name with a `Fault` in place of a reply, and spend or revoke a
 // key, which `GET /api/usage/token/` then tells as new-api does. What new-api does to a provider's failure comes from
@@ -168,9 +168,28 @@ export const sorted = (sort: ScriptedSort['sort'], parts: Partial<Omit<ScriptedS
   ...parts,
 });
 
+/** A mail's sort as the model records it through record_mail. */
+export interface ScriptedMailSort {
+  kind: 'asks-for-reply' | 'needs-the-person' | 'for-the-record';
+  gist: string;
+  wants: string | null;
+  invite: boolean | null;
+  rulesApplied: string[];
+}
+
+/** A mail sorted into a kind, with a gist and nothing else set but what is given. */
+export const mailSorted = (kind: ScriptedMailSort['kind'], parts: Partial<Omit<ScriptedMailSort, 'kind'>> = {}): ScriptedMailSort => ({
+  kind,
+  gist: 'A mail from the Product',
+  wants: kind === 'needs-the-person' ? 'Confirm the account’s settings' : null,
+  invite: null,
+  rulesApplied: [],
+  ...parts,
+});
+
 /** One conversation the provider saw: a run, with the Launches it was asked to judge, write a Dossier of, or sort a Correction of. */
 export interface SeenRun {
-  kind: 'miner-judging' | 'dossier' | 'walkthrough-preparation' | 'correction-sorting' | 'fill' | 'other';
+  kind: 'miner-judging' | 'dossier' | 'walkthrough-preparation' | 'correction-sorting' | 'fill' | 'mail' | 'other';
   /** The page a fill run fills. */
   page: number | null;
   /** What each fixed action of a fill run got back, in order, each with the tool called. */
@@ -190,6 +209,8 @@ export interface SeenRun {
   walkthroughReplies: string[];
   /** What each record_sort call got back, in order. */
   sortReplies: string[];
+  /** What each record_mail call got back, in order. */
+  mailReplies: string[];
   /** Whether the model ran away in this run: it recorded nothing and called its tool turn after turn. */
   ranAway: boolean;
   /** The model requests the run made, its first included. */
@@ -257,6 +278,11 @@ export class FakeModelProvider {
   get fillRuns(): SeenRun[] {
     return this.runs.filter((r) => r.kind === 'fill');
   }
+
+  /** The mail runs seen, oldest first. */
+  get mailRuns(): SeenRun[] {
+    return this.runs.filter((r) => r.kind === 'mail');
+  }
   /**
    * What the model does in a fill run once it has a snapshot: its turns, in order, each one fixed action or several. An
    * empty list ends the run with no finish. By default, each key of the Walkthrough goes into the field with its label,
@@ -302,6 +328,10 @@ export class FakeModelProvider {
   sort: (run: SeenRun) => ScriptedSort | 'none' = () => sorted('fix-only');
   /** What the model records after the bot refused its sort; `'none'` records nothing more. */
   sortAgain: (run: SeenRun, refusal: string) => ScriptedSort | 'none' = () => 'none';
+  /** What the model records in a mail run; `'none'` records nothing. By default, for the record. */
+  mail: (run: SeenRun) => ScriptedMailSort | 'none' = () => mailSorted('for-the-record');
+  /** What the model records after the bot refused its mail's sort; `'none'` records nothing more. */
+  mailAgain: (run: SeenRun, refusal: string) => ScriptedMailSort | 'none' = () => 'none';
   usage: ScriptedUsage = { prompt_tokens: 2400, completion_tokens: 380, cached_tokens: 0 };
   /** The model id the upstream reports in its responses. */
   upstreamModel = 'judge-model-1';
@@ -398,9 +428,10 @@ export class FakeModelProvider {
       const walkthrough = tools.includes('record_walkthrough');
       const sorting = tools.includes('record_sort');
       const fill = tools.includes('finish');
+      const mail = tools.includes('record_mail');
       const user = body.messages.filter((m) => m.role === 'user').map(text).join('\n');
       const run: SeenRun = {
-        kind: judging ? 'miner-judging' : dossier ? 'dossier' : walkthrough ? 'walkthrough-preparation' : sorting ? 'correction-sorting' : fill ? 'fill' : 'other',
+        kind: judging ? 'miner-judging' : dossier ? 'dossier' : walkthrough ? 'walkthrough-preparation' : sorting ? 'correction-sorting' : fill ? 'fill' : mail ? 'mail' : 'other',
         page: fill ? Number(user.match(/^Fill page (\d+)/m)?.[1] ?? 0) : null,
         fillReplies: [],
         fillSteps: [],
@@ -411,6 +442,7 @@ export class FakeModelProvider {
         dossierReplies: [],
         walkthroughReplies: [],
         sortReplies: [],
+        mailReplies: [],
         ranAway: false,
         requests: 0,
       };
@@ -522,6 +554,12 @@ export class FakeModelProvider {
       const next = startsRun ? this.sort(run) : replied !== undefined && !/^Recorded/.test(replied) ? this.sortAgain(run, replied) : 'none';
       if (next === 'none') reply(startsRun ? 'Nothing to record.' : 'Recorded.');
       else callTools([next as unknown as Record<string, unknown>], 'record_sort');
+    } else if (run?.kind === 'mail') {
+      const replied = body.messages.at(-1)?.role === 'tool' ? text(body.messages.at(-1)!) : undefined;
+      if (replied !== undefined) run.mailReplies.push(replied);
+      const next = startsRun ? this.mail(run) : replied !== undefined && !/^Recorded/.test(replied) ? this.mailAgain(run, replied) : 'none';
+      if (next === 'none') reply(startsRun ? 'Nothing to record.' : 'Recorded.');
+      else callTools([next as unknown as Record<string, unknown>], 'record_mail');
     } else {
       reply('Recorded.');
     }

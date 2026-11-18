@@ -6,8 +6,9 @@
 // and the person's Corrections of them, Approvals and Registrations, run and model-request records with each run's
 // Rule-set commit and each request's notional dollars, the providers that dropped out, the index of raw inputs kept
 // outside git, the files waiting to be written to the Personal database, the times its history diverged, and the mail
-// ledger: the Signup mailbox's history id, each mail by its Gmail message id with its dispositions, and the cards of
-// security alerts.
+// ledger: the Signup mailbox's history id, each mail by its Gmail message id with its dispositions, the cards of
+// security alerts, each mail run's sort, a sorted mail's messages on Discord and its Corrections, and the mail waiting
+// for a Reply draft.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Role } from './config.ts';
 import type { PageRead } from './browser.ts';
@@ -566,13 +567,90 @@ export const BEFORE_FINAL_PRESS: readonly RegistrationState[] = ['held', 'queued
 export const beforeFinalPress = (r: Pick<StoredRegistration, 'state'>) => BEFORE_FINAL_PRESS.includes(r.state);
 
 /**
- * Where a mail stands, by the rows of the ledger (ADR 0007): *unmatched*; *held*, with why; *put to the person*.
- * A mail matched to a Registration and within the cap has none until the mail run that sorts it, which #61 adds.
+ * Where a mail stands, by the rows of the ledger (ADR 0007): *unmatched*; *held*, with why; *put to the person*; *not
+ * handled*, waiting for a mail route or stopped; *shown to a model*, once a mail run sorted it (#61). A mail matched to
+ * a Registration and within the cap has none until its mail run.
  */
-export type MailDisposition = 'unmatched' | 'held' | 'put-to-person';
+export type MailDisposition = 'unmatched' | 'held' | 'put-to-person' | 'not-handled' | 'shown-to-model';
 
 /** Why a mail is held, set on its arrival and never checked again (ADR 0007). */
 export type HoldReason = 'over-the-cap';
+
+/** Why a mail run didn't handle a mail: no mail route answered, or its run stopped at a cap or failed (#61). */
+export type NotHandledReason = 'waiting' | 'stopped';
+
+/** The kinds a mail run sorts matched mail into (#32). */
+export const MAIL_KINDS = ['asks-for-reply', 'needs-the-person', 'for-the-record'] as const;
+export type MailKind = (typeof MAIL_KINDS)[number];
+
+/** A matched mail as the ledger holds it, with no text of its own. */
+export interface LedgerMail {
+  messageId: string;
+  threadId: string;
+  receivedAt: string;
+  spam: boolean;
+  bulk: boolean;
+  productId: number;
+}
+
+/**
+ * What a mail run recorded of one mail (#61): its kind, a gist of a few words, what a mail that needs the person wants
+ * done, whether a waitlisted Product's mail is an invite, and the Rules it applied. A Correction's run adds another.
+ * The gist and what it wants are mail text, forgotten after 90 days like every copy of mail text on the VM (ADR 0010).
+ */
+export interface MailSort {
+  id: number;
+  messageId: string;
+  kind: MailKind;
+  gist: string | null;
+  wants: string | null;
+  invite: boolean | null;
+  rulesApplied: string[];
+  runId: string;
+  /** The Correction whose run made it, if one did. */
+  correctionId: number | null;
+  sortedAt: string;
+}
+
+/**
+ * A sorted or stopped mail's messages on Discord (#61): the silent message in its Product post of mail that asks for a
+ * reply, the `#needs-you` card of mail that needs the person, and the notice in the Product post of a mail run that
+ * stopped, each marked before it is sent (ADR 0007).
+ */
+export interface MailItem {
+  messageId: string;
+  /** Whether plain code found its reply address to be a no-reply one, so it gets no Reply draft. */
+  noReply: boolean;
+  postIntended: boolean;
+  postMessageId: string | null;
+  cardIntended: boolean;
+  cardMessageId: string | null;
+  /** When its card went out, from which it lapses. */
+  cardPostedAt: string | null;
+  cardEndedAt: string | null;
+  cardEndedBy: 'done' | 'lapse' | null;
+  noticeIntended: boolean;
+  noticeMessageId: string | null;
+  /** Why its latest mail run stopped, while it has a notice with Retry. */
+  stoppedWhy: string | null;
+  retryTappedAt: string | null;
+  /** What its messages last showed, so that an edit goes out only when that changes. */
+  shownKey: string | null;
+}
+
+/** A Correction the person made on a mail's message (#61). */
+export interface MailCorrection {
+  id: number;
+  messageId: string;
+  text: string;
+  submittedAt: string;
+  /** Why its run couldn't sort the mail again, when it couldn't. */
+  unapplied: string | null;
+  doneAt: string | null;
+}
+
+/** Why a mail waits for a Reply draft: it asks for a reply on arrival, the person tapped Draft reply, or a Correction. */
+export type DraftCause = 'arrival' | 'draft-reply' | 'correction';
 
 /** One mail of the Signup mailbox as the ledger records it on arrival, by its Gmail message id. */
 export interface RecordedMail {
@@ -788,6 +866,52 @@ CREATE TABLE mail_alerts (
   card_done_at TEXT
 );
 ALTER TABLE registrations ADD COLUMN handed_off_at TEXT;`,
+  },
+  {
+    name: "add mail runs' sorts, each sorted mail's messages on Discord, Corrections of mail, and the queue of mail waiting for a Reply draft (#61)",
+    sql: `CREATE TABLE mail_corrections (
+  id INTEGER PRIMARY KEY,
+  message_id TEXT NOT NULL REFERENCES mail(message_id),
+  text TEXT NOT NULL,
+  submitted_at TEXT NOT NULL,
+  unapplied TEXT,
+  done_at TEXT
+);
+CREATE INDEX mail_corrections_by_message ON mail_corrections(message_id);
+CREATE TABLE mail_sorts (
+  id INTEGER PRIMARY KEY,
+  message_id TEXT NOT NULL REFERENCES mail(message_id),
+  kind TEXT NOT NULL,
+  gist TEXT,
+  wants TEXT,
+  invite INTEGER,
+  rules_applied TEXT NOT NULL DEFAULT '[]',
+  run_id TEXT NOT NULL,
+  correction_id INTEGER REFERENCES mail_corrections(id),
+  sorted_at TEXT NOT NULL
+);
+CREATE INDEX mail_sorts_by_message ON mail_sorts(message_id);
+CREATE TABLE mail_items (
+  message_id TEXT PRIMARY KEY REFERENCES mail(message_id),
+  no_reply INTEGER NOT NULL DEFAULT 0,
+  post_intended INTEGER NOT NULL DEFAULT 0,
+  post_message_id TEXT,
+  card_intended INTEGER NOT NULL DEFAULT 0,
+  card_message_id TEXT,
+  card_posted_at TEXT,
+  card_ended_at TEXT,
+  card_ended_by TEXT,
+  notice_intended INTEGER NOT NULL DEFAULT 0,
+  notice_message_id TEXT,
+  stopped_why TEXT,
+  retry_tapped_at TEXT,
+  shown_key TEXT
+);
+CREATE TABLE reply_draft_queue (
+  message_id TEXT PRIMARY KEY REFERENCES mail(message_id),
+  cause TEXT NOT NULL,
+  queued_at TEXT NOT NULL
+);`,
   },
 ];
 
@@ -1163,9 +1287,116 @@ CREATE TABLE IF NOT EXISTS verifications (
   card_message_id TEXT,
   card_done_at TEXT
 );
+CREATE TABLE IF NOT EXISTS mail_corrections (
+  id INTEGER PRIMARY KEY,
+  message_id TEXT NOT NULL REFERENCES mail(message_id),
+  text TEXT NOT NULL,
+  submitted_at TEXT NOT NULL,
+  unapplied TEXT,
+  done_at TEXT
+);
+CREATE INDEX IF NOT EXISTS mail_corrections_by_message ON mail_corrections(message_id);
+CREATE TABLE IF NOT EXISTS mail_sorts (
+  id INTEGER PRIMARY KEY,
+  message_id TEXT NOT NULL REFERENCES mail(message_id),
+  kind TEXT NOT NULL,
+  gist TEXT,
+  wants TEXT,
+  invite INTEGER,
+  rules_applied TEXT NOT NULL DEFAULT '[]',
+  run_id TEXT NOT NULL,
+  correction_id INTEGER REFERENCES mail_corrections(id),
+  sorted_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS mail_sorts_by_message ON mail_sorts(message_id);
+CREATE TABLE IF NOT EXISTS mail_items (
+  message_id TEXT PRIMARY KEY REFERENCES mail(message_id),
+  no_reply INTEGER NOT NULL DEFAULT 0,
+  post_intended INTEGER NOT NULL DEFAULT 0,
+  post_message_id TEXT,
+  card_intended INTEGER NOT NULL DEFAULT 0,
+  card_message_id TEXT,
+  card_posted_at TEXT,
+  card_ended_at TEXT,
+  card_ended_by TEXT,
+  notice_intended INTEGER NOT NULL DEFAULT 0,
+  notice_message_id TEXT,
+  stopped_why TEXT,
+  retry_tapped_at TEXT,
+  shown_key TEXT
+);
+CREATE TABLE IF NOT EXISTS reply_draft_queue (
+  message_id TEXT PRIMARY KEY REFERENCES mail(message_id),
+  cause TEXT NOT NULL,
+  queued_at TEXT NOT NULL
+);
 `;
 
 type Row = Record<string, SQLInputValue>;
+
+const ledgerMailOf = (row: Row): LedgerMail => ({
+  messageId: String(row.message_id),
+  threadId: String(row.thread_id),
+  receivedAt: String(row.received_at),
+  spam: Boolean(row.spam),
+  bulk: Boolean(row.bulk),
+  productId: Number(row.product_id),
+});
+
+const mailSortOf = (row: Row): MailSort => ({
+  id: Number(row.id),
+  messageId: String(row.message_id),
+  kind: String(row.kind) as MailKind,
+  gist: textOrNull(row.gist),
+  wants: textOrNull(row.wants),
+  invite: row.invite === null ? null : Boolean(row.invite),
+  rulesApplied: JSON.parse(String(row.rules_applied)) as string[],
+  runId: String(row.run_id),
+  correctionId: row.correction_id === null ? null : Number(row.correction_id),
+  sortedAt: String(row.sorted_at),
+});
+
+const MAIL_ITEM_COLUMNS: Record<keyof Omit<MailItem, 'messageId'>, string> = {
+  noReply: 'no_reply',
+  postIntended: 'post_intended',
+  postMessageId: 'post_message_id',
+  cardIntended: 'card_intended',
+  cardMessageId: 'card_message_id',
+  cardPostedAt: 'card_posted_at',
+  cardEndedAt: 'card_ended_at',
+  cardEndedBy: 'card_ended_by',
+  noticeIntended: 'notice_intended',
+  noticeMessageId: 'notice_message_id',
+  stoppedWhy: 'stopped_why',
+  retryTappedAt: 'retry_tapped_at',
+  shownKey: 'shown_key',
+};
+
+const mailItemOf = (row: Row): MailItem => ({
+  messageId: String(row.message_id),
+  noReply: Boolean(row.no_reply),
+  postIntended: Boolean(row.post_intended),
+  postMessageId: textOrNull(row.post_message_id),
+  cardIntended: Boolean(row.card_intended),
+  cardMessageId: textOrNull(row.card_message_id),
+  cardPostedAt: textOrNull(row.card_posted_at),
+  cardEndedAt: textOrNull(row.card_ended_at),
+  cardEndedBy: textOrNull(row.card_ended_by) as MailItem['cardEndedBy'],
+  noticeIntended: Boolean(row.notice_intended),
+  noticeMessageId: textOrNull(row.notice_message_id),
+  stoppedWhy: textOrNull(row.stopped_why),
+  retryTappedAt: textOrNull(row.retry_tapped_at),
+  shownKey: textOrNull(row.shown_key),
+});
+
+const mailCorrectionOf = (row: Row): MailCorrection => ({
+  id: Number(row.id),
+  messageId: String(row.message_id),
+  text: String(row.text),
+  submittedAt: String(row.submitted_at),
+  unapplied: textOrNull(row.unapplied),
+  doneAt: textOrNull(row.done_at),
+});
 
 const tokensOf = (row: Row): Tokens | null =>
   row.input_tokens === null ? null : { input: Number(row.input_tokens), cached: Number(row.cached_tokens), output: Number(row.output_tokens) };
@@ -2700,6 +2931,230 @@ export class Store {
       }
       if (m.alert) this.#db.prepare('INSERT INTO mail_alerts (message_id, name, sender) VALUES (?, ?, ?)').run(m.messageId, m.alert.name, m.alert.sender);
     });
+  }
+
+  // ---------- Mail runs (#61) ----------
+
+  /**
+   * Matched mail waiting for its mail run, oldest first: with no disposition yet, waiting for a mail route, or stopped
+   * and tapped for Retry since. Mail a Registration took as its verification mail is plain code's alone (#58).
+   */
+  queuedMail(): LedgerMail[] {
+    return this.#db
+      .prepare(
+        `SELECT m.* FROM mail m LEFT JOIN mail_items i ON i.message_id = m.message_id
+         WHERE m.product_id IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM verifications v WHERE v.message_id = m.message_id)
+           AND NOT EXISTS (SELECT 1 FROM mail_sorts s WHERE s.message_id = m.message_id)
+           AND COALESCE((SELECT d.disposition || ':' || COALESCE(d.reason, '') FROM mail_dispositions d WHERE d.message_id = m.message_id ORDER BY d.id DESC LIMIT 1), 'none')
+             IN ('none', 'not-handled:waiting', CASE WHEN i.retry_tapped_at IS NOT NULL THEN 'not-handled:stopped' END)
+         ORDER BY m.received_at, m.message_id`,
+      )
+      .all()
+      .map(ledgerMailOf);
+  }
+
+  /** A matched mail of the ledger. */
+  ledgerMail(messageId: string): LedgerMail | undefined {
+    const row = this.#db.prepare('SELECT * FROM mail WHERE message_id = ? AND product_id IS NOT NULL').get(messageId);
+    return row ? ledgerMailOf(row) : undefined;
+  }
+
+  /** The latest disposition of a mail, if it has one. */
+  latestDisposition(messageId: string): { disposition: MailDisposition; reason: string | null } | undefined {
+    const row = this.#db.prepare('SELECT disposition, reason FROM mail_dispositions WHERE message_id = ? ORDER BY id DESC LIMIT 1').get(messageId);
+    return row ? { disposition: String(row.disposition) as MailDisposition, reason: textOrNull(row.reason) } : undefined;
+  }
+
+  /** Adds a mail's disposition. A move a Retry led to says so in its cause, and the Retry is then spent. */
+  #addDisposition(messageId: string, disposition: MailDisposition, reason: string | null, at: string): void {
+    const retried = this.mailItem(messageId)?.retryTappedAt;
+    this.#db.prepare('INSERT INTO mail_dispositions (message_id, disposition, reason, cause, at) VALUES (?, ?, ?, ?, ?)').run(messageId, disposition, reason, retried ? 'retry' : 'mail-run', at);
+  }
+
+  #ensureMailItem(messageId: string): void {
+    this.#db.prepare('INSERT INTO mail_items (message_id) VALUES (?) ON CONFLICT (message_id) DO NOTHING').run(messageId);
+  }
+
+  /** Marks a mail *not handled · waiting* for a mail route, unless it waits already. Returns whether it was marked. */
+  saveMailWaiting(messageId: string, at: string): boolean {
+    return this.#transaction(() => {
+      const latest = this.latestDisposition(messageId);
+      if (latest?.disposition === 'not-handled' && latest.reason === 'waiting') return false;
+      this.#addDisposition(messageId, 'not-handled', 'waiting', at);
+      return true;
+    });
+  }
+
+  /** Marks a mail *not handled · stopped*, saying why, for its notice with Retry. */
+  saveMailStopped(messageId: string, why: string, at: string): void {
+    this.#transaction(() => {
+      this.#addDisposition(messageId, 'not-handled', 'stopped', at);
+      this.#ensureMailItem(messageId);
+      this.#db.prepare('UPDATE mail_items SET stopped_why = ?, retry_tapped_at = NULL WHERE message_id = ?').run(why, messageId);
+    });
+  }
+
+  /** Keeps Retry on a stopped mail's notice, once. Returns whether it was kept. */
+  saveMailRetry(messageId: string, at: string): boolean {
+    return this.#transaction(() => {
+      const latest = this.latestDisposition(messageId);
+      if (latest?.disposition !== 'not-handled' || latest.reason !== 'stopped') return false;
+      return this.#db.prepare('UPDATE mail_items SET retry_tapped_at = ? WHERE message_id = ? AND retry_tapped_at IS NULL').run(at, messageId).changes > 0;
+    });
+  }
+
+  /**
+   * Keeps what a mail run recorded of a mail, in one transaction with what it changes in the Reply draft queue: a
+   * draft queued, or one queued but not yet written withdrawn. Its first marks the mail *shown to a model*, with
+   * whether its reply address is a no-reply one; a Correction's adds a sort and no disposition.
+   */
+  saveMailSort(sort: Omit<MailSort, 'id'>, noReply: boolean, draft: { queue: DraftCause } | 'withdraw' | null): void {
+    this.#transaction(() => {
+      this.#db
+        .prepare('INSERT INTO mail_sorts (message_id, kind, gist, wants, invite, rules_applied, run_id, correction_id, sorted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(sort.messageId, sort.kind, sort.gist, sort.wants, sort.invite === null ? null : sort.invite ? 1 : 0, JSON.stringify(sort.rulesApplied), sort.runId, sort.correctionId, sort.sortedAt);
+      if (sort.correctionId === null) this.#addDisposition(sort.messageId, 'shown-to-model', null, sort.sortedAt);
+      this.#ensureMailItem(sort.messageId);
+      this.#db.prepare('UPDATE mail_items SET no_reply = ?, stopped_why = NULL WHERE message_id = ?').run(noReply ? 1 : 0, sort.messageId);
+      if (draft === 'withdraw') this.#db.prepare('DELETE FROM reply_draft_queue WHERE message_id = ?').run(sort.messageId);
+      else if (draft) this.queueReplyDraft(sort.messageId, draft.queue, sort.sortedAt);
+    });
+  }
+
+  /** The latest sort of a mail, a Correction's if it has one. */
+  latestMailSort(messageId: string): MailSort | undefined {
+    const row = this.#db.prepare('SELECT * FROM mail_sorts WHERE message_id = ? ORDER BY id DESC LIMIT 1').get(messageId);
+    return row ? mailSortOf(row) : undefined;
+  }
+
+  /** Forgets the mail text that sorts made before a time: their gists and what they want done (ADR 0010). */
+  forgetMailText(before: string): number {
+    return Number(this.#db.prepare('UPDATE mail_sorts SET gist = NULL, wants = NULL WHERE sorted_at < ? AND (gist IS NOT NULL OR wants IS NOT NULL)').run(before).changes);
+  }
+
+  mailItem(messageId: string): MailItem | undefined {
+    const row = this.#db.prepare('SELECT * FROM mail_items WHERE message_id = ?').get(messageId);
+    return row ? mailItemOf(row) : undefined;
+  }
+
+  /**
+   * The mail whose messages may still have to go out or change, oldest first: each card still open or ended since a
+   * time, each stopped mail, and each mail sorted or corrected since that time. Older messages change only at a tap,
+   * which shows them itself.
+   */
+  mailItemsToShow(since: string): MailItem[] {
+    return this.#db
+      .prepare(
+        `SELECT i.* FROM mail_items i JOIN mail m ON m.message_id = i.message_id
+         WHERE i.stopped_why IS NOT NULL
+            OR (i.card_intended = 1 AND (i.card_ended_at IS NULL OR i.card_ended_at >= ?))
+            OR EXISTS (SELECT 1 FROM mail_sorts s WHERE s.message_id = i.message_id AND s.sorted_at >= ?)
+            OR EXISTS (SELECT 1 FROM mail_corrections c WHERE c.message_id = i.message_id AND (c.done_at IS NULL OR c.done_at >= ?))
+         ORDER BY m.received_at, m.message_id`,
+      )
+      .all(since, since, since)
+      .map(mailItemOf);
+  }
+
+  saveMailItem(messageId: string, changes: Partial<Omit<MailItem, 'messageId'>>): void {
+    const sets = Object.entries(changes).filter(([, v]) => v !== undefined);
+    if (sets.length === 0) return;
+    this.#ensureMailItem(messageId);
+    const value = (v: unknown): SQLInputValue => (typeof v === 'boolean' ? (v ? 1 : 0) : (v as SQLInputValue));
+    this.#db
+      .prepare(`UPDATE mail_items SET ${sets.map(([k]) => `${MAIL_ITEM_COLUMNS[k as keyof typeof MAIL_ITEM_COLUMNS]} = ?`).join(', ')} WHERE message_id = ?`)
+      .run(...sets.map(([, v]) => value(v)), messageId);
+  }
+
+  /**
+   * Every mail's card that went out, isn't ended by Done or its lapse, and is open: its mail still needs the person.
+   * One a Correction sorted otherwise is a line already, and never lapses.
+   */
+  openMailCards(): MailItem[] {
+    return this.#db
+      .prepare(
+        `SELECT i.* FROM mail_items i
+         WHERE i.card_posted_at IS NOT NULL AND i.card_ended_at IS NULL
+           AND (SELECT s.kind FROM mail_sorts s WHERE s.message_id = i.message_id ORDER BY s.id DESC LIMIT 1) = 'needs-the-person'
+         ORDER BY i.card_posted_at`,
+      )
+      .all()
+      .map(mailItemOf);
+  }
+
+  /** The ids of a mail's Corrections, oldest first. */
+  mailCorrectionIds(messageId: string): number[] {
+    return this.#db.prepare('SELECT id FROM mail_corrections WHERE message_id = ? ORDER BY id').all(messageId).map((row) => Number(row.id));
+  }
+
+  /** Ends a mail's card by Done or its lapse, once. Returns whether this ended it. */
+  endMailCard(messageId: string, by: 'done' | 'lapse', at: string): boolean {
+    return this.#db.prepare('UPDATE mail_items SET card_ended_at = ?, card_ended_by = ? WHERE message_id = ? AND card_ended_at IS NULL').run(at, by, messageId).changes > 0;
+  }
+
+  /**
+   * Queues a mail for a Reply draft, which #62's run writes, unless it is queued already. Returns whether this queued
+   * it. A Correction that finds the mail needs no reply withdraws a draft still queued (`saveMailSort`).
+   */
+  queueReplyDraft(messageId: string, cause: DraftCause, at: string): boolean {
+    return this.#db.prepare('INSERT INTO reply_draft_queue (message_id, cause, queued_at) VALUES (?, ?, ?) ON CONFLICT (message_id) DO NOTHING').run(messageId, cause, at).changes > 0;
+  }
+
+  replyDraftQueued(messageId: string): { cause: DraftCause; queuedAt: string } | undefined {
+    const row = this.#db.prepare('SELECT cause, queued_at FROM reply_draft_queue WHERE message_id = ?').get(messageId);
+    return row ? { cause: String(row.cause) as DraftCause, queuedAt: String(row.queued_at) } : undefined;
+  }
+
+  saveMailCorrection(c: Pick<MailCorrection, 'messageId' | 'text' | 'submittedAt'>): number {
+    return Number(this.#db.prepare('INSERT INTO mail_corrections (message_id, text, submitted_at) VALUES (?, ?, ?)').run(c.messageId, c.text, c.submittedAt).lastInsertRowid);
+  }
+
+  mailCorrection(id: number): MailCorrection | undefined {
+    const row = this.#db.prepare('SELECT * FROM mail_corrections WHERE id = ?').get(id);
+    return row ? mailCorrectionOf(row) : undefined;
+  }
+
+  /** A mail's Correction whose work isn't done, if it has one. */
+  openMailCorrection(messageId: string): MailCorrection | undefined {
+    const row = this.#db.prepare('SELECT * FROM mail_corrections WHERE message_id = ? AND done_at IS NULL ORDER BY id LIMIT 1').get(messageId);
+    return row ? mailCorrectionOf(row) : undefined;
+  }
+
+  unfinishedMailCorrections(): MailCorrection[] {
+    return this.#db.prepare('SELECT * FROM mail_corrections WHERE done_at IS NULL ORDER BY id').all().map(mailCorrectionOf);
+  }
+
+  /** Mail Corrections whose mail was sorted again, and whose sort isn't shown yet. */
+  unsortedMailCorrections(): MailCorrection[] {
+    return this.#db
+      .prepare(
+        `SELECT c.* FROM mail_corrections c LEFT JOIN sorts ON sorts.correction = 'mail:' || c.id
+         WHERE c.done_at IS NOT NULL AND c.unapplied IS NULL AND sorts.shown_at IS NULL
+         ORDER BY c.id`,
+      )
+      .all()
+      .map(mailCorrectionOf);
+  }
+
+  saveMailCorrectionUnapplied(id: number, why: string): void {
+    this.#db.prepare('UPDATE mail_corrections SET unapplied = ? WHERE id = ?').run(why, id);
+  }
+
+  saveMailCorrectionDone(id: number, at: string): void {
+    this.#db.prepare('UPDATE mail_corrections SET done_at = ? WHERE id = ? AND done_at IS NULL').run(at, id);
+  }
+
+  /** The sort a mail's Correction made, if its run recorded one. */
+  mailSortOfCorrection(correctionId: number): MailSort | undefined {
+    const row = this.#db.prepare('SELECT * FROM mail_sorts WHERE correction_id = ? ORDER BY id DESC LIMIT 1').get(correctionId);
+    return row ? mailSortOf(row) : undefined;
+  }
+
+  /** The sort a mail had before a Correction's. */
+  mailSortBefore(messageId: string, sortId: number): MailSort | undefined {
+    const row = this.#db.prepare('SELECT * FROM mail_sorts WHERE message_id = ? AND id < ? ORDER BY id DESC LIMIT 1').get(messageId, sortId);
+    return row ? mailSortOf(row) : undefined;
   }
 
   /** When Gmail received each of a Product's mails that count toward its cap, received after `after` and before `before`. */

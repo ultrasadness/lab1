@@ -21,10 +21,14 @@ export async function delivered(world: World, ...mail: Mail[]): Promise<string[]
 
 /**
  * Codemind's Walkthrough approved, and its Registration waiting for verification after the final press, or
- * *registered* when its Walkthrough says it logs in straight away.
+ * *registered* or *waitlisted* as its Walkthrough says what happens on submit, by a bot started with `start`'s options.
  */
-export async function registered(t: { after(fn: () => Promise<void>): void }, onSubmit?: 'logged-in'): Promise<World> {
-  const world = await walkthroughPut(t, WITH_PASSWORD, onSubmit ? { change: (w) => ({ ...w, onSubmit }) } : {});
+export async function registered(
+  t: { after(fn: () => Promise<void>): void },
+  onSubmit?: 'logged-in' | 'waitlist',
+  start?: NonNullable<Parameters<typeof walkthroughPut>[2]>['start'],
+): Promise<World> {
+  const world = await walkthroughPut(t, WITH_PASSWORD, { ...(onSubmit ? { change: (w) => ({ ...w, onSubmit }) } : {}), ...(start ? { start } : {}) });
   await approve(world);
   await world.assistant.whenIdle();
   return world;

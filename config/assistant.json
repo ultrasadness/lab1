@@ -42,7 +42,8 @@
   },
   "roles": {
     "miner": { "providers": [{ "name": "openrouter", "model": "nvidia/nemotron-3-ultra-550b-a55b:free" }] },
-    "registration": { "providers": [{ "name": "openrouter", "model": "nvidia/nemotron-3-ultra-550b-a55b:free" }] }
+    "registration": { "providers": [{ "name": "openrouter", "model": "nvidia/nemotron-3-ultra-550b-a55b:free" }] },
+    "mail": { "providers": [{ "name": "openrouter", "model": "nvidia/nemotron-3-ultra-550b-a55b:free" }] }
   },
   "prices": {
     "nvidia/nemotron-3-ultra-550b-a55b:free": { "input": 0, "cached": 0, "output": 0 },
@@ -50,7 +51,8 @@
   },
   "budgets": {
     "miner": 6,
-    "registration": 20
+    "registration": 20,
+    "mail": 5
   },
   "forwarder": {
     "host": "172.17.0.1",

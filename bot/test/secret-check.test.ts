@@ -15,6 +15,7 @@ const TOKEN_VALUES: Record<string, string> = {
   'producthunt-token': TOKENS.productHunt,
   'newapi-key-miner': TOKENS.minerKey,
   'newapi-key-registration': TOKENS.registrationKey,
+  'newapi-key-mail': TOKENS.mailKey,
   'personal-database-deploy-key': TOKENS.deployKey.trim(),
   'bitwarden-api-key': TOKENS.bitwardenClientSecret,
   'bitwarden-master-password': TOKENS.bitwardenMasterPassword,

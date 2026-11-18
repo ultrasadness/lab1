@@ -82,7 +82,7 @@ node -e 'const t=require("fs").readFileSync(process.env.HOME+"/lab1-gmail-spike/
 
 `sudo ops/bitwarden/trial` 在真实账号上运行机器人的 `bw` 命令：它创建一个条目再读回来，遇到第一个机器人用不了的答复就报 TRIAL FAILED，而且不打印任何值。每次运行只要走到创建这一步，就会留下一个名为 `lab1 bw trial` 的条目，由这个人删除。
 
-机器人的单元只交付机器人现在读取的令牌：`discord-bot-token`、`producthunt-token`、`newapi-key-miner`、`newapi-key-registration`、`personal-database-deploy-key`、`healthchecks-ping-bot`、`bitwarden-api-key`、`bitwarden-master-password`、`gmail-client-secret` 和 `gmail-refresh-token`。之后读取别的令牌的 ticket，会在 `ops/systemd/assistant.service` 里加上它的 `LoadCredential=` 一行：只要这个单元和机器人读取的名字不一致，`ops/test/token.test.ts` 就会失败。
+机器人的单元只交付机器人现在读取的令牌：`discord-bot-token`、`producthunt-token`、`newapi-key-miner`、`newapi-key-registration`、`newapi-key-mail`、`personal-database-deploy-key`、`healthchecks-ping-bot`、`bitwarden-api-key`、`bitwarden-master-password`、`gmail-client-secret` 和 `gmail-refresh-token`。之后读取别的令牌的 ticket，会在 `ops/systemd/assistant.service` 里加上它的 `LoadCredential=` 一行：只要这个单元和机器人读取的名字不一致，`ops/test/token.test.ts` 就会失败。
 
 ### new-api 的渠道和角色密钥
 
@@ -90,7 +90,8 @@ forwarder 向 new-api 请求一个角色的模型时，用的名字是 `<role>@<
 
 - 一个该 provider 类型的渠道，它的模型只有这一个名字，并带一条从这个名字到 provider 所服务模型的模型重定向，比如 `{"miner@openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free"}`：这个模型就是 `config/assistant.json` 里 `roles.<role>.providers` 写明的那个，它的价格在 `prices` 里，它的 `label` 在 `providers` 里；
 - 在 new-api 的倍率设置里给这个名字一个价格，处于自用模式的 new-api 不要求这一项：这个价格就是 `prices` 给这个模型的价格，所以免费模型的输入和输出都是 $0；
-- 一个只属于这个角色的令牌，它的模型限制写明这个角色的每个 `<role>@<provider>` 名字，额度是这个角色 4 周的预算（ADR 0011）；mail 角色的令牌放在 `mail` 分组里（ADR 0010），`providers` 里的 `mailGroup` 标明这个分组包含哪些路线。这个角色的名字必须对它的令牌所用的分组可用，否则 new-api 会返回 503 和 `model_not_found`。
+- 一个只属于这个角色的令牌，它的模型限制写明这个角色的每个 `<role>@<provider>` 名字，额度是这个角色 4 周的预算（ADR 0011）；mail 角色的令牌放在 `mail` 分组里（ADR 0010），`providers` 里的 `mailGroup` 标明这个分组包含哪些路线。这个角色的名字必须对它的令牌所用的分组可用，否则 new-api 会返回 503 和 `model_not_found`；
+- `mail` 分组里一条走 OpenRouter 的路线，它的渠道要设参数覆盖 `{"provider": {"data_collection": "deny"}}`，这样 mail 角色的请求就不会发到可能拿它训练的端点（ADR 0010）。没有这种端点的模型会返回 404，mail 角色的运行就会因此停下：先在 Playground 里试一下这个名字。
 
 一个角色的第二个 provider 就是以上各项再加一份，forwarder 按 `roles` 列出的顺序在它们之间做故障转移（`bot/README.md`）。
 

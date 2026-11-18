@@ -13,11 +13,12 @@ can't be written. #98 gives the live store a schema version, and migrations the 
 the VM as its own user (`ops/README.md`), and #85 gives it its healthchecks.io ping. #54 saves a Registration's password
 in the Password vault at its Approval, and refuses any model request, Discord message or commit holding a Secret.
 #56 fills an approved Registration's form page by page and presses each button by plain code. #57 reads the Signup
-mailbox, recording each mail in the ledger once, and #58 verifies a Registration from its verification mail.
+mailbox, recording each mail in the ledger once, #58 verifies a Registration from its verification mail, and #61 sorts
+each other matched mail with a mail run, giving each kind its treatment on Discord.
 
 | Path | What it is |
 |---|---|
-| `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane, which runs fill runs, then Corrections, then Walkthrough preparation, then the Miner, and the plain-code work that never waits in it, such as a Keep or an Approve; who may tap |
+| `bot/src/assistant.ts` | Starts every part and the schedule (the 01:00 PT catch-up, its 30-minute retries, the 06:00 PT late check); the background lane, which runs fill runs, then Corrections, then mail runs, then Walkthrough preparation, then the Miner, and the plain-code work that never waits in it, such as a Keep or an Approve; who may tap |
 | `bot/src/miner/` | Judging runs, the Day's line, the day post and `days/` file, the 3-date catch-up and Retry, and Corrections of a day's judgments with their sorting runs |
 | `bot/src/rules/` | Rules: each run's Rule files, its prompt's Rules section and the Rule budget; a Correction's sorting run; and the cards of proposed Rules and Interest scope changes, with Keep, Edit and Discard |
 | `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, the Product's folder in the Personal database, and the tries at one that can't be written |
@@ -28,7 +29,7 @@ mailbox, recording each mail in the ledger once, and #58 verifies a Registration
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
 | `bot/src/needs-you.ts` | Cards in the `#needs-you` text channel, each mentioning the person |
 | `bot/src/health-ping.ts` | The healthchecks.io ping, every 5 minutes while the bot is logged in to Discord and its store takes a write |
-| `bot/src/mail/` | The Signup mailbox: the Gmail API, the reader that records each mail in the ledger once, matching, the cap on bulk mail, the placeholders for Secrets, and the cards of security alerts |
+| `bot/src/mail/` | The Signup mailbox: the Gmail API, the reader that records each mail in the ledger once, matching, the cap on bulk mail, the placeholders for Secrets, the cards of security alerts, and the mail runs that sort matched mail, with each kind's message, the queue for Reply drafts, Retry and Corrections of mail |
 | `bot/src/password-vault.ts` | The Password vault: `bw` run once per operation, the password the bot makes, the item it goes in, the item that replaces one a form refused, and the read of a password for a fill by reference |
 | `bot/src/secret-guard.ts` | The last door: each Secret the bot holds, looked for by its exact value in every model request, Discord message and commit, and the notice to replace it |
 | `bot/src/forwarder.ts` | The Pi container's only endpoint: model requests with the role key, each sent to the first of its role's providers that can serve it and priced in notional dollars, run records, and a fill run's fixed actions |
@@ -232,7 +233,8 @@ don't arrive doesn't start. A record names the Rules it applied, and the bot tur
 load. Once a Correction's Launch is re-judged, a Miner-role run sorts the Correction. The day's file says what came of
 it, and a Correction declined for a Hard limit says so on its Launch's line in the day post too. A Walkthrough's
 Correction is sorted the same way, by a registration-role run that loads the Walkthrough/Registration Rules, and its
-Product's `registration.md` says what came of it. A proposed Rule, an amendment of a kept
+Product's `registration.md` says what came of it. A Correction of mail is sorted by a mail-role run that loads the mail
+Rules, and nothing of it goes to the Personal database. A proposed Rule, an amendment of a kept
 one or an Interest scope change goes to `#needs-you` as a purple card. Keep commits the Rule file or
 `profile/interest-scope.md` under the write lock, unless git changed what it replaces since the proposal, or a Rule
 would take its runs' Rules past the Rule budget, `rules.budgetTokens` (about 4,000 tokens, counted at four characters a
@@ -425,12 +427,49 @@ from such a domain without that pass may be spoofed, and is *unmatched* whatever
 with a `List-Unsubscribe` header, is capped at 3 a Product in any 7 days, counted by Gmail's receive time across Inbox
 and Spam, and the 4th is recorded as *held · over the cap*, though history gives it after a later one. Mail to a
 Registration awaiting verification is never capped or counted, and mail in a thread with a Reply draft joins it with
-#62. Matched mail within the cap waits for the mail run that sorts it, which #61 adds. Its text waits for that run under
+#62. Matched mail within the cap waits for the mail run that sorts it. Its text waits for that run under
 `raw/gmail/` in `dataDir`, for 90 days like every raw input, with each verification code and each link that carries a
 token replaced by a placeholder such as `[code 1]` or `[link 1]`, so no copy of a Secret is kept. A raw input the live
 store doesn't index, as after the store was lost, goes by the time its file's name holds. The ledger holds no
 mail text: the ids, Gmail's receive time, whether the mail is in Spam or bulk, its match and disposition, and the sender
 of an alert.
+
+Each such mail goes to a mail run (#61), one at a time in the background lane after Corrections: a run of the mail role,
+whose model requests go only to the mail role's `mail@<provider>` names (ADR 0010). It sees the mail's sender,
+`Reply-To`, subject and text with its Secrets as placeholders, from the copy under `raw/gmail/`, beside the Product and
+where its Registration stands, and loads the mail and all-scope Rules. A copy kept before #61, with no `Reply-To`, or
+one that expired, is read from Gmail again. The run records the mail's kind, *asks for a reply*, *needs the person* or
+*for the record* (#32), a gist of a few words, what a mail that needs the person wants done, and for a waitlisted
+Product whether the mail is an invite, which #65 acts on. Plain code then works out the reply address, `Reply-To` or
+else `From`, and one whose local part, less a `+` tag, is `noreply`, `no-reply`, `no_reply`, `donotreply` or
+`do-not-reply` gets no Reply draft and no **Draft reply**, whatever the model concluded:
+
+- **Asks for a reply**, not bulk: queued for a Reply draft, which #62's run writes, with no message of its own.
+- **Asks for a reply**, bulk, or from a no-reply address: a silent message in the Product post with the sender, the
+  subject and the mail's own text, its quoted history stripped by plain code and cut to fit, with **Draft reply**,
+  unless its reply address is a no-reply one, and **Correct**, pinging no one (the no-reply case settled by the person
+  on #61).
+- **Needs the person:** a card in `#needs-you` that mentions them and says what the mail wants done, with **Done**,
+  **Correct** and **Draft reply**. Done shrinks it to a line, and it lapses after 14 days.
+- **For the record:** no message of its own, for #64's digest.
+
+**Draft reply** queues the mail for its Reply draft, in the same queue, which #62 drains and gives its pop-up (settled
+by the person on #61). **Correct** on a mail's message runs the mail run again with what the person wrote. Found to
+ask for a reply after all, the mail is queued for a draft. Sorted any other way, its card or message closes, and a
+Reply draft still queued for it is withdrawn, since the person's latest word stands. A mail-role run then sorts the
+Correction, and a Rule or an Interest scope change it proposes is refused while it names an email address, the
+sender's domain or name, or shares a run of five words with the mail, so that it quotes no mail text (ADR 0010).
+
+A mail its Registration may still take as its verification mail, received from the final press on while the
+Registration waits for one, waits for plain code when it holds a code or a link, and once taken reaches no mail run
+(#58). With no mail route left, no run starts: the mail is *not handled · waiting* and tried again every 30 minutes,
+never on another role's route. A run that stops at its cap, or fails otherwise, leaves the mail *not handled ·
+stopped*, with a notice in the Product post naming its sender and subject, carrying the only **Retry**, which runs it
+again under the same limits.
+Nothing tries it again by itself (#26; a run that fails otherwise settled by the person on #61). Each message is marked
+before it is sent and tried again 5 minutes on when Discord doesn't take it; the live store keeps each mail's states,
+dates and message ids, and the Personal database nothing of it. A sort's gist and what a mail wants done are mail text,
+and are forgotten after 90 days with the raw inputs.
 
 ```sh
 sudo ops/install   # on the VM, from the main checkout: ops/README.md
@@ -456,16 +495,17 @@ provider's model has no price. ADR 0011 puts the prices in `ops/pins`; until it 
 request is counted at its provider's price, in notional dollars. `budgets.miner` is what a Miner date's runs may
 spend, Retries included, starting at $6. A run starts only while its date's spend is under the Miner budget, and
 finishes even when it goes over. Once the Miner budget is spent, the date's remaining runs wait and its 06:00 PT late
-line names the Miner budget; raising `budgets.miner` and restarting the bot lets them go on. At go-live (#85) both
-roles' provider serves OpenRouter's free `nvidia/nemotron-3-ultra-550b-a55b:free`, priced at $0, so no budget holds a
+line names the Miner budget; raising `budgets.miner` and restarting the bot lets them go on. At go-live (#85) each
+role's provider serves OpenRouter's free `nvidia/nemotron-3-ultra-550b-a55b:free`, priced at $0, so no budget holds a
 run, and what limits a runaway is OpenRouter's daily cap on free requests (settled by the person on #85). `prices`
 also keeps GPT-6.1 Sol's, the price the budgets were sized at (#39). `budgets.registration`, $20 to start, is what the registration role's runs may spend in a Pacific day,
-Dossier and Walkthrough runs among them; their spend is counted, but nothing holds a run to it until #69.
+Dossier and Walkthrough runs among them, and `budgets.mail`, $5 to start, what the mail role's runs may; their spend is
+counted, but nothing holds a run to either until #69.
 
 `roles` lists each role's providers in priority order, which #72 moves to `ops/pins`. `providers` gives each one its
 `label` on Discord and says whether its route is in new-api's `mail` group. The bot won't start while a role lists a
-provider with no label, or while a mail-cleared role lists one outside that group (ADR 0010). The mail role itself
-comes with #61. At go-live (#85) each role has one provider, so until a second is set up, losing it is an outage.
+provider with no label, or while a mail-cleared role, the mail role, lists one outside that group (ADR 0010). At go-live
+(#85) each role has one provider, so until a second is set up, losing it is an outage.
 
 The forwarder sends each model request to the first of the role's providers that can serve it, and moves the request
 on from one that can't, so the run never hears of it (#46, ADR 0011, ADR 0013). A provider that dropped out and is due to be tried
@@ -510,7 +550,16 @@ one that waits for a provider, with why. A `provider.dropped-out` line names wha
 `forwarder.key-unread` line a 401 whose `GET /api/usage/token/` said nothing it could read. A `run.rules-loaded`
 line names the commit a run's Rules were read at, the Rules by name, and about how many tokens they take. A
 `walkthrough.prepared` line names a Walkthrough's version and the run that prepared it, a `walkthrough.none` line why
-a Product gets none, and a `walkthrough.approved` line the Discord interaction an Approval came in. A
+a Product gets none, and a `walkthrough.approved` line the Discord interaction an Approval came in. A `mail.sorted`
+line names a mail a mail run sorted, with its kind, whether it is an invite, whether its reply address is a no-reply
+one, the Rules applied and the run, a `mail.reply-draft-queued` line one queued for a Reply draft, with why, and a
+`mail.reply-draft-withdrawn` line one a Correction withdrew from that queue. A
+`mail.waiting` line names a mail waiting for a mail route, and a `mail.stopped` line one whose run stopped, with why.
+`mail.message-sent`, `mail.card-done`, `mail.card-lapsed`, `mail.retry` and `mail.correction-submitted` lines follow a
+mail's messages and taps, and `mail.correction-unapplied` and `mail.correction-sorted` lines its Corrections. A
+`mail.show-failed` line names a mail whose message Discord didn't take, and a `mail.text-unread` line one whose text
+couldn't be read again from Gmail. A `mail.text-forgotten` line counts the sorts whose mail text the daily expiry
+forgot. A
 `vault-item.created` line names a Registration's vault item by its id, a `vault-item.found` line one read back after a
 create whose answer never came, a `vault-item.replaced` line the item that replaces one a form refused, and a
 `password-vault.unavailable` line why an Approval or a fill is held. A `registration.session-opened` line names a

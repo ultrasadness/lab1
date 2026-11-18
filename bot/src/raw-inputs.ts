@@ -1,7 +1,7 @@
 // Raw inputs exactly as a source returned them, kept for 90 days outside git (for Rule cases and the Miner Fit
 // check), indexed by the store, then deleted.
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { Clock } from './clock.ts';
 import type { Log } from './log.ts';
@@ -41,6 +41,17 @@ export class RawInputs {
       fetchedAt: now.toISOString(),
       expiresAt: new Date(now.getTime() + this.#keepDays * DAY_MS).toISOString(),
     });
+  }
+
+  /** The latest body kept under `<source>/<item>/`, if one is still kept. */
+  latest(source: string, item: string): string | undefined {
+    const folder = join(this.#dir, source, item);
+    if (!existsSync(folder)) return undefined;
+    const name = readdirSync(folder)
+      .filter((file) => keptAt(file) !== undefined)
+      .sort()
+      .at(-1);
+    return name === undefined ? undefined : readFileSync(join(folder, name), 'utf8');
   }
 
   /**

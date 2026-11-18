@@ -64,6 +64,7 @@ export class Verifications {
   #needsYou: NeedsYou;
   #registrations: RegistrationsView;
   #plainWork: (work: () => Promise<void>) => void;
+  #taken: () => void;
   #clock: Clock;
   #log: Log;
   /** The Registrations with work under way, and for each, the work asked for meanwhile, which runs next. */
@@ -83,6 +84,8 @@ export class Verifications {
     registrations: RegistrationsView;
     /** Does plain-code work at once, outside the lane. */
     plainWork(work: () => Promise<void>): void;
+    /** Called once a Registration takes its verification mail, so that the mail its mail runs passed over goes on (#61). */
+    taken(): void;
     clock: Clock;
     log: Log;
   }) {
@@ -92,6 +95,7 @@ export class Verifications {
     this.#needsYou = options.needsYou;
     this.#registrations = options.registrations;
     this.#plainWork = options.plainWork;
+    this.#taken = options.taken;
     this.#clock = options.clock;
     this.#log = options.log;
   }
@@ -115,6 +119,18 @@ export class Verifications {
       .filter((r) => r.state === 'awaiting-verification')
       .map((r) => Date.parse(this.#anchor(r)));
     return times.length > 0 ? new Date(Math.min(...times)) : undefined;
+  }
+
+  /**
+   * Whether a matched mail may still be taken as its Registration's verification mail: the Registration waits for one,
+   * and Gmail received the mail from its final press on. Such a mail holding a code or link is plain code's to take,
+   * and no mail run reads it (#61).
+   */
+  mayTake(productId: number, receivedAt: string): boolean {
+    const r = this.#store.registration(productId);
+    if (!r || this.#store.verification(productId)) return false;
+    if (r.state !== 'awaiting-verification' && !(r.state === 'handed-off' && r.handedOffAt)) return false;
+    return receivedAt >= this.#anchor(r);
   }
 
   /** The Signup mailbox was read: each Registration waiting for its mail takes it, or is handed off after 24 hours. */
@@ -202,6 +218,7 @@ export class Verifications {
       const { way, why } = this.#decide(r, content, delaySeconds);
       this.#store.takeVerificationMail({ productId, messageId: found.messageId, receivedAt: found.receivedAt, spam: found.spam, delaySeconds, way, why });
       this.#log('registration.verification-mail', { productId, messageId: found.messageId, receivedAt: found.receivedAt, delaySeconds, spam: found.spam, way, ...(why ? { why } : {}) });
+      this.#taken();
       return this.#goOn(productId, content);
     }
     if (r.state === 'awaiting-verification' && this.#clock.now().getTime() - Date.parse(anchor) >= HAND_OFF_MS) await this.#handOff(r);

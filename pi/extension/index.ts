@@ -8,6 +8,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { dossierRun } from './dossier.ts';
 import { fillRun } from './fill.ts';
+import { mailRun } from './mail.ts';
 import { minerJudging, type RunKind } from './miner.ts';
 import { correctionSorting } from './sorting.ts';
 import { walkthroughPreparation } from './walkthrough.ts';
@@ -18,6 +19,7 @@ const RUN_KINDS: Record<string, RunKind> = {
   'walkthrough-preparation': walkthroughPreparation,
   'correction-sorting': correctionSorting,
   fill: fillRun,
+  mail: mailRun,
 };
 
 function required(name: string): string {

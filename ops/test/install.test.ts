@@ -184,7 +184,7 @@ async function startBot(machine: Vm): Promise<Ran> {
   machine.land();
   await install(machine, '--personal-database', 'git@github.com:person/personal-database.git');
   deployKey(machine);
-  for (const name of ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'healthchecks-ping-bot', 'bitwarden-api-key', 'bitwarden-master-password', 'gmail-client-secret', 'gmail-refresh-token']) {
+  for (const name of ['discord-bot-token', 'producthunt-token', 'newapi-key-miner', 'newapi-key-registration', 'newapi-key-mail', 'healthchecks-ping-bot', 'bitwarden-api-key', 'bitwarden-master-password', 'gmail-client-secret', 'gmail-refresh-token']) {
     writeFileSync(join(machine.root, 'etc/assistant/credentials', name), 'dummy', { mode: 0o600 });
   }
   return install(machine);

@@ -53,6 +53,8 @@ export interface Mail {
   charset?: string;
   /** Its `List-Unsubscribe` header, which bulk mail carries. */
   listUnsubscribe?: string;
+  /** Its `Reply-To` header, where a reply goes in place of `From`. */
+  replyTo?: string;
   /** Gmail's DMARC verdict in its own `Authentication-Results`, for `From`'s domain: pass unless given. */
   dmarc?: 'pass' | 'fail' | 'none';
   /** `Authentication-Results` headers the sender wrote, which sit below Gmail's. */
@@ -207,6 +209,7 @@ export class FakeGmail {
       { name: 'Date', value: new Date(received).toUTCString() },
       { name: 'Message-ID', value: `<${id}@${fromDomain}>` },
       ...(mail.listUnsubscribe ? [{ name: 'List-Unsubscribe', value: mail.listUnsubscribe }] : []),
+      ...(mail.replyTo ? [{ name: 'Reply-To', value: mail.replyTo }] : []),
       { name: 'MIME-Version', value: '1.0' },
     ];
     const plain = mail.text !== undefined ? part('0', 'text/plain', mail.text, mail.charset) : undefined;

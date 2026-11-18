@@ -7,7 +7,7 @@
 // Mail whose DMARC passes, by Gmail's own check, for a domain on the config's list is put to the person at once: a card
 // in `#needs-you` names only its sender, with Done, and lapses after 14 days (#38 §8). Matched bulk mail, with a
 // `List-Unsubscribe` header, is capped at 3 a Product in a rolling 7 days by Gmail's receive time; the rest is held,
-// its reason set on arrival (#16). Matched mail within the cap waits for the mail run that sorts it, which #61 adds,
+// its reason set on arrival (#16). Matched mail within the cap waits for the mail run that sorts it (#61),
 // and its text is kept for that run, outside git for 90 days, with each Secret in it replaced by a placeholder. After
 // each read it hands over to the verification of Registrations (#58). First it searches for mail since the earliest
 // final press of a Registration still waiting for its mail, when that press came before this bot run's first read,
@@ -23,6 +23,7 @@ import { rootDomain } from '../root-domain.ts';
 import type { MailAlert, Store } from '../store.ts';
 import { GMAIL_SCOPES, GmailRateLimited, type MessageRef, type Gmail } from './gmail.ts';
 import { dmarcPassed, domainOf, readMail, type ReadMail } from './message.ts';
+import { keptCopy } from './kept-mail.ts';
 import { withPlaceholders } from './placeholders.ts';
 
 /** The first wait after a failed read; each failure in a row doubles it, up to `MAX_BACKOFF_MS`. */
@@ -77,6 +78,7 @@ export class SignupMailbox {
   #plainWork: (work: () => Promise<void>) => void;
   #lookBackFrom: () => Date | undefined;
   #onRead: () => void;
+  #onQueued: () => void;
   #clock: Clock;
   #log: Log;
   /** Whether the token passed its check since the bot started. */
@@ -89,6 +91,8 @@ export class SignupMailbox {
   #backoffMs = 0;
   /** Until when Gmail asked the bot to wait, by a rate-limit reply to any request of its: none goes before then. */
   #limitedUntil = 0;
+  /** Whether the read under way has recorded mail that waits for its mail run. */
+  #queued = false;
   #cancelNext = () => {};
   #cancelLapse = () => {};
   #stopped = false;
@@ -111,6 +115,8 @@ export class SignupMailbox {
     lookBackFrom(): Date | undefined;
     /** Called after each read, once the ledger holds every mail Gmail received until then (#58). */
     onRead(): void;
+    /** Called once a read has recorded matched mail that waits for its mail run (#61). */
+    onQueued(): void;
     clock: Clock;
     log: Log;
   }) {
@@ -124,6 +130,7 @@ export class SignupMailbox {
     this.#plainWork = options.plainWork;
     this.#lookBackFrom = options.lookBackFrom;
     this.#onRead = options.onRead;
+    this.#onQueued = options.onQueued;
     this.#clock = options.clock;
     this.#log = options.log;
   }
@@ -190,6 +197,8 @@ export class SignupMailbox {
       }
       this.#backoffMs = 0;
       this.#onRead();
+      if (this.#queued) this.#onQueued();
+      this.#queued = false;
     } catch (error) {
       this.#backoffMs = this.#backoffMs === 0 ? FIRST_BACKOFF_MS : Math.min(this.#backoffMs * 2, MAX_BACKOFF_MS);
       waitMs = Math.max(this.#backoffMs, error instanceof GmailRateLimited ? (error.retryAfterMs ?? 0) : 0);
@@ -357,7 +366,10 @@ export class SignupMailbox {
           ? ({ disposition: 'held', reason: 'over-the-cap' } as const)
           : null;
     // Kept before it is recorded, so that mail the ledger says waits for its run has its text kept.
-    if (!disposition) this.#keep(mail);
+    if (!disposition) {
+      this.#keep(mail);
+      this.#queued = true;
+    }
     this.#store.recordMail({
       messageId: mail.id,
       threadId: mail.threadId,
@@ -426,10 +438,7 @@ export class SignupMailbox {
    * that no copy of a Secret is kept (#58 holds them in memory alone). It expires with the raw inputs, after 90 days.
    */
   #keep(mail: ReadMail): void {
-    const { texts } = withPlaceholders([mail.subject, mail.text]);
-    const [subject, body] = texts as [string, string];
-    const copy = { messageId: mail.id, threadId: mail.threadId, receivedAt: mail.receivedAt, from: mail.from ?? null, to: mail.recipients, subject, text: body };
-    this.#rawInputs.keep('gmail', mail.id, `${JSON.stringify(copy, null, 2)}\n`);
+    this.#rawInputs.keep('gmail', mail.id, `${JSON.stringify(keptCopy(mail), null, 2)}\n`);
   }
 
   /**

@@ -18,14 +18,14 @@ export const HARD_LIMITS = [
 ] as const;
 
 /** The kinds of item a Correction is made on. Each one's sorts are kept under its kind and id. */
-export type CorrectionKind = 'miner' | 'walkthrough';
+export type CorrectionKind = 'miner' | 'walkthrough' | 'mail';
 
-/** A Correction's key, as its sort is kept under it: `miner:12` or `walkthrough:3`. */
+/** A Correction's key, as its sort is kept under it: `miner:12`, `walkthrough:3` or `mail:4`. */
 export const sortKey = (kind: CorrectionKind, id: number) => `${kind}:${id}`;
 
 /** The kind and id a Correction's key names, or undefined if it names none. */
 export function correctionOf(key: string): { kind: CorrectionKind; id: number } | undefined {
-  const m = key.match(/^(miner|walkthrough):(\d+)$/);
+  const m = key.match(/^(miner|walkthrough|mail):(\d+)$/);
   return m ? { kind: m[1] as CorrectionKind, id: Number(m[2]) } : undefined;
 }
 
@@ -103,6 +103,8 @@ export interface SortInput {
   /** What the person corrected, such as "a Miner judgment". */
   what: string;
   scope: RuleScope;
+  /** What else the sorting run must know of this kind of item, if anything. */
+  note?: string;
   /** The item, as prompt lines with every outside value fenced. */
   item: string[];
   before: string;
@@ -117,6 +119,7 @@ export function sortingPrompt(input: SortInput): string {
     '',
     `The person corrected ${input.what}, and the Assistant has redone it with their Correction. Sort the Correction, and record it with record_sort.`,
     `The Correction's scope is ${input.scope}, ${SCOPE_NAMES[input.scope]}: a Rule it teaches has scope ${input.scope}, or all.`,
+    ...(input.note ? [input.note] : []),
     '',
     ...input.item,
     '',

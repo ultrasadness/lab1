@@ -33,6 +33,7 @@ import { apiKeyOf, PasswordVault } from './password-vault.ts';
 import { Walkthroughs } from './walkthrough/walkthroughs.ts';
 import { Gmail } from './mail/gmail.ts';
 import { SignupMailbox } from './mail/signup-mailbox.ts';
+import { MailRuns } from './mail/mail-runs.ts';
 
 export type { LogEntry };
 
@@ -112,7 +113,7 @@ export async function startAssistant(options: {
     token: discordToken,
     log,
     onInteraction: (interaction) => {
-      plainWork(answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct, proposals, walkthroughs, registrations, mailReader, verifications }));
+      plainWork(answer(interaction, { personUserId: config.discord.personUserId, discord, log, retry, corrections, correct, proposals, walkthroughs, registrations, mailReader, verifications, mailRuns }));
     },
   });
   // Plain-code work under way, which never queues in the lane: taps and pop-ups being answered, which may queue work or
@@ -172,8 +173,8 @@ export async function startAssistant(options: {
   const bitwardenDir = join(config.dataDir, 'bitwarden');
   mkdirSync(bitwardenDir, { recursive: true, mode: 0o700 });
   const passwordVault = new PasswordVault({ command: config.bitwarden.command, timeoutSeconds: config.bitwarden.timeoutSeconds, dataDir: bitwardenDir, apiKey: bitwardenApiKey, masterPassword: bitwardenMasterPassword, secrets, log });
-  // The background lane runs one job at a time (#11): fill runs, then Corrections, then Walkthrough preparation, then
-  // the Miner (#40 §8).
+  // The background lane runs one job at a time (#11): fill runs, then Corrections, then mail runs, then Walkthrough
+  // preparation, then the Miner (#40 §8).
   const lane = new Lane(log);
   const dossiers = new Dossiers({
     config,
@@ -197,7 +198,7 @@ export async function startAssistant(options: {
     budgetTokens: config.rules.budgetTokens,
     showDecision: (key) => {
       const { kind, id } = correctionOf(key)!;
-      return kind === 'walkthrough' ? walkthroughs.showDecision(id) : corrections.showDecision(id);
+      return kind === 'walkthrough' ? walkthroughs.showDecision(id) : kind === 'mail' ? mailRuns.showDecision(id) : corrections.showDecision(id);
     },
     clock,
     log,
@@ -264,6 +265,7 @@ export async function startAssistant(options: {
     plainWork: (work) => plainWork(work().catch((error: unknown) => log('mail.work-failed', { error: errorText(error) }))),
     lookBackFrom: () => verifications.lookBackFrom(),
     onRead: () => verifications.read(),
+    onQueued: () => sortMail(),
     clock,
     log,
   });
@@ -275,9 +277,52 @@ export async function startAssistant(options: {
     needsYou,
     registrations,
     plainWork: (work) => plainWork(work().catch((error: unknown) => log('registration.verify-failed', { error: errorText(error) }))),
+    taken: () => sortMail(),
     clock,
     log,
   });
+  // Each matched mail within the cap is sorted by a mail run of the mail role (#61), in the lane after Corrections.
+  const mailRuns = new MailRuns({
+    store,
+    pi,
+    discord,
+    needsYou,
+    rawInputs,
+    personalDatabase,
+    proposals,
+    content: (messageId) => mailReader.content(messageId),
+    mayTake: (productId, receivedAt) => verifications.mayTake(productId, receivedAt),
+    correctionsDue: () => correctMail(),
+    mailDue: () => sortMail(),
+    plainWork: (work) => plainWork(work().catch((error: unknown) => log('mail.work-failed', { error: errorText(error) }))),
+    clock,
+    log,
+  });
+  // Mail is sorted once a read records mail that waits for its run, at Retry, at every start, and every 30 minutes
+  // while a mail waits for a mail route or for its Registration's verification. With no route left no run starts, so
+  // that try spends nothing (ADR 0013).
+  let cancelMailRetry = () => {};
+  const sortMail = () =>
+    lane.add('mail', 'mail', async () => {
+      cancelMailRetry();
+      let left = true;
+      try {
+        left = await mailRuns.work();
+      } finally {
+        if (left && !stopped) cancelMailRetry = inMinutes(clock, config.miner.retryMinutes, sortMail);
+      }
+    });
+  let cancelMailCorrectionsRetry = () => {};
+  const correctMail = () =>
+    lane.add('mail corrections', 'correction', async () => {
+      cancelMailCorrectionsRetry();
+      let left = true;
+      try {
+        left = await mailRuns.workCorrections();
+      } finally {
+        if (left && !stopped) cancelMailCorrectionsRetry = inMinutes(clock, config.miner.retryMinutes, correctMail);
+      }
+    });
   // Registrations are filled at each Approval, when a session closes, at every start, and every few minutes while one
   // can't go on, such as while all 5 sessions are taken or Bitwarden is unavailable. That try starts no run a provider
   // would serve unless it can go on, and each page's fill runs are counted in the store.
@@ -361,8 +406,15 @@ export async function startAssistant(options: {
       }
     });
   const daily = () => {
-    lane.add('raw-inputs expiry', 'miner', async () => rawInputs.expire());
+    lane.add('raw-inputs expiry', 'miner', async () => expire());
     catchUp();
+  };
+  // Every copy of mail text on the VM expires with the raw inputs: a sort's gist and what a mail wants done too (ADR 0010).
+  const expire = () => {
+    rawInputs.expire();
+    const before = new Date(clock.now().getTime() - config.rawInputs.keepDays * 24 * 60 * 60_000).toISOString();
+    const forgotten = store.forgetMailText(before);
+    if (forgotten > 0) log('mail.text-forgotten', { sorts: forgotten });
   };
   const cancelDaily = everyPacificDay(clock, config.miner.startsAt, daily);
   // The late line is plain code, so it never waits behind a run in the lane.
@@ -388,10 +440,12 @@ export async function startAssistant(options: {
     }
   };
 
-  lane.add('raw-inputs expiry', 'miner', async () => rawInputs.expire());
+  lane.add('raw-inputs expiry', 'miner', async () => expire());
   catchUp();
   correct();
   correctWalkthroughs();
+  correctMail();
+  sortMail();
   prepareWalkthroughs();
   // A line about a provider a stop left unsaid is said now.
   providers.resume();
@@ -404,6 +458,8 @@ export async function startAssistant(options: {
   verifications.start();
   // The Signup mailbox is read now, and every few seconds from then on, outside the lane.
   mailReader.start();
+  // Each sorted mail's messages go out if they didn't, and each card's lapse is armed.
+  mailRuns.resume();
   // Commits a refused push left in the checkout, and files queued before a stop, don't wait for the Miner's next run.
   void personalDatabase.sync();
 
@@ -423,6 +479,9 @@ export async function startAssistant(options: {
         cancelWalkthroughsRetry();
         cancelWalkthroughCorrectionsRetry();
         cancelFillRetry();
+        cancelMailRetry();
+        cancelMailCorrectionsRetry();
+        mailRuns.stop();
         registrations.stop();
         walkthroughs.stop();
         mailReader.stop();
@@ -541,6 +600,8 @@ async function answer(
     mailReader: SignupMailbox;
     /** Done on the cards that put a verification mail to the person. */
     verifications: Verifications;
+    /** Done, Draft reply, Correct and Retry on the messages of sorted mail. */
+    mailRuns: MailRuns;
   },
 ): Promise<void> {
   const { personUserId, discord, log } = options;
@@ -605,6 +666,23 @@ async function answer(
         // Done once the answer is out, so the work's own edits come after it, and done even if Discord didn't take
         // the answer, since the tap is kept already.
         await walkthrough.work?.();
+      }
+    }
+    const mail =
+      interaction.type === 3
+        ? options.mailRuns.tap(customId, interaction.message?.id)
+        : interaction.type === 5
+          ? options.mailRuns.submit(customId, (field) => popupField(interaction, field), interaction.message?.id)
+          : undefined;
+    if (mail) {
+      if ('refused' in mail) return await reply(mail.refused);
+      if ('popup' in mail) return await discord.respond(interaction.id, interaction.token, { type: 9, data: { ...mail.popup } });
+      try {
+        return await discord.respond(interaction.id, interaction.token, mail.update ? { type: 7, data: { ...mail.update } } : { type: 6 });
+      } finally {
+        // Done once the answer is out, so the work's own edits come after it, and done even if Discord didn't take
+        // the answer, since the tap is kept already.
+        await mail.work?.();
       }
     }
     const doneCard = interaction.type === 3 ? (options.mailReader.tap(customId, interaction.message?.id) ?? options.verifications.tap(customId, interaction.message?.id)) : undefined;

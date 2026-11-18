@@ -20,6 +20,7 @@ const BOT_TOKENS = [
   'producthunt-token',
   'newapi-key-miner',
   'newapi-key-registration',
+  'newapi-key-mail',
   'personal-database-deploy-key',
   'healthchecks-ping-bot',
   'bitwarden-api-key',
@@ -252,7 +253,7 @@ test("the bot isn't started while another of its tokens is missing, and the pers
   const ran = await opsToken(machine, ['newapi-key-miner'], [{ after: /Paste/, type: 'good-key' }]);
   assert.equal(ran.code, 0, ran.out);
   assert.match(ran.out, /new-api lets it reach miner@openrouter/);
-  assert.match(ran.out, /assistant\.service waits on: discord-bot-token, producthunt-token, newapi-key-registration, personal-database-deploy-key, healthchecks-ping-bot, bitwarden-api-key, bitwarden-master-password, gmail-client-secret, gmail-refresh-token\./);
+  assert.match(ran.out, /assistant\.service waits on: discord-bot-token, producthunt-token, newapi-key-registration, newapi-key-mail, personal-database-deploy-key, healthchecks-ping-bot, bitwarden-api-key, bitwarden-master-password, gmail-client-secret, gmail-refresh-token\./);
   assert.equal(machine.systemctl(), '');
 });
 

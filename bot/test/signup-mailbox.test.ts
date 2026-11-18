@@ -19,6 +19,12 @@ const recorded = (world: World) =>
     .filter((l) => l.event === 'mail.recorded')
     .map(({ messageId, product, matchedBy, disposition, reason }) => ({ messageId, product, matchedBy, disposition, ...(reason ? { reason } : {}) }));
 
+/**
+ * Where a value shows on the VM: everywhere `whereItShows` looks but the model provider, off the VM, which a matched
+ * mail's mail run sends its text to, with its Secrets as placeholders (#61).
+ */
+const onTheVm = (world: World, value: string) => whereItShows(world, value).filter((where) => where !== 'the model provider');
+
 /** A security alert from Google, as its sign-in alerts come. */
 const GOOGLE_ALERT: Mail = {
   from: 'Google <no-reply@accounts.google.com>',
@@ -330,16 +336,19 @@ test('a matched mail’s codes and sign-in links become placeholders before the 
     'Or use the code [code 1].',
     'Your one-time code:\n[code 2]',
   ];
+  // The first mail is the Registration's verification mail, which no mail run reads; the second goes to its mail run.
   for (const line of kept) {
-    const where = whereItShows(world, line);
+    const where = onTheVm(world, line);
     assert.equal(where.length, 1, `${line} is kept once, in its mail's copy: ${where.join(', ')}`);
     assert.ok(where[0]!.startsWith(`${world.dataDir}/raw/gmail/`), where[0]);
   }
+  assert.deepEqual(whereItShows(world, kept[1]!), onTheVm(world, kept[1]!), 'the verification mail reaches no model');
+  assert.ok(whereItShows(world, kept.at(-2)!).includes('the model provider'), 'the other mail reaches its mail run, with its placeholders');
 
   await world.advanceTo('2027-01-10T07:59:00Z');
-  assert.equal(whereItShows(world, kept[1]!).length, 1, 'kept until its 90 days are up');
+  assert.equal(onTheVm(world, kept[1]!).length, 1, 'kept until its 90 days are up');
   await world.advanceTo('2027-01-11T09:30:00Z'); // 01:30 PST, after the daily expiry
-  for (const line of kept) assert.deepEqual(whereItShows(world, line), [], `${line} is gone`);
+  for (const line of kept) assert.deepEqual(onTheVm(world, line), [], `${line} is gone`);
 });
 
 test('Gmail’s rate limits are obeyed: the bot waits 1 second, then twice as long each time, or as long as Retry-After asks', async (t) => {
@@ -439,7 +448,7 @@ test('a mail deleted before it is read, one Gmail sends malformed, and the mailb
   assert.deepEqual(recorded(world).map((r) => r.messageId), [fine]);
   assert.deepEqual(world.logs.filter((l) => l.event === 'mail.gone').map((l) => l.messageId), [gone]);
   assert.deepEqual(world.logs.filter((l) => l.event === 'mail.unreadable').map((l) => l.messageId), [malformed]);
-  assert.equal(whereItShows(world, 'Read as UTF-8: café, whatever the charset says.').length, 1, 'its text is kept, read as UTF-8');
+  assert.equal(onTheVm(world, 'Read as UTF-8: café, whatever the charset says.').length, 1, 'its text is kept, read as UTF-8');
   assert.deepEqual(whereItShows(world, 'A draft of the mailbox’s own.'), []);
 
   // The batch went through: the next read starts after it. The one mail recorded, matched to the Registration awaiting
@@ -451,12 +460,12 @@ test('a mail deleted before it is read, one Gmail sends malformed, and the mailb
 test('the text of a mail kept before the store was lost still goes after 90 days', async (t) => {
   const world = await registered(t);
   await delivered(world, { from: 'Codemind <hello@codemindhq.dev>', to: PLUS_ADDRESS, subject: 'Tips', text: 'Kept before the store was lost.' });
-  assert.equal(whereItShows(world, 'Kept before the store was lost.').length, 1);
+  assert.equal(onTheVm(world, 'Kept before the store was lost.').length, 1);
   await world.outage('2026-10-13T08:00:00Z', () => {
     for (const file of ['assistant.sqlite', 'assistant.sqlite-wal', 'assistant.sqlite-shm']) rmSync(join(world.dataDir, file), { force: true });
   });
-  assert.equal(whereItShows(world, 'Kept before the store was lost.').length, 1, 'the new store doesn’t index it');
+  assert.equal(onTheVm(world, 'Kept before the store was lost.').length, 1, 'the new store doesn’t index it');
 
   await world.advanceTo('2027-01-11T09:30:00Z'); // 01:30 PST, after the daily expiry, 90 days on
-  assert.deepEqual(whereItShows(world, 'Kept before the store was lost.'), []);
+  assert.deepEqual(onTheVm(world, 'Kept before the store was lost.'), []);
 });
