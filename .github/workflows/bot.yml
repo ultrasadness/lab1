@@ -1,6 +1,12 @@
 # The bot's typecheck, the doc-pair check, the shell check and the tests on every push and pull request, with the slowest tests in each
-# job's summary. The tests reach only fakes, so no secret is needed. They run in three shards, each a job of its own:
-# in #53 the one job took 11.5 of its 15 minutes.
+# job's summary. The tests reach only fakes, so no secret is needed. They run in shards, each a job of its own: in #53
+# the one job took 11.5 of its 15 minutes. Node's `--test-shard` dealt the files out by their place in the sorted list,
+# and after #57 its first of three shards ran out of time while the third took 8 minutes. So the plan job packs the
+# files into the fewest shards it finds that each add up to 8 minutes or less, from how long each file took on an
+# earlier run (`scripts/plan-shards.ts`, #110), and the number of shards grows with the tests. Each shard records its
+# files' times (`scripts/test-times.ts`), and once every shard has passed, the record job keeps the records together in
+# the cache, where the next run's plan reads the latest of its branch, or else of `main`. A file with no record, as on
+# a run that finds none, is planned at 10 seconds a test.
 name: Bot
 
 on:
@@ -11,13 +17,40 @@ permissions:
   contents: read
 
 jobs:
+  # It runs on every push, so it stays cheap: it reads a record and does arithmetic, and runs no `npm ci`.
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # No run's key matches this one, so it restores the latest record by the prefix: GitHub looks on this branch
+      # first, then on `main`, and drops a record that goes 7 days unused.
+      - uses: actions/cache/restore@v6
+        with:
+          path: test-times
+          key: test-times-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: test-times-
+      - id: plan
+        run: node scripts/plan-shards.ts
+
   check:
+    needs: plan
+    name: Shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
-      matrix:
-        shard: [1, 2, 3]
+      # Each shard's number, its files, its planned time, how many of its files had no record, and whether it runs the
+      # checks: the shard planned shortest does.
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      TEST_RECORD: test-times-${{ matrix.shard }}.json
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -26,13 +59,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-        if: ${{ matrix.shard == 1 }}
+        if: ${{ matrix.checks }}
       - run: npm run check:docs
-        if: ${{ matrix.shard == 1 }}
+        if: ${{ matrix.checks }}
       # The shell check, and the tests of it and of the pre-commit hook, need shellcheck in every shard.
       - run: command -v shellcheck || sudo apt-get install -y shellcheck
       - run: npm run check:shell
-        if: ${{ matrix.shard == 1 }}
+        if: ${{ matrix.checks }}
       # A test process that dies of a native error prints little, and Node's report on a fatal error doesn't cover V8's
       # own `Check failed` (tried on #105). So the kernel keeps a core file, which the last two steps read and keep.
       - name: Have the kernel write core files
@@ -45,10 +78,20 @@ jobs:
           npm test 2>&1 | tee test-output.txt
         shell: bash
         env:
-          TEST_SHARD: ${{ matrix.shard }}/3
-      - name: List the slowest tests
+          TEST_FILES: ${{ matrix.files }}
+      - name: List the slowest tests, and the shard's planned time beside its tests'
         if: ${{ !cancelled() && hashFiles('test-output.txt') != '' }}
-        run: node scripts/slowest-tests.ts < test-output.txt >> "$GITHUB_STEP_SUMMARY"
+        run: >-
+          node scripts/slowest-tests.ts --planned-ms ${{ matrix.planned_ms }} --estimated ${{ matrix.estimated }}
+          --record "$TEST_RECORD" < test-output.txt >> "$GITHUB_STEP_SUMMARY"
+      # A rerun's shard replaces any record its earlier attempt left under the name.
+      - name: Hand the record job this shard's times
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-times-${{ matrix.shard }}
+          path: ${{ env.TEST_RECORD }}
+          overwrite: true
+          retention-days: 1
       - name: Say what each thread of a crashed process was doing
         if: ${{ failure() }}
         shell: bash
@@ -71,3 +114,39 @@ jobs:
           path: ${{ runner.temp }}/cores
           if-no-files-found: ignore
           retention-days: 7
+
+  # Only a run whose every shard passed is kept: a shard that ran out of time writes no record, and a test that ran out
+  # of its 60 seconds would plan its file long. It keeps only a record of every shard, too: a rerun of the failed
+  # shards a day later finds the others' records gone, and a record of the rerun shards alone would plan every other
+  # file from its tests. A rerun of every job may plan fewer shards than the attempt before it, whose records of the
+  # shards past the last are left out, since their files are in this attempt's.
+  record:
+    needs: [plan, check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: test-times-*
+          path: test-times
+          merge-multiple: true
+      - id: whole
+        run: |
+          found=0
+          for record in test-times/test-times-*.json; do
+            [ -e "$record" ] || continue
+            shard=${record##*-}
+            if [ "${shard%.json}" -le "$SHARDS" ]; then found=$((found + 1)); else rm "$record"; fi
+          done
+          if [ "$found" -eq "$SHARDS" ]; then
+            echo "whole=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Only $found of the $SHARDS shards' records are here, so this run's record isn't kept."
+          fi
+        env:
+          SHARDS: ${{ needs.plan.outputs.shards }}
+      - if: ${{ steps.whole.outputs.whole == 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: test-times
+          key: test-times-${{ github.run_id }}-${{ github.run_attempt }}

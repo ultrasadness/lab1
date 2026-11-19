@@ -44,7 +44,7 @@ npm test                               # every test
 node --test bot/test/miner-day.test.ts # one file
 ```
 
-`npm test` 给每个测试 60 秒。超时的测试会失败；即使它留下了没关闭的服务器或定时器，整个运行也照样结束（`--test-force-exit`）。设了 `TEST_SHARD` 时，比如 `TEST_SHARD=2/3`，它只运行测试文件里的这一个分片，和 CI 一样。
+`npm test` 给每个测试 60 秒。超时的测试会失败；即使它留下了没关闭的服务器或定时器，整个运行也照样结束（`--test-force-exit`）。设了 `TEST_FILES` 时，比如 `TEST_FILES="bot/test/rules.test.ts scripts/ticket.test.ts"`，它只运行这些文件，就像 CI 的每个分片只运行计划分给它的文件。把 `TEST_RECORD` 设为一个文件时，它一次一个地运行这些文件，并在那里写下每个测试文件用了多久，即它的顶层测试的耗时之和，CI 据此计划之后运行的分片（`docs/hooks-and-ci.md`）。`node scripts/plan-shards.ts` 打印计划，依据 `test-times/` 里的记录，没有记录时按每个文件的测试各 10 秒来算。
 
 每次提交和 push 要过的 hook 和 CI，以及在新的克隆里怎么打开 hook，见 `docs/hooks-and-ci.md`。`npm test` 也运行 `ops/test/` 里运维脚本的测试（`ops/README.md`）。
 

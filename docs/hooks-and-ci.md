@@ -59,11 +59,26 @@ GitHub Actions runs two workflows on every push and pull request, so a slow or f
 bot's result:
 
 - **Bot** (`.github/workflows/bot.yml`): the root's typecheck, the doc-pair check, the shell check and the root's
-  tests. The tests run in three shards, each a job of its own (`TEST_SHARD`, which `npm test` passes to `node --test`
-  as `--test-shard`), and the first job runs the typecheck, the doc-pair check and the shell check too. In #53 the one job took 11.5 of its
-  15 minutes. Each job's summary lists its slowest tests and its total (`scripts/slowest-tests.ts`), so a test nearing
-  its 60 seconds, or a shard its 15 minutes, shows before it fails. A full `npm test` on the VM took 9.4 minutes in #92,
-  close to the 10 minutes a session's foreground command gets. A session runs it in the background, and for a diff of
+  tests. In #53 the one job took 11.5 of its 15 minutes, so the tests run in shards, each a job of its own. Node's own
+  `--test-shard` dealt the files out by their place in the sorted list, and after #57 the first of its three shards
+  ran out of time while the third took 8 minutes. Now a plan job packs the test files, slowest first, into the fewest
+  shards it finds that each add up to 8 minutes or less, from how long each file took on an earlier run
+  (`scripts/plan-shards.ts`, #110), so the number of shards grows with the tests. It spreads the files evenly where
+  that fits, and otherwise searches for a way they fit, for up to a million placings, about 0.2 seconds, before it
+  takes a shard more. One commit's shard took 9.6 minutes on one run and 14.7 on
+  another, and 8 leaves room for a run about 1.8 times its record. A file over 8 minutes gets a shard to itself, and
+  when that time is its record's, a warning on the run's page names it as the file to split. Each shard runs its
+  files one at a time, the ones the plan gave it (`TEST_FILES`), and records how long each took, the sum of its
+  top-level tests' times (`TEST_RECORD`, `scripts/test-times.ts`). The runner a public repo gets has 4 CPUs, on which
+  Node would run 3 files at once, so `TEST_RECORD` runs them one at a time, as the plan adds up their times. Once every shard has passed and the record job
+  holds each one's record, it keeps them together in GitHub's cache, where the next run's plan reads the latest of its
+  branch, or else of `main`. A file with no record is planned at 10 seconds a top-level test, which errs high: a new
+  or renamed file, and every file on a run that finds no record, the first or one after GitHub drops a record that
+  went 7 days unused. With no record at all, the plan makes about 12 shards. The shard planned shortest runs the
+  typecheck, the doc-pair check and the shell check too. Each shard's summary lists its slowest tests and its total
+  (`scripts/slowest-tests.ts`), then its planned time beside the time its tests took, so a test nearing its 60
+  seconds, or a plan that stops predicting, shows before a shard runs out of its 15 minutes. A full `npm test` on the
+  VM took 9.4 minutes in #92, close to the 10 minutes a session's foreground command gets. A session runs it in the background, and for a diff of
   docs and one check's test, runs that test and leaves the rest to the branch's CI. A test process that dies of a
   native error leaves a core file, since Node's `--report-on-fatalerror` doesn't cover V8's own `Check failed`, as #105
   tried. A failed job prints each thread's stack from it with `gdb`, and keeps it for 7 days as the artifact
@@ -80,6 +95,8 @@ The root's `npm test` runs the tests of the hooks and checks:
   a worktree in a throwaway repo. `scripts/pre-push.test.ts` pushes from one, with a fake `gh` that needs `jq`.
 - `scripts/reply-language.test.ts`, `scripts/note-language.test.ts` and `scripts/review-committed.test.ts` run each
   Claude Code hook as a session would, on a throwaway transcript or repo. `scripts/slowest-tests.test.ts` runs the CI summary on a run's output.
+- `scripts/plan-shards.test.ts` runs the shard plan in throwaway checkouts, with and without a record, and `npm test`
+  in one, with and without `TEST_FILES` and `TEST_RECORD`.
 - `scripts/doc-pairs.test.ts` runs the doc-pair check on throwaway pairs, and `scripts/check-shell.test.ts` the shell
   check on throwaway folders.
 - `scripts/bounded-waits.test.ts` fails on a `spawnSync`, `execSync` or `execFileSync` call whose own arguments

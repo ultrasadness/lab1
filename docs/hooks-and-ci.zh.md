@@ -26,7 +26,7 @@
 
 GitHub Actions 在每次 push 和 pull request 时运行两个 workflow，所以浏览器那边的运行慢了或失败了，也不会遮住机器人的结果：
 
-- **Bot**（`.github/workflows/bot.yml`）：根目录的类型检查、文档配对检查、shell 检查和根目录的测试。测试分成三个分片，各是一个独立的 job（`TEST_SHARD`，`npm test` 把它作为 `--test-shard` 传给 `node --test`），第一个 job 还运行类型检查、文档配对检查和 shell 检查。在 #53 里，原来那一个 job 用掉了 15 分钟里的 11.5 分钟。每个 job 的摘要会列出它最慢的测试和它的总耗时（`scripts/slowest-tests.ts`），这样某个测试快到 60 秒、或者某个分片快到 15 分钟时，在失败之前就能看出来。在 #92 里，VM 上完整跑一次 `npm test` 用了 9.4 分钟，接近会话前台命令的 10 分钟上限。所以会话要把它放到后台跑；如果 diff 只有文档和某个检查的测试，就只跑那个测试，其余交给分支的 CI。测试进程死于原生错误时会留下 core file，因为 Node 的 `--report-on-fatalerror` 不覆盖 V8 自己的 `Check failed`，这一点 #105 试过。失败的 job 用 `gdb` 从 core file 打印每个线程的栈，并把它作为 artifact `core-files-shard-<n>` 保留 7 天。
+- **Bot**（`.github/workflows/bot.yml`）：根目录的类型检查、文档配对检查、shell 检查和根目录的测试。在 #53 里，原来那一个 job 用掉了 15 分钟里的 11.5 分钟，所以测试分成多个分片，各是一个独立的 job。Node 自己的 `--test-shard` 按测试文件在排序列表里的位置把它们分出去，#57 之后，它三个分片中的第一个超时了，而第三个只用了 8 分钟。现在由一个 plan job 按每个文件在之前某次运行里用了多久（`scripts/plan-shards.ts`，#110），把测试文件从最慢的开始，装进它能找到的最少的分片，每个分片加起来不超过 8 分钟，所以分片的数量随测试增长。能放下时，它把文件均匀地分开；放不下时，就搜索一种能放下的分法，最多试一百万次放置，约 0.2 秒，找不到就多用一个分片。同一个提交的某个分片，一次运行用了 9.6 分钟，另一次用了 14.7 分钟；8 分钟给耗时约为记录 1.8 倍的运行留出了余地。超过 8 分钟的文件独占一个分片；这个时间来自它的记录时，运行页面上的一条警告点名它是该拆分的文件。每个分片一次一个地运行计划分给它的文件（`TEST_FILES`），并记录每个文件用了多久，即它的顶层测试的耗时之和（`TEST_RECORD`，`scripts/test-times.ts`）。公开仓库拿到的 runner 有 4 个 CPU，Node 在上面会同时运行 3 个文件，所以 `TEST_RECORD` 让文件一次一个地运行，和计划把它们的耗时相加的方式一致。所有分片都通过、record job 也拿到了每个分片的记录之后，它把这些记录放在一起存进 GitHub 的缓存，下一次运行的 plan job 读取它所在分支最新的那份，没有的话就读 `main` 的。没有记录的文件按每个顶层测试 10 秒来计划，这会估高：新文件或改了名的文件是这样，找不到记录的运行里的每个文件也是这样，即第一次运行，或者 GitHub 删掉一份 7 天没用过的记录之后的运行。完全没有记录时，计划大约分出 12 个分片。计划耗时最短的分片还运行类型检查、文档配对检查和 shell 检查。每个分片的摘要会列出它最慢的测试和它的总耗时（`scripts/slowest-tests.ts`），然后把它的计划耗时和它的测试实际用的时间并排写出，这样某个测试快到 60 秒、或者计划不再预测得准时，在某个分片用完它的 15 分钟之前就能看出来。在 #92 里，VM 上完整跑一次 `npm test` 用了 9.4 分钟，接近会话前台命令的 10 分钟上限。所以会话要把它放到后台跑；如果 diff 只有文档和某个检查的测试，就只跑那个测试，其余交给分支的 CI。测试进程死于原生错误时会留下 core file，因为 Node 的 `--report-on-fatalerror` 不覆盖 V8 自己的 `Check failed`，这一点 #105 试过。失败的 job 用 `gdb` 从 core file 打印每个线程的栈，并把它作为 artifact `core-files-shard-<n>` 保留 7 天。
 - **Browser**（`.github/workflows/browser.yml`）：在 `browser/` 里运行 `npm ci`、类型检查和测试。测试会构建镜像，并通过 Docker Compose 启动它。runner 是 amd64 的，所以测试的是固定 digest 里的 amd64 镜像，而 VM 上运行的是其中的 arm64 镜像。
 
 ## 测试
@@ -35,6 +35,7 @@ GitHub Actions 在每次 push 和 pull request 时运行两个 workflow，所以
 
 - `scripts/pre-commit.test.ts`、`scripts/post-checkout.test.ts` 和 `scripts/commit-msg.test.ts` 在一个用完即弃的仓库里提交、合并，或者添加一个 worktree。`scripts/pre-push.test.ts` 从这样一个仓库 push，用的是一个需要 `jq` 的假 `gh`。
 - `scripts/reply-language.test.ts`、`scripts/note-language.test.ts` 和 `scripts/review-committed.test.ts` 像会话那样运行每个 Claude Code hook，用的是一份用完即弃的会话记录或一个用完即弃的仓库。`scripts/slowest-tests.test.ts` 在一次运行的输出上运行 CI 摘要。
+- `scripts/plan-shards.test.ts` 在用完即弃的 checkout 里运行分片计划，有记录和没有记录的情况都有，并在其中一个里运行 `npm test`，设和不设 `TEST_FILES` 与 `TEST_RECORD` 的情况都有。
 - `scripts/doc-pairs.test.ts` 在用完即弃的文档对上运行文档配对检查，`scripts/check-shell.test.ts` 在用完即弃的目录上运行 shell 检查。
 - `scripts/bounded-waits.test.ts`：某个 `spawnSync`、`execSync` 或 `execFileSync` 调用自己的参数里没有 `timeout` 时，它就失败：同步的子进程会阻塞事件循环，所以别的定时器都结束不了它（`CODING_STANDARDS.md` 里的 **Every wait has a bound**）。
 - `scripts/bot-imports.test.ts`：`bot/src` 导入的某个模块既不是 Node 自己的（`node:`），也不是机器人自己的文件时，它就失败：机器人自己没有任何 npm 依赖（`bot/README.md`），`graphql` 只给测试和 schema 抓取用。它也会在那里遇到 `node:worker_threads` 时失败，因为第二个运行 Wasm 的线程可能让 Node 24 崩溃（#105）。

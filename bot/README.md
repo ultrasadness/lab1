@@ -59,8 +59,12 @@ node --test bot/test/miner-day.test.ts # one file
 ```
 
 `npm test` gives each test 60 seconds. A test that runs out fails, and the run still ends even when it leaves a
-server or timer open (`--test-force-exit`). With `TEST_SHARD` set, such as `TEST_SHARD=2/3`, it runs only that shard
-of the test files, as CI does.
+server or timer open (`--test-force-exit`). With `TEST_FILES` set, such as
+`TEST_FILES="bot/test/rules.test.ts scripts/ticket.test.ts"`, it runs only those files, as each CI shard runs the ones
+its plan gave it. With `TEST_RECORD` set to a file, it runs the files one at a time and writes there how long each
+took, the sum of its top-level tests' times, from which CI plans later runs' shards (`docs/hooks-and-ci.md`).
+`node scripts/plan-shards.ts` prints the plan, from the records in `test-times/` or, with none, from each file's tests
+at 10 seconds each.
 
 The hooks and CI that check each commit and push, and how to turn the hooks on in a fresh clone, are in
 `docs/hooks-and-ci.md`. `npm test` also runs the ops scripts' tests, in `ops/test/` (`ops/README.md`).
