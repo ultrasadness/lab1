@@ -2,12 +2,14 @@
 // Stop: a wall, a fill run that ended stuck, or a page check that failed, which plain code's Submit tap answers when
 // only values the person can see failed it. Walls nothing can get past end the Registration *abandoned* at once and get
 // no card. A Handoff card gives the person the rest of a Registration to finish on their own device: numbered steps,
-// the approved values to copy, and the password through AutoFill, with Done. Take over comes with #60, which puts it
+// the approved values to copy, and the password through AutoFill, with Done. A page that newly asks for something gets
+// an amended Walkthrough instead (#115, `amended.ts`), with Approve and Stop. Take over comes with #60, which puts it
 // first where #10's routes do; until then each card offers only what works.
 import { button, ButtonStyle, cut, escapeMarkdown, image, MESSAGE_LIMITS, text, type Button, type MediaGallery, type TextDisplay } from '../discord/components.ts';
 import type { Upload } from '../discord/rest.ts';
 import { shortTime } from '../pacific.ts';
-import { beforeFinalPress, handOffCause, type CardAbout, type HandOff, type RegistrationCard, type StoredRegistration, type WaitsOn } from '../store.ts';
+import { beforeFinalPress, handOffCause, type CardAbout, type CheckedRule, type HandOff, type RegistrationCard, type StoredRegistration, type WaitsOn } from '../store.ts';
+import { amendable } from './amended.ts';
 import { codeBlock } from './status.ts';
 import { hasPasswordField, type Walkthrough } from '../walkthrough/walkthrough.ts';
 
@@ -31,6 +33,7 @@ const STUCK_TEXT: Record<string, string> = {
   'password-refused': 'the form refused the password',
   'plus-refused': 'the form refused the address',
   'no-button': 'the page shows no button to press',
+  // A fill run named it until #115 had the page check find such a field, so a Registration may still wait on one.
   'value-missing': 'a required field has no approved value',
   'page-error': 'the page shows an error',
   other: "something on the page the fill run couldn't name",
@@ -70,6 +73,36 @@ export function endsAtOnce(waitsOn: WaitsOn): string | null {
 /** Whether a sign-in a fill run named is Google's, however the page words it: "Google", "Continue with Google". */
 export const isGoogle = (provider: string) => /\bgoogle\b/i.test(provider);
 
+/** The hosts of the sign-in providers plain code knows, by the provider's name. */
+const SIGN_IN_HOSTS: [host: string, provider: string][] = [
+  ['accounts.google.com', 'Google'],
+  ['github.com', 'GitHub'],
+  ['appleid.apple.com', 'Apple'],
+  ['login.microsoftonline.com', 'Microsoft'],
+  ['login.live.com', 'Microsoft'],
+];
+
+/**
+ * The sign-in provider whose page a host is, if plain code knows it: a fill run that finds itself on one meets #10's
+ * `oauth-only` wall, so that no provider's session enters the Registration browser (settled by the person on #115).
+ */
+export function signInProvider(host: string): string | null {
+  const h = host.toLowerCase();
+  return SIGN_IN_HOSTS.find(([known]) => h === known || h.endsWith(`.${known}`))?.[1] ?? null;
+}
+
+/**
+ * Whether a failed check goes to an amended Walkthrough (#115): it failed on what the page newly asks for, a required
+ * field left empty, other terms or another host, beside any value the person can see, and on nothing that only Hand
+ * off answers, such as a field holding a Secret, another of the browser's validity flags, or a refusal of its own.
+ * The press can't pass while a required field is empty, so a value the person can see waits for the next check
+ * (settled by the person on #59).
+ */
+export function forAmended(rules: readonly CheckedRule[]): boolean {
+  if (!rules.some(amendable)) return false;
+  return rules.every((r) => amendable(r) || (SUBMIT_TAP_RULES.includes(r.rule) && !r.secret));
+}
+
 /**
  * Whether a failed check goes to a Submit tap: it failed only on values the person can see on a screenshot, which
  * masks each field filled by reference, with no refusal of its own; or its page changed after the person last saw it,
@@ -101,6 +134,10 @@ export function dueCard(r: StoredRegistration): CardAbout | null {
   // One being stopped waits on nobody: its Stop ends it.
   if (r.stopAt && beforeFinalPress(r)) return null;
   if ((r.state === 'at-wall' || r.state === 'check-failed') && r.waitsOn && r.waitsOn.kind !== 'held') {
+    // An amended Walkthrough's card comes once its version is prepared; one that couldn't be waits at Hand off and Stop.
+    const amended = r.waitsOn.kind === 'check' ? r.waitsOn.amended : undefined;
+    if (amended === 'due') return null;
+    if (amended && 'version' in amended) return { kind: 'amended', page: r.page, waitsOn: r.waitsOn, amendment: amended.version };
     return forSubmitTap(r.waitsOn) ? { kind: 'submit-tap', page: r.page, waitsOn: r.waitsOn, fingerprint: null } : { kind: 'waiting', page: r.page, waitsOn: r.waitsOn };
   }
   const cause = r.state === 'handed-off' ? handOffCause(r) : null;
@@ -112,7 +149,8 @@ export function cardFits(card: RegistrationCard, r: StoredRegistration): boolean
   if (card.version !== r.version) return false;
   switch (card.kind) {
     case 'waiting':
-    case 'submit-tap': {
+    case 'submit-tap':
+    case 'amended': {
       const due = dueCard(r);
       return due?.kind === card.kind && due.page === card.page && JSON.stringify(due.waitsOn) === JSON.stringify(card.waitsOn);
     }
@@ -147,15 +185,28 @@ export function endedText(r: StoredRegistration): string {
   }
 }
 
-// Each button names the card it is on, by its id in the store.
+// Each button names the card it is on, by its id in the store; an amended Walkthrough's Approve and Edit name the version
+// shown too, and Edit the value it changes (`amended.ts`).
 export const cardButtonId = (action: 'handoff' | 'stop' | 'done', cardId: number) => `${action}:regcard:${cardId}`;
 export const submitId = (cardId: number, fingerprint: string) => `submit:regcard:${cardId}:${fingerprint}`;
 
+export type CardAction =
+  | { action: 'handoff' | 'stop' | 'done'; cardId: number }
+  | { action: 'submit'; cardId: number; fingerprint: string }
+  | { action: 'approve'; cardId: number; version: number }
+  | { action: 'edit'; cardId: number; version: number; field: number };
+
 /** What a button on a Registration's card does, and the card, or undefined if the id isn't one's. */
-export function cardAction(customId: string): { action: 'handoff' | 'stop' | 'done' | 'submit'; cardId: number; fingerprint: string | null } | undefined {
-  const m = customId.match(/^(handoff|stop|done|submit):regcard:(\d+)(?::([0-9a-f]{64}))?$/);
-  if (!m || (m[1] === 'submit') !== (m[3] !== undefined)) return undefined;
-  return { action: m[1] as 'handoff' | 'stop' | 'done' | 'submit', cardId: Number(m[2]), fingerprint: m[3] ?? null };
+export function cardAction(customId: string): CardAction | undefined {
+  const plain = customId.match(/^(handoff|stop|done):regcard:(\d+)$/);
+  if (plain) return { action: plain[1] as 'handoff' | 'stop' | 'done', cardId: Number(plain[2]) };
+  const submit = customId.match(/^submit:regcard:(\d+):([0-9a-f]{64})$/);
+  if (submit) return { action: 'submit', cardId: Number(submit[1]), fingerprint: submit[2]! };
+  const approve = customId.match(/^approve:regcard:(\d+):(\d+)$/);
+  if (approve) return { action: 'approve', cardId: Number(approve[1]), version: Number(approve[2]) };
+  const edit = customId.match(/^edit:regcard:(\d+):(\d+):(\d+)$/);
+  if (edit) return { action: 'edit', cardId: Number(edit[1]), version: Number(edit[2]), field: Number(edit[3]) };
+  return undefined;
 }
 
 /** A value the person approved, in inline code so that it copies as it is. */
@@ -197,6 +248,8 @@ export function waitingCard(card: RegistrationCard & { kind: 'waiting' }, input:
     heading = `A page check failed · ${product}`;
     const failures = waitsOn.kind === 'check' ? waitsOn.failures.map(escapeMarkdown).join('; ') : '';
     lines.push(`Page ${page} doesn't match the Walkthrough, so the Assistant didn't press its button: ${cut(failures, 600)}. Nothing was submitted.`);
+    const amended = waitsOn.kind === 'check' ? waitsOn.amended : undefined;
+    if (amended && typeof amended === 'object' && 'none' in amended) lines.push(`It couldn't be put to you as an amended Walkthrough: ${escapeMarkdown(cut(amended.none, 300))}.`);
   }
   if (waitsOn.kind !== 'check' && waitsOn.kind !== 'held' && waitsOn.note) lines.push(codeBlock(waitsOn.note));
   const google = waitsOn.kind === 'wall' && waitsOn.wall === 'oauth-only';

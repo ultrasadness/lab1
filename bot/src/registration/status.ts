@@ -33,6 +33,8 @@ export interface StatusInput {
   next: { kind: 'none' } | { kind: 'preparing' } | { kind: 'waiting' } | { kind: 'no-walkthrough'; why: string };
   /** The mail it took as its verification mail, and what came of it, once it has taken one (#58). */
   verification: Verification | null;
+  /** The amended Walkthroughs approved under its Approval, by version (#115). */
+  amendedBy?: number[];
   needsYouChannelId: string;
 }
 
@@ -52,7 +54,14 @@ function waiting(waitsOn: WaitsOn, page: number, needsYouChannelId: string): { w
       if (waitsOn.changed && waitsOn.rules?.length === 0) {
         return { what: `page ${page} changed since you saw it`, lines: [`It now matches the Walkthrough, and nothing is pressed until you see it again.`, stays] };
       }
-      return { what: `page ${page} failed the page check`, lines: [`The filled page doesn't match the Walkthrough: ${cut(waitsOn.failures.map(escapeMarkdown).join('; '), 600)}.`, stays] };
+      return {
+        what: `page ${page} failed the page check`,
+        lines: [
+          `The filled page doesn't match the Walkthrough: ${cut(waitsOn.failures.map(escapeMarkdown).join('; '), 600)}.`,
+          // What the page newly asks for goes to an amended Walkthrough, which a run prepares first (#115).
+          waitsOn.amended === 'due' ? `Nothing was submitted. An amended Walkthrough of what it asks for is being prepared for you in <#${needsYouChannelId}>.` : stays,
+        ],
+      };
     case 'held':
       return { what: '', lines: [`-# Waiting: ${escapeMarkdown(cut(waitsOn.why, 300))}. It is tried again by itself.`] };
   }
@@ -61,7 +70,8 @@ function waiting(waitsOn: WaitsOn, page: number, needsYouChannelId: string): { w
 export function registrationStatus(input: StatusInput): MessagePayload {
   const { registration: r, walkthrough: w, verification: v } = input;
   const address = r.plainAddress ? w.identity.plainAddress : w.identity.plusAddress;
-  const approved = `Walkthrough v${r.version} approved ${shortTime(new Date(r.approvedAt))}`;
+  const amended = input.amendedBy?.length ? `, amended by ${input.amendedBy.map((v) => `v${v}`).join(' and ')}` : '';
+  const approved = `Walkthrough v${r.version} approved ${shortTime(new Date(r.approvedAt))}${amended}`;
   // A Product whose terms ban accounts made by a bot is the person's to finish from its Approval on.
   const handoffCard = `A Handoff card in <#${input.needsYouChannelId}> gives you the steps.`;
   if (r.state === 'handed-off' && handOffCause(r) === 'terms-ban') {

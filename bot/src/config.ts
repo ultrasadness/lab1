@@ -11,7 +11,7 @@ export type Role = (typeof ROLES)[number];
 export const MAIL_CLEARED_ROLES = ['mail'];
 
 /** Every kind of Pi run the Assistant makes. Each one is capped. */
-export const RUN_KINDS = ['miner-judging', 'dossier', 'walkthrough-preparation', 'fill', 'mail', 'question', 'correction-sorting'] as const;
+export const RUN_KINDS = ['miner-judging', 'dossier', 'walkthrough-preparation', 'amended-walkthrough', 'fill', 'mail', 'question', 'correction-sorting'] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
 
 /** What one run may use before it is aborted: wall-clock time, turns, and tokens as Pi reports them. */

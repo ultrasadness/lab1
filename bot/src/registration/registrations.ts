@@ -12,6 +12,10 @@
 // - a wall, a failed check, or more than 5 pages leaves it waiting on the person, its session open, with a card in
 //   #needs-you that offers its route (#59, `cards.ts`): a Submit tap, whose Submit plain code presses on the page the
 //   person saw, or Hand off; a wall nothing can get past ends it *abandoned* at once;
+// - a page that newly asks for something, a required field with no approved value, other terms or another host, and a
+//   page a fill run finds off the session's domains, get an amended Walkthrough (#115, `amended.ts`), which a
+//   registration-role run proposes values for in the lane; its Approval has the page filled again in the same session,
+//   adding a host it approves off the session's domains to them, and the person's Edit of a value is a Correction;
 // - a form that refuses the password gets a new one, and one that refuses `+` the plain address, each in a new vault
 //   item, and the page is filled again under the same Approval, its next fill run filling that field first;
 // - a session lost before any press opens again at page 1; one lost after a press leaves it waiting on the person,
@@ -23,10 +27,10 @@
 // run that died is run again on the same page, a press that was intended and never marked done counts as pressed, and a
 // session an outcome left open is closed.
 import { createHash } from 'node:crypto';
-import type { BrowserService, Refusal, Snapshot } from '../browser.ts';
+import type { BrowserService, CheckFailure, Refusal, Snapshot } from '../browser.ts';
 import { inMinutes, type Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
-import { asEdit, cut, escapeMarkdown, popup, text, type Button, type MediaGallery, type MessagePayload, type TextDisplay } from '../discord/components.ts';
+import { asEdit, cut, escapeMarkdown, popup, text, type Button, type MediaGallery, type MessagePayload, type Section, type TextDisplay } from '../discord/components.ts';
 import { refused, type DiscordRest, type Upload } from '../discord/rest.ts';
 import { shortTime } from '../pacific.ts';
 import type { Dossiers } from '../dossier/dossiers.ts';
@@ -38,6 +42,7 @@ import type { PersonalDatabase } from '../personal-database.ts';
 import type { PiRunner } from '../pi-runs.ts';
 import { NoProviderLeft } from '../providers.ts';
 import { checkRulesApplied, type Rule } from '../rules/rules.ts';
+import { unrecorded } from '../rules/sort-run.ts';
 import {
   BEFORE_FINAL_PRESS,
   beforeFinalPress,
@@ -55,9 +60,49 @@ import {
 } from '../store.ts';
 import { refusalText, registrationFileOf } from '../walkthrough/registration-file.ts';
 import { standingOf } from '../walkthrough/standing.ts';
-import { hasPasswordField, type Walkthrough } from '../walkthrough/walkthrough.ts';
+import { cardText } from '../walkthrough/card.ts';
+import { PROFILE_PATH } from '../walkthrough/prompt.ts';
+import { hasPasswordField, VALUE_CHARS, type Walkthrough } from '../walkthrough/walkthrough.ts';
 import type { Tapped } from '../walkthrough/walkthroughs.ts';
-import { cardAction, cardFits, cardMadeFor, dueCard, endedText, endsAtOnce, handoffCard, shrunkLine, stillShowingCard, submitTapCard, waitingCard, waitingFrom, type CardInput } from './cards.ts';
+import {
+  amendable,
+  amendedCard,
+  amendedCopy,
+  amendedEditable,
+  amendedEditId,
+  amendedEditPopup,
+  amendedHosts,
+  amendedWalkthrough,
+  amendmentHash,
+  amendmentPrompt,
+  askedOf,
+  AMENDED_EDIT_FIELD,
+  amendedFits,
+  hostOn,
+  readAmendment,
+  shownOf,
+  type Amendment,
+  type AmendedShown,
+  type StoredAmendment,
+} from './amended.ts';
+import {
+  cardAction,
+  cardFits,
+  cardMadeFor,
+  dueCard,
+  endedText,
+  endsAtOnce,
+  forAmended,
+  handoffCard,
+  shrunkLine,
+  signInProvider,
+  stillShowingCard,
+  submitTapCard,
+  waitingCard,
+  waitingFrom,
+  type CardAction,
+  type CardInput,
+} from './cards.ts';
 import { fillKeys, fillPrompt, snapshotText, type FillKey } from './fill-prompt.ts';
 import { registrationAction, registrationStatus, type StatusInput } from './status.ts';
 
@@ -95,7 +140,9 @@ const PROVIDERS = { max: 6, chars: 40 };
 const PROVIDER_NAME = /^[\p{L}\p{N}][\p{L}\p{N} .,'&+()-]*$/u;
 
 const WALLS = ['bot-check', 'oauth-only', 'phone', 'blocked', 'card', 'free-email', 'invite-only'];
-const STUCK = ['password-refused', 'plus-refused', 'no-button', 'value-missing', 'page-error', 'other'];
+// A required field with no approved value is no reason to stop: the page check finds it, and puts it to the person as
+// an amended Walkthrough (#115).
+const STUCK = ['password-refused', 'plus-refused', 'no-button', 'page-error', 'other'];
 const ACTIVE: RegistrationState[] = ['filling', 'checking', 'pressing', 'queued'];
 /** The states that hold no session: an outcome, or the Handoff its terms ask for. */
 const ENDED: RegistrationState[] = ['registered', 'waitlisted', 'handed-off', 'abandoned'];
@@ -124,6 +171,8 @@ interface FillRun {
   finish: Finish | null;
   /** Whether the session answered that it is gone. */
   sessionLost: boolean;
+  /** The host of a page the session found off its domains, which goes to the person as an amended Walkthrough (#115). */
+  offDomain: string | null;
 }
 
 /** Who tapped, and on which message, as an Approval keeps it (ADR 0007). */
@@ -134,7 +183,7 @@ interface TapInteraction {
 }
 
 /** A card as `NeedsYou.post` takes it. */
-type CardBuilt = { heading: string; body: (TextDisplay | MediaGallery)[]; buttons: Button[]; files?: Upload[] };
+type CardBuilt = { heading: string; body: (TextDisplay | Section | MediaGallery)[]; buttons: Button[]; files?: Upload[] };
 
 /** Whether a step moved the Registration on, left it for a later try, or the Assistant stopped. */
 type Stepped = 'moved' | 'later' | 'stopped';
@@ -248,7 +297,8 @@ export class Registrations {
     const later = new Set<number>();
     for (;;) {
       if (this.#stopped) return false;
-      const due = this.#store.registrationsIn(ACTIVE).filter((x) => x.shownAt !== null && !later.has(x.productId));
+      // A page that waits for its amended Walkthrough to be prepared needs a run, so it is the lane's too (#115).
+      const due = this.#store.registrationsIn([...ACTIVE, 'check-failed']).filter((x) => x.shownAt !== null && !later.has(x.productId) && (x.state !== 'check-failed' || amendedDue(x)));
       const r = due.find((x) => x.state !== 'queued') ?? due[0];
       if (!r) break;
       let stepped: Stepped;
@@ -279,13 +329,15 @@ export class Registrations {
         // screenshot is checked again (#59). The tap is kept until the press is marked or the page waits again.
         if (r.submitTap) {
           const { fingerprint, button, rechecks } = r.submitTap;
-          return this.#checkAndPress(r, this.#walkthrough(r), button.ref, button.label, fingerprint ? { approvedPage: fingerprint } : { recheck: rechecks ?? 1 });
+          return this.#checkAndPress(r, this.#walkthroughOn(r, r.page), button.ref, button.label, fingerprint ? { approvedPage: fingerprint } : { recheck: rechecks ?? 1 });
         }
         // The bot stopped during the page check, so nothing was pressed: the page gets its fill run again.
         this.#save(r.productId, { state: 'filling' });
         return 'moved';
       case 'pressing':
         return this.#recoverPress(r);
+      case 'check-failed':
+        return this.#prepareAmendment(r);
       default:
         return 'later';
     }
@@ -296,8 +348,33 @@ export class Registrations {
     this.#store.saveRegistration(productId, change);
   }
 
+  /** What an Approval of a Registration approved: its Walkthrough version, and each amended Walkthrough approved under it (#115). */
+  #approved(productId: number, version: number): { base: Walkthrough; amendments: Amendment[] } {
+    return { base: this.#store.walkthrough(productId, version)!.walkthrough, amendments: this.#store.approvedAmendments(productId, version) };
+  }
+
+  /** The Walkthrough the Registration fills: its approved version, with what each amended Walkthrough approved under it adds. */
   #walkthrough(r: StoredRegistration): Walkthrough {
-    return this.#store.walkthrough(r.productId, r.version)!.walkthrough;
+    const { base, amendments } = this.#approved(r.productId, r.version);
+    return amendedWalkthrough(base, amendments);
+  }
+
+  /** The same, as one page is filled and checked: with the signup host approved for that page. */
+  #walkthroughOn(r: StoredRegistration, page: number): Walkthrough {
+    const { base, amendments } = this.#approved(r.productId, r.version);
+    return { ...amendedWalkthrough(base, amendments), signupHost: hostOn(base, amendments, page) };
+  }
+
+  /** The domains the Registration's session holds: the Walkthrough's own, then each host an amended Walkthrough approved. */
+  #domains(r: StoredRegistration): string[] {
+    const { base, amendments } = this.#approved(r.productId, r.version);
+    return [...new Set([...ownDomains(base), ...amendedHosts(amendments).map((h) => h.toLowerCase())])];
+  }
+
+  /** The hosts amended Walkthroughs approved that are off the Walkthrough's own domains, which its session is given. */
+  #addedHosts(r: StoredRegistration): string[] {
+    const { base, amendments } = this.#approved(r.productId, r.version);
+    return amendedHosts(amendments).filter((h) => !onDomains(h.toLowerCase(), ownDomains(base)));
   }
 
   /**
@@ -319,7 +396,7 @@ export class Registrations {
     if (r.sessionId && !(await this.#close(r.productId, r.sessionId))) return this.#hold(r, "its earlier session didn't close");
     // The session's name is kept before it is asked for, so one whose answer never came is never asked for again.
     this.#save(r.productId, { sessionsOpened: n });
-    const domains = [...new Set([w.rootDomain, w.signupHost].map((d) => d.toLowerCase()))];
+    const domains = this.#domains(r);
     let opened;
     try {
       opened = await this.#browser.openSession({ registration: `${r.productId}-v${r.version}-${n}`, url: w.startUrl, domains });
@@ -351,7 +428,7 @@ export class Registrations {
   /** One fill run on the Registration's page, then what its finish asks for. */
   async #fillPage(r: StoredRegistration): Promise<Stepped> {
     const { productId } = r;
-    const w = this.#walkthrough(r);
+    const w = this.#walkthroughOn(r, r.page);
     const product = this.#store.product(productId)!;
     const session = r.sessionId!;
     if (r.fillRuns >= FILL_RUNS_PER_PAGE) return this.#wait(productId, 'at-wall', { kind: 'stuck', reason: 'fill-runs-spent', note: null });
@@ -367,13 +444,19 @@ export class Registrations {
       this.#log('password-vault.unavailable', { productId, why: error.message });
       return this.#hold(r, 'Bitwarden is unavailable');
     }
+    // A host an amended Walkthrough approved off the session's domains is added to them (#115); adding one it has is
+    // nothing, so a session that opened before the Approval, or again since, holds each.
+    for (const host of this.#addedHosts(r)) {
+      const added = await this.#browser.addDomain(session, host);
+      if (!added.ok) return this.#sessionRefused(r, added.error);
+    }
     const driven = await this.#browser.drive(session, 'fill-run');
     if (!driven.ok) return this.#sessionRefused(r, driven.error);
     this.#save(productId, { waitsOn: null });
     await this.#show(productId);
 
     const now = this.#store.registration(productId)!;
-    const run: FillRun = { productId, session, keys: fillKeys(w, now.plainAddress), password, refill: new Set(now.refill), buttons: new Map(), finish: null, sessionLost: false };
+    const run: FillRun = { productId, session, keys: fillKeys(w, now.plainAddress), password, refill: new Set(now.refill), buttons: new Map(), finish: null, sessionLost: false, offDomain: null };
     this.#filling = run;
     let result;
     try {
@@ -409,6 +492,13 @@ export class Registrations {
     const after = this.#store.registration(productId)!;
     // A session that is gone makes whatever the run finished with moot.
     if (run.sessionLost) return this.#sessionLost(after);
+    // So does a page off the session's domains, which goes to the person as an amended Walkthrough naming its host (#115),
+    // unless it is a sign-in provider's, which is #10's `oauth-only` wall (settled by the person on #115).
+    if (run.offDomain) {
+      const provider = signInProvider(run.offDomain);
+      if (provider) return this.#wait(productId, 'at-wall', { kind: 'wall', wall: 'oauth-only', note: null, providers: [provider] });
+      return this.#wait(productId, 'check-failed', offDomainWait(run.offDomain));
+    }
     if (!finish) {
       // A fill run that died, or ended with no finish, is run again on the same page under the same Approval (#11).
       await this.#browser.drive(session, 'none').catch(() => {});
@@ -450,6 +540,7 @@ export class Registrations {
     const registration = this.#store.registration(run.productId);
     if (this.#filling !== run || !registration || registration.stopAt || registration.state !== 'filling') return refuse('This Registration was stopped. Reply with one short line and stop.');
     if (run.finish) return refuse('The page is finished already. Reply with one short line and stop.');
+    if (run.offDomain) return refuse(OFF_DOMAIN);
     const ref = (value: unknown) => (typeof value === 'string' && /^[a-z]\d+$/.test(value) ? value : undefined);
     const key = (wanted: FillKey['action']) => {
       const found = run.keys.find((k) => k.key === a.key);
@@ -524,6 +615,11 @@ export class Registrations {
         return { ok: true, message: done };
       }
       if (gone(answer.error.kind)) run.sessionLost = true;
+      // The page itself is off the session's domains: plain code puts it to the person, and the run is over (#115).
+      if (answer.error.kind === 'off-domain' && answer.error.host) {
+        run.offDomain = answer.error.host;
+        return refuse(OFF_DOMAIN);
+      }
       return refuse(`${answer.error.kind}: ${answer.error.message}`);
     } catch (error) {
       return refuse(`The browser can't be reached (${errorText(error)}). Call finish with result stuck and reason page-error.`);
@@ -733,6 +829,187 @@ export class Registrations {
     return 'moved';
   }
 
+  // ---------- The amended Walkthrough (#115) ----------
+
+  /**
+   * Prepares the amended Walkthrough a page that newly asks for something waits on: plain code reads what the page asks
+   * for, and a registration-role run proposes a value for each field that isn't plain code's to fill. One that can't be
+   * prepared, such as one whose run records no values, waits at Hand off and Stop instead. One whose run no provider can
+   * serve now is left for a later try, which spends nothing until one can.
+   */
+  async #prepareAmendment(r: StoredRegistration): Promise<Stepped> {
+    const { productId } = r;
+    const wait = r.waitsOn as CheckWait;
+    const rules = wait.rules ?? [];
+    const w = this.#walkthroughOn(r, r.page);
+    const host = rules.find((x) => x.rule === 'off-host')?.host ?? null;
+    const fieldsRead = !host || onDomains(host, this.#domains(r));
+    let snapshot: Snapshot | null = null;
+    if (rules.some((x) => amendable(x) && x.rule !== 'off-host')) {
+      if (!r.sessionId) return this.#sessionLost(r);
+      const driven = await this.#browser.drive(r.sessionId, 'plain-code');
+      if (!driven.ok) return this.#sessionRefused(r, driven.error);
+      const shot = await this.#browser.snapshot(r.sessionId, 'plain-code');
+      if (!shot.ok) return gone(shot.error.kind) ? this.#sessionLost(r) : this.#unamended(r, wait, `plain code couldn't read page ${r.page} (${shot.error.kind})`);
+      snapshot = shot.snapshot;
+    }
+    const asked = askedOf(rules, snapshot, w, r.page);
+    if ('none' in asked) return this.#unamended(r, wait, asked.none);
+    if ('fillAgain' in asked) {
+      // The fill run left empty only what the Walkthrough approves: the page gets another, within its 3 (#56).
+      this.#log('registration.filled-again', { productId, page: r.page });
+      this.#save(productId, { state: 'filling', waitsOn: null });
+      await this.#show(productId);
+      return 'moved';
+    }
+    let fields = asked.asked.map((a) => a.field);
+    let rulesApplied: string[] = [];
+    let runId: string | null = null;
+    const proposing = asked.asked.flatMap((a) => (a.shown ? [a.shown] : []));
+    if (proposing.length > 0) {
+      // A run no provider can serve spends nothing, so it is tried again with the lane's next pass.
+      if (this.#pi.noProviderLeft('registration')) return 'later';
+      const product = this.#store.product(productId)!;
+      const base = this.#store.walkthrough(productId, r.version)!;
+      await this.#personalDatabase.sync();
+      const profile = this.#personalDatabase.find(PROFILE_PATH) ?? null;
+      const { dossier } = this.#store.latestDossier(productId)!;
+      let kept: { fields: Walkthrough['fields']; rulesApplied: string[] } | undefined;
+      let result;
+      try {
+        result = await this.#pi.run({
+          kind: 'amended-walkthrough',
+          role: 'registration',
+          item: product.rootDomain,
+          prompt: amendmentPrompt({ profile, dossier, approved: cardText({ productId, version: r.version, walkthrough: w, cause: base.cause }), page: r.page, snapshot: snapshot!, fields: proposing }),
+          onRecord: (record) => {
+            if (kept) return { ok: false, error: 'The values are recorded already; reply with one short line and stop.' };
+            const checked = readAmendment(record, asked.asked);
+            if (!checked.ok) return checked;
+            kept = checked;
+            return { ok: true, message: 'Recorded the values.' };
+          },
+        });
+      } catch (error) {
+        if (error instanceof NoProviderLeft) return 'later';
+        throw error;
+      }
+      if (await this.#endedByStop(productId)) return 'moved';
+      if (!kept) return result.outcome === 'stopped' ? 'stopped' : this.#unamended(r, wait, unrecorded(result, 'values'));
+      ({ fields, rulesApplied } = kept);
+      runId = result.runId;
+    }
+    if (await this.#endedByStop(productId)) return 'moved';
+    const amendment: Amendment = { page: r.page, host, terms: asked.terms, fields, fieldsRead, rulesApplied };
+    // Its card must fit Discord as an Edit's version will, with the longest line an Edit adds; an Edit is checked again.
+    if (!this.#fits({ productId, version: 0, ofVersion: r.version, amendment, cause: { kind: 'edited', field: 'x'.repeat(200) } })) {
+      return this.#unamended(r, wait, "it doesn't fit on one Discord card");
+    }
+    const hash = amendmentHash(this.#approvedVersions(productId, r.version), amendment);
+    const version = this.#store.saveAmendment({ productId, ofVersion: r.version, amendment, hash, cause: { kind: 'prepared' }, runId, preparedAt: this.#now() });
+    this.#save(productId, { waitsOn: { ...wait, amended: { version } } });
+    this.#log('registration.amended', { productId, page: r.page, version, runId, rules: rules.map((x) => x.rule) });
+    await this.#show(productId);
+    return 'moved';
+  }
+
+  /** Leaves a page that couldn't get its amended Walkthrough waiting at Hand off and Stop, saying why. */
+  async #unamended(r: StoredRegistration, wait: CheckWait, why: string): Promise<Stepped> {
+    this.#log('registration.amended-unprepared', { productId: r.productId, page: r.page, why });
+    this.#save(r.productId, { waitsOn: { ...wait, amended: { none: why } } });
+    await this.#show(r.productId);
+    return 'moved';
+  }
+
+  /** The versions approved under an Approval so far: the Walkthrough's, then each amended Walkthrough approved. */
+  #approvedVersions(productId: number, ofVersion: number): number[] {
+    return [ofVersion, ...this.#store.amendmentsOf(productId).flatMap((a) => (a.ofVersion === ofVersion && a.approvedAt ? [a.version] : []))];
+  }
+
+  /** Whether a version not kept yet would fit on its card. */
+  #fits(stored: Pick<StoredAmendment, 'productId' | 'version' | 'ofVersion' | 'amendment' | 'cause'>): boolean {
+    return amendedFits(this.#amendedShown({ ...stored, hash: '', runId: null, preparedAt: '', approvedAt: null, copyIntended: false, copyMessageId: null }, 0));
+  }
+
+  /** An amended Walkthrough's version as its card and its copy show it. */
+  #amendedShown(stored: StoredAmendment, cardId: number): AmendedShown {
+    const r = this.#store.registration(stored.productId)!;
+    return shownOf(this.#store, stored, cardId, new Date(Date.parse(r.approvedAt) + CLOSE_MS));
+  }
+
+  /**
+   * The copy of each amended Walkthrough version shown on a card in the Product's post, once, as each Walkthrough
+   * version gets one (#12). One Discord refused is sent again shortly; an uncertain send counts as sent.
+   */
+  async #copiesNow(productId: number): Promise<void> {
+    const shown = Math.max(0, ...this.#store.registrationCards(productId).flatMap((c) => (c.kind === 'amended' && c.intended ? [c.amendment] : [])));
+    for (const a of this.#store.amendmentsOf(productId)) {
+      if (a.copyIntended || a.version > shown) continue;
+      this.#store.saveAmendmentCopyIntended(productId, a.version, true);
+      try {
+        const copy = amendedCopy(this.#amendedShown(a, 0), this.#config.discord.needsYouChannelId, new Date(a.preparedAt));
+        const { messageId } = await this.#discord.sendMessage(this.#store.product(productId)!.threadId!, copy);
+        this.#store.saveAmendmentCopy(productId, a.version, messageId);
+      } catch (error) {
+        this.#log('registration.amended-copy-unposted', { productId, version: a.version, error: errorText(error) });
+        if (refused(error)) {
+          this.#store.saveAmendmentCopyIntended(productId, a.version, false);
+          this.#tryAgainLater(productId);
+        }
+      }
+    }
+  }
+
+  /**
+   * The person's Edit of a value an amended Walkthrough proposed: a new version on the same card, with a fresh Approve,
+   * and a Correction, kept done with it since the Edit fixes its item, which is sorted as any other (#11, #115).
+   */
+  #saveAmendedEdit(tapped: Extract<CardAction, { action: 'edit' }>, entered: string): Tapped {
+    const card = this.#store.registrationCard(tapped.cardId);
+    if (card?.kind !== 'amended') return { refused: 'That card is no longer on record.' };
+    const { productId } = card;
+    if (card.endedAt || !cardFits(card, this.#store.registration(productId)!)) return { refused: 'It has moved on since: its status message says where it stands.' };
+    if (tapped.version !== card.amendment) return { refused: 'It changed since you opened Edit; the card shows the current version.' };
+    const stored = this.#store.amendment(productId, card.amendment)!;
+    const f = stored.amendment.fields[tapped.field];
+    if (!f || !amendedEditable(f)) return { refused: 'That value can’t be edited.' };
+    const value = entered.replace(/\s+/g, ' ').trim();
+    let next: string | null;
+    if (f.key === 'choice') {
+      // The pop-up's radio group carries each option cut to Discord's 100 characters.
+      const picked = f.options!.find((o) => o.slice(0, 100) === value);
+      if (!picked) return { refused: `Pick one of ${f.options!.join(', ')}.` };
+      next = picked;
+    } else {
+      if (value.length > VALUE_CHARS) return { refused: `A value is at most ${VALUE_CHARS} characters. Edit it again.` };
+      next = value || null;
+    }
+    if (next === f.value) return { refused: 'That is its value already.' };
+    const amendment = { ...stored.amendment, fields: stored.amendment.fields.map((x, i) => (i === tapped.field ? { ...x, value: next } : x)) };
+    const cause = { kind: 'edited' as const, field: f.label };
+    // Nothing is kept of an Edit whose version the card can't show, so the card the person has stays the one to act on.
+    if (!this.#fits({ productId, version: stored.version + 1, ofVersion: stored.ofVersion, amendment, cause })) {
+      return { refused: 'That value makes the card too long for Discord. Edit it again with a shorter one.' };
+    }
+    const at = this.#now();
+    const said = (v: string | null) => (v === null ? 'left empty' : `“${v}”`);
+    const text = `${f.label} should be ${said(next)}, not ${said(f.value)}`;
+    const version = this.#store.saveAmendment(
+      { productId, ofVersion: stored.ofVersion, amendment, hash: amendmentHash(this.#approvedVersions(productId, stored.ofVersion), amendment), cause, runId: null, preparedAt: at },
+      { of: stored.version, text, at },
+    );
+    this.#store.saveAmendedCardVersion(card.id, version);
+    this.#log('registration.amended-edited', { productId, version, field: tapped.field });
+    const built = amendedCard(this.#amendedShown(this.#store.amendment(productId, version)!, card.id));
+    return {
+      update: this.#needsYou.card(built.heading, built.body, { buttons: built.buttons }),
+      work: async () => {
+        await this.#show(productId);
+        this.#correctionsDue();
+      },
+    };
+  }
+
   // ---------- Waiting, and sessions ----------
 
   /**
@@ -921,6 +1198,8 @@ export class Registrations {
 
   /** The person sent the Correct pop-up of a Registration. Undefined if it isn't one. */
   submit(customId: string, field: (customId: string) => string | undefined): Tapped | undefined {
+    const ofCard = cardAction(customId);
+    if (ofCard?.action === 'edit') return this.#saveAmendedEdit(ofCard, field(AMENDED_EDIT_FIELD) ?? '');
     const sent = registrationAction(customId);
     if (sent?.action !== 'correct') return undefined;
     const { productId } = sent;
@@ -946,9 +1225,11 @@ export class Registrations {
     };
   }
 
-  /** Ends the stopped Registration's fill run, if one is going, and abandons it. */
+  /** Ends the stopped Registration's fill run, or its amended Walkthrough's run, if one is going, and abandons it. */
   async #stopNow(productId: number): Promise<void> {
-    this.#pi.abort('fill', this.#store.product(productId)!.rootDomain);
+    const { rootDomain } = this.#store.product(productId)!;
+    this.#pi.abort('fill', rootDomain);
+    this.#pi.abort('amended-walkthrough', rootDomain);
     await this.#abandon(productId);
   }
 
@@ -989,6 +1270,7 @@ export class Registrations {
       next: this.#next(registration),
       verification: this.#store.verification(productId) ?? null,
       needsYouChannelId: this.#config.discord.needsYouChannelId,
+      amendedBy: this.#store.amendmentsOf(productId).flatMap((a) => (a.ofVersion === registration.version && a.approvedAt ? [a.version] : [])),
     });
   }
 
@@ -1034,6 +1316,7 @@ export class Registrations {
       this.#store.saveRegistration(productId, { shownKey: key }, { evenIfAbandoned: true });
     }
     await this.#cardsNow(productId);
+    await this.#copiesNow(productId);
   }
 
   // ---------- Cards in #needs-you (#59) ----------
@@ -1069,7 +1352,8 @@ export class Registrations {
     const registration = this.#store.registration(c.productId)!;
     return {
       registration,
-      walkthrough: this.#store.walkthrough(c.productId, c.version)!.walkthrough,
+      // What the person approved under that Approval, each amended Walkthrough's values included, as a Handoff gives them.
+      walkthrough: (({ base, amendments }) => amendedWalkthrough(base, amendments))(this.#approved(c.productId, c.version)),
       threadId: this.#store.product(c.productId)!.threadId!,
       closesAt: new Date(Date.parse(registration.approvedAt) + CLOSE_MS),
     };
@@ -1080,6 +1364,7 @@ export class Registrations {
     if (c.kind === 'waiting') built = waitingCard(c, this.#cardInput(c));
     else if (c.kind === 'handoff') built = handoffCard(c, this.#cardInput(c));
     else if (c.kind === 'submit-tap') built = await this.#submitTapCard(c);
+    else if (c.kind === 'amended') built = amendedCard(this.#amendedShown(this.#store.amendment(c.productId, c.amendment)!, c.id));
     else built = stillShowingCard(c, this.#cardInput(c));
     // A Submit tap whose page changed before its screenshot is checked again instead.
     if (!built) return;
@@ -1156,7 +1441,7 @@ export class Registrations {
    * The person tapped a button of one of a Registration's cards: Hand off or Stop on what waits on them, or Done on a
    * Handoff. A card that has ended shrinks to its line.
    */
-  #tapCard(tapped: { action: string; cardId: number; fingerprint: string | null }, interaction: TapInteraction): Tapped {
+  #tapCard(tapped: CardAction, interaction: TapInteraction): Tapped {
     const { messageId } = interaction;
     const card = this.#store.registrationCard(tapped.cardId);
     if (!card) return { refused: 'That card is no longer on record.' };
@@ -1184,6 +1469,29 @@ export class Registrations {
         this.#log('registration.stopped', { productId, by: 'stop', state: r.state });
         return { update: end('stopped by you; nothing submitted'), work: () => this.#stopNow(productId) };
       }
+      case 'approve': {
+        if (card.kind !== 'amended') return { refused: 'There is nothing to approve on it.' };
+        if (tapped.version !== card.amendment) return { refused: 'That Approve is for an earlier version: the card shows the current one.' };
+        // The person approves this version alone (ADR 0007): filling resumes on its page in the same session, and the
+        // 24-hour clock keeps running from the Approval that started the Registration (#10).
+        const approval = { productId, version: tapped.version, userId: interaction.userId ?? '', interactionId: interaction.interactionId ?? '', approvedAt: at };
+        if (!this.#store.approveAmendment(approval)) return { refused: 'It has moved on since: its status message says where it stands.' };
+        this.#log('registration.amended-approved', { productId, page: card.page, version: tapped.version });
+        return {
+          update: end(`amended Walkthrough v${tapped.version} approved ${shortTime(new Date(at))}`),
+          work: async () => {
+            await this.#show(productId);
+            this.#fillsDue();
+          },
+        };
+      }
+      case 'edit': {
+        if (card.kind !== 'amended') return { refused: 'There is nothing to edit on it.' };
+        if (tapped.version !== card.amendment) return { refused: 'That Edit is for an earlier version: the card shows the current one.' };
+        const f = this.#store.amendment(productId, card.amendment)?.amendment.fields[tapped.field];
+        if (!f || !amendedEditable(f)) return { refused: 'That value can’t be edited.' };
+        return { popup: amendedEditPopup(amendedEditId(card.id, tapped.version, tapped.field), f) };
+      }
       case 'submit': {
         if (card.kind !== 'submit-tap' || !card.fingerprint || card.fingerprint !== tapped.fingerprint || card.waitsOn.kind !== 'check' || !card.waitsOn.button) {
           return { refused: 'That Submit is for another screenshot than this card shows.' };
@@ -1203,7 +1511,7 @@ export class Registrations {
         };
       }
       case 'handoff': {
-        if (card.kind === 'handoff') return { refused: "That card can't be handed off." };
+        if (card.kind === 'handoff' || card.kind === 'amended') return { refused: "That card can't be handed off." };
         const handOff: HandOff =
           card.kind === 'waiting' || card.kind === 'submit-tap'
             ? { at, from: waitingFrom(card.waitsOn, card.page), wall: card.waitsOn.kind === 'wall' ? card.waitsOn.wall : null, submitted: false }
@@ -1377,6 +1685,12 @@ export async function settledSnapshot(browser: BrowserService, session: string, 
 /** Why a tap or a pop-up from an earlier Approval does nothing. */
 const staleText = (was: number, now: number) => `Nothing was done: that was shown for Walkthrough v${was}, and v${now} is the one approved now. Use the status message as it stands.`;
 
+/** A Walkthrough's own domains, which its session opens with: the Product's root domain and the signup host. */
+const ownDomains = (w: Walkthrough) => [...new Set([w.rootDomain, w.signupHost].map((d) => d.toLowerCase()))];
+
+/** Whether a host is on one of a session's domains, as the browser service judges it. */
+const onDomains = (host: string, domains: string[]) => domains.some((d) => host === d || host.endsWith(`.${d}`));
+
 /** Whether a refusal means the session is gone: closed, or closed by the service at its 60-second action limit. */
 const gone = (kind: string) => kind === 'unknown-session' || kind === 'timeout';
 
@@ -1384,12 +1698,25 @@ const gone = (kind: string) => kind === 'unknown-session' || kind === 'timeout';
 const unreached = (error: unknown) => ['ECONNREFUSED', 'ENOENT'].includes(String((error as { code?: unknown } | null)?.code));
 
 /** What a Registration waits on after a page check failed: each rule, as the status message says it and as its card routes it. */
-const failedCheck = (failures: { rule: string; field: string | null; ref: string | null; validity?: string; secret?: boolean }[], button: { ref: string; label: string }): CheckWait => ({
+function failedCheck(failures: CheckFailure[], button: { ref: string; label: string }): CheckWait {
+  const rules = failures.map(({ rule, field, ref, secret, validity, host }) => ({ rule, field, ref, ...(secret ? { secret } : {}), ...(validity ? { validity } : {}), ...(host ? { host } : {}) }));
+  // What the page newly asks for goes to an amended Walkthrough, which the lane prepares (#115).
+  return { kind: 'check', failures: failures.map(failureText), rules, button, ...(forAmended(rules) ? { amended: 'due' as const } : {}) };
+}
+
+/** What a Registration waits on once a fill run found its page off the session's domains: an amended Walkthrough naming its host. */
+const offDomainWait = (host: string): CheckWait => ({
   kind: 'check',
-  failures: failures.map(failureText),
-  rules: failures.map(({ rule, field, ref, secret }) => ({ rule, field, ref, ...(secret ? { secret } : {}) })),
-  button,
+  failures: [failureText({ rule: 'off-host', field: null, host })],
+  rules: [{ rule: 'off-host', field: null, ref: null, host }],
+  amended: 'due',
 });
+
+/** Whether a Registration waits for its amended Walkthrough to be prepared. */
+const amendedDue = (r: StoredRegistration) => r.waitsOn?.kind === 'check' && r.waitsOn.amended === 'due';
+
+/** What a fill run is told once its page is off the session's domains. */
+const OFF_DOMAIN = "The page is off the Walkthrough's domains, so it goes to the person now. Reply with one short line and stop.";
 
 /** What a Registration waits on after the browser service refused its check or press for a reason of its own, such as a disabled button. */
 /** What a Registration waits on after its page check failed. */
@@ -1403,6 +1730,7 @@ const refusedCheck = (refusal: Refusal, button: { ref: string; label: string }):
 });
 
 /** One failed rule of the page check, as the status message says it. */
-function failureText(f: { rule: string; field: string | null; validity?: string }): string {
+function failureText(f: { rule: string; field: string | null; validity?: string; host?: string }): string {
+  if (f.rule === 'off-host' && f.host) return `off-host: the page is on ${f.host}`;
   return `${f.rule}${f.validity ? ` (${f.validity})` : ''}${f.field ? ` on “${f.field.replace(/\s+/g, ' ').trim().slice(0, 80)}”` : ''}`;
 }

@@ -2,7 +2,8 @@
 // It replays scripted tool calls per run kind and item: for a Miner judging run, one record_judgment call for
 // each Launch the run asks about, then a short closing reply; for a Dossier run, one record_dossier call, and one
 // more if the bot says the Dossier is too long; for a Walkthrough preparation run, one record_walkthrough call, and
-// another if the bot refuses it and the test scripts one; for a Correction's sorting run, one record_sort call, and
+// another if the bot refuses it and the test scripts one; for an amended Walkthrough's run, one record_amendment call,
+// and another if the bot refuses it and the test scripts one; for a Correction's sorting run, one record_sort call, and
 // another if the bot refuses it and the test scripts one; for a fill run, a snapshot, then the fixed actions the test
 // scripts from what that snapshot shows, one a turn or several in one, until one of them is finish; for a mail run, one
 // record_mail call, and another if the bot refuses it and the test scripts one. Usage is scripted too.
@@ -140,6 +141,12 @@ export interface ScriptedWalkthrough {
   rulesApplied: string[];
 }
 
+/** The values an amended Walkthrough's run proposes, as the model records them through record_amendment (#115). */
+export interface ScriptedAmendment {
+  fields: { field: number; fill: 'value' | 'choice' | 'empty'; value: string | null }[];
+  rulesApplied: string[];
+}
+
 /** One fixed action a fill run takes, as the model calls its tool. */
 export interface FillStep {
   tool: 'snapshot' | 'fill' | 'fill_secret' | 'choose' | 'open' | 'finish';
@@ -189,7 +196,7 @@ export const mailSorted = (kind: ScriptedMailSort['kind'], parts: Partial<Omit<S
 
 /** One conversation the provider saw: a run, with the Launches it was asked to judge, write a Dossier of, or sort a Correction of. */
 export interface SeenRun {
-  kind: 'miner-judging' | 'dossier' | 'walkthrough-preparation' | 'correction-sorting' | 'fill' | 'mail' | 'other';
+  kind: 'miner-judging' | 'dossier' | 'walkthrough-preparation' | 'amended-walkthrough' | 'correction-sorting' | 'fill' | 'mail' | 'other';
   /** The page a fill run fills. */
   page: number | null;
   /** What each fixed action of a fill run got back, in order, each with the tool called. */
@@ -207,6 +214,8 @@ export interface SeenRun {
   dossierReplies: string[];
   /** What each record_walkthrough call got back, in order. */
   walkthroughReplies: string[];
+  /** What each record_amendment call got back, in order. */
+  amendmentReplies: string[];
   /** What each record_sort call got back, in order. */
   sortReplies: string[];
   /** What each record_mail call got back, in order. */
@@ -269,6 +278,11 @@ export class FakeModelProvider {
     return this.runs.filter((r) => r.kind === 'walkthrough-preparation');
   }
 
+  /** The amended Walkthroughs' runs seen, oldest first. */
+  get amendmentRuns(): SeenRun[] {
+    return this.runs.filter((r) => r.kind === 'amended-walkthrough');
+  }
+
   /** The Corrections' sorting runs seen, oldest first. */
   get sortingRuns(): SeenRun[] {
     return this.runs.filter((r) => r.kind === 'correction-sorting');
@@ -324,6 +338,10 @@ export class FakeModelProvider {
   walkthrough: (run: SeenRun) => ScriptedWalkthrough | 'none' = (run) => plainWalkthrough(run.prompt);
   /** What the model records after the bot refused its Walkthrough; `'none'` records nothing more. */
   walkthroughAgain: (run: SeenRun, refusal: string) => ScriptedWalkthrough | 'none' = () => 'none';
+  /** What the model records in an amended Walkthrough's run; `'none'` records nothing. By default, no value for any field. */
+  amendment: (run: SeenRun) => ScriptedAmendment | 'none' = () => ({ fields: [], rulesApplied: [] });
+  /** What the model records after the bot refused its values; `'none'` records nothing more. */
+  amendmentAgain: (run: SeenRun, refusal: string) => ScriptedAmendment | 'none' = () => 'none';
   /** What the model records in a Correction's sorting run; `'none'` records nothing. By default, fix only. */
   sort: (run: SeenRun) => ScriptedSort | 'none' = () => sorted('fix-only');
   /** What the model records after the bot refused its sort; `'none'` records nothing more. */
@@ -426,12 +444,27 @@ export class FakeModelProvider {
       const judging = tools.includes('record_judgment');
       const dossier = tools.includes('record_dossier');
       const walkthrough = tools.includes('record_walkthrough');
+      const amended = tools.includes('record_amendment');
       const sorting = tools.includes('record_sort');
       const fill = tools.includes('finish');
       const mail = tools.includes('record_mail');
       const user = body.messages.filter((m) => m.role === 'user').map(text).join('\n');
       const run: SeenRun = {
-        kind: judging ? 'miner-judging' : dossier ? 'dossier' : walkthrough ? 'walkthrough-preparation' : sorting ? 'correction-sorting' : fill ? 'fill' : mail ? 'mail' : 'other',
+        kind: judging
+          ? 'miner-judging'
+          : dossier
+            ? 'dossier'
+            : walkthrough
+              ? 'walkthrough-preparation'
+              : amended
+                ? 'amended-walkthrough'
+                : sorting
+                  ? 'correction-sorting'
+                  : fill
+                    ? 'fill'
+                    : mail
+                      ? 'mail'
+                      : 'other',
         page: fill ? Number(user.match(/^Fill page (\d+)/m)?.[1] ?? 0) : null,
         fillReplies: [],
         fillSteps: [],
@@ -441,6 +474,7 @@ export class FakeModelProvider {
         prompt: user,
         dossierReplies: [],
         walkthroughReplies: [],
+        amendmentReplies: [],
         sortReplies: [],
         mailReplies: [],
         ranAway: false,
@@ -534,6 +568,12 @@ export class FakeModelProvider {
           : 'none';
       if (next === 'none') reply(startsRun ? 'Nothing to record.' : 'Recorded.');
       else callTools([next as unknown as Record<string, unknown>], 'record_walkthrough');
+    } else if (run?.kind === 'amended-walkthrough') {
+      const replied = body.messages.at(-1)?.role === 'tool' ? text(body.messages.at(-1)!) : undefined;
+      if (replied !== undefined) run.amendmentReplies.push(replied);
+      const next = startsRun ? this.amendment(run) : replied !== undefined && !/^Recorded/.test(replied) ? this.amendmentAgain(run, replied) : 'none';
+      if (next === 'none') reply(startsRun ? 'Nothing to record.' : 'Recorded.');
+      else callTools([next as unknown as Record<string, unknown>], 'record_amendment');
     } else if (run?.kind === 'fill') {
       // What each tool call of the last turn got back, in the order the turn made them.
       const replies = toolReplies(body.messages);

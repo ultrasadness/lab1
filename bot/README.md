@@ -16,6 +16,8 @@ in the Password vault at its Approval, and refuses any model request, Discord me
 mailbox, recording each mail in the ledger once, #58 verifies a Registration from its verification mail, and #61 sorts
 each other matched mail with a mail run, giving each kind its treatment on Discord. #59 gives the person a card for
 each wall, *stuck* fill run and failed page check, with its route: a Submit tap, a Handoff, or *abandoned* at once.
+#115 puts what a page newly asks for back to the person as an amended Walkthrough, whose Approval has that page filled
+again in the same session.
 
 | Path | What it is |
 |---|---|
@@ -24,7 +26,7 @@ each wall, *stuck* fill run and failed page check, with its route: a Submit tap,
 | `bot/src/rules/` | Rules: each run's Rule files, its prompt's Rules section and the Rule budget; a Correction's sorting run; and the cards of proposed Rules and Interest scope changes, with Keep, Edit and Discard |
 | `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, the Product's folder in the Personal database, and the tries at one that can't be written |
 | `bot/src/walkthrough/` | Walkthroughs: the read of the signup page, its run's prompt and record, the card in `#needs-you` and its copy in the Product's post, Edit, Correct, Dismiss, the 14-day lapse and Prepare again, the Approval that starts the Registration, where the Product stands, and `registration.md` |
-| `bot/src/registration/` | Registrations after Approval: the wait for one of 5 sessions, a fill run per page and the fixed actions it acts through, plain code's page check and press under an *intended* mark, the outcome from "what happens on submit", the verification mail's code or link used by plain code or put to the person, the status message, and Stop, Correct and Start again; the cards in `#needs-you` of what waits on the person, the Submit tap, the Handoff card, the 24-hour close and the read 10 seconds after a final press |
+| `bot/src/registration/` | Registrations after Approval: the wait for one of 5 sessions, a fill run per page and the fixed actions it acts through, plain code's page check and press under an *intended* mark, the outcome from "what happens on submit", the verification mail's code or link used by plain code or put to the person, the status message, and Stop, Correct and Start again; the cards in `#needs-you` of what waits on the person, the Submit tap, the amended Walkthrough, the Handoff card, the 24-hour close and the read 10 seconds after a final press |
 | `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)`, `redirect(url)` and a Registration's session over its Unix socket, and the root domain a Product is keyed by |
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
@@ -244,8 +246,9 @@ forwarder for them before the run starts and puts each one whole into the run's 
 don't arrive doesn't start. A record names the Rules it applied, and the bot turns back one naming a Rule its run didn't
 load. Once a Correction's Launch is re-judged, a Miner-role run sorts the Correction. The day's file says what came of
 it, and a Correction declined for a Hard limit says so on its Launch's line in the day post too. A Walkthrough's
-Correction is sorted the same way, by a registration-role run that loads the Walkthrough/Registration Rules, and its
-Product's `registration.md` says what came of it. A Correction of mail is sorted by a mail-role run that loads the mail
+Correction, and the person's Edit of a value an amended Walkthrough proposed, which is a Correction too, are sorted the
+same way, by a registration-role run that loads the Walkthrough/Registration Rules, and their Product's
+`registration.md` says what came of each. A Correction of mail is sorted by a mail-role run that loads the mail
 Rules, and nothing of it goes to the Personal database. A proposed Rule, an amendment of a kept
 one or an Interest scope change goes to `#needs-you` as a purple card. Keep commits the Rule file or
 `profile/interest-scope.md` under the write lock, unless git changed what it replaces since the proposal, or a Rule
@@ -309,7 +312,8 @@ Walkthrough/Registration and all-scope Rules, and each snapshot. The bot carries
 supplying the approved value a key names and the password by reference, so the model types nothing of its own and never
 sees the password, and a snapshot shows what filled a field, never its value. The run ends with `finish`, naming the
 Rules it applied: a button, a wall from #10's list, or *stuck* with one of `password-refused`, `plus-refused`,
-`no-button`, `value-missing`, `page-error` or `other`. A run that names `oauth-only` names each sign-in the page offers,
+`no-button`, `page-error` or `other`. A required field the Walkthrough gives no value is left empty and the button named,
+so that the page check puts it to the person (#115). A run that names `oauth-only` names each sign-in the page offers,
 in words and never as a link, or its finish is turned back.
 
 Plain code then runs the page check on the named button (ADR 0005). On a pass it writes an *intended* mark, with the
@@ -325,10 +329,9 @@ it *awaiting verification* with its session open, a waitlist ends it *waitlisted
 What waits on the person gets a card in `#needs-you` (#59, #10, #12), and the store records each wall met beside the
 walls the read of its signup page predicted. A bot check, a sixth page, a phone check, a site that refuses the VM, a
 sign-in only through other accounts with Google among them, a *stuck* fill run, and a page check that failed on a
-required field left empty, other terms, another host or a value in a field filled by reference, which a screenshot
-masks, each get **Hand off** beside **Stop**, and so does a press the browser service refused itself, such as on a
-disabled button, on a *stuck* card. #60 puts **Take over** first where #10 recommends it, and #115 answers the check's other
-failures with an amended Walkthrough (both settled by the person on #59). Card fields, a form that refuses gmail.com, an
+value in a field filled by reference, which a screenshot masks, or on a validity flag other than a required field left
+empty, each get **Hand off** beside **Stop**, and so does a press the browser service refused itself, such as on a
+disabled button, on a *stuck* card. #60 puts **Take over** first where #10 recommends it (settled by the person on #59). Card fields, a form that refuses gmail.com, an
 invite code nobody has, and a sign-in only through other providers end the Registration *abandoned* at once, saying why
 on its status message, with no card. A page that failed the check only on values the person can see, a value or a box
 the page set itself, gets a **Submit tap**: a screenshot of the page as it stands, with the named button outlined, each
@@ -338,7 +341,35 @@ service lets through the values the person saw only while the page has that fing
 is checked again and never pressed, and goes to the person on a new Submit tap, even when it now passes. The screenshot
 and its Submit are of the page the check failed: a page that changed before them is checked again first, at most twice
 before it gets Hand off and Stop alone, as does a screenshot that can't be taken or is too large to post. Each Submit
-is kept as an Approval of its page, by its fingerprint (ADR 0007), and `registration.md` gets a line for it. Hand off makes the Registration *handed
+is kept as an Approval of its page, by its fingerprint (ADR 0007), and `registration.md` gets a line for it.
+
+A page that newly asks for something gets an **amended Walkthrough** instead (#115, #10, #12): a page check that failed
+on a required field with no approved value, on terms other than the approved ones or a new box asking for agreement,
+or on another host, beside any value the person can see, since the press can't pass while a required field is empty
+(settled by the person on #59); and a page a fill run finds off the session's domains, such as a signup page that now
+sends its visitors to an auth vendor's. A page on a sign-in provider's host plain code knows, Google's, GitHub's,
+Apple's or Microsoft's, meets the `oauth-only` wall instead, with Hand off for Google and *abandoned* at once for the
+rest, so that no provider's session enters the Registration browser (settled by the person on #115). A Continue or Next that leads off the session's domains still leaves its press
+uncertain, as above, since plain code can't read whether that page holds a form (settled by the person on #115). Plain
+code reads the page's fields again, takes its host and the links of each box it asks to tick, and proposes the Signup
+identity, the password and ticking a box itself; only a box's links are documents to accept, and a box the person edits
+to "left unticked" accepts none of them (settled by the person on #115). A field the Walkthrough
+gives a value it takes already, which the fill run left empty, is no new ask, where a box takes only "ticked" and a
+list only an option it offers: a page that fails on nothing else is filled again,
+within its 3 fill runs. A registration-role run proposes a value for each other field from the Profile, the Dossier and
+the approved Walkthrough. The card shows only what the page asks for,
+`+ Company · Personal (required on page 2)`, with what the versions approved so far approved below it, and **Approve**,
+an **Edit** beside each value, and **Stop**; a copy of each version goes to the Product's post, and its number counts
+with the Walkthrough's versions. Approve has filling resume on that page in the same session, its 3 fill runs counted
+afresh: the amended Walkthrough's fields join the Walkthrough's keys and its terms the approved terms, and the page
+check of that page and of those after it takes the host it names, which is added to the session's domains when it is
+off them. The 24-hour close keeps counting from the Approval that started the Registration, and `registration.md` gets
+a line for each one approved. The person's Edit of a value makes a new version on the same card, and is a Correction,
+sorted as any other. An amended Walkthrough whose run records no values, or whose page asks for a password where the
+Walkthrough has none, for more fields than a card holds, or to tick a box whose links can't be shown whole, waits at
+Hand off and Stop instead, saying why. While no provider can serve its run, it is tried again every 5 minutes.
+
+Hand off makes the Registration *handed
 off* and closes its session, and a **Handoff** card gives the person numbered steps, the values they approved to copy,
 and the password through AutoFill, naming its vault item, with **Done**, which makes it *registered*. A Registration
 that started *handed off* for a terms ban, or was handed off for want of a verification mail, gets the same card (the
@@ -637,7 +668,11 @@ a Registration met, with its page and the walls the read predicted. `registratio
 `registration.submit-tap-unshown` line names a Submit tap that got Hand off and Stop alone, with why. A
 `registration.submit-tapped` line names a Submit, a `registration.page-changed` line a page that changed since its
 screenshot, a `registration.handed-off` line also a Hand off by the person, with what from, and a
-`registration.hand-off-done` line a Done. A `registration.stopped` line with `by` `closed` names a 24-hour close. A
+`registration.hand-off-done` line a Done. A `registration.amended` line names an amended Walkthrough prepared, with
+its page, version and run, a `registration.amended-unprepared` line one that couldn't be, with why, a
+`registration.amended-approved` line its Approval, a `registration.amended-edited` line the person's Edit, and a
+`registration.amended-copy-unposted` line a copy Discord didn't take, and a `registration.filled-again` line a page filled
+again because the fill run left empty only what the Walkthrough approves. A `registration.stopped` line with `by` `closed` names a 24-hour close. A
 `registration.still-showing` line says whether the form still showed 10 seconds after a final press, and a
 `registration.still-unread` line why that page couldn't be read.
 

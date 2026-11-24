@@ -34,11 +34,14 @@ const CHOOSABLE = 'combobox, option, checkbox, radio or switch';
 class Refused extends Error {
   readonly kind: RefusalKind;
   readonly check?: PageCheck;
+  /** For `off-domain` on the top-level page, its host. */
+  readonly host?: string;
 
-  constructor(kind: RefusalKind, message: string, check?: PageCheck) {
+  constructor(kind: RefusalKind, message: string, check?: PageCheck, host?: string) {
     super(message);
     this.kind = kind;
     this.check = check;
+    this.host = host;
   }
 }
 
@@ -84,6 +87,9 @@ const hostOf = (url: string) => {
   }
 };
 const onDomains = (host: string, domains: string[]) => domains.some((d) => host === d || host.endsWith(`.${d}`));
+const isDomain = (d: string) => /^[a-z0-9-]+(\.[a-z0-9-]+)*$/.test(d);
+/** The most domains a session holds: those it opened with, and those added to it. */
+const MAX_DOMAINS = 10;
 const firstLine = (e: unknown) => (e instanceof Error ? e.message : String(e)).split('\n')[0]!;
 
 // A request's parameters. A string must be well-formed Unicode, which a Secret's URL form needs (redact.ts).
@@ -194,7 +200,7 @@ export function createSessions(browser: Browser) {
     const target = targetOf(body.url);
     if (!target) throw new Refused('bad-request', 'url must be an http or https URL with no username or password');
     const domains = stringListParam(body, 'domains', 10).map((d) => d.toLowerCase());
-    if (domains.length === 0 || !domains.every((d) => /^[a-z0-9-]+(\.[a-z0-9-]+)*$/.test(d))) throw new Refused('bad-request', 'domains must name at least one domain');
+    if (domains.length === 0 || !domains.every(isDomain)) throw new Refused('bad-request', 'domains must name at least one domain');
     if (!onDomains(target.hostname, domains)) throw new Refused('bad-request', `the start URL isn't on ${domains.join(' or ')}`);
     if (opening.has(registration) || [...sessions.values()].some((s) => s.registration === registration)) {
       throw new Refused('already-open', 'the Registration has a session open');
@@ -245,7 +251,7 @@ export function createSessions(browser: Browser) {
 
   function onDomain(s: Session, url = s.page.url()) {
     const host = hostOf(url);
-    if (!onDomains(host, s.domains)) throw new Refused('off-domain', `the page is on ${host || url}, not on ${s.domains.join(' or ')}`);
+    if (!onDomains(host, s.domains)) throw new Refused('off-domain', `the page is on ${host || url}, not on ${s.domains.join(' or ')}`, undefined, host || undefined);
   }
 
   const connected = (el: Handle) => el.evaluate((e) => e.isConnected).catch(() => false);
@@ -416,6 +422,18 @@ export function createSessions(browser: Browser) {
       driver: null,
       async run(s) {
         await close(s);
+        return {};
+      },
+    },
+    // An amended Walkthrough's Approval names a host off the session's domains, on which its actions may then act (#115).
+    '/session/domains': {
+      driver: null,
+      async run(s, body) {
+        const domain = stringParam(body, 'domain', 253).toLowerCase();
+        if (!isDomain(domain)) throw new Refused('bad-request', 'domain must be a host name, such as accounts.example.com');
+        if (s.domains.includes(domain)) return {};
+        if (s.domains.length >= MAX_DOMAINS) throw new Refused('bad-request', `a session holds at most ${MAX_DOMAINS} domains`);
+        s.domains = [...s.domains, domain];
         return {};
       },
     },
@@ -626,7 +644,7 @@ export function createSessions(browser: Browser) {
         });
         return { ok: true, ...answer };
       } catch (e) {
-        if (e instanceof Refused) return { ok: false, error: { kind: e.kind, message: e.message, ...(e.check ? { check: e.check } : {}) } };
+        if (e instanceof Refused) return { ok: false, error: { kind: e.kind, message: e.message, ...(e.check ? { check: e.check } : {}), ...(e.host ? { host: e.host } : {}) } };
         throw e;
       }
     },

@@ -10,7 +10,8 @@ fill run may use through the bot, and plain code's page check, press and fills b
 `redirect(url)`. Since #56 the bot drives a session: it opens one, switches drivers, carries out a fill run's actions,
 and asks for the check, the fingerprint and the press. Since #58 it asks for `fill-code` and `open-link` to verify a
 Registration. Since #59 it asks for a screenshot for a Submit tap, and presses on the page whose fingerprint the person
-approved.
+approved. Since #115 it adds a domain to an open session, once the person approves an amended Walkthrough naming a host
+off the session's domains.
 
 | Path | What it is |
 |---|---|
@@ -54,12 +55,15 @@ HTTP with JSON bodies, on the socket at `$SOCKET_PATH`.
   `POST /session/close`, when an action takes longer than 60 s, once a verification link is opened, or after 24 hours
   with no request on it (`SESSION_IDLE_LIMIT_MS`): the bot's own 24-hour rules close it first, so this close catches a
   session the bot lost.
+- `POST /session/domains` with `{ "session", "domain" }`: adds a host name to the session's domains, on which its
+  actions may then act, as an amended Walkthrough's Approval of a host off them asks (#115). Adding one the session
+  holds changes nothing, a session holds at most 10, and it needs no driver.
 - `POST /session/drive` with `{ "session", "driver" }`: who drives the session now, `none`, `fill-run`,
   `plain-code` or `person`. Each action's path names the driver it needs, and while the person drives in a Takeover
   nothing else acts. Showing the fields the person fills as `[person]`, which the page check accepts, comes with
   #60's Takeover.
 - `POST /fill-run/…`: the fixed actions a fill run may use through the bot, each refused (`off-domain`) unless the
-  top-level page is on one of the session's domains. `snapshot` rejects cookie banners first. It shows a field only by
+  top-level page is on one of the session's domains, the refusal naming the page's `host`. `snapshot` rejects cookie banners first. It shows a field only by
   what filled it (its Walkthrough key, `[password]` or `[code]`), never by its value, and removes each Secret filled
   into the session by its exact value, then random-looking strings. Its refs (`f1`, `b1`, `l1`) name the fields,
   submit controls and links the other actions take, a form that shows only its button included. `fill` takes a Walkthrough key and the approved value the bot
@@ -68,7 +72,7 @@ HTTP with JSON bodies, on the socket at `$SOCKET_PATH`.
   `open` loads a link's URL rather than clicking it, only on the session's domains.
 - `POST /plain-code/…`: plain code's own actions. `snapshot` is the same as a fill run's. `check` is the page check:
   given the named button, the approved signup host, the approved terms' URLs and the Signup identity's two
-  addresses, it answers which rule failed on which field. It judges the page once it has held still for 1.5 s, or as
+  addresses, it answers which rule failed on which field, and `off-host` names the page's `host`. It judges the page once it has held still for 1.5 s, or as
   it stands 5 s after it was asked, since a page's script may still be reacting to the last fill. `fingerprint` hashes the URL, the form structure and the
   values, and answers the page's `shape` beside it: the URL, and each form's fields by type and name and its buttons by
   label, which tells the same form still showing after a press (#59). `screenshot` masks every field filled by reference, and can outline a button and mark

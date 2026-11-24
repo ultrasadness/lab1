@@ -6,6 +6,7 @@
 //   run the fixed actions (ADR 0006), which the bot carries out on the browser service;
 // - each tool is schema-checked, and writes its record to the bot, or asks the bot for its action, as it is called.
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { amendedWalkthrough } from './amended.ts';
 import { dossierRun } from './dossier.ts';
 import { fillRun } from './fill.ts';
 import { mailRun } from './mail.ts';
@@ -17,6 +18,7 @@ const RUN_KINDS: Record<string, RunKind> = {
   'miner-judging': minerJudging,
   dossier: dossierRun,
   'walkthrough-preparation': walkthroughPreparation,
+  'amended-walkthrough': amendedWalkthrough,
   'correction-sorting': correctionSorting,
   fill: fillRun,
   mail: mailRun,

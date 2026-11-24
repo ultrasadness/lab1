@@ -75,6 +75,7 @@
     "miner-judging": { "wallClockMinutes": 10, "turns": 20, "tokens": 200000 },
     "dossier": { "wallClockMinutes": 10, "turns": 10, "tokens": 300000 },
     "walkthrough-preparation": { "wallClockMinutes": 20, "turns": 40, "tokens": 1000000 },
+    "amended-walkthrough": { "wallClockMinutes": 10, "turns": 10, "tokens": 300000 },
     "fill": { "wallClockMinutes": 3, "turns": 30, "tokens": 300000 },
     "mail": { "wallClockMinutes": 5, "turns": 10, "tokens": 100000 },
     "question": { "wallClockMinutes": 10, "turns": 40, "tokens": 500000 },

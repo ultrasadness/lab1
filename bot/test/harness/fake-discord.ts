@@ -274,8 +274,8 @@ export class FakeDiscord {
   }
 
   /**
-   * Discord refuses the next message sent to this text channel outright, with the 400 this fake answers any message it
-   * refuses, so it surely doesn't take it. #29 saw real Discord refuse a message over its limits, though not which 4xx;
+   * Discord refuses the next message sent to this text channel or post outright, with the 400 this fake answers any
+   * message it refuses, so it surely doesn't take it. #29 saw real Discord refuse a message over its limits, though not which 4xx;
    * the bot takes any 4xx alike (`refused` in `bot/src/discord/rest.ts`).
    */
   refuseNextMessage(channelId: string): void {
@@ -653,6 +653,7 @@ export class FakeDiscord {
       const body = JSON.parse(raw) as MessagePayload;
       const problem = checkMessage(body);
       if (problem) return refuse(problem);
+      if (this.#refusingNext.delete(match[1]!)) return refuse('the test has Discord refuse this message');
       const id = this.#id();
       // A message in an archived thread that isn't locked opens it again.
       delete thread.archivedAt;

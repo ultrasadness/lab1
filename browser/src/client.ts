@@ -14,6 +14,7 @@ import type {
   Refusal,
   Screenshot,
   SecretKind,
+  SessionDomain,
   SessionOpen,
   SessionOutcome,
   SessionSnapshot,
@@ -63,6 +64,11 @@ export class BrowserClient {
 
   drive(session: string, driver: Driver): Promise<SessionOutcome> {
     return this.session('/session/drive', { session, driver });
+  }
+
+  /** Adds a domain to the session's, on which its actions may then act. */
+  addDomain(session: string, domain: string): Promise<SessionOutcome> {
+    return this.session('/session/domains', { session, domain } satisfies SessionDomain);
   }
 
   // The fixed actions a fill run may use, through the bot.

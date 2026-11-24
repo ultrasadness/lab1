@@ -154,17 +154,19 @@ test('Hand off hands it to the person: its session closes, a Handoff card gives 
   assert.deepEqual(presses(world), [], 'nothing was ever pressed');
 });
 
-test('a required field nobody approved, and a press refused for a disabled button, each get Hand off beside Stop, and Stop on the card ends it', async (t) => {
-  await t.test('a required field nobody approved, until #115 amends the Walkthrough', async (t) => {
-    // The page asks for a company the Walkthrough leaves empty, now required.
+test('a required field nobody approved beside a password the page changed, and a press refused for a disabled button, each get Hand off beside Stop, and Stop on the card ends it', async (t) => {
+  await t.test('a required field nobody approved beside a password the page changed', async (t) => {
+    // The page asks for a company the Walkthrough leaves empty, now required, and cuts the password it was given: only
+    // the person can answer the password, so the page gets Hand off, not an amended Walkthrough (#115).
     const required = SIGNUP.forms![0]!.fields.map((f) => (f.name === 'company' ? { ...f, required: true } : f));
-    const world = await walkthroughPut(t, codemind({ forms: [{ ...SIGNUP.forms![0]!, fields: required }] }));
+    const world = await walkthroughPut(t, codemind({ forms: [{ ...SIGNUP.forms![0]!, fields: required }], rewrites: { password: (value) => value.slice(0, 8) } }));
     await approve(world);
     await world.assistant.whenIdle();
 
     const [card] = laterCards(world);
-    assert.match(card!.text, /^<@\d+> \*\*A page check failed · Codemind\*\*\nPage 1 doesn't match the Walkthrough, so the Assistant didn't press its button: invalid \(valueMissing\) on “Company”\. Nothing was submitted\./);
+    assert.match(card!.text, /^<@\d+> \*\*A page check failed · Codemind\*\*\nPage 1 doesn't match the Walkthrough, so the Assistant didn't press its button: unapproved-value on “Password”; invalid \(valueMissing\) on “Company”\. Nothing was submitted\./);
     assert.deepEqual(card!.buttons.map((b) => b.label), ['Hand off', 'Stop']);
+    assert.deepEqual(world.model.amendmentRuns, []);
 
     const reply = await tapCard(world, 1, 'Stop');
     await world.assistant.whenIdle();
@@ -337,7 +339,7 @@ test('a final press that leads on to another page gets no notice 10 seconds on',
   assert.deepEqual(logged(world, 'registration.still-showing').map((l) => l.still), [false]);
 });
 
-test("each rule a later page fails goes to its route: a box ticked by the page to a Submit tap, other terms and another host to Hand off and Stop until #115", async (t) => {
+test("each rule a later page fails goes to its route: a box ticked by the page to a Submit tap, other terms and another host to an amended Walkthrough (#115)", async (t) => {
   /** Page 2 of the form, which the Walkthrough never saw, with one field as the test sets it. */
   const page2 = (url: string, field: FakeField): FakePage => ({
     url,
@@ -348,8 +350,8 @@ test("each rule a later page fails goes to its route: a box ticked by the page t
   const box = (label: string, links: { text: string; href: string }[]): FakeField => ({ type: 'checkbox', name: 'box', label, required: false, autocomplete: null, links, checked: true });
   for (const [rule, page, heading, buttons] of [
     ['unapproved-box', page2('https://app.codemindhq.dev/step-2', box('Send me product news', [])), 'Submit? · Codemind', ['Submit', 'Hand off', 'Stop']],
-    ['other-terms', page2('https://app.codemindhq.dev/step-2', box('I accept the Data Terms', [{ text: 'Data Terms', href: 'https://codemindhq.dev/data-terms' }])), 'A page check failed · Codemind', ['Hand off', 'Stop']],
-    ['off-host', page2('https://codemindhq.dev/step-2', { type: 'text', name: 'team', label: 'Team', required: false, autocomplete: null, links: [] }), 'A page check failed · Codemind', ['Hand off', 'Stop']],
+    ['other-terms', page2('https://app.codemindhq.dev/step-2', box('I accept the Data Terms', [{ text: 'Data Terms', href: 'https://codemindhq.dev/data-terms' }])), 'Amended Walkthrough v2 · Codemind', ['Approve', 'Stop']],
+    ['off-host', page2('https://codemindhq.dev/step-2', { type: 'text', name: 'team', label: 'Team', required: false, autocomplete: null, links: [] }), 'Amended Walkthrough v2 · Codemind', ['Approve', 'Stop']],
   ] as const) {
     await t.test(rule, async (t) => {
       const world = await walkthroughPut(t, codemind({ forms: [{ ...SIGNUP.forms![0]!, submits: [{ label: 'Continue', disabled: false }] }], next: page.url }), {

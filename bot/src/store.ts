@@ -18,6 +18,7 @@ import type { DayLine } from './miner/day-line.ts';
 import type { JudgmentRecord } from './miner/judging.ts';
 import type { RunCap } from './pi-runs.ts';
 import type { Proposal, SortedItem } from './rules/sorting.ts';
+import type { Amendment, AmendmentCause, StoredAmendment } from './registration/amended.ts';
 import type { VersionCause } from './walkthrough/card.ts';
 import type { Walkthrough } from './walkthrough/walkthrough.ts';
 
@@ -427,6 +428,11 @@ export type WaitsOn =
       page?: string;
       rechecks?: number;
       changed?: boolean;
+      /**
+       * Since #115, for a page that newly asks for something: its amended Walkthrough, due to be prepared, the version
+       * prepared, or why none could be, so that it waits at Hand off and Stop instead.
+       */
+      amended?: 'due' | { version: number } | { none: string };
     }
   /** Why it can't go on for now, by itself: Bitwarden is unavailable, or its signup page won't load. */
   | { kind: 'held'; why: string };
@@ -438,6 +444,10 @@ export interface CheckedRule {
   ref: string | null;
   /** Whether the field was filled by reference, which a screenshot masks. */
   secret?: boolean;
+  /** For `invalid`, the failing validity flag, such as `valueMissing` (#115). */
+  validity?: string;
+  /** For `off-host`, the page's host (#115). */
+  host?: string;
 }
 
 /** A press of one button, written before plain code presses it and marked done after (ADR 0007). */
@@ -573,13 +583,16 @@ export interface HandOff {
  * - `submit-tap`: a page that failed the check only on values the person can see, put to them on a screenshot whose
  *   page's fingerprint its Submit carries; null until the screenshot is taken;
  * - `handoff`: the rest of it given to the person, and why;
- * - `still-showing`: the same form still showing 10 seconds after its final press, which may have been rejected.
+ * - `still-showing`: the same form still showing 10 seconds after its final press, which may have been rejected;
+ * - `amended`: an amended Walkthrough of what a page newly asks for (#115), showing the version `amendment`, which an
+ *   Edit moves on.
  */
 export type CardAbout =
   | { kind: 'waiting'; page: number; waitsOn: WaitsOn }
   | { kind: 'submit-tap'; page: number; waitsOn: WaitsOn; fingerprint: string | null }
   | { kind: 'handoff'; cause: 'terms-ban' | 'no-mail' | 'by-you' }
-  | { kind: 'still-showing'; button: string };
+  | { kind: 'still-showing'; button: string }
+  | { kind: 'amended'; page: number; waitsOn: WaitsOn; amendment: number };
 
 /** A Registration's card in #needs-you, marked before it is sent (ADR 0007), and the line it shrinks to once ended. */
 export type RegistrationCard = CardAbout & {
@@ -1051,6 +1064,24 @@ CREATE TABLE walls_met (
   met_at TEXT NOT NULL
 );`,
   },
+  {
+    name: "add amended Walkthroughs, each version of what a page of an approved Registration newly asks for, with its Approval and its copy in the Product's post (#115)",
+    sql: `CREATE TABLE amended_walkthroughs (
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  version INTEGER NOT NULL,
+  of_version INTEGER NOT NULL,
+  page INTEGER NOT NULL,
+  amendment TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  cause TEXT NOT NULL,
+  run_id TEXT,
+  prepared_at TEXT NOT NULL,
+  approved_at TEXT,
+  copy_intended INTEGER NOT NULL DEFAULT 0,
+  copy_message_id TEXT,
+  PRIMARY KEY (product_id, version)
+);`,
+  },
 ];
 
 /** The latest schema, which a new store gets whole at the latest version. */
@@ -1494,6 +1525,21 @@ CREATE TABLE IF NOT EXISTS walls_met (
   predicted TEXT NOT NULL,
   met_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS amended_walkthroughs (
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  version INTEGER NOT NULL,
+  of_version INTEGER NOT NULL,
+  page INTEGER NOT NULL,
+  amendment TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  cause TEXT NOT NULL,
+  run_id TEXT,
+  prepared_at TEXT NOT NULL,
+  approved_at TEXT,
+  copy_intended INTEGER NOT NULL DEFAULT 0,
+  copy_message_id TEXT,
+  PRIMARY KEY (product_id, version)
+);
 `;
 
 type Row = Record<string, SQLInputValue>;
@@ -1643,6 +1689,20 @@ const registrationOf = (row: Row): StoredRegistration => ({
   handOff: row.hand_off === null || row.hand_off === undefined ? null : (JSON.parse(String(row.hand_off)) as HandOff),
   stillCheck: textOrNull(row.still_check ?? null) as StoredRegistration['stillCheck'],
   submitTap: row.submit_tap === null || row.submit_tap === undefined ? null : (JSON.parse(String(row.submit_tap)) as SubmitTap),
+});
+
+const amendmentOf = (row: Row): StoredAmendment => ({
+  productId: Number(row.product_id),
+  version: Number(row.version),
+  ofVersion: Number(row.of_version),
+  amendment: JSON.parse(String(row.amendment)) as Amendment,
+  hash: String(row.hash),
+  cause: JSON.parse(String(row.cause)) as AmendmentCause,
+  runId: textOrNull(row.run_id),
+  preparedAt: String(row.prepared_at),
+  approvedAt: textOrNull(row.approved_at),
+  copyIntended: Boolean(row.copy_intended),
+  copyMessageId: textOrNull(row.copy_message_id),
 });
 
 const registrationCardOf = (row: Row): RegistrationCard => ({
@@ -2507,8 +2567,7 @@ export class Store {
     correctionId?: number;
   }): number {
     return this.#transaction(() => {
-      const last = this.#db.prepare('SELECT MAX(version) AS v FROM walkthroughs WHERE product_id = ?').get(w.productId);
-      const version = Number(last?.v ?? 0) + 1;
+      const version = this.#nextVersion(w.productId);
       const sameCard = w.cardMessageId !== undefined;
       this.#db
         .prepare(
@@ -2532,6 +2591,14 @@ export class Store {
       }
       return version;
     });
+  }
+
+  /** A Product's next version number, counted across its Walkthroughs and their amended versions (#115). */
+  #nextVersion(productId: number): number {
+    const last = this.#db
+      .prepare('SELECT MAX(v) AS v FROM (SELECT MAX(version) AS v FROM walkthroughs WHERE product_id = ? UNION ALL SELECT MAX(version) FROM amended_walkthroughs WHERE product_id = ?)')
+      .get(productId, productId);
+    return Number(last?.v ?? 0) + 1;
   }
 
   walkthrough(productId: number, version: number): StoredWalkthrough | undefined {
@@ -3014,6 +3081,89 @@ export class Store {
 
   saveRegistrationCardShrunk(id: number, at: string): void {
     this.#db.prepare('UPDATE registration_cards SET shrunk_at = ? WHERE id = ?').run(at, id);
+  }
+
+  // ---------- Amended Walkthroughs (#115) ----------
+
+  /**
+   * Keeps a new version of an amended Walkthrough, and returns its number, counted with the Product's Walkthrough
+   * versions. The person's Edit of a value keeps its Correction with it, done at once, since the Edit fixes its item.
+   */
+  saveAmendment(a: Omit<StoredAmendment, 'version' | 'approvedAt' | 'copyIntended' | 'copyMessageId'>, correction?: { of: number; text: string; at: string }): number {
+    return this.#transaction(() => {
+      const version = this.#nextVersion(a.productId);
+      this.#db
+        .prepare(
+          'INSERT INTO amended_walkthroughs (product_id, version, of_version, page, amendment, hash, cause, run_id, prepared_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        )
+        .run(a.productId, version, a.ofVersion, a.amendment.page, JSON.stringify(a.amendment), a.hash, JSON.stringify(a.cause), a.runId, a.preparedAt);
+      if (correction) {
+        this.#db
+          .prepare('INSERT INTO walkthrough_corrections (product_id, version, text, submitted_at, redone_version, done_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(a.productId, correction.of, correction.text, correction.at, version, correction.at);
+      }
+      return version;
+    });
+  }
+
+  amendment(productId: number, version: number): StoredAmendment | undefined {
+    const row = this.#db.prepare('SELECT * FROM amended_walkthroughs WHERE product_id = ? AND version = ?').get(productId, version);
+    return row ? amendmentOf(row) : undefined;
+  }
+
+  /** A Product's amended Walkthroughs, oldest first. */
+  amendmentsOf(productId: number): StoredAmendment[] {
+    return this.#db.prepare('SELECT * FROM amended_walkthroughs WHERE product_id = ? ORDER BY version').all(productId).map(amendmentOf);
+  }
+
+  /** What the amended Walkthroughs approved under one Approval of a Walkthrough version hold, oldest first. */
+  approvedAmendments(productId: number, ofVersion: number): Amendment[] {
+    return this.#db
+      .prepare('SELECT * FROM amended_walkthroughs WHERE product_id = ? AND of_version = ? AND approved_at IS NOT NULL ORDER BY version')
+      .all(productId, ofVersion)
+      .map((row) => amendmentOf(row).amendment);
+  }
+
+  /**
+   * Records the person's Approval of an amended Walkthrough, and lets its Registration fill that page again in the same
+   * session, at once: unless the Registration has moved on, been stopped, or waits on another page or Approval
+   * meanwhile. Its 24-hour clock keeps running from the Approval that started it (#10).
+   */
+  approveAmendment(a: { productId: number; version: number; userId: string; interactionId: string; approvedAt: string }): boolean {
+    return this.#transaction(() => {
+      const stored = this.amendment(a.productId, a.version);
+      const r = this.registration(a.productId);
+      if (!stored || stored.approvedAt || !r || r.state !== 'check-failed' || r.stopAt || r.version !== stored.ofVersion || r.page !== stored.amendment.page) return false;
+      this.#db
+        .prepare('INSERT INTO approvals (item, version_hash, version, user_id, interaction_id, approved_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(`amended-walkthrough:${a.productId}`, stored.hash, a.version, a.userId, a.interactionId, a.approvedAt);
+      this.#db.prepare('UPDATE amended_walkthroughs SET approved_at = ? WHERE product_id = ? AND version = ?').run(a.approvedAt, a.productId, a.version);
+      this.#db.prepare("UPDATE registrations SET state = 'filling', waits_on = NULL, fill_runs = 0, submit_tap = NULL WHERE product_id = ?").run(a.productId);
+      return true;
+    });
+  }
+
+  /** Each amended Walkthrough approved under a Registration, oldest first. */
+  amendmentApprovals(productId: number): Approval[] {
+    return this.#db.prepare('SELECT * FROM approvals WHERE item = ? ORDER BY approved_at').all(`amended-walkthrough:${productId}`).map(approvalOf);
+  }
+
+  /** Marks a version's copy in the Product's post as about to be sent, or as not sent after all. */
+  saveAmendmentCopyIntended(productId: number, version: number, intended: boolean): void {
+    this.#db.prepare('UPDATE amended_walkthroughs SET copy_intended = ? WHERE product_id = ? AND version = ?').run(intended ? 1 : 0, productId, version);
+  }
+
+  saveAmendmentCopy(productId: number, version: number, messageId: string): void {
+    this.#db.prepare('UPDATE amended_walkthroughs SET copy_intended = 1, copy_message_id = ? WHERE product_id = ? AND version = ?').run(messageId, productId, version);
+  }
+
+  /** Moves an amended Walkthrough's card on to the version an Edit made, unless the card has ended. */
+  saveAmendedCardVersion(id: number, version: number): boolean {
+    const card = this.registrationCard(id);
+    if (card?.kind !== 'amended' || card.endedAt) return false;
+    const { kind, page, waitsOn } = card;
+    this.#db.prepare('UPDATE registration_cards SET about = ? WHERE id = ?').run(JSON.stringify({ kind, page, waitsOn, amendment: version }), id);
+    return true;
   }
 
   /** Records Start again on an *abandoned* Registration; false on any other. */

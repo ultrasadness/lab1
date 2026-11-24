@@ -26,6 +26,7 @@ const KIND_SCOPES: Record<RunKind, RuleScope | null> = {
   'miner-judging': 'miner',
   dossier: 'dossier',
   'walkthrough-preparation': 'registration',
+  'amended-walkthrough': 'registration',
   fill: 'registration',
   mail: 'mail',
   question: null,

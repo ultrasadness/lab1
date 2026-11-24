@@ -89,6 +89,8 @@ export interface CheckFailure {
   ref: string | null;
   validity?: string;
   secret?: boolean;
+  /** For `off-host`, the top-level page's host (#115). */
+  host?: string;
 }
 
 export interface PageCheck {
@@ -114,6 +116,8 @@ export interface Refusal {
   kind: string;
   message: string;
   check?: PageCheck;
+  /** For `off-domain` on the top-level page, the page's host (#115). */
+  host?: string;
 }
 
 export type SessionAnswer<T extends object = object> = ({ ok: true } & T) | { ok: false; error: Refusal };
@@ -174,6 +178,11 @@ export class BrowserService {
 
   async drive(session: string, driver: Driver): Promise<SessionAnswer> {
     return plain(await this.#session('/session/drive', { session, driver }));
+  }
+
+  /** Adds a domain to an open session's, as an amended Walkthrough's Approval of a host off them does (#115). */
+  async addDomain(session: string, domain: string): Promise<SessionAnswer> {
+    return plain(await this.#session('/session/domains', { session, domain }));
   }
 
   /** The page as it stands, with the refs the session's actions take; a fill run's, or plain code's own. */
@@ -264,12 +273,13 @@ export class BrowserService {
   async #session(path: string, payload: unknown): Promise<{ ok: true; body: unknown } | { ok: false; error: Refusal }> {
     const { status, body } = await this.#request(path, payload, SESSION_TIMEOUT_MS);
     if (status === 200) return { ok: true, body };
-    const error = (body as { error?: { kind?: unknown; message?: unknown; check?: unknown } } | null)?.error;
+    const error = (body as { error?: { kind?: unknown; message?: unknown; check?: unknown; host?: unknown } } | null)?.error;
     if ((status >= 500 && status !== 502 && status !== 504) || !isString(error?.kind)) {
       throw new Error(`The browser service answered ${status} to ${path}${isString(error?.message) ? `: ${error.message}` : ''}`);
     }
     const check = checkOf(error.check);
-    return { ok: false, error: { kind: error.kind, message: isString(error.message) ? error.message : 'no reason given', ...(check ? { check } : {}) } };
+    const host = error.kind === 'off-domain' && isString(error.host) ? { host: error.host } : {};
+    return { ok: false, error: { kind: error.kind, message: isString(error.message) ? error.message : 'no reason given', ...(check ? { check } : {}), ...host } };
   }
 
   #request(path: string, payload: unknown, timeoutMs = READ_TIMEOUT_MS): Promise<{ status: number; body: unknown }> {
@@ -391,6 +401,7 @@ function checkOf(value: unknown): PageCheck | undefined {
         ref: isString(f.ref) ? f.ref : null,
         ...(isString(f.validity) ? { validity: f.validity } : {}),
         ...(f.secret === true ? { secret: true } : {}),
+        ...(f.rule === 'off-host' && isString(f.host) ? { host: f.host } : {}),
       },
     ];
   });

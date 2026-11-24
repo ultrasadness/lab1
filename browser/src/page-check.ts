@@ -31,7 +31,7 @@ export function judge(page: CheckedPage, fills: { value: string; secret?: Secret
       ...(secret ? { secret: true } : {}),
     });
 
-  if (page.host !== request.signupHost) fail('off-host', null);
+  if (page.host !== request.signupHost) failures.push({ rule: 'off-host', field: null, ref: null, host: page.host });
 
   // Either Signup identity address counts for a field filled with one.
   const holds = (held: string, approved: string) => held === approved || (request.identity.includes(held) && request.identity.includes(approved));

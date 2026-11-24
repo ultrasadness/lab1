@@ -222,6 +222,7 @@ export async function startWorld(options: {
       'miner-judging': { wallClockMinutes: 10, turns: 20, tokens: 200_000 },
       dossier: { wallClockMinutes: 10, turns: 10, tokens: 300_000 },
       'walkthrough-preparation': { wallClockMinutes: 20, turns: 40, tokens: 1_000_000 },
+      'amended-walkthrough': { wallClockMinutes: 10, turns: 10, tokens: 300_000 },
       fill: { wallClockMinutes: 3, turns: 30, tokens: 300_000 },
       mail: { wallClockMinutes: 5, turns: 10, tokens: 100_000 },
       question: { wallClockMinutes: 10, turns: 40, tokens: 500_000 },

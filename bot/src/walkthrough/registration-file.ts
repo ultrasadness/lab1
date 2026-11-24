@@ -3,13 +3,15 @@
 // of its Walkthrough gets a line, with what came of its sort once that has settled, and each Approval gets one naming
 // the Signup identity and the vault item then holding the password, never the password (ADR 0004). A vault item that
 // replaces another gets a line, then the final press as *submitted*, and the outcome, in bold (#56), with how its
-// verification mail was used or put to the person, and its hand-off for want of one (#58). An Approval that
+// verification mail was used or put to the person, and its hand-off for want of one (#58). Each amended Walkthrough
+// approved gets a line naming what its page asked for, and each Edit of one a Correction's line (#115). An Approval that
 // Start again's Approval followed keeps how it ended. A line, once written, says the same thing whatever happens after,
 // and every date carries its year and zone (#37).
 import { sortKey, sortNote } from '../rules/sorting.ts';
 import { fullTime } from '../pacific.ts';
 import { plain } from '../personal-database.ts';
 import { handOffCause, type Refused, type Store } from '../store.ts';
+import { acceptedTerms } from '../registration/amended.ts';
 import { hasPasswordField, type Walkthrough } from './walkthrough.ts';
 
 /** What a form refused, as a replacement item's notes and `registration.md` say it (ADR 0014). */
@@ -37,6 +39,13 @@ export function registrationFileOf(store: Store, productId: number, change: stri
   const dated: { at: string; line: string }[] = [];
   for (const c of store.walkthroughCorrectionsOf(productId)) {
     if (!c.doneAt) continue;
+    const sort = sortNote(store.sortOf(sortKey('walkthrough', c.id)));
+    // The person's Edit of a value an amended Walkthrough proposed is a Correction that made its next version (#115).
+    if (store.amendment(productId, c.version)) {
+      const line = `amended Walkthrough v${c.version} corrected by your Edit: ${plain(c.text)}, as v${c.redoneVersion}`;
+      dated.push({ at: c.submittedAt, line: `${fullTime(new Date(c.submittedAt))} · ${line}${sort ? `; ${plain(sort)}` : ''}` });
+      continue;
+    }
     const came =
       c.ofApproved === 'after-final-press'
         ? ', which fixes only the record: the form was already submitted'
@@ -45,7 +54,6 @@ export function registrationFileOf(store: Store, productId: number, change: stri
           : c.unapplied
             ? `, which couldn't be applied: ${plain(c.unapplied)}`
             : `, prepared again as v${c.redoneVersion}`;
-    const sort = sortNote(store.sortOf(sortKey('walkthrough', c.id)));
     dated.push({ at: c.submittedAt, line: `${fullTime(new Date(c.submittedAt))} · Walkthrough v${c.version} corrected: you wrote "${plain(c.text)}"${came}${sort ? `; ${plain(sort)}` : ''}` });
   }
   const registration = store.registration(productId);
@@ -61,6 +69,17 @@ export function registrationFileOf(store: Store, productId: number, change: stri
       const vaultItem = item ? ` · password in the Password vault, item ${item}` : '';
       const handedOff = a.version === r.version && handOffCause(r) === 'terms-ban' ? ' · handed off: its terms ban accounts made by a bot' : '';
       dated.push({ at: a.approvedAt, line: `${fullTime(new Date(a.approvedAt))} · Walkthrough v${a.version} approved · ${identityText(approved)}${vaultItem}${handedOff}` });
+    }
+    // Each amended Walkthrough approved, by what its page asked for (#115).
+    for (const a of store.amendmentApprovals(productId)) {
+      const amended = store.amendment(productId, a.version)?.amendment;
+      if (!amended) continue;
+      const asked = [
+        ...amended.fields.map((f) => plain(f.label)),
+        ...(acceptedTerms(amended).length > 0 ? [`the terms at ${acceptedTerms(amended).map((t) => t.href).join(' and ')}`] : []),
+        ...(amended.host ? [`its host ${amended.host}`] : []),
+      ];
+      dated.push({ at: a.approvedAt, line: `${fullTime(new Date(a.approvedAt))} · amended Walkthrough v${a.version} approved: page ${amended.page} asked for ${asked.join(', ')}` });
     }
     for (const [i, replaced] of r.replacedItems.entries()) {
       const line = `${refusalText[replaced.refused]}: item ${items[i + 1]} in the Password vault replaces item ${replaced.itemId}, which stays there for you to delete`;

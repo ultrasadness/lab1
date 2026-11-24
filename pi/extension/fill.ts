@@ -12,17 +12,17 @@ import { rulesApplied, type RunKind } from './miner.ts';
 /** The walls a fill run may name (#10); plain code adds `too-many-pages` itself. */
 const WALLS = ['bot-check', 'oauth-only', 'phone', 'blocked', 'card', 'free-email', 'invite-only'];
 /** Why a fill run may say it is stuck. */
-const STUCK = ['password-refused', 'plus-refused', 'no-button', 'value-missing', 'page-error', 'other'];
+const STUCK = ['password-refused', 'plus-refused', 'no-button', 'page-error', 'other'];
 
 const SYSTEM_PROMPT = `You fill one page of a signup form for one person, who approved the Walkthrough in the message: which fields get which values. You act only through these tools, and plain code presses the button once you finish.
 
 1. Call snapshot to see the page: its forms, each field with a ref such as f1, each button with a ref such as b1, and each link with a ref such as l1. A field the session filled shows what filled it, never its value.
-2. Fill each field the Walkthrough gives a value, by the key the message lists for it: fill(field, key) for text, choose(field, key) for a box or a list of options, and fill_secret(field, "password") for the password. Set every choice the Walkthrough lists, one the page already shows as set included. Leave every other field empty. You never type a value yourself. When the message says the form refused something before, fill that field again first, even though the snapshot shows it filled: finish with a button is refused until you do.
+2. Fill each field the Walkthrough gives a value, by the key the message lists for it: fill(field, key) for text, choose(field, key) for a box or a list of options, and fill_secret(field, "password") for the password. Set every choice the Walkthrough lists, one the page already shows as set included. Leave every other field empty, a required one the Walkthrough gives no value included: plain code's page check finds it once you name the button, and puts it to the person. You never type a value yourself. When the message says the form refused something before, fill that field again first, even though the snapshot shows it filled: finish with a button is refused until you do.
 3. Call snapshot again, and check that each field shows its key and that the page shows no error.
 4. Call finish once:
 - result "button", with button the ref of the button that submits the form or leads to its next page.
 - result "wall", with wall one of: ${WALLS.join(', ')}. A wall is something approved values can't get past: a bot check, sign-in only through another account, a phone check, the site refusing this visitor, card fields, a form that refuses free email addresses, or an invite code nobody has. For "oauth-only", providers names each sign-in the page offers, such as "Google" or "GitHub".
-- result "stuck", with reason one of: ${STUCK.join(', ')}. "password-refused" when the page's own words refuse the password just filled, such as its length or characters; "plus-refused" when they refuse the email address for its + sign; "no-button" when the form has no button to name; "value-missing" when a required field has no approved value; "page-error" when the page shows an error of its own.
+- result "stuck", with reason one of: ${STUCK.join(', ')}. "password-refused" when the page's own words refuse the password just filled, such as its length or characters; "plus-refused" when they refuse the email address for its + sign; "no-button" when the form has no button to name; "page-error" when the page shows an error of its own.
 note is optional: one short line saying what you saw. rulesApplied names each Rule you applied, as the Rules section at the end says.
 
 open(link) loads a link on the Product's own site, only when the form is behind it, such as "Sign up with email".

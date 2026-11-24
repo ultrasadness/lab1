@@ -126,6 +126,12 @@ export interface SessionOpen {
   domains: string[];
 }
 
+/** A domain added to an open session, as an amended Walkthrough's Approval names a host off its domains (#115). */
+export interface SessionDomain {
+  session: string;
+  domain: string;
+}
+
 export interface SessionSnapshot {
   /** What a model may see: no field's value, every Secret filled into the session removed, and random-looking strings. */
   snapshot: Snapshot;
@@ -168,6 +174,8 @@ export interface CheckFailure {
   ref: string | null;
   /** For `invalid`, the failing validity flag, such as `valueMissing` or `patternMismatch`. */
   validity?: string;
+  /** For `off-host`, the top-level page's host, which an amended Walkthrough names (#115). */
+  host?: string;
   /**
    * Whether the field was filled by reference, as a password: a screenshot masks it, so a Submit tap never lets its
    * value through (#59).
@@ -197,7 +205,8 @@ export interface Screenshot {
  * - `unknown-session`: no such session, or it closed;
  * - `full`: 5 sessions are open; `already-open`: the Registration has one;
  * - `not-driving`: the action needs another driver;
- * - `off-domain`: the top-level page, or a link's target, isn't on the Walkthrough's domains;
+ * - `off-domain`: the top-level page, or a link's target, isn't on the Walkthrough's domains; for the page, `host`
+ *   names its host (#115);
  * - `stale`: the ref isn't in the latest snapshot, or its element has gone;
  * - `not-allowed`: the action doesn't take that element, such as `fill` on a password field;
  * - `payment-field`: a card field, refused whatever is asked;
@@ -230,6 +239,8 @@ export interface Refusal {
   kind: RefusalKind;
   message: string;
   check?: PageCheck;
+  /** For `off-domain` on the top-level page, the page's host. */
+  host?: string;
 }
 
 export type SessionOutcome<T extends object = object> = ({ ok: true } & T) | { ok: false; error: Refusal };

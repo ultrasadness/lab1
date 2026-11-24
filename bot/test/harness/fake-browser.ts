@@ -9,7 +9,10 @@
 // browser-seam tests of #55 saw against real Chromium (`browser/test/`): the limit of 5 (`full`, 429) and one session a
 // Registration (`already-open`); a driver for each action's path (`not-driving`); refs from the latest snapshot, gone
 // (`stale`) after a navigation; a snapshot that shows what filled a field and never its value, with each Secret filled
-// into the session removed from its text; the page check's rules on the form the named button submits; a press that
+// into the session removed from its text; a page off the session's domains, on which each fill-run action and plain
+// code's snapshot, fill-code and press are refused `off-domain`, naming the page's host, until `/session/domains` adds
+// it, up to 10 domains a session, as the browser-seam tests of #115 saw; the page check's rules on the form the named button submits, `off-host`
+// naming the page's host; a press that
 // is refused with the failed check, or for a button that is disabled or not its form's only one; `fill-code`, which
 // fills an emailed code by reference into a text-like field, a textarea or a password field alone and shows it as
 // `[code]`; and `open-link`,
@@ -122,6 +125,9 @@ interface Session extends SeenSession {
 }
 
 const MAX_SESSIONS = 5;
+
+/** Whether a field is a box: a checkbox, or a control whose role is a switch, as the browser-seam test of custom controls saw the real check judge one (#55). */
+const isBox = (type: string) => type === 'checkbox' || type === 'switch';
 
 /** A 1×1 PNG, base64: what every screenshot here answers. */
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -346,7 +352,7 @@ export class FakeBrowser {
     const values: Record<string, string> = {};
     for (const [i, field] of (page.forms?.[form]?.fields ?? []).entries()) {
       const fill = s.fills.get(`${form}:${i}`);
-      const preset = field.type === 'checkbox' ? (field.checked ? 'ticked' : 'left unticked') : (field.value ?? field.options?.find((o) => o.selected)?.label ?? '');
+      const preset = isBox(field.type) ? (field.checked ? 'ticked' : 'left unticked') : (field.value ?? field.options?.find((o) => o.selected)?.label ?? '');
       const rewrite = field.name ? page.rewrites?.[field.name] : undefined;
       values[field.name ?? field.label] = fill ? (rewrite ? rewrite(fill.value) : fill.value) : preset;
     }
@@ -354,14 +360,15 @@ export class FakeBrowser {
   }
 
   #check(s: Session, page: FakePage, form: number, request: Record<string, unknown>) {
-    const failures: { rule: string; field: string | null; ref: string | null; validity?: string; secret?: true }[] = [];
+    const failures: { rule: string; field: string | null; ref: string | null; validity?: string; secret?: true; host?: string }[] = [];
     const refOf = (i: number) => [...s.fields].find(([, at]) => at.form === form && at.field === i)?.[0] ?? null;
-    if (new URL(page.url).hostname !== request.signupHost) failures.push({ rule: 'off-host', field: null, ref: null });
+    const host = new URL(page.url).hostname;
+    if (host !== request.signupHost) failures.push({ rule: 'off-host', field: null, ref: null, host });
     const terms = Array.isArray(request.terms) ? request.terms : [];
     for (const [i, field] of (page.forms?.[form]?.fields ?? []).entries()) {
       const fill = s.fills.get(`${form}:${i}`);
       const fail = (rule: string, validity?: string) => failures.push({ rule, field: field.label, ref: refOf(i), ...(validity ? { validity } : {}) });
-      if (field.type === 'checkbox') {
+      if (isBox(field.type)) {
         const checked = fill ? fill.value === 'ticked' : Boolean(field.checked);
         const linked = field.links.length > 0;
         if (checked && linked && !field.links.every((l) => terms.includes(l.href))) fail('other-terms');
@@ -405,6 +412,14 @@ export class FakeBrowser {
       s.open = false;
       return {};
     }
+    if (path === '/session/domains') {
+      const domain = String(body.domain ?? '').toLowerCase();
+      if (!/^[a-z0-9-]+(\.[a-z0-9-]+)*$/.test(domain)) return refuse('bad-request', 'domain must be a host name, such as accounts.example.com');
+      if (s.domains.includes(domain)) return {};
+      if (s.domains.length >= 10) return refuse('bad-request', 'a session holds at most 10 domains');
+      s.domains = [...s.domains, domain];
+      return {};
+    }
     if (path === '/session/drive') {
       if (!['none', 'fill-run', 'plain-code', 'person'].includes(String(body.driver))) return refuse('bad-request', 'driver must be one of none, fill-run, plain-code, person');
       s.driver = String(body.driver);
@@ -419,13 +434,14 @@ export class FakeBrowser {
     if (s.driver !== driver) return refuse('not-driving', `${path} needs ${driver} driving, and ${s.driver === 'none' ? 'nobody' : s.driver} is`);
     const page = this.#pageAt(s.url)!;
     const onDomain = s.domains.some((d) => new URL(s.url).hostname === d || new URL(s.url).hostname.endsWith(`.${d}`));
+    const offDomain = (): Refused => ({ error: { kind: 'off-domain', message: `the page is on ${new URL(s.url).hostname}, not on ${s.domains.join(' or ')}`, host: new URL(s.url).hostname } });
     const field = () => {
       const at = s.fields.get(String(body.field));
       return at ? { at, field: page.forms![at.form]!.fields[at.field]! } : undefined;
     };
     switch (action) {
       case 'snapshot': {
-        if (!onDomain) return refuse('off-domain', `the page is on ${new URL(s.url).hostname}, not on ${s.domains.join(' or ')}`);
+        if (!onDomain) return offDomain();
         s.fields.clear();
         s.submits.clear();
         s.links.clear();
@@ -471,18 +487,19 @@ export class FakeBrowser {
       case 'fill':
       case 'fill-secret':
       case 'choose': {
+        if (!onDomain) return offDomain();
         const found = field();
         if (!found) return refuse('stale', `${String(body.field)} is no field of the latest snapshot`);
         const { type, options } = found.field;
         const value = String(body.value);
-        const choice = type === 'checkbox' || type === 'select' || type === 'radio';
+        const choice = isBox(type) || type === 'select' || type === 'radio';
         if (action === 'fill' && type === 'password') return refuse('not-allowed', 'a password field takes only fillSecret');
         if (action === 'fill' && choice) return refuse('not-allowed', `${String(body.field)} is a choice: use choose`);
         if (action === 'fill-secret' && (body.secret !== 'password' || type !== 'password')) return refuse('not-allowed', 'a password goes only into a password field');
         if (action === 'choose') {
           if (!choice) return refuse('not-allowed', 'choose clicks only an element whose role is combobox, option, checkbox, radio or switch');
-          if (type === 'checkbox' ? !['ticked', 'left unticked'].includes(value) : !options?.some((o) => o.label === value)) {
-            return refuse(type === 'checkbox' ? 'bad-request' : 'not-allowed', `${String(body.field)} has no option labelled ${JSON.stringify(value)}`);
+          if (isBox(type) ? !['ticked', 'left unticked'].includes(value) : !options?.some((o) => o.label === value)) {
+            return refuse(isBox(type) ? 'bad-request' : 'not-allowed', `${String(body.field)} has no option labelled ${JSON.stringify(value)}`);
           }
         }
         if (action === 'fill-secret' && !s.secrets.includes(value)) s.secrets.push(value);
@@ -490,6 +507,7 @@ export class FakeBrowser {
         return {};
       }
       case 'open': {
+        if (!onDomain) return offDomain();
         const href = s.links.get(String(body.link));
         if (!href) return refuse('stale', `${String(body.link)} is no link of the latest snapshot`);
         if (!this.#pageAt(this.#resolve(href))) return refuse('load-failed', `net::ERR_NAME_NOT_RESOLVED at ${href}`);
@@ -497,7 +515,7 @@ export class FakeBrowser {
         return {};
       }
       case 'fill-code': {
-        if (!onDomain) return refuse('off-domain', `the page is on ${new URL(s.url).hostname}, not on ${s.domains.join(' or ')}`);
+        if (!onDomain) return offDomain();
         const found = field();
         if (!found) return refuse('stale', `${String(body.field)} is no field of the latest snapshot`);
         if (!CODE_FIELD_TYPES.includes(found.field.type)) return refuse('not-allowed', 'a code goes only into a text or password field');
@@ -540,7 +558,7 @@ export class FakeBrowser {
           check = { pass: failures.length === 0, failures };
         }
         if (action === 'check') return check;
-        if (!onDomain) return refuse('off-domain', `the page is on ${new URL(s.url).hostname}`);
+        if (!onDomain) return offDomain();
         if (!check.pass) return refuse('check-failed', `the page check failed: ${check.failures.map((x) => x.rule).join('; ')}`, check);
         const form = page.forms![at.form]!;
         const button = form.submits[at.submit]!;
@@ -582,7 +600,7 @@ export class FakeBrowser {
 }
 
 type Answer = { error?: undefined; [key: string]: unknown };
-type Refused = { error: { kind: string; message: string; check?: unknown } };
+type Refused = { error: { kind: string; message: string; check?: unknown; host?: string } };
 
 /** The HTTP status of each refusal that isn't 409 (`browser/src/server.ts`). */
 const STATUS: Record<string, number> = { 'bad-request': 400, 'unknown-session': 404, full: 429, 'load-failed': 502, download: 502, timeout: 504, internal: 500 };

@@ -68,7 +68,10 @@ test('a page on another host than the approved signup host fails', async (t) => 
   await ok(browser().fillSecret(session, 'f2', 'password', 'Zk3mQ8xL2pV9rT4nW7yB-a1!'));
   await ok(browser().drive(session, 'plain-code'));
 
-  assert.deepEqual(failures(await ok(browser().check(session, approved))), ['off-host']);
+  const check = await ok(browser().check(session, approved));
+  assert.deepEqual(failures(check), ['off-host']);
+  // The failure names the page's host, which an amended Walkthrough puts to the person (#115).
+  assert.equal(check.failures[0]!.host, 'accounts.authvendor.test');
   assert.equal((await ok(browser().check(session, { ...approved, signupHost: 'accounts.authvendor.test' }))).pass, true);
 });
 

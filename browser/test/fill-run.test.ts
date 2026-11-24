@@ -89,6 +89,33 @@ test('every action is refused once the top-level page is off the Walkthrough\'s 
   assert.equal(await refused(browser().fillCode(session, 'f1', '482913')), 'off-domain');
 });
 
+test("a refusal for a page off the session's domains names the page's host, and a domain added to the open session lets the session fill and press there", async (t) => {
+  // The signup now redirects to an auth vendor the Walkthrough didn't name, as an amended Walkthrough then names it (#115).
+  const session = await openSession(t, 'http://acme.test/register', { domains: ['acme.test'] });
+  const off = await browser().snapshot(session);
+  assert.ok(!off.ok);
+  assert.deepEqual([off.error.kind, off.error.host], ['off-domain', 'accounts.authvendor.test']);
+
+  assert.equal(await refused(browser().addDomain(session, 'accounts.authvendor.test/sign-up')), 'bad-request');
+  assert.equal(await refused(browser().addDomain('no-such-session', 'accounts.authvendor.test')), 'unknown-session');
+  await ok(browser().addDomain(session, 'accounts.authvendor.test'));
+  // Adding it again changes nothing.
+  await ok(browser().addDomain(session, 'accounts.authvendor.test'));
+
+  const { snapshot } = await ok(browser().snapshot(session));
+  assert.equal(snapshot.url, 'http://accounts.authvendor.test/sign-up?redirect_url=http%3A%2F%2Facme.test%2Fwelcome');
+  await ok(browser().fill(session, 'f1', 'email', 'sam+acme@gmail.com'));
+  await ok(browser().fillSecret(session, 'f2', 'password', 'Zk3mQ8xL2pV9rT4nW7yB-a1!'));
+  await ok(browser().drive(session, 'plain-code'));
+  const vendor = { button: 'b1', signupHost: 'accounts.authvendor.test', terms: [], identity: ['sam+acme@gmail.com', 'sam@gmail.com'] };
+  assert.equal((await ok(browser().check(session, vendor))).pass, true);
+  await ok(browser().press(session, vendor));
+
+  // A session holds at most 10 domains, those it opened with included.
+  for (let n = 3; n <= 10; n++) await ok(browser().addDomain(session, `step-${n}.authvendor.test`));
+  assert.equal(await refused(browser().addDomain(session, 'step-11.authvendor.test')), 'bad-request');
+});
+
 test('open loads a link on the Walkthrough\'s domains, and refuses one that leads off them', async (t) => {
   const session = await openSession(t, 'http://acme.test/session/signup');
   const { snapshot } = await ok(browser().snapshot(session));

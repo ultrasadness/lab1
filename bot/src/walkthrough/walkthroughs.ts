@@ -16,7 +16,8 @@
 // Filling the approved form is `registration/registrations.ts`'s (#56). It comes back here twice: Start again on an
 // abandoned Registration prepares a fresh Walkthrough, whose Approval starts the same Registration again; and Correct
 // on an approved Walkthrough prepares a new version once the Registration is stopped, or, after the final press, fixes
-// only the record.
+// only the record. The person's Edit of a value an amended Walkthrough proposed is a Correction too (#115), which the
+// Registrations keep done, and which is sorted here as any other.
 import type { BrowserService, PageRead } from '../browser.ts';
 import { inMinutes, type Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
@@ -54,6 +55,7 @@ import {
   type VersionCause,
   type VersionShown,
 } from './card.ts';
+import { amendedText, shownOf } from '../registration/amended.ts';
 import { registrationStatus, stoppedLine } from '../registration/status.ts';
 import { PROFILE_PATH, walkthroughPrompt } from './prompt.ts';
 import { registrationFileOf } from './registration-file.ts';
@@ -810,18 +812,18 @@ export class Walkthroughs {
 
   async #runSort(c: WalkthroughCorrection): Promise<'stopped' | void> {
     const product = this.#store.product(c.productId)!;
-    const corrected = this.#store.walkthrough(c.productId, c.version)!;
-    const name = corrected.walkthrough.product;
+    const amended = this.#store.amendment(c.productId, c.version);
+    const name = this.#store.walkthrough(c.productId, amended?.ofVersion ?? c.version)!.walkthrough.product;
     const item: SortedItem = {
       name: `${name} Walkthrough`,
       day: dayLabel(pacificDate(new Date(c.submittedAt))),
-      taughtOn: `Walkthrough v${c.version} of ${name} (${product.rootDomain})`,
+      taughtOn: `${amended ? 'amended ' : ''}Walkthrough v${c.version} of ${name} (${product.rootDomain})`,
       scope: 'registration',
       correction: c.text,
     };
     const after =
       c.redoneVersion !== null
-        ? cardText(this.#shown(this.#store.walkthrough(c.productId, c.redoneVersion)!))
+        ? this.#versionText(c.productId, c.redoneVersion)
         : c.ofApproved === 'after-final-press'
           ? 'Nothing was prepared again: the form was already submitted, so the Correction fixes only the record.'
           : `No Walkthrough: ${c.withdrawn}.`;
@@ -832,7 +834,7 @@ export class Walkthroughs {
       what: 'the Walkthrough it prepared for registering at a Product',
       scope: 'registration',
       item: ['The Product:', fence(name), `Root domain: ${product.rootDomain}`],
-      before: cardText(this.#shown(corrected)),
+      before: this.#versionText(c.productId, c.version),
       correction: c.text,
       after,
     });
@@ -849,6 +851,12 @@ export class Walkthroughs {
       interestScope,
       prompt,
     });
+  }
+
+  /** A version as its card showed it: a Walkthrough's, or an amended Walkthrough's (#115). */
+  #versionText(productId: number, version: number): string {
+    const amended = this.#store.amendment(productId, version);
+    return amended ? amendedText(shownOf(this.#store, amended, 0, new Date(amended.preparedAt))) : cardText(this.#shown(this.#store.walkthrough(productId, version)!));
   }
 
   // ---------- Cards ----------
