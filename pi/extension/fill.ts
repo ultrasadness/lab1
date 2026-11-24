@@ -21,7 +21,7 @@ const SYSTEM_PROMPT = `You fill one page of a signup form for one person, who ap
 3. Call snapshot again, and check that each field shows its key and that the page shows no error.
 4. Call finish once:
 - result "button", with button the ref of the button that submits the form or leads to its next page.
-- result "wall", with wall one of: ${WALLS.join(', ')}. A wall is something approved values can't get past: a bot check, sign-in only through another account, a phone check, the site refusing this visitor, card fields, a form that refuses free email addresses, or an invite code nobody has.
+- result "wall", with wall one of: ${WALLS.join(', ')}. A wall is something approved values can't get past: a bot check, sign-in only through another account, a phone check, the site refusing this visitor, card fields, a form that refuses free email addresses, or an invite code nobody has. For "oauth-only", providers names each sign-in the page offers, such as "Google" or "GitHub".
 - result "stuck", with reason one of: ${STUCK.join(', ')}. "password-refused" when the page's own words refuse the password just filled, such as its length or characters; "plus-refused" when they refuse the email address for its + sign; "no-button" when the form has no button to name; "value-missing" when a required field has no approved value; "page-error" when the page shows an error of its own.
 note is optional: one short line saying what you saw. rulesApplied names each Rule you applied, as the Rules section at the end says.
 
@@ -81,6 +81,9 @@ export const fillRun: RunKind = {
             button: Type.Optional(ref("For button: the button's ref, such as b1")),
             wall: Type.Optional(literals(WALLS)),
             reason: Type.Optional(literals(STUCK)),
+            providers: Type.Optional(
+              Type.Array(Type.String({ minLength: 1, maxLength: 40, pattern: '^[^\\r\\n]*$' }), { maxItems: 6, description: 'For an oauth-only wall: each sign-in the page offers' }),
+            ),
             note: Type.Optional(Type.String({ maxLength: 200, pattern: '^[^\\r\\n]*$', description: 'One short line on what you saw' })),
             rulesApplied,
           },

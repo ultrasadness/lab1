@@ -1,7 +1,7 @@
 // The browser service (ADR 0006), reached only through its Unix socket. Its throwaway `read(url)` reads one page
 // before any Approval: a Dossier's pages, and the signup page a Walkthrough is prepared from. A Registration's session
 // (#56) is one in-memory context there, which a fill run drives through the fixed actions and plain code through its
-// own: the page check, the fingerprint and the press, and an emailed code or link (#58). The bot imports nothing from browser/, so the part of the
+// own: the page check, the fingerprint, the screenshot of a Submit tap (#59) and the press, and an emailed code or link (#58). The bot imports nothing from browser/, so the part of the
 // socket's API it reads is written out here (browser/src/api.ts holds the whole of it).
 import http from 'node:http';
 
@@ -82,12 +82,13 @@ export interface SessionSnapshot {
   botCheck: BotCheck | null;
 }
 
-/** One rule of the page check a field failed (browser/src/api.ts). */
+/** One rule of the page check a field failed (browser/src/api.ts), and whether that field was filled by reference. */
 export interface CheckFailure {
   rule: string;
   field: string | null;
   ref: string | null;
   validity?: string;
+  secret?: boolean;
 }
 
 export interface PageCheck {
@@ -101,6 +102,11 @@ export interface CheckRequest {
   signupHost: string;
   terms: string[];
   identity: string[];
+  /**
+   * With a Submit tap (#59), the fingerprint of the page whose screenshot the person approved: the check lets through
+   * the values they saw on it, and is refused `changed` unless the page still has that fingerprint.
+   */
+  approvedPage?: string;
 }
 
 /** Why a session refused a request, by the kinds browser/src/api.ts lists. A press refused by the check carries it. */
@@ -207,12 +213,28 @@ export class BrowserService {
     return { ok: true, ...check };
   }
 
-  async fingerprint(session: string): Promise<SessionAnswer<{ fingerprint: string }>> {
+  /**
+   * The page's fingerprint, its URL, forms and values hashed, and its shape, the same without the values (#59): null
+   * from a service that answers none.
+   */
+  async fingerprint(session: string): Promise<SessionAnswer<{ fingerprint: string; shape: string | null }>> {
     const answer = await this.#session('/plain-code/fingerprint', { session });
     if (!answer.ok) return answer;
-    const { fingerprint } = answer.body as { fingerprint?: unknown };
+    const { fingerprint, shape } = answer.body as { fingerprint?: unknown; shape?: unknown };
     if (!isString(fingerprint)) throw new Error("The browser service's answer holds no fingerprint");
-    return { ok: true, fingerprint };
+    return { ok: true, fingerprint, shape: isString(shape) ? shape : null };
+  }
+
+  /**
+   * A PNG of the whole page with every field filled by reference masked, a button outlined and fields marked by their
+   * refs, for a Submit tap (#59).
+   */
+  async screenshot(session: string, marks: { outline?: string; mark?: string[] } = {}): Promise<SessionAnswer<{ png: Buffer }>> {
+    const answer = await this.#session('/plain-code/screenshot', { session, ...marks });
+    if (!answer.ok) return answer;
+    const { png } = answer.body as { png?: unknown };
+    if (!isString(png)) throw new Error("The browser service's answer holds no screenshot");
+    return { ok: true, png: Buffer.from(png, 'base64') };
   }
 
   /**
@@ -362,7 +384,15 @@ function checkOf(value: unknown): PageCheck | undefined {
   const failures = array(c.failures).flatMap((x) => {
     const f = x as Record<string, unknown> | null;
     if (!f || !isString(f.rule)) return [];
-    return [{ rule: f.rule, field: isString(f.field) ? f.field : null, ref: isString(f.ref) ? f.ref : null, ...(isString(f.validity) ? { validity: f.validity } : {}) }];
+    return [
+      {
+        rule: f.rule,
+        field: isString(f.field) ? f.field : null,
+        ref: isString(f.ref) ? f.ref : null,
+        ...(isString(f.validity) ? { validity: f.validity } : {}),
+        ...(f.secret === true ? { secret: true } : {}),
+      },
+    ];
   });
   return { pass: c.pass, failures };
 }

@@ -101,7 +101,7 @@ export class BrowserClient {
     return this.session('/plain-code/check', { session, ...request });
   }
 
-  fingerprint(session: string): Promise<SessionOutcome<{ fingerprint: string }>> {
+  fingerprint(session: string): Promise<SessionOutcome<{ fingerprint: string; shape: string }>> {
     return this.session('/plain-code/fingerprint', { session });
   }
 

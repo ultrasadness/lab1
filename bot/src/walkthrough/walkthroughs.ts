@@ -361,11 +361,12 @@ export class Walkthroughs {
     try {
       const registration = this.#store.registration(productId)!;
       // One the person stopped while it was held is abandoned by the Registration's own work, and shown from there.
+      // A held one waits on Bitwarden, and the Registrations arm its 24-hour close all the same (#59).
       if (registration.state === 'held' && !registration.stopAt && !(await this.#saveVaultItem(registration))) {
         // A Stop while Bitwarden was asked abandoned it meanwhile, which is shown now.
-        if (this.#store.registration(productId)!.state !== 'abandoned') return;
+        if (this.#store.registration(productId)!.state !== 'abandoned') return this.#registrationsDue();
       }
-      if (this.#store.registration(productId)!.state === 'held') return;
+      if (this.#store.registration(productId)!.state === 'held') return this.#registrationsDue();
       await this.#showRegistration(productId);
     } finally {
       this.#starting.delete(productId);
@@ -436,7 +437,10 @@ export class Walkthroughs {
     const product = this.#store.product(productId)!;
     const approvedAt = new Date(registration.approvedAt);
     if (v.cardMessageId) {
-      const line = registration.state === 'abandoned' ? stoppedLine(v.walkthrough, v.version, product.threadId!) : approvedLine(v.walkthrough, v.version, approvedAt, product.threadId!);
+      const line =
+        registration.state === 'abandoned'
+          ? stoppedLine(v.walkthrough, v.version, product.threadId!, registration.stopCause === 'closed')
+          : approvedLine(v.walkthrough, v.version, approvedAt, product.threadId!);
       await this.#needsYou.shrink(v.cardMessageId, line);
     }
     const status = registrationStatus({ registration, walkthrough: v.walkthrough, next: { kind: 'none' }, verification: null, needsYouChannelId: this.#config.discord.needsYouChannelId });
@@ -457,6 +461,8 @@ export class Walkthroughs {
     await this.#personalDatabase.sync();
     this.#store.saveRegistrationShown(productId, this.#clock.now().toISOString());
     this.#log('registration.shown', { productId, version: v.version, state: registration.state });
+    // One its terms hand off gets its Handoff card from the Registrations (#59); the rest are the fill lane's.
+    if (registration.state === 'handed-off') await this.#registrationChanged(productId);
     this.#registrationsDue();
   }
 

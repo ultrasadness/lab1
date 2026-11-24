@@ -1,5 +1,12 @@
 // A fake Discord: the REST API and the gateway, enforcing the message limits the real one enforces.
 // Tests read what the person would see in each forum post, and tap buttons or submit pop-ups as a user.
+// A message may come with files, as Discord documents uploads (Reference › Uploading Files): multipart/form-data, the
+// message as `payload_json` naming each file in `attachments` by its `id`, the place of its `files[n]` part. A Components
+// V2 message shows a file only through a component that names it as `attachment://<filename>`, such as a media gallery
+// (Components › Media Gallery). The real Discord did so in the trial on #59 (`scripts/trial-discord-upload.ts`, run by
+// the person on 2026-11-24): it took such a message, resolved its gallery's item to the file on its CDN, and took an
+// edit to one text display, as a handled card shrinks, which left no gallery and kept the message's flags. It listed
+// the file under no `attachments` when read back, which nothing here reads.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -48,6 +55,14 @@ interface StoredMessage {
   id: string;
   channelId: string;
   payload: MessagePayload;
+  /** The files uploaded with it. */
+  files?: Upload[];
+}
+
+/** A file uploaded with a message. */
+interface Upload {
+  name: string;
+  bytes: Buffer;
 }
 
 interface Thread {
@@ -92,6 +107,8 @@ export interface SeenMessage {
   mentions: string[];
   componentCount: number;
   textLength: number;
+  /** The images its media galleries show, each a file uploaded with it, by name and with its bytes. */
+  images: { name: string; bytes: Buffer }[];
 }
 
 /** A plain message in a text channel, such as a #status line. */
@@ -456,11 +473,11 @@ export class FakeDiscord {
   }
 
   async #handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-    let raw = '';
-    for await (const chunk of req) raw += chunk;
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(chunk as Buffer);
+    let raw = Buffer.concat(chunks).toString('utf8');
     const path = (req.url ?? '').replace(/^\/api\/v10/, '');
     this.calls.push(`${req.method} ${path}`);
-    if (raw) this.bodies.push(raw);
     const reply = (status: number, body?: unknown) => {
       res.writeHead(status, { 'content-type': 'application/json' });
       res.end(body === undefined ? undefined : JSON.stringify(body));
@@ -469,6 +486,24 @@ export class FakeDiscord {
       this.refused.push({ path, reason });
       reply(400, { code: 50035, message: 'Invalid Form Body', errors: { reason } });
     };
+    // An upload: the message is its payload_json, and each file a files[n] part.
+    let files: Upload[] | undefined;
+    const type = req.headers['content-type'] ?? '';
+    if (type.startsWith('multipart/form-data')) {
+      const form = await new Response(Buffer.concat(chunks), { headers: { 'content-type': type } }).formData();
+      const payload = form.get('payload_json');
+      if (typeof payload !== 'string') return refuse('a multipart message needs payload_json');
+      raw = payload;
+      files = [];
+      for (const [name, value] of form.entries()) {
+        const n = name.match(/^files\[(\d+)\]$/);
+        if (!n || typeof value === 'string') continue;
+        files[Number(n[1])] = { name: value.name, bytes: Buffer.from(await value.arrayBuffer()) };
+      }
+      const problem = checkUploads(JSON.parse(raw) as MessagePayload & { attachments?: unknown }, files);
+      if (problem) return refuse(problem);
+    }
+    if (raw) this.bodies.push(raw);
 
     let match: RegExpMatchArray | null;
     if ((match = path.match(/^\/interactions\/(\d+)\/([^/]+)\/callback$/)) && req.method === 'POST') {
@@ -607,7 +642,7 @@ export class FakeDiscord {
       if (problem) return refuse(problem);
       if (this.#refusingNext.delete(match[1]!)) return refuse('the test has Discord refuse this message');
       const id = this.#id();
-      this.#textChannels.get(match[1]!)!.push({ id, channelId: match[1]!, payload: body });
+      this.#textChannels.get(match[1]!)!.push({ id, channelId: match[1]!, payload: body, ...(files ? { files } : {}) });
       if (this.#replyLost('message', match[1]!)) return void res.socket?.destroy();
       return reply(200, { id, channel_id: match[1] });
     }
@@ -621,7 +656,7 @@ export class FakeDiscord {
       const id = this.#id();
       // A message in an archived thread that isn't locked opens it again.
       delete thread.archivedAt;
-      thread.messages.push({ id, channelId: thread.id, payload: body });
+      thread.messages.push({ id, channelId: thread.id, payload: body, ...(files ? { files } : {}) });
       if (this.#replyLost('message', thread.forumId)) return void res.socket?.destroy();
       return reply(200, { id, channel_id: thread.id });
     }
@@ -662,6 +697,26 @@ function checkMessage(message: MessagePayload): string | undefined {
   });
   if (count > MAX_COMPONENTS) return `${count} components, over ${MAX_COMPONENTS}`;
   if (text > MAX_TEXT) return `COMPONENT_DISPLAYABLE_TEXT_SIZE_EXCEEDED: ${text} characters, over ${MAX_TEXT}`;
+  return problem;
+}
+
+/**
+ * Returns why real Discord would refuse these uploads: each file named in `attachments` by its place, and each
+ * `attachment://` a component shows naming one of them.
+ */
+function checkUploads(message: MessagePayload & { attachments?: unknown }, files: Upload[]): string | undefined {
+  const attachments = Array.isArray(message.attachments) ? (message.attachments as { id?: unknown; filename?: unknown }[]) : [];
+  if (files.length === 0 || files.some((f) => !f)) return 'files must be files[0] to files[n]';
+  for (const [i, f] of files.entries()) {
+    if (!attachments.some((a) => Number(a.id) === i && a.filename === f.name)) return `attachments doesn't name files[${i}] by its id and filename`;
+  }
+  let problem: string | undefined;
+  walk(message.components ?? [], (c) => {
+    for (const item of c.type === 12 ? ((c.items ?? []) as { media?: { url?: string } }[]) : []) {
+      const url = item.media?.url ?? '';
+      if (url.startsWith('attachment://') && !files.some((f) => f.name === url.slice('attachment://'.length))) problem = `${url} names no file uploaded with the message`;
+    }
+  });
   return problem;
 }
 
@@ -758,6 +813,7 @@ function seen(message: StoredMessage): SeenMessage {
   const headings: string[] = [];
   const lines: SeenLine[] = [];
   const buttons: SeenButton[] = [];
+  const images: Upload[] = [];
   let count = 0;
   let length = 0;
   const visit = (cs: Component[], inSection: boolean) => {
@@ -782,6 +838,12 @@ function seen(message: StoredMessage): SeenMessage {
         continue;
       }
       if (c.type === 2) buttons.push({ label: c.label ?? '', customId: c.custom_id ?? '', disabled: c.disabled === true, style: Number(c.style) });
+      if (c.type === 12) {
+        for (const item of (c.items ?? []) as { media?: { url?: string } }[]) {
+          const file = message.files?.find((f) => `attachment://${f.name}` === item.media?.url);
+          if (file) images.push(file);
+        }
+      }
       if (c.components) visit(c.components, inSection);
     }
   };
@@ -799,5 +861,6 @@ function seen(message: StoredMessage): SeenMessage {
     mentions: (payload.allowed_mentions?.users ?? []).filter((id) => texts.some((t) => t.includes(`<@${id}>`))),
     componentCount: count,
     textLength: length,
+    images,
   };
 }

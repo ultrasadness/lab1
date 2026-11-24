@@ -20,5 +20,20 @@
   <input name="code" aria-label="Code from your email">
   <button type="submit">Create account</button>
 </form>
+<script>
+  // With ?swap-password, the page moves what is typed as a password into a plain text field of its own, in the same place.
+  if (new URLSearchParams(location.search).has('swap-password')) {
+    const password = document.querySelector('[name=password]');
+    password.addEventListener('input', () =>
+      setTimeout(() => {
+        const plain = document.createElement('input');
+        plain.name = 'password';
+        plain.setAttribute('aria-label', 'Password');
+        plain.value = password.value;
+        password.replaceWith(plain);
+      }, 0),
+    );
+  }
+</script>
 </body>
 </html>

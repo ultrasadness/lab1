@@ -32,17 +32,22 @@ export interface Section {
   components: TextDisplay[];
   accessory: Button;
 }
+/** Images shown in a message, such as a file uploaded with it, which it names as `attachment://<filename>`. */
+export interface MediaGallery {
+  type: 12;
+  items: { media: { url: string }; description?: string }[];
+}
 export interface Container {
   type: 17;
   accent_color?: number;
-  components: (TextDisplay | Section)[];
+  components: (TextDisplay | Section | MediaGallery)[];
 }
 /** A row of up to 5 buttons. */
 export interface ActionRow {
   type: 1;
   components: Button[];
 }
-export type Component = TextDisplay | Button | Section | Container | ActionRow;
+export type Component = TextDisplay | Button | Section | MediaGallery | Container | ActionRow;
 
 /** A field the person types into, in a pop-up. */
 export interface TextInput {
@@ -112,7 +117,10 @@ export const section = (content: string, accessory: Button): Section => ({ type:
 
 export const actionRow = (buttons: Button[]): ActionRow => ({ type: 1, components: buttons });
 
-export const container = (accent: number, components: (TextDisplay | Section)[]): Container => ({
+/** One uploaded image, shown by its file's name, with a description for screen readers. */
+export const image = (filename: string, description: string): MediaGallery => ({ type: 12, items: [{ media: { url: `attachment://${filename}` }, description }] });
+
+export const container = (accent: number, components: (TextDisplay | Section | MediaGallery)[]): Container => ({
   type: 17,
   accent_color: accent,
   components,
@@ -184,7 +192,7 @@ export function measure(components: Component[]): { text: number; components: nu
         walk(c.components);
         walk([c.accessory]);
       }
-      if (c.type === 17 || c.type === 1) walk(c.components);
+      if (c.type === 17 || c.type === 1) walk(c.components as Component[]);
     }
   };
   walk(components);

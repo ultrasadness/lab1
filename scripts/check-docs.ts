@@ -42,6 +42,8 @@ const RENDERINGS: Rendering[] = [
   { en: 'signup page', zh: '注册页' },
   { en: 'fast-forward', zh: '快进' },
   { en: 'page check', zh: '页面检查' },
+  { en: 'Submit tap', zh: 'Submit 点按', except: ['one Submit tap on Discord'] },
+  { en: 'amended Walkthrough', zh: '修订后的 Walkthrough' },
   { en: 'verification link', zh: '验证链接' },
   { en: 'spec', zh: '规格' },
   { en: 'dry run', zh: '试运行' },

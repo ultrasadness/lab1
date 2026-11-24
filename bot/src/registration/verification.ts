@@ -26,7 +26,7 @@ import type { NeedsYou } from '../needs-you.ts';
 import { shortTime } from '../pacific.ts';
 import type { Store, StoredRegistration, VerificationWay } from '../store.ts';
 import { hasPasswordField, type Walkthrough } from '../walkthrough/walkthrough.ts';
-import { NOT_PRESSED, settledSnapshot } from './registrations.ts';
+import { NOT_PRESSED, SETTLE, settledSnapshot } from './registrations.ts';
 
 /** How long after the final press a mail may come for plain code to use it. */
 const WINDOW_MS = 60_000;
@@ -43,11 +43,18 @@ const STOPPED_DURING_STEP = 'the bot stopped after marking the step and before h
 
 const DONE_PREFIX = 'verification:done:';
 
-/** What Verifications asks of the Registrations: to show where one stands, and to close its session. */
+/**
+ * What Verifications asks of the Registrations: to show where one stands, to close its session, and to tell the person
+ * the form still shows after its final press.
+ */
 export interface RegistrationsView {
   changed(productId: number): Promise<void>;
   closeSession(productId: number): Promise<void>;
+  stillShowing(productId: number, button: string): Promise<void>;
 }
+
+/** How long after the final press plain code reads its page for the same form still showing (#10). */
+const STILL_MS = 10_000;
 
 /** The one field an emailed code goes in, and the one button of its form, on the page plain code read. */
 interface CodeTarget {
@@ -73,6 +80,8 @@ export class Verifications {
   /** The mail found to hold no code or link since this bot started, which isn't read again until it restarts. */
   #noSecret = new Set<string>();
   #cancelRetry: (() => void) | undefined;
+  /** The reads 10 seconds after a final press that are due, each by what cancels it. */
+  #stillTimers = new Set<() => void>();
   #stopped = false;
 
   constructor(options: {
@@ -100,16 +109,72 @@ export class Verifications {
     this.#log = options.log;
   }
 
-  /** As after a stop: each verification goes on, a step left *intended* counting as done, and each card or notice not sent goes out. */
+  /**
+   * As after a stop: each verification goes on, a step left *intended* counting as done, each card or notice not sent
+   * goes out, and each read 10 seconds after a final press that wasn't made is made.
+   */
   start(): void {
     this.#plainWork(async () => {
       for (const v of this.#store.verifications()) this.#inTurn(v.productId, () => this.#goOn(v.productId));
+      for (const r of this.#store.registrationsIn(['awaiting-verification'])) if (r.stillCheck === 'due') this.pressed(r.productId);
     });
+  }
+
+  /**
+   * A final press left the Registration awaiting verification: 10 seconds on, in its turn, plain code reads whether
+   * the same form still shows on the same URL (#10).
+   */
+  pressed(productId: number): void {
+    const r = this.#store.registration(productId);
+    if (!r) return;
+    const at = Date.parse(this.#anchor(r)) + STILL_MS;
+    // A time already past fires at once, inside `at`, before it hands back what cancels it.
+    const timer: { cancel?: () => void; fired: boolean } = { fired: false };
+    timer.cancel = this.#clock.at(new Date(at), () => {
+      timer.fired = true;
+      if (timer.cancel) this.#stillTimers.delete(timer.cancel);
+      this.#inTurn(productId, () => this.#stillShowing(productId));
+    });
+    if (!timer.fired) this.#stillTimers.add(timer.cancel);
+  }
+
+  /**
+   * Reads the page 10 seconds after the final press, once: the same URL and forms, whatever their fields hold, mean
+   * the form is still showing, and the person gets a notice. Nothing changes state by itself (#10). A Registration
+   * that has taken its verification mail, or has no session, isn't read, since the mail's own step uses the page.
+   */
+  async #stillShowing(productId: number): Promise<void> {
+    const r = this.#store.registration(productId)!;
+    if (r.state !== 'awaiting-verification' || r.stillCheck !== 'due') return;
+    if (this.#clock.now().getTime() < Date.parse(this.#anchor(r)) + STILL_MS) return;
+    const press = this.#store.lastPress(productId);
+    const session = r.sessionId;
+    // It is marked done only once read, and its notice kept in the store, so that a restart before then reads it again.
+    const done = () => this.#store.saveRegistration(productId, { stillCheck: 'done' });
+    if (this.#store.verification(productId) || !session || !press?.shape) return done();
+    let shape: string | null;
+    try {
+      const driven = await this.#browser.drive(session, 'plain-code');
+      shape = driven.ok ? await settledShape(this.#browser, session, () => this.#stopped) : null;
+    } catch (error) {
+      shape = null;
+      this.#log('registration.still-unread', { productId, error: errorText(error) });
+    }
+    if (this.#stopped) return;
+    if (shape === null) {
+      this.#log('registration.still-unread', { productId, error: "its page couldn't be read" });
+      return done();
+    }
+    const still = shape === press.shape;
+    this.#log('registration.still-showing', { productId, button: press.button, still });
+    if (still) await this.#registrations.stillShowing(productId, press.button);
+    done();
   }
 
   stop(): void {
     this.#stopped = true;
     this.#cancelRetry?.();
+    for (const cancel of this.#stillTimers) cancel();
   }
 
   /** The earliest final press of a Registration awaiting verification that has taken no mail, from which a read searches. */
@@ -202,6 +267,8 @@ export class Verifications {
    * or with none 24 hours after its final press is handed off, since none came.
    */
   async #await(productId: number): Promise<void> {
+    // A read of the mailbox replaces the 10-second read waiting its turn, so it makes that read itself once it is due.
+    await this.#stillShowing(productId);
     const r = this.#store.registration(productId)!;
     if (this.#store.verification(productId) || (r.state !== 'awaiting-verification' && !(r.state === 'handed-off' && r.handedOffAt))) return;
     const anchor = this.#anchor(r);
@@ -483,6 +550,31 @@ export class Verifications {
       this.start();
     });
   }
+}
+
+/**
+ * The page's shape once it has held still (CODING_STANDARDS.md): read until it stays the same for 1.5 s, or as it
+ * stands 5 s on, as `settledSnapshot` reads a page. Null when the last read got none.
+ */
+async function settledShape(browser: BrowserService, session: string, stopped: () => boolean): Promise<string | null> {
+  const start = Date.now();
+  const read = async () => {
+    try {
+      const answer = await browser.fingerprint(session);
+      return answer.ok ? answer.shape : null;
+    } catch {
+      return null;
+    }
+  };
+  let seen = await read();
+  let still = Date.now();
+  while (!stopped() && Date.now() - still < SETTLE.stillMs && Date.now() - start < SETTLE.limitMs) {
+    await new Promise((resolve) => setTimeout(resolve, SETTLE.readMs));
+    const next = await read();
+    if (next !== seen) still = Date.now();
+    seen = next;
+  }
+  return seen;
 }
 
 /** Why the browser service refused to let plain code drive the session: a session it no longer has is closed. */

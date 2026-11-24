@@ -10,7 +10,8 @@ import { whoReceived } from './harness/secrets.ts';
 import { until } from './harness/miner-day.ts';
 import { finish, plainFill, plainWalkthrough, shownIn, sorted, type FillTurn, type SeenRun } from './harness/fake-model.ts';
 import { pressesWithoutMark } from './harness/presses.ts';
-import { popupOf, updateOf, type InteractionReply, type SeenMessage } from './harness/fake-discord.ts';
+import { popupOf, updateOf, type InteractionReply } from './harness/fake-discord.ts';
+import { logged, registrationFile, standing, statusesShown, statusOf, tags, tapCard, tapStatus } from './harness/registration-views.ts';
 import type { FakePage } from './harness/fake-browser.ts';
 import type { FixtureProduct } from './harness/dossier-fixtures.ts';
 
@@ -46,36 +47,6 @@ const step = (n: number, button: string, next?: string): FakePage => ({
 /** The page a Product shows once the account is made: nothing left to fill. */
 const DONE: FakePage = { url: `${SIGNUP_URL}welcome`, title: 'Check your email', text: 'We sent you a link to confirm your address.' };
 
-/** The Registration's status message in the Product's post, as the person now sees it. */
-function statusOf(world: World): SeenMessage {
-  const [post] = world.discord.forumPosts(PRODUCTS_FORUM);
-  return post!.messages.find((m) => m.text.startsWith('**Registration**'))!;
-}
-
-/** What the status message says the Registration is doing: what follows `**Registration** · `, up to the Approval. */
-const standing = (world: World) => statusOf(world).text.split(' · Walkthrough v')[0]!.replace('**Registration** · ', '');
-
-/** Each thing the status message has said the Registration is doing, in order. */
-function statusesShown(world: World): string[] {
-  const shown: string[] = [];
-  for (const body of world.discord.bodies) {
-    const at = body.indexOf('**Registration** · ');
-    if (at < 0) continue;
-    const what = (JSON.parse(`"${body.slice(at).split('"')[0]!}"`) as string).split(' · Walkthrough v')[0]!.replace('**Registration** · ', '');
-    if (shown.at(-1) !== what) shown.push(what);
-  }
-  return shown;
-}
-
-/** The person taps a button on the Registration's status message, by its label. */
-function tapStatus(world: World, label: string): Promise<InteractionReply> {
-  const [post] = world.discord.forumPosts(PRODUCTS_FORUM);
-  const status = statusOf(world);
-  const button = status.buttons.find((b) => b.label === label);
-  if (!button) throw new Error(`No ${label} on the status message: ${status.buttons.map((b) => b.label).join(', ') || 'no buttons'}`);
-  return world.discord.tap({ userId: PERSON, customId: button.customId, channelId: post!.id, messageId: status.id });
-}
-
 /** The person taps Correct on the status message and sends the pop-up with what they say it got wrong. */
 async function correctStatus(world: World, text: string): Promise<{ opened: InteractionReply; sent: InteractionReply }> {
   const [post] = world.discord.forumPosts(PRODUCTS_FORUM);
@@ -84,18 +55,6 @@ async function correctStatus(world: World, text: string): Promise<{ opened: Inte
   const sent = await world.discord.submitPopup({ userId: PERSON, customId: popup.customId, channelId: post!.id, messageId: statusOf(world).id, fields: { [popup.fields[0]!.customId]: text } });
   return { opened, sent };
 }
-
-/** The person taps a button of a card in #needs-you, by the card's place and the button's label. */
-function tapCard(world: World, index: number, label: string): Promise<InteractionReply> {
-  const card = world.discord.cards(NEEDS_YOU)[index]!;
-  const button = card.buttons.find((b) => b.label === label);
-  if (!button) throw new Error(`No ${label} on card ${index}: ${card.text}`);
-  return world.discord.tap({ userId: PERSON, customId: button.customId, channelId: NEEDS_YOU, messageId: card.id });
-}
-
-const registrationFile = (world: World) => world.git.file('products/codemindhq.dev/registration.md')!;
-const logged = (world: World, event: string) => world.logs.filter((l) => l.event === event);
-const tags = (world: World) => world.discord.forumPosts(PRODUCTS_FORUM)[0]!.tags;
 
 /**
  * A model that reports what the page refuses, and, told of a refusal, first names the button anyway, which plain code
@@ -257,6 +216,11 @@ test('a form still going after 5 pages becomes the too-many-pages wall, and wait
   assert.deepEqual(tags(world), ['Needs you']);
   assert.deepEqual(statusOf(world).buttons.map((b) => b.label), ['Stop', 'Correct']);
   assert.equal(world.browser.openSessions.length, 1, 'its session stays open for the person');
+  // Its card puts Hand off beside Stop; Take over comes first with #60 (#59).
+  const card = world.discord.cards(NEEDS_YOU).at(-1)!;
+  assert.match(card.text, /stopped at a signup form still going after 5 pages on page 6 of its signup form/);
+  assert.deepEqual(card.buttons.map((b) => b.label), ['Hand off', 'Stop']);
+  assert.deepEqual(logged(world, 'registration.wall-met').map((l) => [l.page, l.wall, l.predicted]), [[6, 'too-many-pages', []]]);
 });
 
 test('a wall the fill run names, and a page that fails the check, each leave the Registration waiting with nothing pressed', async (t) => {
@@ -702,6 +666,13 @@ test('a session lost before any press opens again at page 1; one lost after a pr
     assert.equal(standing(world), 'stuck on page 2: session-lost');
     assert.deepEqual(statusOf(world).buttons.map((b) => b.label), ['Stop', 'Correct']);
     assert.deepEqual(tags(world), ['Needs you']);
+    // With no session to take over, its card offers Hand off beside Stop, a route that needs none (#59).
+    const card = world.discord.cards(NEEDS_YOU).at(-1)!;
+    assert.match(card.text, /got stuck on page 2 of its signup form: its browser session was lost after a button was pressed/);
+    assert.deepEqual(card.buttons.map((b) => b.label), ['Hand off', 'Stop']);
+    await tapCard(world, -1, 'Hand off');
+    await world.assistant.whenIdle();
+    assert.match(world.discord.cards(NEEDS_YOU).at(-1)!.text, /^<@\d+> \*\*Hand off · Codemind\*\*\nYou handed it off at page 2, stuck: its browser session was lost after a button was pressed\. Nothing was submitted\./);
   });
 });
 

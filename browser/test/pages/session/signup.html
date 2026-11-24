@@ -51,6 +51,7 @@
   if (flags.has('preticked-terms')) field('terms').checked = true;
   if (flags.has('referral')) field('referral').value = 'FRIEND10';
   if (flags.has('strip-plus')) field('email').addEventListener('input', () => setTimeout(() => (field('email').value = field('email').value.replace(/\+[^@]*/, '')), 0));
+  if (flags.has('short-password')) field('password').addEventListener('input', () => setTimeout(() => (field('password').value = field('password').value.slice(0, 8)), 0));
   if (flags.has('uppercase-name')) field('name').addEventListener('input', () => setTimeout(() => (field('name').value = field('name').value.toUpperCase()), 0));
   if (flags.has('two-submits')) button.insertAdjacentHTML('afterend', ' <button type="submit" name="sso">Sign up with SSO</button>');
   if (flags.has('disable-button')) field('terms').addEventListener('change', () => (button.disabled = true));

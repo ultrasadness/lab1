@@ -4,7 +4,7 @@
 // abandoned.
 import { Accent, actionRow, button, ButtonStyle, container, cut, escapeMarkdown, silentMessage, text, type Button, type MessagePayload } from '../discord/components.ts';
 import { shortTime } from '../pacific.ts';
-import { beforeFinalPress, type StoredRegistration, type Verification, type WaitsOn } from '../store.ts';
+import { beforeFinalPress, handOffCause, type StoredRegistration, type Verification, type WaitsOn } from '../store.ts';
 import type { Walkthrough } from '../walkthrough/walkthrough.ts';
 
 // Each button names the Approval it was shown for, by its version, so that a tap or a pop-up from an earlier one is
@@ -37,10 +37,10 @@ export interface StatusInput {
 }
 
 /** A note a model wrote, where no link in it can be tapped. */
-const codeBlock = (note: string) => `\`\`\`\n${cut(note.replace(/`/g, "'").replace(/\s+/g, ' ').trim(), 200)}\n\`\`\``;
+export const codeBlock = (note: string) => `\`\`\`\n${cut(note.replace(/`/g, "'").replace(/\s+/g, ' ').trim(), 200)}\n\`\`\``;
 
-function waiting(waitsOn: WaitsOn, page: number): { what: string; lines: string[] } {
-  const stays = 'Nothing was submitted. It waits here: Stop ends it, and Correct prepares its Walkthrough again.';
+function waiting(waitsOn: WaitsOn, page: number, needsYouChannelId: string): { what: string; lines: string[] } {
+  const stays = `Nothing was submitted. It waits for you: a card in <#${needsYouChannelId}> says what you can do, Stop ends it, and Correct prepares its Walkthrough again.`;
   const on = page > 0 ? ` on page ${page}` : '';
   switch (waitsOn.kind) {
     case 'wall':
@@ -48,6 +48,10 @@ function waiting(waitsOn: WaitsOn, page: number): { what: string; lines: string[
     case 'stuck':
       return { what: `stuck${on}: ${waitsOn.reason}`, lines: [stays, ...(waitsOn.note ? [codeBlock(waitsOn.note)] : [])] };
     case 'check':
+      // A page that changed after the person last saw it, and now passes, waits for them to see it again (#59).
+      if (waitsOn.changed && waitsOn.rules?.length === 0) {
+        return { what: `page ${page} changed since you saw it`, lines: [`It now matches the Walkthrough, and nothing is pressed until you see it again.`, stays] };
+      }
       return { what: `page ${page} failed the page check`, lines: [`The filled page doesn't match the Walkthrough: ${cut(waitsOn.failures.map(escapeMarkdown).join('; '), 600)}.`, stays] };
     case 'held':
       return { what: '', lines: [`-# Waiting: ${escapeMarkdown(cut(waitsOn.why, 300))}. It is tried again by itself.`] };
@@ -59,10 +63,11 @@ export function registrationStatus(input: StatusInput): MessagePayload {
   const address = r.plainAddress ? w.identity.plainAddress : w.identity.plusAddress;
   const approved = `Walkthrough v${r.version} approved ${shortTime(new Date(r.approvedAt))}`;
   // A Product whose terms ban accounts made by a bot is the person's to finish from its Approval on.
-  if (r.state === 'handed-off' && !r.handedOffAt) {
+  const handoffCard = `A Handoff card in <#${input.needsYouChannelId}> gives you the steps.`;
+  if (r.state === 'handed-off' && handOffCause(r) === 'terms-ban') {
     return silentMessage([
       container(Accent.progress, [
-        text(`**Registration** · handed off · ${approved}. Its terms ban accounts made by a bot, so you finish it on your own device, as ${w.identity.plusAddress}.`),
+        text(`**Registration** · handed off · ${approved}. Its terms ban accounts made by a bot, so you finish it on your own device, as ${w.identity.plusAddress}. ${handoffCard}`),
       ]),
     ]);
   }
@@ -90,30 +95,33 @@ export function registrationStatus(input: StatusInput): MessagePayload {
       break;
     case 'check-failed':
     case 'at-wall':
-      what = r.waitsOn ? waiting(r.waitsOn, r.page).what : 'waiting for you';
+      what = r.waitsOn ? waiting(r.waitsOn, r.page, input.needsYouChannelId).what : 'waiting for you';
       break;
     case 'awaiting-verification':
       what = `${submitted} · awaiting verification`;
       break;
     case 'registered':
-      // Plain code used its verification mail, or put it to the person to tap in Gmail (#58).
-      what = v?.way === 'person' ? `${submitted} · **registered** · verify it in Gmail` : `${submitted} · ${v?.doneAt ? 'verified · ' : ''}**registered**`;
+      // Plain code used its verification mail, or put it to the person to tap in Gmail (#58), or the person finished it
+      // on their own device after a Handoff and tapped Done (#59).
+      if (!v && handOffCause(r)) what = `${submitted ? `${submitted} · ` : ''}**registered** · finished by you`;
+      else what = v?.way === 'person' ? `${submitted} · **registered** · verify it in Gmail` : `${submitted} · ${v?.doneAt ? 'verified · ' : ''}**registered**`;
       break;
     case 'waitlisted':
       what = `${submitted} · **${r.state}**`;
       break;
     case 'handed-off':
-      what = `${submitted} · **handed off** · no verification mail yet`;
+      what = r.handOff ? `${submitted ? `${submitted} · ` : ''}**handed off** to you, at ${escapeMarkdown(r.handOff.from)}` : `${submitted} · **handed off** · no verification mail yet`;
       break;
     case 'abandoned':
       what = `**abandoned** · ${escapeMarkdown(r.endNote ?? 'nothing submitted')}`;
       break;
   }
-  if (r.waitsOn && r.state !== 'abandoned') lines.push(...waiting(r.waitsOn, r.page).lines);
+  if (r.waitsOn && r.state !== 'abandoned') lines.push(...waiting(r.waitsOn, r.page, input.needsYouChannelId).lines);
   if (r.uncertain) lines.push(`It isn't known whether the last press went through: ${escapeMarkdown(cut(r.uncertain, 300))}. It counts as pressed, and is never pressed again.`);
-  if (r.state === 'handed-off') {
+  if (r.state === 'handed-off' && !r.handOff) {
     lines.push("No verification mail came within 24 hours of the final press. The account may exist, so it isn't abandoned: a mail that comes later moves it on by itself.");
   }
+  if (r.state === 'handed-off') lines.push(handoffCard);
   if (v?.way === 'person' && r.state === 'registered') {
     lines.push(
       `Its verification mail came ${shortTime(new Date(v.receivedAt))}${v.spam ? ', in Spam' : ''}. The Assistant didn't use it: ${escapeMarkdown(cut(v.why ?? '', 300))}. A card in <#${input.needsYouChannelId}> asks you to tap it in Gmail.`,
@@ -146,6 +154,6 @@ export function registrationStatus(input: StatusInput): MessagePayload {
   ]);
 }
 
-/** The line a held Approval's card shrinks to once the person stops it. */
-export const stoppedLine = (w: Walkthrough, version: number, threadId: string) =>
-  `Stopped v${version} before it started · **${escapeMarkdown(cut(w.product, 60))}** · <#${threadId}>`;
+/** The line a held Approval's card shrinks to once the person stops it, or its 24 hours close it (#59). */
+export const stoppedLine = (w: Walkthrough, version: number, threadId: string, closed = false) =>
+  `${closed ? `Closed v${version} after 24 hours` : `Stopped v${version}`} before it started · **${escapeMarkdown(cut(w.product, 60))}** · <#${threadId}>`;

@@ -9,7 +9,8 @@ Walkthroughs use to read Product pages before any Approval. #55 adds a Registrat
 fill run may use through the bot, and plain code's page check, press and fills by reference. #101 added
 `redirect(url)`. Since #56 the bot drives a session: it opens one, switches drivers, carries out a fill run's actions,
 and asks for the check, the fingerprint and the press. Since #58 it asks for `fill-code` and `open-link` to verify a
-Registration. It doesn't yet ask for a screenshot, which #59's Submit tap needs.
+Registration. Since #59 it asks for a screenshot for a Submit tap, and presses on the page whose fingerprint the person
+approved.
 
 | Path | What it is |
 |---|---|
@@ -69,7 +70,13 @@ HTTP with JSON bodies, on the socket at `$SOCKET_PATH`.
   given the named button, the approved signup host, the approved terms' URLs and the Signup identity's two
   addresses, it answers which rule failed on which field. It judges the page once it has held still for 1.5 s, or as
   it stands 5 s after it was asked, since a page's script may still be reacting to the last fill. `fingerprint` hashes the URL, the form structure and the
-  values. `screenshot` masks every field filled by reference, and can outline a button and mark fields. `press` acts
+  values, and answers the page's `shape` beside it: the URL, and each form's fields by type and name and its buttons by
+  label, which tells the same form still showing after a press (#59). `screenshot` masks every field filled by reference, and can outline a button and mark
+  fields, and masks too any field holding a Secret filled into the session, as when a page moves a password into a field
+  of its own. A failure on such a field, or on one filled by reference, carries `secret`. `check` and `press`
+  may take `approvedPage`, the fingerprint of the page a Submit tap approved: they then let through the values the
+  person saw on it, `unapproved-value` and `unapproved-box` but never one marked `secret`, and are refused `changed`
+  unless the page still has that fingerprint, judged on the page as it holds still (#59). `press` acts
   only when the check passes and the button is visible, enabled, on the session's domains and the only submit control
   of the form holding every filled field still shown, so an earlier step the page has hidden doesn't count. A click
   that fails once it has begun answers with `uncertain`, and counts as done (ADR 0007). `fill-code` fills an emailed

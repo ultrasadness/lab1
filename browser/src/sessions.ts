@@ -104,12 +104,36 @@ function stringListParam(body: Body, name: string, max = 20): string[] {
 }
 
 function checkRequestOf(body: Body): CheckRequest {
+  const approvedPage = body.approvedPage;
+  if (approvedPage !== undefined && (typeof approvedPage !== 'string' || !/^[0-9a-f]{64}$/.test(approvedPage))) {
+    throw new Refused('bad-request', 'approvedPage must be a page fingerprint, 64 hex characters');
+  }
   return {
     button: stringParam(body, 'button', 20),
     signupHost: stringParam(body, 'signupHost', 253),
     terms: stringListParam(body, 'terms'),
     identity: stringListParam(body, 'identity', 2),
+    ...(approvedPage === undefined ? {} : { approvedPage }),
   };
+}
+
+/** The rules a Submit tap lets through: the values the person saw on the page whose fingerprint they approved (#59). */
+const SEEN_RULES = ['unapproved-value', 'unapproved-box'];
+
+/** A page's fingerprint: its URL, each visible form's structure, and what each field holds, never anything a session adds. */
+function fingerprintOf(view: Pick<PageView, 'snapshot' | 'states'>): string {
+  const forms = view.snapshot.forms.map((form, i) => ({ form, values: (view.states[i] ?? []).map((f) => [f.value, f.checked]) }));
+  const structure = JSON.stringify({ url: view.snapshot.url, forms }, (k, v) => (k === 'ref' || k === 'filled' ? undefined : v));
+  return createHash('sha256').update(structure).digest('hex');
+}
+
+/**
+ * A page's shape: its URL, and each visible form's fields by type and name and its buttons by label, so that the same
+ * form still showing after a press has the same shape whatever the page cleared, kept, disabled or said in a label (#59).
+ */
+function shapeOf(view: Pick<PageView, 'snapshot'>): string {
+  const forms = view.snapshot.forms.map((f) => ({ fields: f.fields.map((x) => [x.type, x.name]), submits: f.submits.map((b) => b.label) }));
+  return createHash('sha256').update(JSON.stringify({ url: view.snapshot.url, forms })).digest('hex');
 }
 
 // What a Playwright error says when the element or the document it ran in has gone.
@@ -343,7 +367,14 @@ export function createSessions(browser: Browser) {
     const button = view.button!;
     if (!button.submit) throw new Refused('not-allowed', `${request.button} submits no form`);
     const refs = fieldRefs(s).map((r) => r.name);
-    const check = judge({ host: hostOf(s.page.url()), fields: view.states[button.form] ?? [], button }, s.fills, refs, request);
+    const secrets = s.secrets.map((x) => x.value);
+    let check = judge({ host: hostOf(s.page.url()), fields: view.states[button.form] ?? [], button }, s.fills, refs, request, secrets);
+    if (request.approvedPage) {
+      // A Submit tap approves the page its screenshot showed, and only that page: the values on it the person saw pass.
+      if (fingerprintOf(view) !== request.approvedPage) throw new Refused('changed', "the page isn't the one the person approved: it changed since its screenshot");
+      const failures = check.failures.filter((f) => !SEEN_RULES.includes(f.rule) || f.secret);
+      check = { pass: failures.length === 0, failures };
+    }
     return { check, button, el };
   }
 
@@ -491,10 +522,7 @@ export function createSessions(browser: Browser) {
       driver: 'plain-code',
       async run(s) {
         const view = await viewOf(s, null);
-        // The URL, each visible form's structure, and what each field holds, never anything a session adds.
-        const forms = view.snapshot.forms.map((form, i) => ({ form, values: (view.states[i] ?? []).map((f) => [f.value, f.checked]) }));
-        const structure = JSON.stringify({ url: view.snapshot.url, forms }, (k, v) => (k === 'ref' || k === 'filled' ? undefined : v));
-        return { fingerprint: createHash('sha256').update(structure).digest('hex') };
+        return { fingerprint: fingerprintOf(view), shape: shapeOf(view) };
       },
     },
     '/plain-code/screenshot': {
@@ -503,7 +531,12 @@ export function createSessions(browser: Browser) {
         const outline = body.outline === undefined ? [] : (await element(s, stringParam(body, 'outline', 20))).all;
         const marked = body.mark === undefined ? [] : (await Promise.all(stringListParam(body, 'mark').map((name) => element(s, name)))).flatMap((e) => e.all);
         await prune(s);
-        const masked = s.fills.filter((f) => f.secret).flatMap((f) => f.elements);
+        // Each field filled by reference, and any other holding a Secret, as when a page moves a password into a field
+        // of its own making (#59). The values are compared here, out of the page.
+        const fields = await s.page.$$('input, textarea');
+        const holding = await Promise.all(fields.map(async (el) => (await el.evaluate((e) => (e as HTMLInputElement).value).catch(() => '')) || ''));
+        const strays = fields.filter((_, i) => s.secrets.some((x) => x.value !== '' && holding[i]!.includes(x.value)));
+        const masked = [...s.fills.filter((f) => f.secret).flatMap((f) => f.elements), ...strays];
         const tag = (els: Handle[], attribute: string) => Promise.all(els.map((el) => el.evaluate((e, a) => e.setAttribute(a, ''), attribute).catch(() => {})));
         const untag = (els: Handle[], attribute: string) => Promise.all(els.map((el) => el.evaluate((e, a) => e.removeAttribute(a), attribute).catch(() => {})));
         await tag(masked, 'data-lab1-mask');
@@ -526,6 +559,7 @@ export function createSessions(browser: Browser) {
           await untag(masked, 'data-lab1-mask');
           await untag(outline, 'data-lab1-outline');
           await untag(marked, 'data-lab1-mark');
+          await Promise.all(fields.map((el) => el.dispose().catch(() => {})));
         }
       },
     },

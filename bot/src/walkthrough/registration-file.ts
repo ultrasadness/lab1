@@ -9,7 +9,7 @@
 import { sortKey, sortNote } from '../rules/sorting.ts';
 import { fullTime } from '../pacific.ts';
 import { plain } from '../personal-database.ts';
-import type { Refused, Store } from '../store.ts';
+import { handOffCause, type Refused, type Store } from '../store.ts';
 import { hasPasswordField, type Walkthrough } from './walkthrough.ts';
 
 /** What a form refused, as a replacement item's notes and `registration.md` say it (ADR 0014). */
@@ -59,7 +59,7 @@ export function registrationFileOf(store: Store, productId: number, change: stri
       const approved = store.walkthrough(productId, a.version)?.walkthrough ?? walkthrough;
       const item = hasPasswordField(approved) ? itemAt(a.approvedAt) : undefined;
       const vaultItem = item ? ` · password in the Password vault, item ${item}` : '';
-      const handedOff = a.version === r.version && r.state === 'handed-off' && !r.handedOffAt ? ' · handed off: its terms ban accounts made by a bot' : '';
+      const handedOff = a.version === r.version && handOffCause(r) === 'terms-ban' ? ' · handed off: its terms ban accounts made by a bot' : '';
       dated.push({ at: a.approvedAt, line: `${fullTime(new Date(a.approvedAt))} · Walkthrough v${a.version} approved · ${identityText(approved)}${vaultItem}${handedOff}` });
     }
     for (const [i, replaced] of r.replacedItems.entries()) {
@@ -76,6 +76,11 @@ export function registrationFileOf(store: Store, productId: number, change: stri
       });
     }
     if (r.handedOffAt) dated.push({ at: r.handedOffAt, line: `${fullTime(new Date(r.handedOffAt))} · **handed off**: submitted; no verification mail yet` });
+    if (r.handOff) dated.push({ at: r.handOff.at, line: `${fullTime(new Date(r.handOff.at))} · **handed off** by you, at ${plain(r.handOff.from)}` });
+    // Each Submit tap is an Approval of one page as its screenshot showed it (#59, ADR 0007).
+    for (const a of store.submitTapApprovals(productId)) {
+      dated.push({ at: a.approvedAt, line: `${fullTime(new Date(a.approvedAt))} · Submit tapped: you approved a page as its screenshot showed it (fingerprint ${a.versionHash.slice(0, 12)})` });
+    }
     const v = store.verification(productId);
     // Only a state and a date from the mail, never what it says or why plain code didn't use it (ADR 0010).
     if (v?.way === 'person') {
@@ -85,7 +90,9 @@ export function registrationFileOf(store: Store, productId: number, change: stri
       const uncertain = v.uncertain ? ` · it isn't known whether that went through (${plain(v.uncertain)}), so it counts as done` : '';
       dated.push({ at: v.doneAt, line: `${fullTime(new Date(v.doneAt))} · verified: plain code ${how}${uncertain}` });
     }
-    if (r.endedAt && (r.state === 'registered' || r.state === 'waitlisted')) dated.push({ at: r.endedAt, line: `${fullTime(new Date(r.endedAt))} · **${r.state}**` });
+    // Done on a Handoff card makes it *registered* with no verification mail used (#59).
+    const byYou = r.state === 'registered' && !v && handOffCause(r) ? ': you finished it on your own device' : '';
+    if (r.endedAt && (r.state === 'registered' || r.state === 'waitlisted')) dated.push({ at: r.endedAt, line: `${fullTime(new Date(r.endedAt))} · **${r.state}**${byYou}` });
     if (r.endedAt && r.state === 'abandoned') dated.push({ at: r.endedAt, line: `${fullTime(new Date(r.endedAt))} · **abandoned**: ${plain(r.endNote ?? 'nothing submitted')}` });
   }
   dated.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));

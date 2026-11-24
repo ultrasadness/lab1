@@ -9,13 +9,16 @@
 //   can't read leaves the press uncertain. Any other label is final;
 // - after the final press the Registration moves on from the Walkthrough's "what happens on submit", and no model reads
 //   its pages again;
-// - a wall, a failed check, or more than 5 pages leaves it waiting on the person, its session open;
+// - a wall, a failed check, or more than 5 pages leaves it waiting on the person, its session open, with a card in
+//   #needs-you that offers its route (#59, `cards.ts`): a Submit tap, whose Submit plain code presses on the page the
+//   person saw, or Hand off; a wall nothing can get past ends it *abandoned* at once;
 // - a form that refuses the password gets a new one, and one that refuses `+` the plain address, each in a new vault
 //   item, and the page is filled again under the same Approval, its next fill run filling that field first;
 // - a session lost before any press opens again at page 1; one lost after a press leaves it waiting on the person,
 //   since a new session would press that button again (settled by the person on #56).
-// Stop, on the status message, writes a mark that the press's own store write checks, ends the fill run, and leaves the
-// Registration *abandoned* with Start again. Correct before the final press is Stop and a new version; after it, only
+// Stop, on the status message or a card, writes a mark that the press's own store write checks, ends the fill run, and
+// leaves the Registration *abandoned* with Start again, as does the close of one with nothing final pressed 24 hours
+// after its Approval. Correct before the final press is Stop and a new version; after it, only
 // the record changes. Everything a step needs is in the store, so a bot that stops picks up where it left off: a fill
 // run that died is run again on the same page, a press that was intended and never marked done counts as pressed, and a
 // session an outcome left open is closed.
@@ -23,8 +26,9 @@ import { createHash } from 'node:crypto';
 import type { BrowserService, Refusal, Snapshot } from '../browser.ts';
 import { inMinutes, type Clock } from '../clock.ts';
 import type { Config } from '../config.ts';
-import { asEdit, cut, escapeMarkdown, popup, text, type MessagePayload } from '../discord/components.ts';
-import { refused, type DiscordRest } from '../discord/rest.ts';
+import { asEdit, cut, escapeMarkdown, popup, text, type Button, type MediaGallery, type MessagePayload, type TextDisplay } from '../discord/components.ts';
+import { refused, type DiscordRest, type Upload } from '../discord/rest.ts';
+import { shortTime } from '../pacific.ts';
 import type { Dossiers } from '../dossier/dossiers.ts';
 import { errorText, type Log } from '../log.ts';
 import { CORRECTION_FIELD } from '../miner/corrections.ts';
@@ -35,10 +39,13 @@ import type { PiRunner } from '../pi-runs.ts';
 import { NoProviderLeft } from '../providers.ts';
 import { checkRulesApplied, type Rule } from '../rules/rules.ts';
 import {
+  BEFORE_FINAL_PRESS,
   beforeFinalPress,
   type PressMark,
   type Refill,
   type Refused,
+  type HandOff,
+  type RegistrationCard,
   type RegistrationChange,
   type RegistrationState,
   type Replacement,
@@ -50,6 +57,7 @@ import { refusalText, registrationFileOf } from '../walkthrough/registration-fil
 import { standingOf } from '../walkthrough/standing.ts';
 import { hasPasswordField, type Walkthrough } from '../walkthrough/walkthrough.ts';
 import type { Tapped } from '../walkthrough/walkthroughs.ts';
+import { cardAction, cardFits, cardMadeFor, dueCard, endedText, endsAtOnce, handoffCard, shrunkLine, stillShowingCard, submitTapCard, waitingCard, waitingFrom, type CardInput } from './cards.ts';
 import { fillKeys, fillPrompt, snapshotText, type FillKey } from './fill-prompt.ts';
 import { registrationAction, registrationStatus, type StatusInput } from './status.ts';
 
@@ -65,11 +73,26 @@ const NEXT_PAGE = /^\s*(continue|next)\b/i;
  * The refusals of a press that mean nothing was pressed: each is made before the click begins (browser/src/sessions.ts).
  * Any other answer, or none, may be a press.
  */
-export const NOT_PRESSED = ['check-failed', 'not-pressable', 'blocked', 'off-domain', 'stale', 'not-allowed', 'not-driving', 'bad-request', 'unknown-session'];
+export const NOT_PRESSED = ['check-failed', 'changed', 'not-pressable', 'blocked', 'off-domain', 'stale', 'not-allowed', 'not-driving', 'bad-request', 'unknown-session'];
 /** The page after a press is read once it has held still this long, or as it stands at the limit (CODING_STANDARDS.md). */
-const SETTLE = { stillMs: 1_500, readMs: 500, limitMs: 5_000 };
+export const SETTLE = { stillMs: 1_500, readMs: 500, limitMs: 5_000 };
 /** How long what Discord, GitHub or the browser service didn't take waits before it is tried again: a showing, a notice, a close. */
 const RETRY_MINUTES = 5;
+/** How long after its Approval a Registration with nothing final pressed closes *abandoned* (#11, #59). */
+export const CLOSE_MS = 24 * 60 * 60_000;
+/**
+ * The states the 24-hour close reaches: each before the final press but one with a press under way, whose outcome
+ * decides first, and which the lane moves on before the close comes round again.
+ */
+const CLOSABLE = BEFORE_FINAL_PRESS.filter((s) => s !== 'pressing');
+/** How many times a page that changed before its Submit tap's screenshot is checked again before it gets Hand off alone. */
+const RECHECKS = 2;
+/** The largest screenshot a Submit tap sends: Discord refuses a bot's upload past 10 MiB. */
+const SCREENSHOT_BYTES = 8 * 1024 * 1024;
+/** How many sign-ins an `oauth-only` wall names, each at most this long. */
+const PROVIDERS = { max: 6, chars: 40 };
+/** A sign-in's name as a fill run may give it: words alone, never a link, since it reaches Discord and git (ADR 0006). */
+const PROVIDER_NAME = /^[\p{L}\p{N}][\p{L}\p{N} .,'&+()-]*$/u;
 
 const WALLS = ['bot-check', 'oauth-only', 'phone', 'blocked', 'card', 'free-email', 'invite-only'];
 const STUCK = ['password-refused', 'plus-refused', 'no-button', 'value-missing', 'page-error', 'other'];
@@ -79,7 +102,11 @@ const ENDED: RegistrationState[] = ['registered', 'waitlisted', 'handed-off', 'a
 const EVERY: RegistrationState[] = ['held', 'queued', 'filling', 'checking', 'pressing', 'check-failed', 'at-wall', 'awaiting-verification', ...ENDED];
 
 /** How a fill run ended its page, with the Rules it applied. */
-type Finish = ({ result: 'button'; ref: string; label: string } | { result: 'wall'; wall: string; note: string | null } | { result: 'stuck'; reason: string; note: string | null }) & {
+type Finish = (
+  | { result: 'button'; ref: string; label: string }
+  | { result: 'wall'; wall: string; note: string | null; providers?: string[] }
+  | { result: 'stuck'; reason: string; note: string | null }
+) & {
   rulesApplied: string[];
 };
 
@@ -98,6 +125,16 @@ interface FillRun {
   /** Whether the session answered that it is gone. */
   sessionLost: boolean;
 }
+
+/** Who tapped, and on which message, as an Approval keeps it (ADR 0007). */
+interface TapInteraction {
+  messageId: string | undefined;
+  userId?: string;
+  interactionId?: string;
+}
+
+/** A card as `NeedsYou.post` takes it. */
+type CardBuilt = { heading: string; body: (TextDisplay | MediaGallery)[]; buttons: Button[]; files?: Upload[] };
 
 /** Whether a step moved the Registration on, left it for a later try, or the Assistant stopped. */
 type Stepped = 'moved' | 'later' | 'stopped';
@@ -121,6 +158,7 @@ export class Registrations {
   #showApproval: (productId: number) => Promise<void>;
   #stoppedCard: (productId: number) => MessagePayload;
   #plainWork: (work: () => Promise<void>) => void;
+  #finalPressed: (productId: number) => void;
   #clock: Clock;
   #log: Log;
   #filling: FillRun | undefined;
@@ -134,6 +172,8 @@ export class Registrations {
   /** The Registrations whose showing, or uncertain press's notice, Discord or GitHub didn't take: tried again shortly. */
   #unshown = new Set<number>();
   #cancelRetry: (() => void) | undefined;
+  /** Cancels the timer of the next 24-hour close. */
+  #cancelClose: (() => void) | undefined;
   #stopped = false;
 
   constructor(options: {
@@ -158,6 +198,8 @@ export class Registrations {
     stoppedCard(productId: number): MessagePayload;
     /** Does plain-code work at once, outside the lane, such as showing again what Discord didn't take. */
     plainWork(work: () => Promise<void>): void;
+    /** Called once a final press leaves a Registration awaiting verification, for the read 10 seconds on (#59). */
+    finalPressed(productId: number): void;
     clock: Clock;
     log: Log;
   }) {
@@ -176,6 +218,7 @@ export class Registrations {
     this.#showApproval = options.showApproval;
     this.#stoppedCard = options.stoppedCard;
     this.#plainWork = options.plainWork;
+    this.#finalPressed = options.finalPressed;
     this.#clock = options.clock;
     this.#log = options.log;
   }
@@ -183,6 +226,7 @@ export class Registrations {
   stop(): void {
     this.#stopped = true;
     this.#cancelRetry?.();
+    this.#cancelClose?.();
   }
 
   #now(): string {
@@ -199,6 +243,7 @@ export class Registrations {
    * is one whose step failed and a session that didn't close. Returns whether one is left.
    */
   async work(): Promise<boolean> {
+    this.#armClose();
     const unclosed = !(await this.#closeEnded());
     const later = new Set<number>();
     for (;;) {
@@ -216,6 +261,8 @@ export class Registrations {
       if (stepped === 'stopped') return false;
       if (stepped === 'later') later.add(r.productId);
     }
+    // A press under way when its 24 hours ended, and refused since, leaves the Registration waiting: its close is due now.
+    this.#armClose();
     return unclosed || later.size > 0;
   }
 
@@ -228,6 +275,12 @@ export class Registrations {
       case 'filling':
         return this.#fillPage(r);
       case 'checking':
+        // The person's Submit on a Submit tap is pressed on the page it approved, and a page that changed before its
+        // screenshot is checked again (#59). The tap is kept until the press is marked or the page waits again.
+        if (r.submitTap) {
+          const { fingerprint, button, rechecks } = r.submitTap;
+          return this.#checkAndPress(r, this.#walkthrough(r), button.ref, button.label, fingerprint ? { approvedPage: fingerprint } : { recheck: rechecks ?? 1 });
+        }
         // The bot stopped during the page check, so nothing was pressed: the page gets its fill run again.
         this.#save(r.productId, { state: 'filling' });
         return 'moved';
@@ -362,7 +415,9 @@ export class Registrations {
       return 'moved';
     }
     if (finish.result === 'button') return this.#checkAndPress(after, w, finish.ref, finish.label);
-    if (finish.result === 'wall') return this.#wait(productId, 'at-wall', { kind: 'wall', wall: finish.wall, note: finish.note });
+    if (finish.result === 'wall') {
+      return this.#wait(productId, 'at-wall', { kind: 'wall', wall: finish.wall, note: finish.note, ...(finish.providers ? { providers: finish.providers } : {}) });
+    }
     // Neither a refused password nor a refused `+` is a wall (#10): plain code answers it, and the page is filled again.
     if (finish.reason === 'password-refused' && hasPasswordField(w) && after.vaultItemId) {
       this.#intendReplacement(after, 'password');
@@ -490,32 +545,76 @@ export class Registrations {
       if (label === undefined) return `finish with result button names a button ref of the latest snapshot: ${[...run.buttons.keys()].join(', ') || 'it shows none, so finish stuck with reason no-button'}.`;
       return { result: 'button', ref: a.button as string, label, rulesApplied };
     }
-    if (a.result === 'wall') return WALLS.includes(String(a.wall)) ? { result: 'wall', wall: String(a.wall), note, rulesApplied } : `wall must be one of ${WALLS.join(', ')}.`;
+    if (a.result === 'wall') {
+      if (!WALLS.includes(String(a.wall))) return `wall must be one of ${WALLS.join(', ')}.`;
+      if (a.wall !== 'oauth-only') return { result: 'wall', wall: String(a.wall), note, rulesApplied };
+      // Whether Google is among them decides the route (#10), so the run names what the page offers.
+      const providers = (Array.isArray(a.providers) ? a.providers : [])
+        .flatMap((p) => (typeof p === 'string' ? [p.replace(/\s+/g, ' ').trim().slice(0, PROVIDERS.chars)] : []))
+        .filter((p) => PROVIDER_NAME.test(p))
+        .slice(0, PROVIDERS.max);
+      if (providers.length === 0) return 'An oauth-only wall needs providers: the name of each sign-in the page offers, in words, such as "Google" or "GitHub".';
+      return { result: 'wall', wall: 'oauth-only', note, providers, rulesApplied };
+    }
     if (a.result === 'stuck') return STUCK.includes(String(a.reason)) ? { result: 'stuck', reason: String(a.reason), note, rulesApplied } : `reason must be one of ${STUCK.join(', ')}.`;
     return 'result must be button, wall or stuck.';
   }
 
   // ---------- The page check and the press ----------
 
-  /** Plain code checks the filled page, and presses the named button if it passes (ADR 0005). */
-  async #checkAndPress(r: StoredRegistration, w: Walkthrough, ref: string, label: string): Promise<Stepped> {
+  /**
+   * Plain code checks the filled page, and presses the named button if it passes (ADR 0005). With `approvedPage`, the
+   * fingerprint of the page a Submit tap approved, the values the person saw on it pass too. A page that changed since,
+   * or before its Submit tap's screenshot (`recheck`), is checked again and never pressed: it waits for a new Submit
+   * tap, which shows the person the page as it now stands, even when it now passes (#59).
+   */
+  async #checkAndPress(r: StoredRegistration, w: Walkthrough, ref: string, label: string, how: { approvedPage?: string; recheck?: number } = {}): Promise<Stepped> {
+    const { approvedPage } = how;
     const { productId } = r;
     const session = r.sessionId!;
     this.#save(productId, { state: 'checking', button: label });
     await this.#show(productId);
     const driven = await this.#browser.drive(session, 'plain-code');
     if (!driven.ok) return this.#sessionRefused(r, driven.error);
-    const request = { button: ref, signupHost: w.signupHost, terms: w.terms.map((t) => t.href), identity: [w.identity.plusAddress, w.identity.plainAddress] };
-    const failed = (error: Refusal) => (gone(error.kind) ? this.#sessionLost(r) : this.#wait(productId, 'check-failed', { kind: 'check', failures: [`${error.kind}: ${error.message}`] }));
+    const request = {
+      button: ref,
+      signupHost: w.signupHost,
+      terms: w.terms.map((t) => t.href),
+      identity: [w.identity.plusAddress, w.identity.plainAddress],
+      ...(approvedPage ? { approvedPage } : {}),
+    };
+    const button = { ref, label };
+    const changed = () => {
+      this.#log('registration.page-changed', { productId, page: r.page });
+      return this.#checkAndPress(r, w, ref, label, { recheck: 0 });
+    };
+    const failed = (error: Refusal) => (gone(error.kind) ? this.#sessionLost(r) : this.#wait(productId, 'check-failed', refusedCheck(error, button)));
     const check = await this.#browser.check(session, request);
+    if (!check.ok && check.error.kind === 'changed') return changed();
     if (!check.ok) return failed(check.error);
-    this.#log('registration.checked', { productId, page: r.page, pass: check.pass, failures: check.failures.map((f) => f.rule) });
-    if (!check.pass) return this.#wait(productId, 'check-failed', { kind: 'check', failures: check.failures.map(failureText) });
+    this.#log('registration.checked', { productId, page: r.page, pass: check.pass, failures: check.failures.map((f) => f.rule), ...(approvedPage ? { submitTap: true } : {}) });
+    if (!check.pass || how.recheck !== undefined) {
+      // The page as it failed, by its fingerprint, is the only one its Submit tap's screenshot may show.
+      const at = await this.#browser.fingerprint(session);
+      if (!at.ok) return failed(at.error);
+      const recheck = how.recheck !== undefined ? { rechecks: how.recheck, changed: true } : {};
+      return this.#wait(productId, 'check-failed', { ...failedCheck(check.failures, button), page: at.fingerprint, ...recheck });
+    }
     const fingerprint = await this.#browser.fingerprint(session);
     if (!fingerprint.ok) return failed(fingerprint.error);
 
     // The stop mark is checked in the same store write that marks the press intended, right before it (#11).
-    const mark = { productId, version: r.version, session, page: r.page, button: label, fingerprint: fingerprint.fingerprint, final: !NEXT_PAGE.test(label), intendedAt: this.#now() };
+    const mark = {
+      productId,
+      version: r.version,
+      session,
+      page: r.page,
+      button: label,
+      fingerprint: fingerprint.fingerprint,
+      shape: fingerprint.shape,
+      final: !NEXT_PAGE.test(label),
+      intendedAt: this.#now(),
+    };
     const id = this.#store.intendPress(mark);
     if (id === 'stopped') {
       await this.#endedByStop(productId);
@@ -541,8 +640,8 @@ export class Registrations {
       await shown;
       if (await this.#endedByStop(productId)) return 'moved';
       if (pressed.refusal.kind === 'unknown-session') return this.#sessionLost(r);
-      const failures = pressed.refusal.check ? pressed.refusal.check.failures.map(failureText) : [`${pressed.refusal.kind}: ${pressed.refusal.message}`];
-      return this.#wait(productId, 'check-failed', { kind: 'check', failures });
+      if (pressed.refusal.kind === 'changed' || pressed.refusal.check) return changed();
+      return this.#wait(productId, 'check-failed', refusedCheck(pressed.refusal, button));
     }
     // Done is kept before anything else waits, so that only the press itself is ever uncertain.
     const uncertain = pressed.uncertain ?? null;
@@ -583,25 +682,28 @@ export class Registrations {
     const at = this.#now();
     // No fill reads the password once the form is submitted.
     this.#passwords.delete(productId);
-    this.#save(productId, { state, submittedAt: at, button: press.button, refill: [], waitsOn: null, ...(outcome ? { endedAt: at } : {}) });
+    // One awaiting verification keeps its session, whose page plain code reads 10 seconds on (#59).
+    this.#save(productId, { state, submittedAt: at, button: press.button, refill: [], waitsOn: null, ...(outcome ? { endedAt: at } : { stillCheck: 'due' }) });
     this.#log('registration.submitted', { productId, page: press.page, button: press.button, state });
     // A Correction sent during the press now fixes only the record.
     if (this.#store.registration(productId)!.stopCause === 'correct') this.#correctionsDue();
     // The session closes at the outcome (ADR 0006). One awaiting verification keeps its session for the code or link.
     if (outcome && r.sessionId) await this.#close(productId, r.sessionId);
     await this.#show(productId);
+    if (!outcome) this.#finalPressed(productId);
     return 'moved';
   }
 
   /** A press that counts as pressed though its outcome isn't known: the Registration waits for verification, and the person is told. */
   async #uncertainPress(productId: number, press: Pick<PressMark, 'page' | 'button'>, uncertain: string): Promise<Stepped> {
     this.#passwords.delete(productId);
-    this.#save(productId, { state: 'awaiting-verification', submittedAt: this.#now(), button: press.button, uncertain, refill: [], waitsOn: null });
+    this.#save(productId, { state: 'awaiting-verification', submittedAt: this.#now(), button: press.button, uncertain, refill: [], waitsOn: null, stillCheck: 'due' });
     this.#log('registration.uncertain-press', { productId, page: press.page, button: press.button, uncertain });
     // A Correction sent during the press now fixes only the record.
     if (this.#store.registration(productId)!.stopCause === 'correct') this.#correctionsDue();
     await this.#show(productId);
     await this.#tellUncertain(productId);
+    this.#finalPressed(productId);
     return 'moved';
   }
 
@@ -633,10 +735,30 @@ export class Registrations {
 
   // ---------- Waiting, and sessions ----------
 
-  /** Leaves the Registration waiting on the person, its session open. Their cards come with #59. */
+  /**
+   * Leaves the Registration waiting on the person, its session open, with a card in #needs-you that its showing posts.
+   * Each wall is recorded beside the walls the read predicted (#10), and one nothing can get past ends it *abandoned*
+   * at once.
+   */
   async #wait(productId: number, state: 'at-wall' | 'check-failed', waitsOn: WaitsOn): Promise<Stepped> {
     if (await this.#endedByStop(productId)) return 'moved';
-    this.#save(productId, { state, waitsOn });
+    if (waitsOn.kind === 'wall') {
+      const r = this.#store.registration(productId)!;
+      const predicted = this.#walkthrough(r).walls.map((x) => x.kind);
+      this.#store.saveWallMet({ productId, version: r.version, page: r.page, wall: waitsOn.wall, predicted, at: this.#now() });
+      this.#log('registration.wall-met', { productId, page: r.page, wall: waitsOn.wall, predicted });
+      const note = endsAtOnce(waitsOn);
+      if (note) {
+        // A Stop that came meanwhile abandons it on the lane's next step instead.
+        if (!this.#store.abandonAtWall(productId, note, this.#now())) return 'moved';
+        this.#passwords.delete(productId);
+        this.#log('registration.abandoned', { productId, note });
+        if (r.sessionId) await this.#close(productId, r.sessionId);
+        await this.#show(productId);
+        return 'moved';
+      }
+    }
+    this.#save(productId, { state, waitsOn, submitTap: null });
     this.#log('registration.waiting', { productId, state, waitsOn });
     await this.#show(productId);
     return 'moved';
@@ -665,7 +787,7 @@ export class Registrations {
     if (await this.#endedByStop(r.productId)) return 'moved';
     this.#log('registration.session-lost', { productId: r.productId, page: r.page });
     // The service has the session no more, so there is none to close.
-    this.#save(r.productId, { sessionId: null });
+    this.#save(r.productId, { sessionId: null, submitTap: null });
     if (this.#store.pressedUnder(r.productId, r.version)) return this.#wait(r.productId, 'at-wall', { kind: 'stuck', reason: 'session-lost', note: null });
     this.#save(r.productId, { state: 'queued', page: 0, fillRuns: 0, refill: [], waitsOn: null });
     await this.#show(r.productId);
@@ -750,7 +872,9 @@ export class Registrations {
    * The person tapped a button of a Registration: Stop, Correct or Start again on its status message, or Stop or Correct
    * on the card of an Approval held on Bitwarden. Undefined if it isn't one.
    */
-  tap(customId: string, interaction: { messageId: string | undefined }): Tapped | undefined {
+  tap(customId: string, interaction: TapInteraction): Tapped | undefined {
+    const ofCard = cardAction(customId);
+    if (ofCard) return this.#tapCard(ofCard, interaction);
     const tapped = registrationAction(customId);
     if (!tapped) return undefined;
     const { action, productId } = tapped;
@@ -832,7 +956,8 @@ export class Registrations {
   async #abandon(productId: number): Promise<void> {
     const r = this.#store.registration(productId);
     if (!r?.stopAt) return;
-    const note = r.stopCause === 'correct' ? 'stopped by your Correction; nothing submitted' : 'stopped by you; nothing submitted';
+    const note =
+      r.stopCause === 'correct' ? 'stopped by your Correction; nothing submitted' : r.stopCause === 'closed' ? 'Closed after 24 hours; nothing was submitted' : 'stopped by you; nothing submitted';
     if (!this.#store.abandonStopped(productId, note, this.#now())) return;
     this.#passwords.delete(productId);
     this.#log('registration.abandoned', { productId, note });
@@ -895,18 +1020,212 @@ export class Registrations {
     const standing = JSON.stringify(standingOf(this.#store, product, this.#config.discord.needsYouChannelId));
     const file = registrationFileOf(this.#store, productId, `Registration ${r.state}`);
     const key = createHash('sha256').update(JSON.stringify([status, standing, file.content])).digest('hex');
-    if (r.shownKey === key) return;
-    if (r.statusMessageId) await this.#discord.editMessage(product.threadId!, r.statusMessageId, asEdit(status));
-    if (this.#standings.get(productId) !== standing) {
-      await this.#dossiers.restand(productId);
-      this.#standings.set(productId, standing);
+    if (r.shownKey !== key) {
+      if (r.statusMessageId) await this.#discord.editMessage(product.threadId!, r.statusMessageId, asEdit(status));
+      if (this.#standings.get(productId) !== standing) {
+        await this.#dossiers.restand(productId);
+        this.#standings.set(productId, standing);
+      }
+      if (this.#files.get(productId) !== file.content) {
+        this.#personalDatabase.queue(file);
+        await this.#personalDatabase.sync();
+        this.#files.set(productId, file.content);
+      }
+      this.#store.saveRegistration(productId, { shownKey: key }, { evenIfAbandoned: true });
     }
-    if (this.#files.get(productId) !== file.content) {
-      this.#personalDatabase.queue(file);
-      await this.#personalDatabase.sync();
-      this.#files.set(productId, file.content);
+    await this.#cardsNow(productId);
+  }
+
+  // ---------- Cards in #needs-you (#59) ----------
+
+  /**
+   * Brings the Registration's cards in line with where it stands: ends each that no longer fits, with the line it
+   * shrinks to, adds the one it is due, sends each not yet sent, and shrinks each ended one. A card Discord refused is
+   * sent again shortly; one whose send was uncertain counts as sent, and is known by the tap on it (ADR 0007).
+   */
+  async #cardsNow(productId: number): Promise<void> {
+    const r = this.#store.registration(productId)!;
+    const at = this.#now();
+    for (const c of this.#store.registrationCards(productId)) {
+      if (!c.endedAt && !cardFits(c, r)) this.#store.endRegistrationCard(c.id, at, this.#line(c, endedText(r)));
     }
-    this.#store.saveRegistration(productId, { shownKey: key }, { evenIfAbandoned: true });
+    const due = dueCard(r);
+    if (due && !this.#store.registrationCards(productId).some((c) => cardMadeFor(c, due, r.version))) {
+      this.#store.addRegistrationCard({ ...due, productId, version: r.version, createdAt: at });
+    }
+    for (const c of this.#store.registrationCards(productId)) {
+      if (!c.endedAt && !c.intended) await this.#sendCard(c);
+      else if (c.endedAt && c.messageId && !c.shrunkAt) await this.#shrinkCard(c);
+    }
+  }
+
+  /** The line a card of this Registration shrinks to. */
+  #line(c: RegistrationCard, what: string): string {
+    const w = this.#store.walkthrough(c.productId, c.version)!.walkthrough;
+    return shrunkLine(w.product, what, this.#store.product(c.productId)!.threadId!);
+  }
+
+  #cardInput(c: RegistrationCard): CardInput {
+    const registration = this.#store.registration(c.productId)!;
+    return {
+      registration,
+      walkthrough: this.#store.walkthrough(c.productId, c.version)!.walkthrough,
+      threadId: this.#store.product(c.productId)!.threadId!,
+      closesAt: new Date(Date.parse(registration.approvedAt) + CLOSE_MS),
+    };
+  }
+
+  async #sendCard(c: RegistrationCard): Promise<void> {
+    let built: CardBuilt | null;
+    if (c.kind === 'waiting') built = waitingCard(c, this.#cardInput(c));
+    else if (c.kind === 'handoff') built = handoffCard(c, this.#cardInput(c));
+    else if (c.kind === 'submit-tap') built = await this.#submitTapCard(c);
+    else built = stillShowingCard(c, this.#cardInput(c));
+    // A Submit tap whose page changed before its screenshot is checked again instead.
+    if (!built) return;
+    this.#store.saveRegistrationCardIntended(c.id, true);
+    try {
+      const { messageId } = await this.#needsYou.post(built.heading, built.body, { buttons: built.buttons, ...(built.files ? { files: built.files } : {}) });
+      this.#store.saveRegistrationCardMessage(c.id, messageId);
+      this.#log('registration.card-posted', { productId: c.productId, card: c.id, kind: c.kind });
+    } catch (error) {
+      this.#log('registration.card-unposted', { productId: c.productId, card: c.id, kind: c.kind, error: errorText(error) });
+      if (refused(error)) {
+        this.#store.saveRegistrationCardIntended(c.id, false);
+        this.#tryAgainLater(c.productId);
+      }
+    }
+  }
+
+  /**
+   * A Submit tap: a screenshot of the page as it stands, its named button outlined, each field that failed the check
+   * marked and each filled by reference masked, with Submit bound to that page's fingerprint, taken before and after
+   * the screenshot so that both are of one page. A page that won't hold still, or can't be shown, gets Hand off and
+   * Stop alone.
+   */
+  async #submitTapCard(c: RegistrationCard & { kind: 'submit-tap' }): Promise<CardBuilt | null> {
+    const input = this.#cardInput(c);
+    const fallback = (why: string) => {
+      this.#log('registration.submit-tap-unshown', { productId: c.productId, card: c.id, why });
+      return waitingCard({ ...c, kind: 'waiting' }, input);
+    };
+    const session = input.registration.sessionId;
+    const check = c.waitsOn.kind === 'check' ? c.waitsOn : null;
+    if (!session || !check?.button || !check.page) return fallback('it has no session, button or page');
+    try {
+      const driven = await this.#browser.drive(session, 'plain-code');
+      if (!driven.ok) return fallback(driven.error.kind);
+      const marks = { outline: check.button.ref, mark: (check.rules ?? []).flatMap((x) => (x.ref ? [x.ref] : [])) };
+      const before = await this.#browser.fingerprint(session);
+      if (!before.ok) return fallback(before.error.kind);
+      const shot = await this.#browser.screenshot(session, marks);
+      if (!shot.ok) return fallback(shot.error.kind);
+      const after = await this.#browser.fingerprint(session);
+      if (!after.ok) return fallback(after.error.kind);
+      // The screenshot shows the page the check failed, or the page is checked again: its card would name failures of
+      // another page, and its Submit would let through what the person never saw named (CODING_STANDARDS.md).
+      if (before.fingerprint !== check.page || after.fingerprint !== check.page) {
+        const rechecks = (check.rechecks ?? 0) + 1;
+        if (rechecks > RECHECKS) return fallback("the page didn't hold still");
+        this.#store.endRegistrationCard(c.id, this.#now(), this.#line(c, 'the page changed before its screenshot'));
+        if (this.#store.saveSubmitTap(c.productId, { fingerprint: null, button: check.button, at: this.#now(), rechecks })) {
+          this.#log('registration.page-changed', { productId: c.productId, page: c.page, before: 'screenshot' });
+          this.#fillsDue();
+        }
+        return null;
+      }
+      if (shot.png.length > SCREENSHOT_BYTES) return fallback(`its screenshot is ${shot.png.length} bytes`);
+      this.#store.saveSubmitTapFingerprint(c.id, after.fingerprint);
+      return submitTapCard({ ...c, fingerprint: after.fingerprint }, input, shot.png);
+    } catch (error) {
+      return fallback(errorText(error));
+    }
+  }
+
+  async #shrinkCard(c: RegistrationCard): Promise<void> {
+    try {
+      await this.#needsYou.shrink(c.messageId!, c.endedLine!);
+      this.#store.saveRegistrationCardShrunk(c.id, this.#now());
+    } catch (error) {
+      this.#log('registration.card-unshrunk', { productId: c.productId, card: c.id, error: errorText(error) });
+      this.#tryAgainLater(c.productId);
+    }
+  }
+
+  /**
+   * The person tapped a button of one of a Registration's cards: Hand off or Stop on what waits on them, or Done on a
+   * Handoff. A card that has ended shrinks to its line.
+   */
+  #tapCard(tapped: { action: string; cardId: number; fingerprint: string | null }, interaction: TapInteraction): Tapped {
+    const { messageId } = interaction;
+    const card = this.#store.registrationCard(tapped.cardId);
+    if (!card) return { refused: 'That card is no longer on record.' };
+    // A card whose send was uncertain is known by the tap on it (ADR 0007).
+    if (!card.messageId && messageId) this.#store.saveRegistrationCardMessage(card.id, messageId);
+    const { productId } = card;
+    const r = this.#store.registration(productId)!;
+    const at = this.#now();
+    const end = (what: string) => {
+      const line = this.#line(card, what);
+      this.#store.endRegistrationCard(card.id, at, line, true);
+      return this.#needsYou.shrunk(line);
+    };
+    if (card.endedAt) {
+      this.#store.saveRegistrationCardShrunk(card.id, at);
+      return { update: this.#needsYou.shrunk(card.endedLine!) };
+    }
+    if (!cardFits(card, r)) return { update: end(endedText(r)) };
+    switch (tapped.action) {
+      case 'stop': {
+        const stopped = this.#store.stopRegistration(productId, at, 'stop');
+        if (stopped === 'too-late') return { refused: `Too late to stop: ${r.button ? `“${r.button}”` : 'its final button'} is being pressed, or was, and nothing can be unsent.` };
+        if (stopped === 'stopped-already') return { refused: 'It is stopped already.' };
+        if (stopped === 'over') return { refused: 'It has ended; there is nothing left to stop.' };
+        this.#log('registration.stopped', { productId, by: 'stop', state: r.state });
+        return { update: end('stopped by you; nothing submitted'), work: () => this.#stopNow(productId) };
+      }
+      case 'submit': {
+        if (card.kind !== 'submit-tap' || !card.fingerprint || card.fingerprint !== tapped.fingerprint || card.waitsOn.kind !== 'check' || !card.waitsOn.button) {
+          return { refused: 'That Submit is for another screenshot than this card shows.' };
+        }
+        const { button } = card.waitsOn;
+        // The person approves this page alone, as an Approval of its fingerprint: plain code presses it only while it
+        // has that fingerprint (#11, ADR 0007).
+        const approval = { version: card.version, userId: interaction.userId ?? '', interactionId: interaction.interactionId ?? '' };
+        if (!this.#store.saveSubmitTap(productId, { fingerprint: card.fingerprint, button, at }, approval)) return { refused: 'It has moved on since: its status message says where it stands.' };
+        this.#log('registration.submit-tapped', { productId, page: card.page, button: button.label, fingerprint: card.fingerprint.slice(0, 16) });
+        return {
+          update: end(`Submit tapped ${shortTime(new Date(at))}`),
+          work: async () => {
+            await this.#show(productId);
+            this.#fillsDue();
+          },
+        };
+      }
+      case 'handoff': {
+        if (card.kind === 'handoff') return { refused: "That card can't be handed off." };
+        const handOff: HandOff =
+          card.kind === 'waiting' || card.kind === 'submit-tap'
+            ? { at, from: waitingFrom(card.waitsOn, card.page), wall: card.waitsOn.kind === 'wall' ? card.waitsOn.wall : null, submitted: false }
+            : { at, from: `the form still showing 10 seconds after “${card.button}” was pressed`, wall: null, submitted: true };
+        const states: RegistrationState[] = card.kind === 'still-showing' ? ['awaiting-verification'] : ['at-wall', 'check-failed'];
+        if (!this.#store.handOffRegistration(productId, states, handOff)) return { refused: 'It has moved on since: its status message says where it stands.' };
+        this.#passwords.delete(productId);
+        this.#log('registration.handed-off', { productId, why: `handed off by you, at ${handOff.from}` });
+        return {
+          update: end('handed off to you'),
+          work: async () => {
+            if (r.sessionId) await this.#close(productId, r.sessionId);
+            await this.#show(productId);
+          },
+        };
+      }
+      default: {
+        if (card.kind !== 'handoff' || !this.#store.saveHandOffDone(productId, at)) return { refused: 'There is nothing to be done on it now.' };
+        this.#log('registration.hand-off-done', { productId });
+        return { update: end('done: registered'), work: () => this.#show(productId) };
+      }
+    }
   }
 
   /**
@@ -932,7 +1251,54 @@ export class Registrations {
 
   /** Something the status message says of a Registration changed elsewhere, such as its new Walkthrough being shown. */
   changed(productId: number): Promise<void> {
+    this.#armClose();
     return this.#show(productId);
+  }
+
+  /** Plain code read the same form still showing 10 seconds after the final press: a notice goes to the person (#59). */
+  stillShowing(productId: number, button: string): Promise<void> {
+    const r = this.#store.registration(productId)!;
+    // One notice for each Approval, even when a restart reads the page again before marking the read done.
+    if (!this.#store.registrationCards(productId).some((c) => c.kind === 'still-showing' && c.version === r.version)) {
+      this.#store.addRegistrationCard({ kind: 'still-showing', button, productId, version: r.version, createdAt: this.#now() });
+    }
+    return this.#show(productId);
+  }
+
+  // ---------- The 24-hour close (#11, #59) ----------
+
+  /**
+   * Arms the close of the Registration whose 24 hours with nothing final pressed end first, counted from the Approval
+   * that started it, in whatever state before the final press it is (settled by the person on #59).
+   */
+  #armClose(): void {
+    this.#cancelClose?.();
+    this.#cancelClose = undefined;
+    if (this.#stopped) return;
+    const open = this.#store.registrationsIn(CLOSABLE).filter((r) => !r.stopAt);
+    if (open.length === 0) return;
+    const due = Math.min(...open.map((r) => Date.parse(r.approvedAt) + CLOSE_MS));
+    this.#cancelClose = this.#clock.at(new Date(due), () => {
+      this.#cancelClose = undefined;
+      this.#plainWork(() => this.#closeDue());
+    });
+  }
+
+  /** Closes each Registration with nothing final pressed 24 hours after its Approval, as a Stop does, then arms the next. */
+  async #closeDue(): Promise<void> {
+    const now = this.#clock.now().getTime();
+    for (const r of this.#store.registrationsIn(CLOSABLE)) {
+      if (this.#stopped) return;
+      if (r.stopAt || Date.parse(r.approvedAt) + CLOSE_MS > now) continue;
+      if (this.#store.stopRegistration(r.productId, this.#now(), 'closed') !== 'stopped') continue;
+      this.#log('registration.stopped', { productId: r.productId, by: 'closed', state: r.state });
+      try {
+        await this.#stopNow(r.productId);
+      } catch (error) {
+        this.#log('registration.close-failed', { productId: r.productId, error: errorText(error) });
+      }
+    }
+    this.#armClose();
   }
 
   /**
@@ -968,6 +1334,7 @@ export class Registrations {
    * *intended*, which counts as pressed, and a session an outcome left open.
    */
   async resume(): Promise<void> {
+    this.#armClose();
     for (const r of this.#store.registrationsIn(EVERY)) {
       try {
         if (r.stopAt && beforeFinalPress(r) && !ACTIVE.includes(r.state)) await this.#abandon(r.productId);
@@ -1015,6 +1382,25 @@ const gone = (kind: string) => kind === 'unknown-session' || kind === 'timeout';
 
 /** Whether a request to the browser service failed before it reached the service, so that it did nothing there. */
 const unreached = (error: unknown) => ['ECONNREFUSED', 'ENOENT'].includes(String((error as { code?: unknown } | null)?.code));
+
+/** What a Registration waits on after a page check failed: each rule, as the status message says it and as its card routes it. */
+const failedCheck = (failures: { rule: string; field: string | null; ref: string | null; validity?: string; secret?: boolean }[], button: { ref: string; label: string }): CheckWait => ({
+  kind: 'check',
+  failures: failures.map(failureText),
+  rules: failures.map(({ rule, field, ref, secret }) => ({ rule, field, ref, ...(secret ? { secret } : {}) })),
+  button,
+});
+
+/** What a Registration waits on after the browser service refused its check or press for a reason of its own, such as a disabled button. */
+/** What a Registration waits on after its page check failed. */
+type CheckWait = Extract<WaitsOn, { kind: 'check' }>;
+
+const refusedCheck = (refusal: Refusal, button: { ref: string; label: string }): CheckWait => ({
+  kind: 'check',
+  failures: [`${refusal.kind}: ${refusal.message}`],
+  refusal: refusal.kind,
+  button,
+});
 
 /** One failed rule of the page check, as the status message says it. */
 function failureText(f: { rule: string; field: string | null; validity?: string }): string {

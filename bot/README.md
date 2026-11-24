@@ -14,7 +14,8 @@ the VM as its own user (`ops/README.md`), and #85 gives it its healthchecks.io p
 in the Password vault at its Approval, and refuses any model request, Discord message or commit holding a Secret.
 #56 fills an approved Registration's form page by page and presses each button by plain code. #57 reads the Signup
 mailbox, recording each mail in the ledger once, #58 verifies a Registration from its verification mail, and #61 sorts
-each other matched mail with a mail run, giving each kind its treatment on Discord.
+each other matched mail with a mail run, giving each kind its treatment on Discord. #59 gives the person a card for
+each wall, *stuck* fill run and failed page check, with its route: a Submit tap, a Handoff, or *abandoned* at once.
 
 | Path | What it is |
 |---|---|
@@ -23,7 +24,7 @@ each other matched mail with a mail run, giving each kind its treatment on Disco
 | `bot/src/rules/` | Rules: each run's Rule files, its prompt's Rules section and the Rule budget; a Correction's sorting run; and the cards of proposed Rules and Interest scope changes, with Keep, Edit and Discard |
 | `bot/src/dossier/` | Dossiers: the pages each one reads, its run's prompt and record, its card within Discord's 4,000 characters, its Product's post, the Product's folder in the Personal database, and the tries at one that can't be written |
 | `bot/src/walkthrough/` | Walkthroughs: the read of the signup page, its run's prompt and record, the card in `#needs-you` and its copy in the Product's post, Edit, Correct, Dismiss, the 14-day lapse and Prepare again, the Approval that starts the Registration, where the Product stands, and `registration.md` |
-| `bot/src/registration/` | Registrations after Approval: the wait for one of 5 sessions, a fill run per page and the fixed actions it acts through, plain code's page check and press under an *intended* mark, the outcome from "what happens on submit", the verification mail's code or link used by plain code or put to the person, the status message, and Stop, Correct and Start again |
+| `bot/src/registration/` | Registrations after Approval: the wait for one of 5 sessions, a fill run per page and the fixed actions it acts through, plain code's page check and press under an *intended* mark, the outcome from "what happens on submit", the verification mail's code or link used by plain code or put to the person, the status message, and Stop, Correct and Start again; the cards in `#needs-you` of what waits on the person, the Submit tap, the Handoff card, the 24-hour close and the read 10 seconds after a final press |
 | `bot/src/browser.ts`, `bot/src/root-domain.ts` | The browser service's `read(url)`, `redirect(url)` and a Registration's session over its Unix socket, and the root domain a Product is keyed by |
 | `bot/src/personal-database.ts` | The Personal database writer: one lock over fast-forward, write, commit and push, and the card when histories diverge (ADR 0012) |
 | `bot/src/status.ts` | Silent lines in the `#status` text channel |
@@ -301,7 +302,8 @@ Walkthrough/Registration and all-scope Rules, and each snapshot. The bot carries
 supplying the approved value a key names and the password by reference, so the model types nothing of its own and never
 sees the password, and a snapshot shows what filled a field, never its value. The run ends with `finish`, naming the
 Rules it applied: a button, a wall from #10's list, or *stuck* with one of `password-refused`, `plus-refused`,
-`no-button`, `value-missing`, `page-error` or `other`.
+`no-button`, `value-missing`, `page-error` or `other`. A run that names `oauth-only` names each sign-in the page offers,
+in words and never as a link, or its finish is turned back.
 
 Plain code then runs the page check on the named button (ADR 0005). On a pass it writes an *intended* mark, with the
 page's fingerprint, presses, and writes *done* (ADR 0007). A button whose label starts with Continue or Next leads to
@@ -311,8 +313,37 @@ press uncertain. Any other label is final (settled by the person on #56). After 
 the Registration's pages. The Walkthrough's "what happens on submit" decides what follows: a verification email leaves
 it *awaiting verification* with its session open, a waitlist ends it *waitlisted*, and logging straight in ends it
 *registered*, each of the last two closing the session. A wall, a *stuck* fill run, a failed check or a sixth page
-(`too-many-pages`) leaves the Registration waiting on the person, its session open, with only Stop and Correct until
-#59 brings their cards.
+(`too-many-pages`) leaves the Registration waiting on the person, its session open.
+
+What waits on the person gets a card in `#needs-you` (#59, #10, #12), and the store records each wall met beside the
+walls the read of its signup page predicted. A bot check, a sixth page, a phone check, a site that refuses the VM, a
+sign-in only through other accounts with Google among them, a *stuck* fill run, and a page check that failed on a
+required field left empty, other terms, another host or a value in a field filled by reference, which a screenshot
+masks, each get **Hand off** beside **Stop**, and so does a press the browser service refused itself, such as on a
+disabled button, on a *stuck* card. #60 puts **Take over** first where #10 recommends it, and #115 answers the check's other
+failures with an amended Walkthrough (both settled by the person on #59). Card fields, a form that refuses gmail.com, an
+invite code nobody has, and a sign-in only through other providers end the Registration *abandoned* at once, saying why
+on its status message, with no card. A page that failed the check only on values the person can see, a value or a box
+the page set itself, gets a **Submit tap**: a screenshot of the page as it stands, with the named button outlined, each
+such field marked and each field holding a Secret masked, uploaded with the card, and **Submit**, which carries the
+page's fingerprint, beside Hand off and Stop. Submit has plain code press that button on that page alone: the browser
+service lets through the values the person saw only while the page has that fingerprint, so a page that changed since
+is checked again and never pressed, and goes to the person on a new Submit tap, even when it now passes. The screenshot
+and its Submit are of the page the check failed: a page that changed before them is checked again first, at most twice
+before it gets Hand off and Stop alone, as does a screenshot that can't be taken or is too large to post. Each Submit
+is kept as an Approval of its page, by its fingerprint (ADR 0007), and `registration.md` gets a line for it. Hand off makes the Registration *handed
+off* and closes its session, and a **Handoff** card gives the person numbered steps, the values they approved to copy,
+and the password through AutoFill, naming its vault item, with **Done**, which makes it *registered*. A Registration
+that started *handed off* for a terms ban, or was handed off for want of a verification mail, gets the same card (the
+latter settled by the person on #59). A card shrinks to one line once it is handled, or the Registration moves on.
+
+A Registration with nothing final pressed 24 hours after the Approval that started it closes as a Stop does, *abandoned*
+("Closed after 24 hours; nothing was submitted") with **Start again**, in any state before the final press, *queued*
+and held on Bitwarden included (settled by the person on #59). If the same form is still showing on the same URL 10
+seconds after a final press that left the Registration *awaiting verification*, plain code posts a notice that it may
+have been rejected, with **Hand off**: its URL, its forms' fields by type and name and their buttons by label read the
+same as when it was pressed, whatever the fields hold, the buttons' state or the labels say. Nothing changes state on its own. A waitlist or a log-in outcome closes its session at the press, so no page is
+read after it (settled by the person on #59).
 
 The status message is edited in place, silently, through *queued*, *filling page n*, *checking page n*, *pressing
 <button>*, *submitted* and *verified* to the outcome, and `registration.md` gets the submitted line, how the
@@ -339,8 +370,8 @@ of this Approval has been pressed. After a press it leaves the Registration wait
 most 3 fill runs, and each Approval at most 3 sessions, counted in the store. A run no provider served, and one the
 Assistant stopped as it shut down or a crash cut off, doesn't count, as a Dossier's doesn't (#100). A Registration that
 can't go on for now, such as while all 5 sessions are taken, its signup page won't open, no provider is left or
-Bitwarden is unavailable, says so on its status message and is tried again every 5 minutes, with no run started and no
-limit (settled by the person on #56). A session an outcome left open, and a status message, tags, file or notice that
+Bitwarden is unavailable, says so on its status message and is tried again every 5 minutes, with no run started (settled
+by the person on #56), until its 24-hour close. A session an outcome left open, and a status message, tags, file or notice that
 Discord or GitHub didn't take, are tried again 5 minutes on, and at the next start.
 
 A Registration *awaiting verification* takes as its verification mail the first mail matched to its Product, received
@@ -366,7 +397,9 @@ whether it is in Spam and why plain code didn't use it, and asks them to tap it 
 in to the Product with the password AutoFill gives them and have it send a new one. **Done** shrinks it to one line,
 and the mail's arrival makes the Registration *registered* all the same. A Registration with no mail 24 hours after its
 final press, judged only once a read of the mailbox shows none came, is *handed off* ("submitted; no verification mail
-yet"), its session closed, and never *abandoned*, since the account may exist. A mail matched to it later moves it on
+yet"), its session closed, and never *abandoned*, since the account may exist. Its Handoff card says the form was
+submitted and asks the person to log in with the password AutoFill gives them, and have the Product send its
+verification mail again. A mail matched to it later moves it on
 to *registered* the same way, and `registration.md` keeps the hand-off (settled by the person on #58).
 
 Approve on a Walkthrough with a password field first saves a new password in the Password vault, the *Registrations*
@@ -591,7 +624,15 @@ passed over, deleted, malformed or holding no code or link. `registration.verify
 and `registration.verify-refused` lines each step of plain code's, a `registration.verification-put-to-person` line a
 mail plain code meant to use and put to the person after all, with why, a `registration.verified` line the
 Registration it made *registered*, a `registration.handed-off` line one with no mail 24 hours after its final press,
-and a `registration.verification-card-done` line a card that Done ended.
+and a `registration.verification-card-done` line a card that Done ended. A `registration.wall-met` line names each wall
+a Registration met, with its page and the walls the read predicted. `registration.card-posted`,
+`registration.card-unposted` and `registration.card-unshrunk` lines follow its cards in `#needs-you`, and a
+`registration.submit-tap-unshown` line names a Submit tap that got Hand off and Stop alone, with why. A
+`registration.submit-tapped` line names a Submit, a `registration.page-changed` line a page that changed since its
+screenshot, a `registration.handed-off` line also a Hand off by the person, with what from, and a
+`registration.hand-off-done` line a Done. A `registration.stopped` line with `by` `closed` names a 24-hour close. A
+`registration.still-showing` line says whether the form still showed 10 seconds after a final press, and a
+`registration.still-unread` line why that page couldn't be read.
 
 Every 5 minutes the bot pings its check on healthchecks.io, at the URL in `healthchecks-ping-bot`, but only while it
 is logged in to Discord and its store takes a write: it writes the time to the store first. A ping withheld gets a

@@ -50,6 +50,72 @@ test("press is refused off the Walkthrough's domains, and while something covers
   assert.equal(await refused(browser().press(covered, approved)), 'blocked');
 });
 
+test('a press with the fingerprint of the page the person approved on a Submit tap lets through the values they saw', async (t) => {
+  const password = `Approved-${Date.now()}-a1!`;
+  // The page presets the role, and the Walkthrough leaves it alone.
+  const session = await filledSignup(t, '?preset-role', ['f4'], password);
+  assert.deepEqual((await ok(browser().check(session, approved))).failures.map((f) => `${f.rule} ${f.ref}`), ['unapproved-value f4']);
+  assert.equal(await refused(browser().press(session, approved)), 'check-failed', 'without the person, a value nobody approved fails');
+  const { fingerprint } = await ok(browser().fingerprint(session));
+
+  const { pass, failures } = await ok(browser().check(session, { ...approved, approvedPage: fingerprint }));
+  assert.deepEqual({ pass, failures }, { pass: true, failures: [] });
+  await ok(browser().press(session, { ...approved, approvedPage: fingerprint }));
+
+  const sent = (await received()).filter((r) => r.form.some(([, v]) => v === password));
+  assert.deepEqual(sent.map((r) => r.form.find(([name]) => name === 'role')), [['role', 'dev']]);
+});
+
+test("a Submit tap's press is refused once the page has changed since its screenshot, and never lets through a required field left empty", async (t) => {
+  const password = `Changed-${Date.now()}-a1!`;
+  const session = await filledSignup(t, '?preset-role', ['f4'], password);
+  const { fingerprint } = await ok(browser().fingerprint(session));
+  // The name is filled again with another value after the screenshot.
+  await ok(browser().drive(session, 'fill-run'));
+  await ok(browser().fill(session, 'f1', 'full-name', 'Sam Other'));
+  await ok(browser().drive(session, 'plain-code'));
+
+  assert.equal(await refused(browser().check(session, { ...approved, approvedPage: fingerprint })), 'changed');
+  assert.equal(await refused(browser().press(session, { ...approved, approvedPage: fingerprint })), 'changed');
+
+  // The required terms box is left unticked: the person's Submit doesn't let that through.
+  const unticked = await filledSignup(t, '?preset-role', ['f4', 'f7'], password);
+  const page = (await ok(browser().fingerprint(unticked))).fingerprint;
+  const answer = await browser().press(unticked, { ...approved, approvedPage: page });
+  assert.deepEqual(answer.ok ? 'pressed' : [answer.error.kind, answer.error.check?.failures.map((f) => `${f.rule} ${f.ref}`)], ['check-failed', ['invalid f7']]);
+  assert.equal(await refused(browser().press(unticked, { ...approved, approvedPage: 'not a fingerprint' })), 'bad-request');
+
+  assert.ok(!(await received()).some((r) => r.form.some(([, v]) => v === password)), 'nothing was sent');
+});
+
+test("a password a script changes after its fill fails as filled by reference, and a Submit tap's fingerprint never lets it through", async (t) => {
+  const password = `Shortened-${Date.now()}-a1!`;
+  // The page cuts the password to 8 characters as it is typed: the screenshot masks it, so the person can't see that.
+  const session = await filledSignup(t, '?short-password', [], password);
+  const check = await ok(browser().check(session, approved));
+  assert.deepEqual(check.failures.map((f) => [f.rule, f.ref, f.secret]), [['unapproved-value', 'f3', true]]);
+  const { fingerprint } = await ok(browser().fingerprint(session));
+
+  const answer = await browser().press(session, { ...approved, approvedPage: fingerprint });
+  assert.deepEqual(answer.ok ? 'pressed' : [answer.error.kind, answer.error.check?.failures.map((f) => `${f.rule} ${f.ref}`)], ['check-failed', ['unapproved-value f3']]);
+  assert.ok(!(await received()).some((r) => r.form.some(([, v]) => v === password.slice(0, 8))), 'nothing was sent');
+});
+
+test("a page's shape stays the same when its button is disabled or a field filled, where its fingerprint changes", async (t) => {
+  const session = await openSession(t, 'http://acme.test/session/signup?disable-button');
+  await ok(browser().snapshot(session));
+  await ok(browser().drive(session, 'plain-code'));
+  const before = await ok(browser().fingerprint(session));
+  await ok(browser().drive(session, 'fill-run'));
+  await ok(browser().fill(session, 'f1', 'full-name', 'Sam Example'));
+  // Ticking the terms disables the button.
+  await ok(browser().choose(session, 'f7', 'terms', 'ticked'));
+  await ok(browser().drive(session, 'plain-code'));
+  const after = await ok(browser().fingerprint(session));
+  assert.equal(after.shape, before.shape);
+  assert.notEqual(after.fingerprint, before.fingerprint);
+});
+
 test('plain code fills an emailed code by reference and presses Verify', async (t) => {
   const code = String(Date.now()).slice(-6);
   const session = await openSession(t, 'http://acme.test/session/verify', { driver: 'plain-code' });
@@ -79,7 +145,7 @@ test('plain code opens a verification link by reference, and the session closes'
   assert.equal(await refused(browser().fingerprint(session)), 'unknown-session');
 });
 
-test('a fingerprint stays the same for the same page, and changes with its URL, its form or a value', async (t) => {
+test('a fingerprint stays the same for the same page, and changes with its URL, its form or a value; its shape changes with the first two alone', async (t) => {
   const session = await openSession(t, 'http://acme.test/session/signup?late-field', { driver: 'plain-code' });
   const fingerprint = async () => (await ok(browser().fingerprint(session))).fingerprint;
   const first = await fingerprint();
@@ -102,11 +168,16 @@ test('a fingerprint stays the same for the same page, and changes with its URL, 
   assert.notEqual(grown, first);
   assert.ok((await ok(browser().plainSnapshot(session))).snapshot.forms[0]!.fields.some((f) => f.label === 'Company'));
 
+  const shape = async () => (await ok(browser().fingerprint(session))).shape;
+  const grownShape = await shape();
   await ok(browser().drive(session, 'fill-run'));
   await ok(browser().fill(session, 'f1', 'full-name', 'Sam Example'));
   await ok(browser().drive(session, 'plain-code'));
   const named = await fingerprint();
   assert.notEqual(named, grown);
+  // Its shape leaves out what the fields hold: the same form on the same URL, whatever is filled (#59).
+  assert.match(grownShape, /^[0-9a-f]{64}$/);
+  assert.equal(await shape(), grownShape);
   // The same value filled again is the same page.
   await ok(browser().drive(session, 'fill-run'));
   await ok(browser().fill(session, 'f1', 'full-name', 'Sam Example'));
@@ -118,6 +189,7 @@ test('a fingerprint stays the same for the same page, and changes with its URL, 
   await ok(browser().open(session, plans));
   await ok(browser().drive(session, 'plain-code'));
   assert.notEqual(await fingerprint(), named);
+  assert.notEqual(await shape(), grownShape, 'another page has another shape');
 });
 
 test('a screenshot masks every field filled by reference, and outlines the named button and marks a field', async (t) => {
@@ -144,6 +216,25 @@ test('a screenshot masks every field filled by reference, and outlines the named
   assert.ok(near(marked.at(35, 360), [224, 49, 49]), `the button's outline is ${marked.at(35, 360)}`);
   assert.deepEqual(plain.at(35, 120), [255, 255, 255]);
   assert.ok(near(marked.at(35, 120), [240, 140, 0]), `the field's mark is ${marked.at(35, 120)}`);
+});
+
+test('a screenshot masks a field the page moved a password into, and the check flags that field as holding a Secret', async (t) => {
+  const password = 'Zk3mQ8xL2pV9rT4nW7yB-a1!';
+  const session = await openSession(t, 'http://acme.test/session/shot?swap-password');
+  await ok(browser().snapshot(session));
+  await ok(browser().fillSecret(session, 'f2', 'password', password));
+  // The page swaps the password field for a plain one holding the same value.
+  for (let i = 0; i < 50; i++) {
+    const { snapshot } = await ok(browser().snapshot(session));
+    if (snapshot.forms[0]!.fields.some((f) => f.label === 'Password' && f.type === 'text')) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  await ok(browser().drive(session, 'plain-code'));
+
+  const shot = readPng(Buffer.from((await ok(browser().screenshot(session))).png, 'base64'));
+  assert.deepEqual(shot.at(190, 200), [255, 0, 255], 'the plain field holding the password is masked');
+  const check = await ok(browser().check(session, { button: 'b1', signupHost: 'acme.test', terms: [], identity: [] }));
+  assert.deepEqual(check.failures.filter((f) => f.field === 'Password').map((f) => [f.rule, f.secret]), [['unapproved-value', true]]);
 });
 
 test('a ref from before a navigation is stale, and plain code takes a snapshot of its own to go on', async (t) => {

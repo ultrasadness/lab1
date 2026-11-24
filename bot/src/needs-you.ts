@@ -1,6 +1,7 @@
 // #needs-you (#12): the text channel holding everything that waits on the person. Each card mentions them, so it
 // notifies, and once it's handled it shrinks to one line, which an edit does without notifying anyone.
-import { actionRow, Accent, container, Flags, text, type Button, type MessagePayload, type Section, type TextDisplay } from './discord/components.ts';
+import { actionRow, Accent, container, Flags, text, type Button, type MediaGallery, type MessagePayload, type Section, type TextDisplay } from './discord/components.ts';
+import type { Upload } from './discord/rest.ts';
 import type { DiscordRest } from './discord/rest.ts';
 import type { Log } from './log.ts';
 
@@ -9,10 +10,12 @@ export interface CardOptions {
   accent?: number;
   /** Buttons below the card. */
   buttons?: Button[];
+  /** Files sent with the card, such as the screenshot its media gallery names. */
+  files?: Upload[];
 }
 
 /** A card that mentions the person in its heading, with any buttons below it. */
-export function needsYouCard(personUserId: string, heading: string, body: (TextDisplay | Section)[], options: CardOptions = {}): MessagePayload {
+export function needsYouCard(personUserId: string, heading: string, body: (TextDisplay | Section | MediaGallery)[], options: CardOptions = {}): MessagePayload {
   return {
     flags: Flags.IS_COMPONENTS_V2,
     components: [
@@ -37,13 +40,13 @@ export class NeedsYou {
   }
 
   /** A card that mentions the person in its heading, as `needsYouCard` builds it. */
-  card(heading: string, body: (TextDisplay | Section)[], options: CardOptions = {}): MessagePayload {
+  card(heading: string, body: (TextDisplay | Section | MediaGallery)[], options: CardOptions = {}): MessagePayload {
     return needsYouCard(this.#personUserId, heading, body, options);
   }
 
   /** Posts a card that mentions the person in its heading. */
-  async post(heading: string, body: (TextDisplay | Section)[], options: CardOptions = {}): Promise<{ messageId: string }> {
-    const { messageId } = await this.#discord.sendMessage(this.#channelId, this.card(heading, body, options));
+  async post(heading: string, body: (TextDisplay | Section | MediaGallery)[], options: CardOptions = {}): Promise<{ messageId: string }> {
+    const { messageId } = await this.#discord.sendMessage(this.#channelId, this.card(heading, body, options), options.files);
     this.#log('needs-you.posted', { messageId, heading });
     return { messageId };
   }

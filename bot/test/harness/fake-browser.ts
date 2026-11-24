@@ -15,8 +15,14 @@
 // `[code]`; and `open-link`,
 // which loads a verification link and closes the session, whether the link loads or not. A page here is one a
 // test sets: `next` says where a press leads, and `errors` what the page says of the values it holds, as a form's own
-// script would. Not modelled: the check's wait for the page to hold still, cookie banners, `open`'s domain refusal of a
-// link's target, screenshots, card fields, the 60-second action limit and the 24-hour close. `holdPresses` takes a press
+// script would. A screenshot answers a small PNG of its own, or what a test sets, whatever the page, and keeps what it
+// outlined and marked;
+// a fingerprint answers the page's shape too, its URL and forms without their values; a check or press given
+// `approvedPage`, the fingerprint of the page a Submit tap approved, lets through
+// `unapproved-value` and `unapproved-box`, and is refused `changed` once the page's fingerprint differs, as the browser
+// seam tests of #59 saw the real one do. Not modelled: the check's wait for the page to hold still, cookie banners,
+// `open`'s domain refusal of a link's target, what a screenshot shows, card fields, the 60-second action limit and the
+// 24-hour close. `holdPresses` takes a press
 // and never answers, `uncertainPress` answers one as a click that failed after it began, `pause` keeps one path's
 // requests until the test lets them go, `failCloses` fails a close as a service that errs, `timeOut(path)` answers the
 // next request to a path as the real one does past its 60-second action limit, closing the session, and `loseSessions`
@@ -67,6 +73,13 @@ export interface FakePage {
   next?: string | ((press: { button: string; values: Record<string, string> }) => string | null);
   /** In a session: what the page says of the values its fields hold, by field name, beside its text, as a form's own script would. */
   errors?: (values: Record<string, string>) => string | null;
+  /**
+   * In a session: what the page's script makes of a value filled into a field, by field name, as one that cuts a
+   * password to 8 characters does; the browser-seam tests of #59 saw the real check fail such a field.
+   */
+  rewrites?: Record<string, (value: string) => string>;
+  /** In a session: a page that never holds still, as one with a ticking clock in its form: each fingerprint differs. */
+  restless?: boolean;
 }
 
 /** A press the Product's page received: the button, and what its form held, by field name. */
@@ -97,6 +110,8 @@ interface Fill {
 
 interface Session extends SeenSession {
   url: string;
+  /** How many times a restless page has been fingerprinted. */
+  reads: number;
   driver: string;
   /** What the session filled, by `form:field` on the page as it stands. */
   fills: Map<string, Fill>;
@@ -107,6 +122,9 @@ interface Session extends SeenSession {
 }
 
 const MAX_SESSIONS = 5;
+
+/** A 1×1 PNG, base64: what every screenshot here answers. */
+const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 /** The fields `fill-code` takes, as `describe` in browser/src/sessions.ts kinds them: text-like inputs, a textarea, a password. */
 const CODE_FIELD_TYPES = ['text', 'email', 'tel', 'url', 'search', 'number', 'date', 'datetime-local', 'month', 'week', 'time', 'textarea', 'password'];
@@ -150,6 +168,10 @@ export class FakeBrowser {
   readonly presses: SeenPress[] = [];
   /** Every verification link a session opened, as the Product received it, oldest first: one never answered is here too. */
   readonly linksOpened: { registration: string; url: string }[] = [];
+  /** What a screenshot answers, a 1×1 PNG unless a test sets another, such as one too large to post. */
+  screenshotPng: Buffer = Buffer.from(PNG, 'base64');
+  /** Every screenshot a session took, with the button it outlined and the fields it marked, oldest first. */
+  readonly screenshots: { session: string; outline: string | null; mark: string[] }[] = [];
   /** Every request on a session, with its body, oldest first. */
   readonly sessionRequests: { path: string; body: Record<string, unknown> }[] = [];
   /** While true, a press reaches its page, and the service never answers it. */
@@ -309,7 +331,7 @@ export class FakeBrowser {
 
   /** Opens `n` sessions of other Registrations, as when the service is that busy. Returns what closes them again. */
   occupy(n: number): () => void {
-    const taken = Array.from({ length: n }, (_, i): Session => ({ id: randomUUID(), registration: `other-${i}`, startUrl: 'https://other.example/', domains: ['other.example'], open: true, url: 'https://other.example/', driver: 'none', fills: new Map(), fields: new Map(), submits: new Map(), links: new Map(), secrets: [] }));
+    const taken = Array.from({ length: n }, (_, i): Session => ({ id: randomUUID(), registration: `other-${i}`, startUrl: 'https://other.example/', domains: ['other.example'], open: true, url: 'https://other.example/', reads: 0, driver: 'none', fills: new Map(), fields: new Map(), submits: new Map(), links: new Map(), secrets: [] }));
     this.sessions.push(...taken);
     return () => taken.forEach((s) => (s.open = false));
   }
@@ -325,13 +347,14 @@ export class FakeBrowser {
     for (const [i, field] of (page.forms?.[form]?.fields ?? []).entries()) {
       const fill = s.fills.get(`${form}:${i}`);
       const preset = field.type === 'checkbox' ? (field.checked ? 'ticked' : 'left unticked') : (field.value ?? field.options?.find((o) => o.selected)?.label ?? '');
-      values[field.name ?? field.label] = fill?.value ?? preset;
+      const rewrite = field.name ? page.rewrites?.[field.name] : undefined;
+      values[field.name ?? field.label] = fill ? (rewrite ? rewrite(fill.value) : fill.value) : preset;
     }
     return values;
   }
 
   #check(s: Session, page: FakePage, form: number, request: Record<string, unknown>) {
-    const failures: { rule: string; field: string | null; ref: string | null; validity?: string }[] = [];
+    const failures: { rule: string; field: string | null; ref: string | null; validity?: string; secret?: true }[] = [];
     const refOf = (i: number) => [...s.fields].find(([, at]) => at.form === form && at.field === i)?.[0] ?? null;
     if (new URL(page.url).hostname !== request.signupHost) failures.push({ rule: 'off-host', field: null, ref: null });
     const terms = Array.isArray(request.terms) ? request.terms : [];
@@ -348,6 +371,11 @@ export class FakeBrowser {
       }
       const preset = field.value ?? field.options?.find((o) => o.selected)?.value ?? '';
       if (!fill && preset !== '') fail('unapproved-value');
+      // A value the page's script changed after its fill, flagged when it was filled by reference, as a password is.
+      const rewrite = field.name ? page.rewrites?.[field.name] : undefined;
+      if (fill && rewrite && rewrite(fill.value) !== fill.value) {
+        failures.push({ rule: 'unapproved-value', field: field.label, ref: refOf(i), ...(fill.mark.startsWith('[') ? { secret: true } : {}) });
+      }
       if (field.required && !fill && preset === '') fail('invalid', 'valueMissing');
     }
     return { pass: failures.length === 0, failures };
@@ -366,7 +394,7 @@ export class FakeBrowser {
       const failure = this.#failures.get(url) ?? this.#failures.get(finalUrl);
       if (failure) return refuse(failure.kind, failure.message);
       if (!this.#pageAt(finalUrl)) return refuse('load-failed', `net::ERR_NAME_NOT_RESOLVED at ${finalUrl}`);
-      const session: Session = { id: randomUUID(), registration, startUrl: url, domains, open: true, url: finalUrl, driver: 'none', fills: new Map(), fields: new Map(), submits: new Map(), links: new Map(), secrets: [] };
+      const session: Session = { id: randomUUID(), registration, startUrl: url, domains, open: true, url: finalUrl, reads: 0, driver: 'none', fills: new Map(), fields: new Map(), submits: new Map(), links: new Map(), secrets: [] };
       this.sessions.push(session);
       return { session: session.id };
     }
@@ -493,12 +521,24 @@ export class FakeBrowser {
         return {};
       }
       case 'fingerprint':
-        return { fingerprint: this.#fingerprintOf(s, page) };
+        return { fingerprint: this.#fingerprintOf(s, page), shape: this.#shapeOf(page) };
+      case 'screenshot': {
+        const named = [...(body.outline === undefined ? [] : [String(body.outline)]), ...(Array.isArray(body.mark) ? body.mark.map(String) : [])];
+        const gone = named.find((ref) => !s.fields.has(ref) && !s.submits.has(ref));
+        if (gone) return refuse('stale', `${gone} isn't on the page of the latest snapshot`);
+        this.screenshots.push({ session: s.id, outline: body.outline === undefined ? null : String(body.outline), mark: Array.isArray(body.mark) ? body.mark.map(String) : [] });
+        return { png: this.screenshotPng.toString('base64') };
+      }
       case 'check':
       case 'press': {
         const at = s.submits.get(String(body.button));
         if (!at) return refuse('stale', `${String(body.button)} isn't on the page of the latest snapshot`);
-        const check = this.#check(s, page, at.form, body);
+        let check = this.#check(s, page, at.form, body);
+        if (body.approvedPage !== undefined) {
+          if (body.approvedPage !== this.#fingerprintOf(s, page)) return refuse('changed', "the page isn't the one the person approved: it changed since its screenshot");
+          const failures = check.failures.filter((f) => (f.rule !== 'unapproved-value' && f.rule !== 'unapproved-box') || f.secret);
+          check = { pass: failures.length === 0, failures };
+        }
         if (action === 'check') return check;
         if (!onDomain) return refuse('off-domain', `the page is on ${new URL(s.url).hostname}`);
         if (!check.pass) return refuse('check-failed', `the page check failed: ${check.failures.map((x) => x.rule).join('; ')}`, check);
@@ -522,7 +562,13 @@ export class FakeBrowser {
 
   /** The page's URL, its forms and what the session filled, hashed, as the real one hashes the URL, the forms and their values. */
   #fingerprintOf(s: Session, page: FakePage): string {
-    return createHash('sha256').update(JSON.stringify([page.url, page.forms, [...s.fills]])).digest('hex');
+    return createHash('sha256').update(JSON.stringify([page.url, page.forms, [...s.fills], page.restless ? s.reads++ : 0])).digest('hex');
+  }
+
+  /** The page's URL, its forms' fields by type and name and their buttons by label, hashed, as the real one hashes its shape. */
+  #shapeOf(page: FakePage): string {
+    const forms = (page.forms ?? []).map((f) => ({ fields: f.fields.map((x) => [x.type, x.name]), submits: f.submits.map((b) => b.label) }));
+    return createHash('sha256').update(JSON.stringify([page.url, forms])).digest('hex');
   }
 
   /** A navigation: the page's fills and the snapshot's refs go with the page they were on. */

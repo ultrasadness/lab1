@@ -34,6 +34,13 @@ interface ThreadObject {
   thread_metadata: { archive_timestamp: string };
 }
 
+/** A file sent with a message, as Discord documents uploads: its name, its bytes and its type. */
+export interface Upload {
+  name: string;
+  data: Buffer;
+  contentType: string;
+}
+
 const MAX_RETRIES = 5;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -71,8 +78,13 @@ export class DiscordRest {
     return (forum.available_tags ?? []).map(({ id, name }) => ({ id, name }));
   }
 
-  async sendMessage(channelId: string, message: MessagePayload | PlainMessage): Promise<{ messageId: string }> {
-    const body = (await this.#request('POST', `/channels/${channelId}/messages`, message)) as { id: string };
+  /**
+   * Sends a message, with any files uploaded beside it, as Discord documents uploads: multipart, with the message as
+   * `payload_json` naming each file in `attachments` by its place, and each file as `files[n]`.
+   */
+  async sendMessage(channelId: string, message: MessagePayload | PlainMessage, files: Upload[] = []): Promise<{ messageId: string }> {
+    const payload = files.length > 0 ? { ...message, attachments: files.map((f, id) => ({ id, filename: f.name })) } : message;
+    const body = (await this.#request('POST', `/channels/${channelId}/messages`, payload, true, files)) as { id: string };
     return { messageId: body.id };
   }
 
@@ -132,7 +144,7 @@ export class DiscordRest {
     await this.#request('POST', `/interactions/${interactionId}/${interactionToken}/callback`, response, false);
   }
 
-  async #request(method: string, path: string, body?: unknown, authorise = true): Promise<unknown> {
+  async #request(method: string, path: string, body?: unknown, authorise = true, files: Upload[] = []): Promise<unknown> {
     // Rate limits apply per route and major parameter (the channel or interaction).
     const route = `${method} ${path.split('/').slice(0, 3).join('/')}`;
     // The last door (ADR 0009): this goes as a refusal, since Discord surely didn't take it.
@@ -141,14 +153,22 @@ export class DiscordRest {
     for (let attempt = 0; ; attempt++) {
       const wait = (this.#routeResets.get(route) ?? 0) - Date.now();
       if (wait > 0) await sleep(wait);
+      let sent: string | FormData | undefined = body === undefined ? undefined : JSON.stringify(body);
+      if (files.length > 0) {
+        const form = new FormData();
+        form.append('payload_json', JSON.stringify(body));
+        files.forEach((f, i) => form.append(`files[${i}]`, new Blob([new Uint8Array(f.data)], { type: f.contentType }), f.name));
+        sent = form;
+      }
       const response = await fetch(`${this.#apiBaseUrl}${path}`, {
         method,
         headers: {
           ...(authorise ? { authorization: `Bot ${this.#token}` } : {}),
-          'content-type': 'application/json',
+          // A form sets its own type, with the boundary between its parts.
+          ...(files.length > 0 ? {} : { 'content-type': 'application/json' }),
           'user-agent': 'DiscordBot (https://github.com/ultrasadness/lab1, 1)',
         },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: sent,
       });
       if (response.headers.get('x-ratelimit-remaining') === '0') {
         const resetAfter = Number(response.headers.get('x-ratelimit-reset-after') ?? 0);

@@ -251,6 +251,7 @@ export async function startAssistant(options: {
     showApproval: (productId) => walkthroughs.showApproval(productId),
     stoppedCard: (productId) => walkthroughs.stoppedCard(productId),
     plainWork: (work) => plainWork(work().catch((error: unknown) => log('registration.work-failed', { error: errorText(error) }))),
+    finalPressed: (productId) => verifications.pressed(productId),
     clock,
     log,
   });
@@ -650,7 +651,7 @@ async function answer(
     }
     const walkthrough =
       interaction.type === 3
-        ? (options.registrations.tap(customId, { messageId: interaction.message?.id }) ??
+        ? (options.registrations.tap(customId, { messageId: interaction.message?.id, userId: userId!, interactionId: interaction.id }) ??
           options.walkthroughs.tap(customId, { userId: userId!, interactionId: interaction.id, messageId: interaction.message?.id }))
         : interaction.type === 5
           ? (options.registrations.submit(customId, (field) => popupField(interaction, field)) ??

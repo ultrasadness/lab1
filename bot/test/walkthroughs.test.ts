@@ -558,9 +558,15 @@ test('a Product whose terms ban bot-made accounts gets a Walkthrough that says H
   const status = post!.messages.at(-1)!;
   assert.equal(
     status.text,
-    '**Registration** · handed off · Walkthrough v1 approved 09:03 PT Mon Oct 12. Its terms ban accounts made by a bot, so you finish it on your own device, as you+codemind@gmail.com.',
+    `**Registration** · handed off · Walkthrough v1 approved 09:03 PT Mon Oct 12. Its terms ban accounts made by a bot, so you finish it on your own device, as you+codemind@gmail.com. A Handoff card in <#${NEEDS_YOU}> gives you the steps.`,
   );
   assert.deepEqual(status.buttons, [], 'nothing to stop: the Assistant presses nothing');
+  // A Handoff card gives the person the steps, the values and the password through AutoFill (#59).
+  const handoff = world.discord.cards(NEEDS_YOU).at(-1)!;
+  assert.match(handoff.text, /^<@\d+> \*\*Hand off · Codemind\*\*\nIts terms ban accounts made by a bot, so you sign up on your own device\.\n1\. Open https:\/\/app\.codemindhq\.dev\/\.\n2\. Fill in the values you approved/);
+  assert.ok(handoff.text.includes(`- Password: let AutoFill fill it from Bitwarden › Registrations › Codemind (item ${world.bitwarden.items[0]!.id})`), handoff.text);
+  assert.ok(handoff.text.includes('Accept Terms of Service (https://codemindhq.dev/terms) and Privacy Policy (https://codemindhq.dev/privacy).'), handoff.text);
+  assert.deepEqual(handoff.buttons.map((b) => b.label), ['Done']);
   assert.ok(post!.messages[0]!.text.includes('Walkthrough v1 approved; handed off to you.'));
   assert.ok(
     world.git

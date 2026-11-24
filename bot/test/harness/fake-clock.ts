@@ -20,7 +20,15 @@ export class FakeClock implements Clock {
     return new Date(this.#now);
   }
 
+  /**
+   * Calls `fn` once the clock reaches `when`; a time already reached fires at once, inside `at`, as `systemClock`'s
+   * does (bot/src/clock.ts), before `at` hands back what cancels it (#59).
+   */
   at(when: Date, fn: () => void): () => void {
+    if (when.getTime() <= this.#now) {
+      fn();
+      return () => {};
+    }
     const timer = { at: when.getTime(), fn };
     this.#timers.add(timer);
     return () => this.#timers.delete(timer);

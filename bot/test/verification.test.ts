@@ -264,6 +264,23 @@ test('with no mail 24 hours after the final press the Registration is handed off
   assert.doesNotMatch(registrationFile(world), /abandoned/);
   assert.equal(world.browser.openSessions.length, 0, 'its session is closed');
   assert.deepEqual(logged(world, 'registration.handed-off').length, 1);
+  // A Handoff card tells the person, with what to do on their own device (settled by the person on #59).
+  const handoff = lastCard(world);
+  assert.equal(
+    handoff.text,
+    [
+      `<@${PERSON}> **Hand off · Codemind**`,
+      'The form was submitted as you+codemind@gmail.com 01:00 PT Mon Oct 12, and no verification mail came within 24 hours. The account may exist.',
+      `1. Open https://app.codemindhq.dev/ and log in as \`you+codemind@gmail.com\`, with the password AutoFill gives you from Bitwarden › Registrations › Codemind (item ${world.bitwarden.items[0]!.id}).`,
+      "2. If it says your address isn't verified, have it send the verification mail again, and open it in the Signup mailbox's Gmail.",
+      '3. If no account was made, sign up there with the values you approved:',
+      '- Email: `you+codemind@gmail.com`',
+      `- Password: let AutoFill fill it from Bitwarden › Registrations › Codemind (item ${world.bitwarden.items[0]!.id})`,
+      '4. Tap **Done** here once the account exists.',
+      `-# See <#${world.discord.forumPosts(PRODUCTS_FORUM)[0]!.id}>.`,
+    ].join('\n'),
+  );
+  assert.deepEqual(handoff.buttons.map((b) => b.label), ['Done']);
 
   await deliver(world, codeMail(DAY + 3600));
 
@@ -273,6 +290,7 @@ test('with no mail 24 hours after the final press the Registration is handed off
   assert.deepEqual(tags(world), ['registered']);
   assert.match(registrationFile(world), /^- 2026-10-13 01:00 PT · \*\*handed off\*\*: submitted; no verification mail yet$/m);
   assert.match(registrationFile(world), /^- 2026-10-13 02:00 PT · \*\*registered\*\*$/m);
+  assert.match(world.discord.cards(NEEDS_YOU).find((c) => c.id === handoff.id)!.text, /^✓ Codemind · registered · <#\d+>$/, 'the mail settled what the Handoff card asked');
 });
 
 test("a verification mail that came before the bot could read the Signup mailbox is found by the next start's look-back, and too old to use, is put to the person", async (t) => {

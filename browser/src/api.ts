@@ -143,6 +143,12 @@ export interface CheckRequest {
   terms: string[];
   /** The Signup identity's two addresses: a field filled with one may hold either. */
   identity: string[];
+  /**
+   * With a Submit tap (#59), the fingerprint of the page whose screenshot the person approved. The check then lets
+   * through the values the person saw (`unapproved-value`, `unapproved-box`), but not one in a field filled by
+   * reference, which the screenshot masks, and refuses `changed` unless the page still has that fingerprint.
+   */
+  approvedPage?: string;
 }
 
 /**
@@ -162,6 +168,11 @@ export interface CheckFailure {
   ref: string | null;
   /** For `invalid`, the failing validity flag, such as `valueMissing` or `patternMismatch`. */
   validity?: string;
+  /**
+   * Whether the field was filled by reference, as a password: a screenshot masks it, so a Submit tap never lets its
+   * value through (#59).
+   */
+  secret?: true;
 }
 
 export interface PageCheck {
@@ -191,6 +202,7 @@ export interface Screenshot {
  * - `not-allowed`: the action doesn't take that element, such as `fill` on a password field;
  * - `payment-field`: a card field, refused whatever is asked;
  * - `check-failed`: press, when the page check fails (its result is in `check`);
+ * - `changed`: check or press with `approvedPage`, when the page no longer has the fingerprint the person approved;
  * - `not-pressable`: press, when the element isn't one plain code may press;
  * - `blocked`: something, such as a cookie banner, covers the element;
  * - `load-failed`, `download`: a page that won't load, and a session whose start page won't load never opens;
@@ -207,6 +219,7 @@ export type RefusalKind =
   | 'not-allowed'
   | 'payment-field'
   | 'check-failed'
+  | 'changed'
   | 'not-pressable'
   | 'blocked'
   | 'load-failed'

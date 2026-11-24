@@ -409,11 +409,36 @@ export type RegistrationState =
 
 /** What a Registration that isn't moving waits on: a wall, a fill run that ended stuck, or a page check that failed. */
 export type WaitsOn =
-  | { kind: 'wall'; wall: string; note: string | null }
+  /** For `oauth-only`, the providers the page offers, Google among them (#10). */
+  | { kind: 'wall'; wall: string; note: string | null; providers?: string[] }
   | { kind: 'stuck'; reason: string; note: string | null }
-  | { kind: 'check'; failures: string[] }
+  /**
+   * Each failure as the status message says it; and, since #59, each failed rule with its field's label and ref, or
+   * the refusal of a press that wasn't the check's, the button named, the fingerprint of the page as it failed, how
+   * many times the page was checked again for changing before its Submit tap's screenshot, and whether it changed after
+   * one, so that nothing is pressed until the person sees it again.
+   */
+  | {
+      kind: 'check';
+      failures: string[];
+      rules?: CheckedRule[];
+      refusal?: string;
+      button?: { ref: string; label: string };
+      page?: string;
+      rechecks?: number;
+      changed?: boolean;
+    }
   /** Why it can't go on for now, by itself: Bitwarden is unavailable, or its signup page won't load. */
   | { kind: 'held'; why: string };
+
+/** One rule of the page check a field failed, as the browser service named it (browser/src/api.ts). */
+export interface CheckedRule {
+  rule: string;
+  field: string | null;
+  ref: string | null;
+  /** Whether the field was filled by reference, which a screenshot masks. */
+  secret?: boolean;
+}
 
 /** A press of one button, written before plain code presses it and marked done after (ADR 0007). */
 export interface PressMark {
@@ -434,6 +459,11 @@ export interface PressMark {
   doneAt: string | null;
   /** Why the press may not have gone through, when that isn't known. It counts as done all the same. */
   uncertain: string | null;
+  /**
+   * The page's shape as plain code pressed it, its URL and forms without their values, by which the same form still
+   * showing 10 seconds after a final press is told (#59); null for a press marked before #59.
+   */
+  shape: string | null;
 }
 
 /** A Product's one Registration, from its Approval on. */
@@ -473,7 +503,8 @@ export interface StoredRegistration {
   refill: Refill[];
   /** The stop mark, which plain code checks right before every press: when the person stopped it, and whether by Stop or by Correct. */
   stopAt: string | null;
-  stopCause: 'stop' | 'correct' | null;
+  /** By Stop, by Correct, or by the close of one with nothing final pressed 24 hours after its Approval (#59). */
+  stopCause: StopCause | null;
   waitsOn: WaitsOn | null;
   /** The label of the button being pressed, or last pressed. */
   button: string | null;
@@ -500,7 +531,69 @@ export interface StoredRegistration {
    * mail makes it *registered*, so that `registration.md` still says it.
    */
   handedOffAt: string | null;
+  /** When the person tapped Hand off on one of its cards (#59), from what, and whether its final button was pressed then. */
+  handOff: HandOff | null;
+  /**
+   * Whether plain code is to read its page 10 seconds after its final press, for the same form still showing (#59):
+   * `due` from that press on, `done` once read.
+   */
+  stillCheck: 'due' | 'done' | null;
+  /** The person's Submit on a Submit tap, which plain code is to press on the page it approved (#59), until it does. */
+  submitTap: SubmitTap | null;
 }
+
+/**
+ * A Submit tapped: the page it approved, by its fingerprint, and the button to press on it. With no fingerprint, the
+ * page plain code is to check again, without pressing, since it changed before its Submit tap's screenshot.
+ */
+export interface SubmitTap {
+  fingerprint: string | null;
+  button: { ref: string; label: string };
+  at: string;
+  rechecks?: number;
+}
+
+/** Why a Registration was stopped before its final press. */
+export type StopCause = 'stop' | 'correct' | 'closed';
+
+/** The person's Hand off of a Registration (#59). */
+export interface HandOff {
+  at: string;
+  /** What it was handed off from, as a card says it: "a bot check on page 1". */
+  from: string;
+  /** The wall it was handed off at, if it was one, such as `oauth-only`, whose Handoff signs in with Google. */
+  wall: string | null;
+  /** Whether its final button was pressed, or counts as pressed, so that the account may exist. */
+  submitted: boolean;
+}
+
+/**
+ * What a Registration's card in #needs-you is about (#59):
+ * - `waiting`: what it waits on, at a wall, stuck, or after a failed page check, with Hand off and Stop;
+ * - `submit-tap`: a page that failed the check only on values the person can see, put to them on a screenshot whose
+ *   page's fingerprint its Submit carries; null until the screenshot is taken;
+ * - `handoff`: the rest of it given to the person, and why;
+ * - `still-showing`: the same form still showing 10 seconds after its final press, which may have been rejected.
+ */
+export type CardAbout =
+  | { kind: 'waiting'; page: number; waitsOn: WaitsOn }
+  | { kind: 'submit-tap'; page: number; waitsOn: WaitsOn; fingerprint: string | null }
+  | { kind: 'handoff'; cause: 'terms-ban' | 'no-mail' | 'by-you' }
+  | { kind: 'still-showing'; button: string };
+
+/** A Registration's card in #needs-you, marked before it is sent (ADR 0007), and the line it shrinks to once ended. */
+export type RegistrationCard = CardAbout & {
+  id: number;
+  productId: number;
+  /** The version of the Approval it was posted under. */
+  version: number;
+  createdAt: string;
+  intended: boolean;
+  messageId: string | null;
+  endedAt: string | null;
+  endedLine: string | null;
+  shrunkAt: string | null;
+};
 
 /** What a form refused, which a replacement vault item answers (ADR 0014). */
 export type Refused = 'password' | 'plus';
@@ -538,6 +631,8 @@ export type RegistrationChange = Partial<
     | 'uncertainTold'
     | 'shownKey'
     | 'handedOffAt'
+    | 'stillCheck'
+    | 'submitTap'
   >
 >;
 
@@ -558,6 +653,8 @@ const REGISTRATION_COLUMNS: Record<keyof RegistrationChange, string> = {
   uncertain: 'uncertain',
   uncertainTold: 'uncertain_told',
   shownKey: 'shown_key',
+  stillCheck: 'still_check',
+  submitTap: 'submit_tap',
   handedOffAt: 'handed_off_at',
 };
 
@@ -565,6 +662,18 @@ const REGISTRATION_COLUMNS: Record<keyof RegistrationChange, string> = {
 export const BEFORE_FINAL_PRESS: readonly RegistrationState[] = ['held', 'queued', 'filling', 'checking', 'pressing', 'check-failed', 'at-wall'];
 
 export const beforeFinalPress = (r: Pick<StoredRegistration, 'state'>) => BEFORE_FINAL_PRESS.includes(r.state);
+
+/**
+ * Why a Registration is, or was before Done, *handed off* (#59): the person's Hand off, no verification mail within 24
+ * hours of its final press (#58), or its terms banning accounts made by a bot, when it started so (#53) with nothing
+ * submitted. Null for one never handed off.
+ */
+export function handOffCause(r: Pick<StoredRegistration, 'state' | 'handOff' | 'handedOffAt' | 'submittedAt'>): 'by-you' | 'no-mail' | 'terms-ban' | null {
+  if (r.handOff) return 'by-you';
+  if (r.handedOffAt) return 'no-mail';
+  if ((r.state === 'handed-off' || r.state === 'registered') && !r.submittedAt) return 'terms-ban';
+  return null;
+}
 
 /**
  * Where a mail stands, by the rows of the ledger (ADR 0007): *unmatched*; *held*, with why; *put to the person*; *not
@@ -913,6 +1022,35 @@ CREATE TABLE reply_draft_queue (
   queued_at TEXT NOT NULL
 );`,
   },
+  {
+    name: "add a Registration's cards in #needs-you, each wall met beside the walls its read predicted, its hand-off by the person, and the check of a form still showing after its final press (#59)",
+    sql: `ALTER TABLE registrations ADD COLUMN hand_off TEXT;
+ALTER TABLE registrations ADD COLUMN still_check TEXT;
+ALTER TABLE registrations ADD COLUMN submit_tap TEXT;
+ALTER TABLE presses ADD COLUMN shape TEXT;
+CREATE TABLE registration_cards (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  version INTEGER NOT NULL,
+  about TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  intended INTEGER NOT NULL DEFAULT 0,
+  message_id TEXT,
+  ended_at TEXT,
+  ended_line TEXT,
+  shrunk_at TEXT
+);
+CREATE INDEX registration_cards_by_product ON registration_cards(product_id);
+CREATE TABLE walls_met (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  version INTEGER NOT NULL,
+  page INTEGER NOT NULL,
+  wall TEXT NOT NULL,
+  predicted TEXT NOT NULL,
+  met_at TEXT NOT NULL
+);`,
+  },
 ];
 
 /** The latest schema, which a new store gets whole at the latest version. */
@@ -1145,7 +1283,10 @@ CREATE TABLE IF NOT EXISTS registrations (
   shown_key TEXT,
   refill TEXT NOT NULL DEFAULT '[]',
   history TEXT NOT NULL DEFAULT '[]',
-  handed_off_at TEXT
+  handed_off_at TEXT,
+  hand_off TEXT,
+  still_check TEXT,
+  submit_tap TEXT
 );
 CREATE TABLE IF NOT EXISTS presses (
   id INTEGER PRIMARY KEY,
@@ -1158,7 +1299,8 @@ CREATE TABLE IF NOT EXISTS presses (
   final INTEGER NOT NULL,
   intended_at TEXT NOT NULL,
   done_at TEXT,
-  uncertain TEXT
+  uncertain TEXT,
+  shape TEXT
 );
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
@@ -1330,6 +1472,28 @@ CREATE TABLE IF NOT EXISTS reply_draft_queue (
   cause TEXT NOT NULL,
   queued_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS registration_cards (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  version INTEGER NOT NULL,
+  about TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  intended INTEGER NOT NULL DEFAULT 0,
+  message_id TEXT,
+  ended_at TEXT,
+  ended_line TEXT,
+  shrunk_at TEXT
+);
+CREATE INDEX IF NOT EXISTS registration_cards_by_product ON registration_cards(product_id);
+CREATE TABLE IF NOT EXISTS walls_met (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  version INTEGER NOT NULL,
+  page INTEGER NOT NULL,
+  wall TEXT NOT NULL,
+  predicted TEXT NOT NULL,
+  met_at TEXT NOT NULL
+);
 `;
 
 type Row = Record<string, SQLInputValue>;
@@ -1476,6 +1640,22 @@ const registrationOf = (row: Row): StoredRegistration => ({
   startAgainFrom: row.start_again_from === null ? null : Number(row.start_again_from),
   shownKey: textOrNull(row.shown_key),
   handedOffAt: textOrNull(row.handed_off_at),
+  handOff: row.hand_off === null || row.hand_off === undefined ? null : (JSON.parse(String(row.hand_off)) as HandOff),
+  stillCheck: textOrNull(row.still_check ?? null) as StoredRegistration['stillCheck'],
+  submitTap: row.submit_tap === null || row.submit_tap === undefined ? null : (JSON.parse(String(row.submit_tap)) as SubmitTap),
+});
+
+const registrationCardOf = (row: Row): RegistrationCard => ({
+  ...(JSON.parse(String(row.about)) as CardAbout),
+  id: Number(row.id),
+  productId: Number(row.product_id),
+  version: Number(row.version),
+  createdAt: String(row.created_at),
+  intended: Boolean(row.intended),
+  messageId: textOrNull(row.message_id),
+  endedAt: textOrNull(row.ended_at),
+  endedLine: textOrNull(row.ended_line),
+  shrunkAt: textOrNull(row.shrunk_at),
 });
 
 const verificationOf = (row: Row): Verification => ({
@@ -1509,6 +1689,7 @@ const pressOf = (row: Row): PressMark => ({
   intendedAt: String(row.intended_at),
   doneAt: textOrNull(row.done_at),
   uncertain: textOrNull(row.uncertain),
+  shape: textOrNull(row.shape ?? null),
 });
 
 const approvalOf = (row: Row): Approval => ({
@@ -2557,7 +2738,7 @@ export class Store {
           .prepare(
             `UPDATE registrations SET version = ?, state = ?, approved_at = ?, shown_at = NULL, page = 0, fill_runs = 0, sessions_opened = 0,
                stop_at = NULL, stop_cause = NULL, waits_on = NULL, button = NULL, ended_at = NULL, end_note = NULL, refill = '[]',
-               start_again_from = NULL, shown_key = NULL, history = ?
+               start_again_from = NULL, shown_key = NULL, history = ?, submit_tap = NULL, still_check = NULL, hand_off = NULL
              WHERE product_id = ?`,
           )
           .run(a.version, a.state, a.approvedAt, JSON.stringify(history), a.productId);
@@ -2648,7 +2829,7 @@ export class Store {
    * the final button is being pressed or was (`too-late`), or the Registration has reached its outcome otherwise
    * (`over`).
    */
-  stopRegistration(productId: number, at: string, cause: 'stop' | 'correct'): 'stopped' | 'stopped-already' | 'too-late' | 'over' {
+  stopRegistration(productId: number, at: string, cause: StopCause): 'stopped' | 'stopped-already' | 'too-late' | 'over' {
     return this.#transaction(() => {
       const r = this.registration(productId);
       if (!r) return 'over';
@@ -2669,7 +2850,7 @@ export class Store {
       const r = this.registration(productId);
       if (!r?.stopAt || !beforeFinalPress(r) || r.state === 'pressing') return false;
       this.#db
-        .prepare("UPDATE registrations SET state = 'abandoned', ended_at = ?, end_note = ?, waits_on = NULL, refill = '[]' WHERE product_id = ?")
+        .prepare("UPDATE registrations SET state = 'abandoned', ended_at = ?, end_note = ?, waits_on = NULL, refill = '[]', submit_tap = NULL WHERE product_id = ?")
         .run(at, note, productId);
       return true;
     });
@@ -2683,9 +2864,9 @@ export class Store {
     return this.#transaction(() => {
       if (this.registration(mark.productId)?.stopAt) return 'stopped';
       const result = this.#db
-        .prepare('INSERT INTO presses (product_id, version, session, page, button, fingerprint, final, intended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(mark.productId, mark.version, mark.session, mark.page, mark.button, mark.fingerprint, mark.final ? 1 : 0, mark.intendedAt);
-      this.#db.prepare("UPDATE registrations SET state = 'pressing', button = ? WHERE product_id = ?").run(mark.button, mark.productId);
+        .prepare('INSERT INTO presses (product_id, version, session, page, button, fingerprint, final, intended_at, shape) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(mark.productId, mark.version, mark.session, mark.page, mark.button, mark.fingerprint, mark.final ? 1 : 0, mark.intendedAt, mark.shape);
+      this.#db.prepare("UPDATE registrations SET state = 'pressing', button = ?, submit_tap = NULL WHERE product_id = ?").run(mark.button, mark.productId);
       return Number(result.lastInsertRowid);
     });
   }
@@ -2715,6 +2896,124 @@ export class Store {
   lastPress(productId: number): PressMark | undefined {
     const row = this.#db.prepare('SELECT * FROM presses WHERE product_id = ? ORDER BY id DESC LIMIT 1').get(productId);
     return row ? pressOf(row) : undefined;
+  }
+
+  // ---------- A Registration's walls, cards and Handoff (#59) ----------
+
+  /** Records a wall the Registration met, beside the walls the read of its signup page predicted (#10). */
+  saveWallMet(met: { productId: number; version: number; page: number; wall: string; predicted: string[]; at: string }): void {
+    this.#db
+      .prepare('INSERT INTO walls_met (product_id, version, page, wall, predicted, met_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(met.productId, met.version, met.page, met.wall, JSON.stringify(met.predicted), met.at);
+  }
+
+  /**
+   * Ends at once a Registration at a wall nothing can get past, *abandoned* with why, unless it has been stopped,
+   * abandoned or pressed meanwhile. Its session stays named until it is closed.
+   */
+  abandonAtWall(productId: number, note: string, at: string): boolean {
+    const result = this.#db
+      .prepare(
+        `UPDATE registrations SET state = 'abandoned', ended_at = ?, end_note = ?, waits_on = NULL, refill = '[]', submit_tap = NULL
+         WHERE product_id = ? AND state IN ('filling', 'checking') AND stop_at IS NULL`,
+      )
+      .run(at, note, productId);
+    return Number(result.changes) > 0;
+  }
+
+  /**
+   * Hands a Registration off to the person, from one of the states given, unless it has been stopped: *handed off*,
+   * with what from. False when it isn't in one of them any more.
+   */
+  handOffRegistration(productId: number, states: RegistrationState[], handOff: HandOff): boolean {
+    const result = this.#db
+      .prepare(
+        `UPDATE registrations SET state = 'handed-off', ended_at = ?, end_note = NULL, waits_on = NULL, refill = '[]', submit_tap = NULL, hand_off = ?
+         WHERE product_id = ? AND state IN (${states.map(() => '?').join(', ')}) AND (stop_at IS NULL OR state = 'awaiting-verification')`,
+      )
+      .run(handOff.at, JSON.stringify(handOff), productId, ...states);
+    return Number(result.changes) > 0;
+  }
+
+  /** Makes a *handed off* Registration *registered*, once the person taps Done on its Handoff card. */
+  saveHandOffDone(productId: number, at: string): boolean {
+    const result = this.#db.prepare("UPDATE registrations SET state = 'registered', ended_at = ?, end_note = NULL WHERE product_id = ? AND state = 'handed-off'").run(at, productId);
+    return Number(result.changes) > 0;
+  }
+
+  /**
+   * Sends a Registration waiting after a failed check back to checking, unless it has moved on or been stopped
+   * meanwhile: to press on the page a Submit tap approved, kept as an Approval of that page by its fingerprint (ADR
+   * 0007), or, with no fingerprint, to check its page again.
+   */
+  saveSubmitTap(productId: number, tap: SubmitTap, approval?: { version: number; userId: string; interactionId: string }): boolean {
+    return this.#transaction(() => {
+      const result = this.#db
+        .prepare("UPDATE registrations SET state = 'checking', waits_on = NULL, submit_tap = ? WHERE product_id = ? AND state = 'check-failed' AND stop_at IS NULL")
+        .run(JSON.stringify(tap), productId);
+      if (Number(result.changes) === 0) return false;
+      if (approval && tap.fingerprint) {
+        this.#db
+          .prepare('INSERT OR IGNORE INTO approvals (item, version_hash, version, user_id, interaction_id, approved_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(`submit-tap:${productId}`, tap.fingerprint, approval.version, approval.userId, approval.interactionId, tap.at);
+      }
+      return true;
+    });
+  }
+
+  /** Each page a Submit tap approved under a Registration, oldest first. */
+  submitTapApprovals(productId: number): Approval[] {
+    return this.#db.prepare('SELECT * FROM approvals WHERE item = ? ORDER BY approved_at').all(`submit-tap:${productId}`).map(approvalOf);
+  }
+
+  /** Adds a card of a Registration, not yet sent. */
+  addRegistrationCard(card: CardAbout & { productId: number; version: number; createdAt: string }): number {
+    const { productId, version, createdAt, ...about } = card;
+    const result = this.#db
+      .prepare('INSERT INTO registration_cards (product_id, version, about, created_at) VALUES (?, ?, ?, ?)')
+      .run(productId, version, JSON.stringify(about), createdAt);
+    return Number(result.lastInsertRowid);
+  }
+
+  registrationCard(id: number): RegistrationCard | undefined {
+    const row = this.#db.prepare('SELECT * FROM registration_cards WHERE id = ?').get(id);
+    return row ? registrationCardOf(row) : undefined;
+  }
+
+  /** A Registration's cards, oldest first. */
+  registrationCards(productId: number): RegistrationCard[] {
+    return this.#db.prepare('SELECT * FROM registration_cards WHERE product_id = ? ORDER BY id').all(productId).map(registrationCardOf);
+  }
+
+  saveRegistrationCardIntended(id: number, intended: boolean): void {
+    this.#db.prepare('UPDATE registration_cards SET intended = ? WHERE id = ?').run(intended ? 1 : 0, id);
+  }
+
+  saveRegistrationCardMessage(id: number, messageId: string): void {
+    this.#db.prepare('UPDATE registration_cards SET intended = 1, message_id = ? WHERE id = ?').run(messageId, id);
+  }
+
+  /** Keeps the fingerprint of the page a Submit tap's screenshot shows, which its Submit carries. */
+  saveSubmitTapFingerprint(id: number, fingerprint: string): void {
+    const card = this.registrationCard(id);
+    if (card?.kind !== 'submit-tap') return;
+    const { kind, page, waitsOn } = card;
+    this.#db.prepare('UPDATE registration_cards SET about = ? WHERE id = ?').run(JSON.stringify({ kind, page, waitsOn, fingerprint }), id);
+  }
+
+  /**
+   * Ends a card, once, with the line it shrinks to; `shrunk` when the tap that ended it shrinks it too. False when it
+   * had ended already.
+   */
+  endRegistrationCard(id: number, at: string, line: string, shrunk = false): boolean {
+    const result = this.#db
+      .prepare('UPDATE registration_cards SET ended_at = ?, ended_line = ?, shrunk_at = ? WHERE id = ? AND ended_at IS NULL')
+      .run(at, line, shrunk ? at : null, id);
+    return Number(result.changes) > 0;
+  }
+
+  saveRegistrationCardShrunk(id: number, at: string): void {
+    this.#db.prepare('UPDATE registration_cards SET shrunk_at = ? WHERE id = ?').run(at, id);
   }
 
   /** Records Start again on an *abandoned* Registration; false on any other. */

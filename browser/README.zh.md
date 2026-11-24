@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-运行在自己的加固容器里的 Playwright（ADR 0006），借助 Node 的类型剥离原样运行。它唯一的客户端是机器人，通过 Unix 套接字连接：它不监听任何端口，网络也是它独有的，所以 Pi 容器访问不到它。#43 搭起了容器，以及只读的 `read(url)`：Dossier 和 Walkthrough 在任何 Approval 之前用它读取 Product 的页面。#55 加上了 Registration 的会话：填表运行经由机器人可以使用的固定动作，以及普通代码的页面检查、按下按钮和按引用填写。#101 加上了 `redirect(url)`。从 #56 起机器人驱动会话：它打开会话、切换驱动者、执行填表运行的动作，并请求页面检查、指纹和按下按钮。从 #58 起它请求 `fill-code` 和 `open-link`，用来验证一个 Registration。它还不请求截图，那是 #59 的 Submit 点按要用的。
+运行在自己的加固容器里的 Playwright（ADR 0006），借助 Node 的类型剥离原样运行。它唯一的客户端是机器人，通过 Unix 套接字连接：它不监听任何端口，网络也是它独有的，所以 Pi 容器访问不到它。#43 搭起了容器，以及只读的 `read(url)`：Dossier 和 Walkthrough 在任何 Approval 之前用它读取 Product 的页面。#55 加上了 Registration 的会话：填表运行经由机器人可以使用的固定动作，以及普通代码的页面检查、按下按钮和按引用填写。#101 加上了 `redirect(url)`。从 #56 起机器人驱动会话：它打开会话、切换驱动者、执行填表运行的动作，并请求页面检查、指纹和按下按钮。从 #58 起它请求 `fill-code` 和 `open-link`，用来验证一个 Registration。从 #59 起它为 Submit 点按请求截图，并在这个人批准过指纹的页面上按下按钮。
 
 | 路径 | 是什么 |
 |---|---|
@@ -31,7 +31,7 @@
 - `POST /session/open`，请求体为 `{ "registration", "url", "domains" }`：一个 Registration 的会话，即一个属于它自己的内存上下文，在 Walkthrough 的起始 URL 打开，返回 `{ "session" }`。同时最多打开 5 个（429，`full`），每个 Registration 一个（409，`already-open`），起始页面加载不了时不会打开（502）。会话在以下时候关闭：收到 `POST /session/close`、一个动作耗时超过 60 秒、打开验证链接之后，或者 24 小时内没有任何针对它的请求（`SESSION_IDLE_LIMIT_MS`）：机器人自己的 24 小时规则会先关掉它，所以这一条兜住的是机器人丢掉的会话。
 - `POST /session/drive`，请求体为 `{ "session", "driver" }`：现在由谁驱动这个会话，`none`、`fill-run`、`plain-code` 或 `person`。每个动作的路径写明它需要的驱动者；这个人在 Takeover 中驱动时，其他任何一方都不能动作。把这个人填的字段显示为 `[person]`、并让页面检查接受它们，随 #60 的 Takeover 一起实现。
 - `POST /fill-run/…`：填表运行经由机器人可以使用的固定动作，除非顶层页面位于会话的某个域名上，否则每一个都会被拒绝（`off-domain`）。`snapshot` 先拒绝 cookie 横幅。它只按填入字段的东西显示字段（字段的 Walkthrough 键、`[password]` 或 `[code]`），从不显示字段的值，并按确切值删去填进会话的每个 Secret，再删去看起来随机的字符串。它给出的 ref（`f1`、`b1`、`l1`）指明其他动作所用的字段、提交控件和链接，只显示一个按钮的表单也包括在内。`fill` 接受一个 Walkthrough 键和机器人提供的批准值；`fill-secret` 接受机器人按引用提供的 `password` 或 `code`；`choose` 接受一个选项的标签，或 `ticked`、`left unticked`，并且只点击角色为 combobox、option、checkbox、radio 或 switch 的元素；`open` 加载链接的 URL 而不是点击它，而且只限会话的域名。
-- `POST /plain-code/…`：普通代码自己的动作。`snapshot` 与填表运行的相同。`check` 就是页面检查：给出指定按钮、批准的注册主机、批准的条款 URL 和 Signup identity 的两个地址，它回答哪条规则在哪个字段上失败。它等页面保持不变 1.5 秒之后才判断，最多等到请求之后 5 秒，因为页面的脚本可能还在对最后一次填写作出反应。`fingerprint` 对 URL、表单结构和各字段的值取哈希。`screenshot` 遮住每个按引用填入的字段，还可以标出一个按钮的轮廓并标记字段。`press` 只在检查通过、且按钮可见、可用、位于会话的域名上、是那个包含每个仍显示着的已填字段的表单唯一的提交控件时才动作，所以页面已经隐藏的前一步不算。点击开始之后才失败的，回答里带 `uncertain`，并算作已经按下（ADR 0007）。`fill-code` 按引用填入邮件里的验证码，`open-link` 打开验证链接，然后关闭会话。
+- `POST /plain-code/…`：普通代码自己的动作。`snapshot` 与填表运行的相同。`check` 就是页面检查：给出指定按钮、批准的注册主机、批准的条款 URL 和 Signup identity 的两个地址，它回答哪条规则在哪个字段上失败。它等页面保持不变 1.5 秒之后才判断，最多等到请求之后 5 秒，因为页面的脚本可能还在对最后一次填写作出反应。`fingerprint` 对 URL、表单结构和各字段的值取哈希，并在旁边回答页面的 `shape`：URL，以及每个表单字段的类型和名字、按钮的文字，用来判断按下之后是否仍显示同一个表单（#59）。`screenshot` 遮住每个按引用填入的字段，还可以标出一个按钮的轮廓并标记字段。它也遮住任何含有本会话填入的 Secret 的字段，比如页面把密码移进它自己做的字段时。这样的字段或按引用填写的字段上的失败带有 `secret`。`check` 和 `press` 可以带 `approvedPage`，也就是 Submit 点按批准的页面的指纹：这时它们放行这个人在那个页面上看到的值，即 `unapproved-value` 和 `unapproved-box`，但从不放行标有 `secret` 的，并且除非页面仍有那个指纹，否则以 `changed` 拒绝；这在页面保持不变之后判断（#59）。`press` 只在检查通过、且按钮可见、可用、位于会话的域名上、是那个包含每个仍显示着的已填字段的表单唯一的提交控件时才动作，所以页面已经隐藏的前一步不算。点击开始之后才失败的，回答里带 `uncertain`，并算作已经按下（ADR 0007）。`fill-code` 按引用填入邮件里的验证码，`open-link` 打开验证链接，然后关闭会话。
 - 银行卡字段（`cc-*` autocomplete 值）无论要求什么都会被拒绝（`payment-field`），支付服务商的 frame 从不出现在快照里。拒绝的格式是 `{ "error": { "kind", "message" } }`，种类见 `src/api.ts`；被检查拒绝的按下请求在 `check` 里带上检查结果。
 
 ## 测试
