@@ -56,13 +56,17 @@ npm run check:docs                     # the doc pairs
 npm run check:shell                    # shellcheck over the shell scripts
 npm run check:source                   # the tests that read the source as text
 npm test                               # every test
-node --test bot/test/miner-day.test.ts # one file
+TEST_FILES=bot/test/miner-day.test.ts npm test                      # one file
+TEST_NAME=Skipped TEST_FILES=bot/test/miner-day.test.ts npm test    # its tests whose names match
 ```
 
 `npm test` gives each test 60 seconds. A test that runs out fails, and the run still ends even when it leaves a
 server or timer open (`--test-force-exit`). With `TEST_FILES` set, such as
 `TEST_FILES="bot/test/rules.test.ts scripts/ticket.test.ts"`, it runs only those files, as each CI shard runs the ones
-its plan gave it. With `TEST_RECORD` set to a file, it runs the files one at a time and writes there how long each
+its plan gave it. With `TEST_NAME` set, it runs only the tests whose names match it, as a regular expression
+(`--test-name-pattern`), so that a test-first loop runs one test, of about 10 seconds, and not its whole file. A name
+that matches no test runs nothing and still passes, the file counting as a test, so read the test's name in the output. With
+`TEST_RECORD` set to a file, it runs the files one at a time and writes there how long each
 took, the sum of its top-level tests' times, from which CI plans later runs' shards (`docs/hooks-and-ci.md`).
 `node scripts/plan-shards.ts` prints the plan, from the records in `test-times/` or, with none, from each file's tests
 at 10 seconds each.
@@ -86,7 +90,10 @@ ones, since a refused press reached no page. A press of a verification code coun
 verification link a session opened in `linksOpened`, as what the Product received.
 
 A jump of the clock (`advanceTo`) fires an overdue timer only once, at the new time, as a real clock does. To test
-a repeating timer, step through each firing with `stepThrough`.
+a repeating timer, step through each firing with `stepThrough`. A timer armed for a time already reached fires at once,
+inside `at`, before `at` hands back what cancels it, as `systemClock`'s does: until #59, the fake clock waited for the
+next jump, which hid a 24-hour close that re-armed itself for ever on a press under way, and a callback that used the
+cancel `at` hadn't handed back yet.
 
 `world.restart()` and `world.outage()` go through the bot's own stop, which waits for every job and piece of
 plain-code work to finish, so no test can stop the bot between two steps of one piece of work with them. `world.kill()`

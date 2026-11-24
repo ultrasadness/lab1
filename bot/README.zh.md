@@ -41,16 +41,17 @@ npm run check:docs                     # the doc pairs
 npm run check:shell                    # shellcheck over the shell scripts
 npm run check:source                   # the tests that read the source as text
 npm test                               # every test
-node --test bot/test/miner-day.test.ts # one file
+TEST_FILES=bot/test/miner-day.test.ts npm test                      # one file
+TEST_NAME=Skipped TEST_FILES=bot/test/miner-day.test.ts npm test    # its tests whose names match
 ```
 
-`npm test` 给每个测试 60 秒。超时的测试会失败；即使它留下了没关闭的服务器或定时器，整个运行也照样结束（`--test-force-exit`）。设了 `TEST_FILES` 时，比如 `TEST_FILES="bot/test/rules.test.ts scripts/ticket.test.ts"`，它只运行这些文件，就像 CI 的每个分片只运行计划分给它的文件。把 `TEST_RECORD` 设为一个文件时，它一次一个地运行这些文件，并在那里写下每个测试文件用了多久，即它的顶层测试的耗时之和，CI 据此计划之后运行的分片（`docs/hooks-and-ci.md`）。`node scripts/plan-shards.ts` 打印计划，依据 `test-times/` 里的记录，没有记录时按每个文件的测试各 10 秒来算。
+`npm test` 给每个测试 60 秒。超时的测试会失败；即使它留下了没关闭的服务器或定时器，整个运行也照样结束（`--test-force-exit`）。设了 `TEST_FILES` 时，比如 `TEST_FILES="bot/test/rules.test.ts scripts/ticket.test.ts"`，它只运行这些文件，就像 CI 的每个分片只运行计划分给它的文件。设了 `TEST_NAME` 时，它只运行名字与之匹配的测试，按正则表达式匹配（`--test-name-pattern`），这样测试先行的循环只跑一个约 10 秒的测试，而不是整个文件。匹配不到任何测试的名字什么都不运行，却仍然通过，因为文件本身算作一个测试，所以要在输出里看到那个测试的名字。把 `TEST_RECORD` 设为一个文件时，它一次一个地运行这些文件，并在那里写下每个测试文件用了多久，即它的顶层测试的耗时之和，CI 据此计划之后运行的分片（`docs/hooks-and-ci.md`）。`node scripts/plan-shards.ts` 打印计划，依据 `test-times/` 里的记录，没有记录时按每个文件的测试各 10 秒来算。
 
 每次提交和 push 要过的 hook 和 CI，以及在新的克隆里怎么打开 hook，见 `docs/hooks-and-ci.md`。`npm test` 也运行 `ops/test/` 里运维脚本的测试（`ops/README.md`）。
 
 机器人的测试只走 seam 1（`bot/test/harness/`）：真实的机器人在它独占的 worker 线程里运行，真实的 Pi 和我们的扩展作为本地进程运行，对接假的 Discord、Product Hunt、浏览器服务、模型 provider、healthchecks.io 和 Gmail 服务器、一个假的 `bw`、一个存放 Personal database 的假 GitHub，以及一个由测试拨动的时钟。假的 GitHub 是一个本地的裸仓库，git 通过代替 ssh 的 `bot/test/harness/fake-ssh.ts` 访问它。它只放行 deploy key，可以拒绝或扣住推送，也接受这个人自己的提交、合并和 tag。只有 harness 从 `bot/src` 导入：`bot/test/` 下其他任何文件的导入只要写出那里的某个文件，`npm test` 都会失败（`scripts/bot-test-imports.test.ts`）。`bot/test/store-schema.test.ts` 还会用 `node:sqlite` 直接读取实时存储的文件，这是 #98 对它的要求；`bot/test/health-ping.test.ts` 也通过它占住实时存储的写锁，以此模拟一个写不进的实时存储。`bot/test/` 下其他任何文件只要写出 `node:sqlite`，`npm test` 都会失败（`scripts/bot-test-store.test.ts`）。测试还可以断言什么，见 `CODING_STANDARDS.md` 的 **What a test asserts on**。任何测试都不能看到一个 *intended* 标记对应两次按下（#56）：页面收到的按下次数多于机器人的 `registration.press-intended` 行减去它的 `registration.press-refused` 行时，`world.stop()` 让这个测试失败，因为被拒绝的按下没有到达任何页面。验证码的按下也这样计算，按它的 `registration.verify-intended` 和 `registration.verify-refused` 行（#58）。假的浏览器服务把会话打开过的每个验证链接记在 `linksOpened` 里，作为 Product 收到的东西。
 
-时钟的一次跳跃（`advanceTo`）只在新的时间点把过期的定时器触发一次，和真实时钟一样。要测试重复的定时器，用 `stepThrough` 逐一走过它的每次触发。
+时钟的一次跳跃（`advanceTo`）只在新的时间点把过期的定时器触发一次，和真实时钟一样。要测试重复的定时器，用 `stepThrough` 逐一走过它的每次触发。为已经到达的时间设的定时器会在 `at` 里立即触发，在 `at` 交回取消它的函数之前，和 `systemClock` 一样：#59 之前，假时钟要等下一次跳跃，这掩盖了两个问题：一个 24 小时关闭在一次进行中的按下上无限地重新设置自己，以及一个回调用到了 `at` 还没交回的取消函数。
 
 `world.restart()` 和 `world.outage()` 走机器人自己的停止流程，它会等每个任务和每项普通代码工作做完，所以用它们，测试没法让机器人停在同一项工作的两步之间。`world.kill()` 可以。它终止机器人的线程，并杀掉机器人启动的每个运行、git 命令和 `bw` 命令，机器人的停止流程不会运行。旧的机器人再也不会有任何动作，不管假服务怎么回答、时钟怎么走；之后 `restart` 或 `outage` 在同一个实时存储、数据目录和 Personal database checkout 上启动一个新的机器人。测试通过外部世界选择停在哪里，绝不伸进 `bot/src`：它让一个假服务收下请求且永不回答，用 `world.model.hold`、`world.model.holdFills`、`world.git.holdPushes`、`world.bitwarden.holdCreate`、`world.browser.holdPresses` 或 `world.gmail.holdMessage`，等到假服务收到请求，再杀掉机器人。被扣住的请求在关掉扣留之后仍然被扣住，所以新机器人的请求会得到回答。旁边没有对外调用的位置，用这种办法到不了。杀掉和 VM 上的崩溃有两点不同。实时存储的句柄会干净地关闭，所以没有测试走到 SQLite 对预写日志（write-ahead log）的恢复，而下一个机器人读到的提交都一样。另外，机器人启动的东西会立刻结束，而在 VM 上，git 命令先收到 systemd 发的 SIGTERM，容器里的 Pi 则通过 stdin 被告知结束，并且再也连不上模型（`ops/README.md`）。机器人为什么运行在线程里，见 #96。这个线程让测试进程里有两个运行 Wasm 的线程，这可能让 Node 24 的 V8 崩溃（#105），所以 `bot/test/harness/bot-thread.ts` 在那里关掉 V8 的 Wasm code GC，直到某个 Node 24 版本包含这个修复（nodejs/node#66376）。VM 上的机器人只有一个这样的线程：`bot/src` 下如果 import 了 `node:worker_threads`，`npm test` 会失败（`scripts/bot-imports.test.ts`）。
 

@@ -35,7 +35,7 @@ GitHub Actions 在每次 push 和 pull request 时运行两个 workflow，所以
 
 - `scripts/pre-commit.test.ts`、`scripts/post-checkout.test.ts` 和 `scripts/commit-msg.test.ts` 在一个用完即弃的仓库里提交、合并，或者添加一个 worktree。`scripts/pre-push.test.ts` 从这样一个仓库 push，用的是一个需要 `jq` 的假 `gh`。
 - `scripts/reply-language.test.ts`、`scripts/note-language.test.ts` 和 `scripts/review-committed.test.ts` 像会话那样运行每个 Claude Code hook，用的是一份用完即弃的会话记录或一个用完即弃的仓库。`scripts/slowest-tests.test.ts` 在一次运行的输出上运行 CI 摘要。
-- `scripts/plan-shards.test.ts` 在用完即弃的 checkout 里运行分片计划，有记录和没有记录的情况都有，并在其中一个里运行 `npm test`，设和不设 `TEST_FILES` 与 `TEST_RECORD` 的情况都有。
+- `scripts/plan-shards.test.ts` 在用完即弃的 checkout 里运行分片计划，有记录和没有记录的情况都有，并在其中一个里运行 `npm test`，设和不设 `TEST_FILES`、`TEST_RECORD` 与 `TEST_NAME` 的情况都有。
 - `scripts/doc-pairs.test.ts` 在用完即弃的文档对上运行文档配对检查，`scripts/check-shell.test.ts` 在用完即弃的目录上运行 shell 检查。
 - `scripts/bounded-waits.test.ts`：某个 `spawnSync`、`execSync` 或 `execFileSync` 调用自己的参数里没有 `timeout` 时，它就失败：同步的子进程会阻塞事件循环，所以别的定时器都结束不了它（`CODING_STANDARDS.md` 里的 **Every wait has a bound**）。
 - `scripts/bot-imports.test.ts`：`bot/src` 导入的某个模块既不是 Node 自己的（`node:`），也不是机器人自己的文件时，它就失败：机器人自己没有任何 npm 依赖（`bot/README.md`），`graphql` 只给测试和 schema 抓取用。它也会在那里遇到 `node:worker_threads` 时失败，因为第二个运行 Wasm 的线程可能让 Node 24 崩溃（#105）。

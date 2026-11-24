@@ -4,13 +4,15 @@
 // message back, edits it to one line as a handled card shrinks (`NeedsYou.shrunk`, through `DiscordRest.editMessage`),
 // reads it back again, prints what Discord kept of it each time, and deletes it.
 //
-//   node scripts/trial-discord-upload.ts --channel <channel id> [--token-file <path>]
+// The person runs it on the VM with the bot's own token, which only root reads, passed on stdin so that it shows in no
+// command line or output, into a channel they pick, as they did for #59 into one of `prototype-12`:
 //
-// The token file defaults to `~/.config/lab1/discord-bot-token`. The script prints only named fields of Discord's
-// answers, never the token or a URL's query.
+//   sudo cat /etc/assistant/credentials/discord-bot-token | node scripts/trial-discord-upload.ts --channel <channel id>
+//
+// `--token-file <path>` reads the token from a file instead. `~/.config/lab1/discord-bot-token`, the prototype's of
+// #12, no longer logs in (401 on 2026-11-24). The script prints only named fields of Discord's answers, never the
+// token or a URL's query.
 import { readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { container, Flags, image, text, type MessagePayload } from '../bot/src/discord/components.ts';
 import { DiscordRest } from '../bot/src/discord/rest.ts';
@@ -21,14 +23,47 @@ const API = 'https://discord.com/api/v10';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 /** How long Discord has to answer one request. */
 const ANSWER_MS = 30_000;
+/** How long the token has to come on stdin, which a pipe left open would otherwise keep waiting for. */
+const STDIN_MS = 10_000;
 
 const { values } = parseArgs({ options: { channel: { type: 'string' }, 'token-file': { type: 'string' } } });
-if (!values.channel || !/^\d{17,20}$/.test(values.channel)) {
-  console.error('usage: node scripts/trial-discord-upload.ts --channel <channel id> [--token-file <path>]');
+const usage = 'usage: sudo cat /etc/assistant/credentials/discord-bot-token | node scripts/trial-discord-upload.ts --channel <channel id> [--token-file <path>]';
+// A token typed at a terminal would show on it, so stdin is read only when something is piped in.
+if (!values.channel || !/^\d{17,20}$/.test(values.channel) || (!values['token-file'] && process.stdin.isTTY)) {
+  console.error(usage);
   process.exit(2);
 }
 const channel = values.channel;
-const token = readFileSync(values['token-file'] ?? join(homedir(), '.config/lab1/discord-bot-token'), 'utf8').trim();
+
+/** What comes on stdin until it ends, or a refusal once STDIN_MS have passed. Read as a stream, so any pipe works. */
+async function fromStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const ended = (async () => {
+    for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+  })();
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`no token came on stdin within ${STDIN_MS / 1000} s`)), STDIN_MS);
+  });
+  try {
+    await Promise.race([ended, late]);
+  } finally {
+    clearTimeout(timer);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+let token: string;
+try {
+  token = (values['token-file'] ? readFileSync(values['token-file'], 'utf8') : await fromStdin()).trim();
+} catch (error) {
+  console.error(`${error instanceof Error ? error.message : String(error)}\n${usage}`);
+  process.exit(2);
+}
+if (!token) {
+  console.error(`no token came: ${usage}`);
+  process.exit(2);
+}
 const log = (entry: Record<string, unknown>) => console.log(JSON.stringify(entry));
 const secrets = new SecretGuard({ log: (event, fields) => log({ event, ...fields }), post: async () => {}, plainWork: () => {} });
 const discord = new DiscordRest({ apiBaseUrl: API, token, log: (event, fields) => log({ event, ...fields }), secrets });

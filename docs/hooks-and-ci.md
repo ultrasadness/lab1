@@ -96,7 +96,7 @@ The root's `npm test` runs the tests of the hooks and checks:
 - `scripts/reply-language.test.ts`, `scripts/note-language.test.ts` and `scripts/review-committed.test.ts` run each
   Claude Code hook as a session would, on a throwaway transcript or repo. `scripts/slowest-tests.test.ts` runs the CI summary on a run's output.
 - `scripts/plan-shards.test.ts` runs the shard plan in throwaway checkouts, with and without a record, and `npm test`
-  in one, with and without `TEST_FILES` and `TEST_RECORD`.
+  in one, with and without `TEST_FILES`, `TEST_RECORD` and `TEST_NAME`.
 - `scripts/doc-pairs.test.ts` runs the doc-pair check on throwaway pairs, and `scripts/check-shell.test.ts` the shell
   check on throwaway folders.
 - `scripts/bounded-waits.test.ts` fails on a `spawnSync`, `execSync` or `execFileSync` call whose own arguments

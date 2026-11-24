@@ -193,6 +193,9 @@ test('a record that does not read as times is passed over, and its files are pla
   assert.match(out, /^::warning::test-times\/1\.json isn't a record of times, so the plan passed it over: /m);
 });
 
+/** What `npmTest` keeps from the test's own environment: each of these would stand in for the run it starts. */
+const NOT_PASSED_ON = ['NODE_TEST_CONTEXT', 'TEST_FILES', 'TEST_RECORD', 'TEST_NAME'];
+
 /** Runs `npm test` in a copy of the repo's test script and reporter, as a shard does, and returns what it printed. */
 function npmTest(t: TestContext, files: Record<string, string>, env: NodeJS.ProcessEnv = {}) {
   const dir = checkout(t, {
@@ -201,8 +204,9 @@ function npmTest(t: TestContext, files: Record<string, string>, env: NodeJS.Proc
     'scripts/test-times.ts': readFileSync(join(import.meta.dirname, 'test-times.ts'), 'utf8'),
   });
   // A test process passes the run it belongs to on to its children, which would report there instead, and a CI shard
-  // passes on its own files and record, which would stand in for this test's (Codex's case in #110's review).
-  const { NODE_TEST_CONTEXT: _, TEST_FILES: __, TEST_RECORD: ___, ...inherited } = process.env;
+  // passes on its own files and record, which would stand in for this test's (Codex's case in #110's review), as a
+  // session running one test by name would pass on its name.
+  const inherited = Object.fromEntries(Object.entries(process.env).filter(([name]) => !NOT_PASSED_ON.includes(name)));
   const r = spawnSync('npm', ['test'], { cwd: dir, env: { ...inherited, ...env }, encoding: 'utf8', timeout: 60_000 });
   assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
   return { dir, out: r.stdout };
@@ -227,6 +231,16 @@ test('npm test with nothing set runs every file the plan plans, and with TEST_FI
     'bot/test/a.test.ts',
     'scripts/c.test.ts',
   ]);
+});
+
+test('with TEST_NAME set, npm test runs only the tests whose names match it, a pattern with spaces and | included', (t) => {
+  const files = {
+    'bot/test/a.test.ts': `import { test } from 'node:test';\ntest('ran a wall card', () => {});\ntest('ran a Handoff', () => {});\n`,
+    'scripts/c.test.ts': passing('ran a Submit tap'),
+  };
+  const ran = (out: string) => [...out.matchAll(/^✔ (ran .+?) \(/gm)].map((m) => m[1]).sort();
+  assert.deepEqual(ran(npmTest(t, files, { TEST_NAME: 'wall card|Submit tap' }).out), ['ran a Submit tap', 'ran a wall card']);
+  assert.deepEqual(ran(npmTest(t, files, { TEST_FILES: 'bot/test/a.test.ts', TEST_NAME: 'a Handoff' }).out), ['ran a Handoff']);
 });
 
 test('with TEST_RECORD set, npm test records each file’s top-level tests’ times added up, beside its usual output', (t) => {
