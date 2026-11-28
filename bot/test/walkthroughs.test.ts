@@ -9,6 +9,7 @@ import { opensRun, plainWalkthrough, said, sorted, type ScriptedWalkthrough } fr
 import { ACYCLIC, CODEMIND, serveProduct, type FixtureProduct } from './harness/dossier-fixtures.ts';
 import { emailForm, type FakeField, type FakePage } from './harness/fake-browser.ts';
 import { EPHEMERAL, ephemeralOf, popupOf, updateOf, type InteractionReply, type SeenMessage } from './harness/fake-discord.ts';
+import { approve as approveDay, walkthroughPut as walkthroughOnDay, WITH_PASSWORD } from './harness/walkthrough-day.ts';
 
 const SIGNUP_URL = 'https://app.codemindhq.dev/';
 
@@ -891,4 +892,23 @@ test('a card Discord took while the bot never heard back is known by the tap on 
   const [post] = world.discord.forumPosts(PRODUCTS_FORUM);
   assert.equal(cardIn(world).text, `✅ Approved v1 09:03 · **Codemind** · <#${post!.id}>`);
   assert.deepEqual(world.discord.refused, []);
+});
+
+test('a switch on the signup form is a box, as the page check judges one: left unticked unless the run ticks it, with an Edit of the two, and the fill run sets it', async (t) => {
+  // A news switch the page turned on, which the Walkthrough leaves off (browser/test/page-check.test.ts judges a switch as a box).
+  const news: FakeField = { type: 'switch', name: 'news', label: 'Send me product news', required: false, autocomplete: null, links: [], checked: true };
+  const signup = WITH_PASSWORD.signup!;
+  const world = await walkthroughOnDay(t, { ...WITH_PASSWORD, signup: { ...signup, forms: [{ ...signup.forms![0]!, fields: [...signup.forms![0]!.fields, news] }] } });
+
+  assert.match(world.model.walkthroughRuns[0]!.prompt, /^Form 1 field 4 \(switch, a box\): Send me product news$/m, 'the run is told it is a box');
+  const card = cardIn(world);
+  const line = card.lines.find((l) => l.text.startsWith('**Send me product news** · '));
+  assert.equal(line?.text, '**Send me product news** · left unticked');
+  assert.equal(line?.button?.label, 'Edit');
+  const opened = await world.discord.tap({ userId: PERSON, customId: line!.button!.customId, channelId: NEEDS_YOU, messageId: card.id });
+  assert.deepEqual(popupOf(opened)?.fields[0]?.options, ['ticked', 'left unticked'], 'a radio group of the two');
+
+  await approveDay(world);
+  await world.assistant.whenIdle();
+  assert.deepEqual(world.browser.presses.map((p) => [p.button, p.values.news]), [['Create account', 'left unticked']]);
 });

@@ -6,7 +6,7 @@ import type { Form, PageRead } from '../browser.ts';
 import type { Dossier } from '../dossier/dossier.ts';
 import { fence } from '../fence.ts';
 import { fullTime } from '../pacific.ts';
-import { buttonLabels, offeredFields } from './walkthrough.ts';
+import { buttonLabels, isBox, offeredFields } from './walkthrough.ts';
 
 /** The person's Profile in the Personal database. */
 export const PROFILE_PATH = 'profile/profile.md';
@@ -82,7 +82,9 @@ function formText(form: Form, i: number): string {
       const options = f.options?.length ? `; options ${f.options.slice(0, 12).map((o) => o.label).join(' / ')}` : '';
       const links = f.links.length ? ` · links ${f.links.map((l) => l.text).join(' / ')}` : '';
       const label = (f.label || f.name || 'unlabelled').slice(0, LABEL_CHARS);
-      return `Form ${n} field ${j + 1} (${f.type}${f.required ? ', required' : ''}${options}): ${label}${links}`;
+      // A control whose role is a switch is a box, which choice sets to ticked or left unticked.
+      const type = isBox(f) && f.type !== 'checkbox' ? `${f.type}, a box` : f.type;
+      return `Form ${n} field ${j + 1} (${type}${f.required ? ', required' : ''}${options}): ${label}${links}`;
     }),
     ...(left > 0 ? [`Form ${n}: ${left} more fields after these, left empty.`] : []),
     ...(form.links.length ? [`Form ${n} links: ${form.links.map((l) => l.text).join(' / ')}`] : []),

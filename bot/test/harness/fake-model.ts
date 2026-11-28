@@ -726,16 +726,18 @@ function plainDossier(prompt: string): ScriptedDossier {
 }
 
 /**
- * A Walkthrough of the first form a Walkthrough preparation run's prompt lists: its email and password fields filled,
- * each box left unticked, every other field empty, and its first button. The names are the Profile's, when the run
- * was given one.
+ * A Walkthrough of the first form a Walkthrough preparation run's prompt lists, as its instructions
+ * (`pi/extension/walkthrough.ts`) say: its email and password fields filled, a box the form requires ticked and any
+ * other left unticked, every other field empty, and its first button. The names are the Profile's, when the run was
+ * given one.
  */
 export function plainWalkthrough(prompt: string): ScriptedWalkthrough {
   const form = prompt.match(/^Form 1\b.*$/m);
-  const fields = [...prompt.matchAll(/^Form 1 field (\d+) \(([^,;)]+)/gm)].map((m) => {
-    const [field, type] = [Number(m[1]), m[2]!];
+  const fields = [...prompt.matchAll(/^Form 1 field (\d+) \(([^,;)]+)(, a box)?(, required)?/gm)].map((m) => {
+    const [field, type, required] = [Number(m[1]), m[2]!, m[4] !== undefined];
     if (type === 'email' || type === 'password') return { field, fill: type, value: null };
-    if (type === 'checkbox') return { field, fill: 'choice', value: 'left unticked' };
+    // A switch is a box, as the prompt says; "Tick a box only when the form requires it to create the account".
+    if (type === 'checkbox' || type === 'switch') return { field, fill: 'choice', value: required ? 'ticked' : 'left unticked' };
     return { field, fill: 'empty', value: null };
   });
   const profile = !/^Profile: none/m.test(prompt);

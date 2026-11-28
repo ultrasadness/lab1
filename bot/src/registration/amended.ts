@@ -34,7 +34,7 @@ import { needsYouCard } from '../needs-you.ts';
 import { shortTime } from '../pacific.ts';
 import type { CheckedRule, Store } from '../store.ts';
 import { PROFILE_PATH } from '../walkthrough/prompt.ts';
-import { choiceOptions, hasPasswordField, VALUE_CHARS, type Walkthrough, type WalkthroughField } from '../walkthrough/walkthrough.ts';
+import { choiceOptions, hasPasswordField, isBox, VALUE_CHARS, type Walkthrough, type WalkthroughField } from '../walkthrough/walkthrough.ts';
 
 /** What a page newly asks for, as an amended Walkthrough puts it to the person. */
 export interface Amendment {
@@ -119,9 +119,6 @@ export function hostOn(w: Walkthrough, amendments: readonly Amendment[], page: n
 
 /** Each host the approved amendments name, which the Registration's session holds beside the Walkthrough's domains. */
 export const amendedHosts = (amendments: readonly Amendment[]) => [...new Set(amendments.flatMap((a) => (a.host ? [a.host] : [])))];
-
-/** Whether a field is a box, as the page check judges one: a checkbox, or a control whose role is a switch (#55). */
-const isBox = (f: Pick<Field, 'type'>) => f.type === 'checkbox' || f.type === 'switch';
 
 /** A field the page asks for, as plain code read it, and what fills it: plain code, or the run's proposal. */
 export interface Asked {

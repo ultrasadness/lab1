@@ -81,9 +81,12 @@ const BOX_OPTIONS = ['ticked', 'left unticked'];
 /** The fields of a form a Walkthrough preparation run may fill, by number: the visible ones, at most MAX_FIELDS. */
 export const offeredFields = (form: Form) => form.fields.slice(0, MAX_FIELDS);
 
+/** Whether a field is a box, as the page check judges one: a checkbox, or a control whose role is a switch (#55, #115). */
+export const isBox = (field: Pick<Field, 'type'>) => field.type === 'checkbox' || field.type === 'switch';
+
 /** The options a choice field offers the person: a box's, or each option's label. Other fields have none. */
 export function choiceOptions(field: Field): string[] | undefined {
-  if (field.type === 'checkbox') return BOX_OPTIONS;
+  if (isBox(field)) return BOX_OPTIONS;
   const labels = [...new Set((field.options ?? []).map((o) => o.label.replace(/\s+/g, ' ').trim()).filter(Boolean))];
   return labels.length > 0 ? labels : undefined;
 }
@@ -183,7 +186,7 @@ export function readWalkthrough(record: unknown, context: ReadContext): Read {
       const kind = /\bemail\b/i.test(`${field.type} ${field.autocomplete ?? ''}`) ? 'email' : field.type === 'password' ? 'password' : null;
       if (kind && fill !== kind && fill !== 'empty') problems.push(`${at} is ${kind === 'email' ? 'an' : 'a'} ${kind} field: fill it with ${kind}, or leave it empty.`);
       // A box or list the page set itself is shown as set, so the person sees what will be sent.
-      const preset = field.type === 'checkbox' ? (field.checked ? 'ticked' : 'left unticked') : (field.options?.find((o) => o.selected)?.label.replace(/\s+/g, ' ').trim() || null);
+      const preset = isBox(field) ? (field.checked ? 'ticked' : 'left unticked') : (field.options?.find((o) => o.selected)?.label.replace(/\s+/g, ' ').trim() || null);
       const of = (key: WalkthroughKey, v: string | null): WalkthroughField => ({
         field: n,
         label,
@@ -218,10 +221,10 @@ export function readWalkthrough(record: unknown, context: ReadContext): Read {
             problems.push(`${at} isn't a box or a list of options, so it can't be a choice.`);
             return of('text', null);
           }
-          if (value === null && field.type !== 'checkbox') return of('choice', preset);
+          if (value === null && !isBox(field)) return of('choice', preset);
           const picked = typeof value === 'string' ? options.find((o) => o.toLowerCase() === value.trim().toLowerCase()) : undefined;
           if (!picked) problems.push(`${at}: a choice's value must be one of ${options.map((o) => `"${o}"`).join(', ')}.`);
-          return of('choice', picked ?? (field.type === 'checkbox' ? 'left unticked' : null));
+          return of('choice', picked ?? (isBox(field) ? 'left unticked' : null));
         }
         case 'value': {
           const v = oneLine(value, VALUE_CHARS);
@@ -231,7 +234,7 @@ export function readWalkthrough(record: unknown, context: ReadContext): Read {
           return of('text', null);
         }
         case 'empty':
-          return options ? of('choice', field.type === 'checkbox' ? 'left unticked' : preset) : of('text', null);
+          return options ? of('choice', isBox(field) ? 'left unticked' : preset) : of('text', null);
         default:
           problems.push(`${at}: fill must be first-name, last-name, full-name, email, password, offer-code, choice, value or empty.`);
           return of('text', null);

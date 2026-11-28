@@ -4,7 +4,7 @@
 import type { SessionSnapshot } from '../browser.ts';
 import { fence } from '../fence.ts';
 import type { Refill } from '../store.ts';
-import type { Walkthrough, WalkthroughKey } from '../walkthrough/walkthrough.ts';
+import { isBox, type Walkthrough, type WalkthroughKey } from '../walkthrough/walkthrough.ts';
 
 /** One thing a fill run may put into a field: an approved value by `fill`, a choice by `choose`, or the password. */
 export interface FillKey {
@@ -85,7 +85,7 @@ export function snapshotText(shot: SessionSnapshot): string {
   const forms = s.forms.flatMap((form, i) => [
     `Form ${i + 1}${form.formElement ? '' : ' · fields in no form'}`,
     ...form.fields.map((f) => {
-      const options = f.type === 'checkbox' ? '' : f.options?.length ? ` · options ${f.options.slice(0, 12).map((o) => one(o.label, 80)).join(' / ')}` : '';
+      const options = isBox(f) ? '' : f.options?.length ? ` · options ${f.options.slice(0, 12).map((o) => one(o.label, 80)).join(' / ')}` : '';
       const within = f.links.length > 0 ? ` · links ${links(f.links).join(', ')}` : '';
       return `${f.ref ?? '-'} · ${f.type}${f.required ? ', required' : ''} · ${f.filled ? `filled with ${f.filled}` : 'not filled'}${options} · label: ${one(f.label || f.name || 'unlabelled')}${within}`;
     }),

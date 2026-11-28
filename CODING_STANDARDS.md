@@ -301,7 +301,9 @@ A fake that stands in for an outside service, such as GitHub, new-api, Product H
 the real one was seen to behave, and says where it was seen: a trial on the real service, recorded in the fake's
 comment, or a capture of it, as the fake Product Hunt answers only what the live schema accepts. A check of a service
 or of the VM asks what the code will ask of it, the way the code asks it, and tries the paths that must get through as
-well as those that must be refused.
+well as those that must be refused. The fake model's defaults (`plainFill`, `plainWalkthrough` in
+`bot/test/harness/fake-model.ts`) stand for a model that follows its run's instructions (`pi/extension/<kind>.ts`), so
+each does what those instructions say for the cases a test leaves to it.
 
 **Why it matters:** a fake built from what a service is assumed to do passes tests the real service fails, and the
 failure shows only at go-live. In #71, the fake GitHub served a push through a local `git receive-pack`, which takes
@@ -319,7 +321,13 @@ error and the usage after it in one write, and the forwarder, reading chunks as 
 trial had shown new-api sending usage after the error, so a real reply's spend would have gone uncounted with the test
 green. The Spec reviewer split the write by 100 ms and got `forwarder.usage-missing`, and Codex found it too, where the
 Standards reviewer didn't. `773bd87` reads a failed reply on for up to 5 seconds, and the fake sends the usage 50 ms
-later.
+later. In #115, a page whose required field the Walkthrough gives no value was to go to an amended Walkthrough
+through the page check, and every test passed. But the fill run's instructions told the model to finish `stuck` with
+`value-missing` at such a field, before any check, so a real model would have sent it to Hand off. The fake model's
+`plainFill` names the button whatever the page asks for, and no test scripted a fill run doing what it was told.
+Codex and the Spec reviewer found it, and the Standards reviewer didn't. `2dad3e5` took `value-missing` out of the
+instructions. Tried on the repo in the #115 retro, the rule found `plainWalkthrough` leaving a required terms box
+unticked, where the Walkthrough run is told to tick one, and the retro made it tick one.
 
 **In a diff, look for:**
 
@@ -334,4 +342,7 @@ later.
 - a check that asks through a client of its own where the code goes through the service's, such as a request to a token
   endpoint where the bot runs `bw`;
 - a check that only tries what must be refused, such as a firewall's blocked addresses, beside a path that must get
-  through.
+  through;
+- a route for a case a model decides, such as a field the Walkthrough gives no value, that a test reaches only through
+  the fake model's default: read what the run kind's instructions tell the model to do in that case, and check that the
+  default does the same.
